@@ -1,0 +1,4 @@
+blok=157 | kata matan=4125 | catatan kaki=96 (943 kata) | ayat=16 | hadits=23 | pustaka=22
+bukti dicek ke Shamela lokal: 133 | GAGAL: 0
+catatan kaki tanpa bukti (selain rujukan ayat): 1
+  - سبق تخريجه، ص.

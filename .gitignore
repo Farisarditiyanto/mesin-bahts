@@ -1,0 +1,6 @@
+# perpustakaan Shamela lokal (221 MB; bisa diunduh ulang lewat `python mesin/bahts.py ambil <id>`)
+kitab/
+# bahan antara mesin dan sisa Word/Python
+mesin/_tmp/
+__pycache__/
+~$*

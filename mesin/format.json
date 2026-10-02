@@ -1,0 +1,18 @@
+{
+  "imam": {
+    "_sumber": "القواعد المنظمة لتسجيل الرسالة العلمية وكتابتها وطباعتها وتقديمها (عمادة الدراسات العليا بجامعة الإمام، 1442هـ) — yang dirujuk catatan د. سليمان العنزي",
+    "huruf": "Traditional Arabic",
+    "matan": 18,
+    "catatan": 14,
+    "judul": 20,
+    "catatan_ulang_tiap_halaman": true
+  },
+  "dalil": {
+    "_sumber": "دليل إعداد وكتابة الرسائل العلمية (ماجستير/دكتوراه) بجامعة الإمام، الطبعة الثانية — hanya huruf dan ukurannya; gaya rujukan tetap catatan kaki",
+    "huruf": "Sakkal Majalla",
+    "matan": 16,
+    "catatan": 12,
+    "judul": 18,
+    "catatan_ulang_tiap_halaman": true
+  }
+}
