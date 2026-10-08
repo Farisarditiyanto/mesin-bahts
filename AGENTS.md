@@ -38,5 +38,6 @@ Supaya orang lain bisa memakai mesin ini hanya dengan Claude web + connector sha
 - `python skill/bangun.py` membangun zip dari `skill/SKILL.md` + isi `mesin/`. Jalankan lagi tiap `mesin/`, `skill/SKILL.md`, atau «Aturan penulisan» di atas berubah; zip-nya ikut di-commit.
 - Zip tidak boleh memuat data pribadi: `bangun.py` mengosongkan `@nama/@nim/@jenis/@fasl` dari `naskah_baru.txt`, membuang `_sumber` dari `format.json`, dan tidak menyertakan `sampul.doc`.
 - Di sana tidak ada Word dan tidak bisa `ambil`: `rakit` memakai `mesin/rakit_docx.py` (sampul netral, nomor halaman فهارس berupa field), dan kitab diisi per halaman lewat `simpan` dari hasil connector. Karena halamannya disalin AI, `cek` di sana lebih lemah daripada di sini.
+- Tempat orang lain mengunduh: repo publik `github.com/Farisarditiyanto/bahts-skill`, isinya hanya `skill/bahts.zip` dan `skill/README.md` (panduan pasang; sumbernya di sini). Zip atau panduan berubah → salin keduanya ke klon sementara repo itu di luar `C:\dev`, commit, push. Repo ini sendiri tetap privat.
 - Salinan yang terpaksa: ukuran halaman, lebar tabel, dan susunan فهارس ada di `rakit.ps1` dan `rakit_docx.py`. Ubah satu → ubah yang lain.
 - Uji `rakit_docx.py` di WSL (`os.name != "nt"`), di salinan di luar `C:\dev`, lalu buka .docx-nya di Word.
