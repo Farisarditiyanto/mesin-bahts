@@ -6,6 +6,7 @@
 !/.gitattributes
 !/AGENTS.md
 !/mesin/
+!/skill/
 # bahan antara mesin dan sisa Word/Python
 mesin/_tmp/
 __pycache__/
