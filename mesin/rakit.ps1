@@ -9,6 +9,7 @@ $Out = Join-Path $Folder $M.berkas; $Laporan = Join-Path $Folder 'laporan.txt'
 $FMT = $DATA.format                                      # profil dari format.json (dipilih @format)
 $TA = [string]$FMT.huruf; $QF = 'KFGQPC HAFS Uthmanic Script'
 $uMatan = [single]$FMT.matan; $uCatatan = [single]$FMT.catatan; $uJudul = [single]$FMT.judul   # ukuran huruf (Word minta angka pecahan)
+$uAyat = if ($FMT.ayat) { [single]$FMT.ayat } else { $uMatan }   # ukuran ayat di matan dan فهرس الآيات; profil tanpa "ayat" = sama dengan matan
 $ULANG = if ($FMT.catatan_ulang_tiap_halaman) { 2 } else { 0 }   # nomor catatan kaki: 2 = mulai ulang tiap halaman, 0 = bersambung
 $JUDUL = $M.judul; $NAMA = $M.nama; $NIM = $M.nim
 
@@ -141,7 +142,7 @@ try {
         foreach ($r in $runs) {
             if ($null -ne $r.fn) { Catatan $r.fn }
             elseif ($r.bm) { [void]$doc.Bookmarks.Add($r.bm, $sel.Range) }
-            elseif ($r.q) { Tulis $r.t $QF $size 0 0 }
+            elseif ($r.q) { $u = $size; if ($size -eq $uMatan) { $u = $uAyat }; Tulis $r.t $QF $u 0 0 }
             elseif ($null -ne $r.t) { $tb = 0; if ($r.b -or $paksaTebal) { $tb = 1 }; Tulis $r.t $TA $size $tb 0 }
         }
     }
@@ -234,7 +235,7 @@ try {
         $rg = $tAy.Cell($r, 1).Range; $rg.Text = '﴿' + $pot + '﴾'; $rg.ParagraphFormat.Alignment = 3
         # huruf mushaf hanya untuk kata-kata ayat; titik-titik « ...» tetap huruf matan (huruf mushaf tidak punya titik)
         $nq = if ($pot.EndsWith(' ...')) { $pot.Length - 4 } else { $pot.Length }
-        $q = $tAy.Cell($r, 1).Range; $q.SetRange($rg.Start + 1, $rg.Start + 1 + $nq); $q.Font.Name = $QF; $q.Font.NameBi = $QF
+        $q = $tAy.Cell($r, 1).Range; $q.SetRange($rg.Start + 1, $rg.Start + 1 + $nq); $q.Font.Name = $QF; $q.Font.NameBi = $QF; $q.Font.Size = $uAyat; $q.Font.SizeBi = $uAyat
         Sel $tAy $r 2 $a.surah 1 0; Sel $tAy $r 3 $a.a 1 0; Sel $tAy $r 4 '00' 1 0
     }
     Sel-Akhir

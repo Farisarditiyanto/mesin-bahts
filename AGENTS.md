@@ -25,7 +25,7 @@ Daftar perintah: `python mesin/bahts.py`. Daftar tanda naskah: `python mesin/bah
 
 ## Yang perlu diketahui
 
-- Bentuk halaman dan huruf dikunci mesin menurut pedoman Jāmiʿat al-Imām («القواعد المنظمة لتسجيل الرسالة العلمية وكتابتها وطباعتها وتقديمها»، 1442هـ, yang dirujuk catatan د. سليمان). Dosen minta lain → profil baru di `mesin/format.json`, pilih dengan `@format:`; jangan ubah `imam`.
+- Bentuk halaman dan huruf dikunci mesin menurut pedoman Jāmiʿat al-Imām («القواعد المنظمة لتسجيل الرسالة العلمية وكتابتها وطباعتها وتقديمها»، 1442هـ, yang dirujuk catatan د. سليمان). Dosen minta lain → profil baru di `mesin/format.json`, pilih dengan `@format:`; jangan ubah `imam`. Bahts baru memakai `imam_ayat16` (lewat `mesin/naskah_baru.txt`): sama dengan `imam`, ayat 16 supaya tidak tampak lebih besar daripada matan; naskah tanpa `@format` tetap `imam`.
 - Sampul = template د. سليمان بن زعل العنزي dan nama beliau tercetak sebagai pembimbing kalau dibiarkan; tugas dosen lain wajib isi `@musyrif`/`@jabatan`.
 - `rakit` satu-satu, jangan dua sekaligus (memakai Word yang sama).
 - Teks kitab = ketikan Shamela, jadi bisa salah ketik. Bacaan yang meragukan: `ambil` edisi lain kitab yang sama lalu bandingkan; kalau masih ragu, cocokkan ke scan cetakan (mis. archive.org).
