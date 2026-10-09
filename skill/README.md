@@ -67,7 +67,7 @@ Zip tidak memuat data pribadi.
 ## Lisensi
 
 - `SKILL.md` dan skrip di `mesin/`: lisensi MIT. Kamu boleh memakai, mengubah, dan membagikannya. Lihat [`LICENSE`](LICENSE).
-- Huruf mushaf dan teks mushaf tidak termasuk lisensi itu. Hurufnya milik King Fahd Glorious Quran Printing Complex dan mengikuti ketentuan pemiliknya.
+- Huruf mushaf dan teks mushaf tidak termasuk lisensi itu. Hurufnya milik King Fahd Glorious Quran Printing Complex dan mengikuti ketentuan pemiliknya. Lihat [`NOTICE`](NOTICE).
 
 ## Lapor masalah
 

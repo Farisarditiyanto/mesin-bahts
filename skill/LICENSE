@@ -19,10 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-This license covers SKILL.md and the Python scripts in mesin/ only.
-It does NOT cover mesin/UthmanicHafs_V22.ttf (the font "KFGQPC HAFS Uthmanic
-Script") or mesin/quran_hafs_v22.json (the mushaf text). The font is
-copyright (c) 2010 King Fahd Glorious Quran Printing Complex, all rights
-reserved, and is subject to its own end-user license agreement:
-http://fonts.qurancomplex.gov.sa/
