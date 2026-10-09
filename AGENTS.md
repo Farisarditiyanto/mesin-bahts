@@ -9,7 +9,7 @@ Anggap pemakai baru pertama kali memakai agent, tidak membaca README, dan hanya 
 
 1. Repo belum ada di komputer → cek dulu folder `mesin-bahts` di dalam folder Dokumen pemakai. Belum ada → unduh ke sana: `git clone`, atau kalau `git` tidak ada, unduh `https://github.com/Farisarditiyanto/mesin-bahts/archive/refs/heads/main.zip` lalu ekstrak dan namai foldernya `mesin-bahts` (zip itu terekstrak sebagai `mesin-bahts-main`). Folder Dokumen = folder dokumen akun pemakai (di Windows bisa berada di dalam OneDrive). Jangan mengunduh ke folder sistem, folder program, atau folder kerja orang lain. Semua bahts pemakai tinggal di dalam folder itu.
 2. Jalankan `python mesin/bahts.py periksa` (di Linux/macOS biasanya `python3`). Bereskan sendiri tiap baris `BELUM` dengan perintah yang disebutnya, lalu ulangi sampai tidak ada lagi yang bisa kamu bereskan. `python` tidak dikenal → pasang Python 3.12 dulu (Windows: `winget install Python.Python.3.12`); kalau sesudah itu `python` masih tidak dikenal di terminalmu, pakai `py`. Beri tahu pemakai bahwa `siapkan` memasang satu font (font mushaf) untuk akunnya.
-3. `periksa` bilang `rakit` BELUM karena Windows atau Microsoft Word → beri tahu pemakai SEKARANG, sebelum menulis apa pun: hasilnya berhenti di naskah yang sudah dicek, tanpa Word dan PDF. Tanya: lanjut, atau pasang Word dulu. Jangan memasang Word sendiri dan jangan memakai pengganti Word. Yang BELUM «huruf Traditional Arabic» → jalankan perintah PowerShell admin yang disebut `periksa`, dan beri tahu pemakai dulu bahwa Windows akan menampilkan satu jendela izin: cukup klik Yes. Gagal → minta pemakai menambah papan ketik Arab seperti yang disebut `periksa`.
+3. `periksa` bilang `rakit` BELUM karena Windows atau Microsoft Word → beri tahu pemakai SEKARANG, sebelum menulis apa pun: hasilnya berhenti di naskah yang sudah dicek, tanpa Word dan PDF. Tanya: lanjut, atau pasang Word dulu. Jangan memasang Word sendiri dan jangan memakai pengganti Word. Yang BELUM «huruf Traditional Arabic» → jalankan perintah PowerShell admin yang disebut `periksa`, dan beri tahu pemakai dulu bahwa Windows akan menampilkan satu jendela izin: cukup klik Yes. Perintah itu selesai sesudah jendelanya menutup; ulangi `periksa`. Masih BELUM → minta pemakai menambah papan ketik Arab seperti yang disebut `periksa`.
 4. Connector `shamela` sangat disarankan. Alat `shamela_*` tidak tersedia → beri tahu pemakai sekali: gunanya (mencari kitab yang membahas suatu masalah, termasuk yang belum diunduh) dan caranya (setujui connector `shamela` yang ditawarkan Claude Code, lalu masuk dengan akun shamela.link sendiri). Pemakai menolak atau belum bisa → lanjut dengan `katalog` dan `cari`, dan tulis di laporan akhir bahwa pencarian bahan lebih sempit.
 
 ## Sebelum tiap bahts
@@ -19,7 +19,7 @@ Anggap pemakai baru pertama kali memakai agent, tidak membaca README, dan hanya 
 - Pembimbing (`@musyrif`, `@jabatan`) ditanya tiap bahts dan ditulis di naskahnya: dosennya bisa berbeda.
 - Sampul mencetak جامعة الإمام محمد بن سعود الإسلامية، معهد العلوم الإسلامية والعربية في جاكرتا، كلية الشريعة. Beri tahu pemakai sekali; kalau kampusnya lain, bilang bahwa sampul perlu diganti dulu (`mesin/sampul.doc`).
 - Nama folder untuk `baru`: pendek, huruf Latin, tanpa spasi (mis. `ikhlas`). Nama berkas hasil diatur `@berkas`.
-- Jumlah halaman yang disebut pemakai = halaman isi (المقدمة sampai الخاتمة); `rakit` mencetaknya sebagai `HALAMAN_ISI`. مقدمة, tiap فصل, dan خاتمة selalu mulai halaman baru, jadi isi paling sedikit tiga halaman. Jelaskan ke pemakai bahwa PDF juga memuat sampul, المصادر والمراجع, dan الفهارس, lalu sebut `HALAMAN_ISI` dan `HALAMAN` sesudah `rakit`.
+- Jumlah halaman yang disebut pemakai = halaman isi (المقدمة sampai الخاتمة); `rakit` mencetaknya sebagai `HALAMAN_ISI`. مقدمة, tiap فصل, dan خاتمة selalu mulai halaman baru. Jelaskan ke pemakai bahwa PDF juga memuat sampul, المصادر والمراجع, dan الفهارس, lalu sebut `HALAMAN_ISI` dan `HALAMAN` sesudah `rakit`.
 - Pemakai tidak mau فهرس tertentu → `@tanpa:` di naskah (`ayat`, `hadits`, `maudhuat`; mis. `@tanpa: ayat, hadits`). Jangan membuangnya tanpa diminta.
 - Laporan akhir ke pemakai: tulis letak lengkap berkas PDF-nya.
 
@@ -54,7 +54,7 @@ Anggap pemakai baru pertama kali memakai agent, tidak membaca README, dan hanya 
 ## Untuk yang mengubah mesin
 
 - Repo ini publik: nama orang, nomor mahasiswa, dan naskah siapa pun jangan masuk berkas yang dilacak git.
-- Yang ada di `main` langsung dilihat semua orang. Perubahan dikerjakan di cabang lain (mis. `kerja`), dicoba dulu lewat pintu pemakai (`periksa`, `cek contoh`, `rakit contoh`), baru digabung ke `main` sebagai satu commit (`git merge --squash`).
+- Yang ada di `main` langsung dilihat semua orang. Perubahan dikerjakan di cabang lain (mis. `kerja`), dicoba dulu lewat pintu pemakai (`periksa`, `cek contoh`, `rakit contoh`), baru digabung ke `main` sebagai satu commit (`git merge --squash`). Cabang kerja dibuat baru dari `main` tiap putaran; cabang yang sudah digabung jangan dipakai lagi.
 - Tes otomatis = `.github/workflows/tes.yml`: `siapkan`, `ambil`, lalu `cek contoh`. Nomor kitab di berkas itu harus sama dengan bukti di `contoh/naskah.txt` (salinan terpaksa).
 - Perubahan yang dirasakan pemakai dicatat di `CHANGELOG.md`.
 - `CLAUDE.md` hanya menunjuk ke berkas ini.

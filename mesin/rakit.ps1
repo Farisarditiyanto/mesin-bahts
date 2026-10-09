@@ -29,7 +29,9 @@ $wordIni = @(Get-Process WINWORD -ErrorAction SilentlyContinue | Where-Object { 
 $word.Visible = $false; $word.ScreenUpdating = $false; $word.DisplayAlerts = 0
 $tmp = "$dir\_tmp\_kerja.docx"
 try {
-    # ---------- 1. Sampul: berangkat dari template dosen ----------
+    # huruf profil yang tidak terpasang diganti Word diam-diam: berhenti di sini saja
+    if (@($word.FontNames) -notcontains $TA) { throw "Huruf [$TA] belum terpasang di Windows. Jalankan: python mesin/bahts.py periksa" }
+    # ---------- 1. Sampul: berangkat dari template sampul ----------
     if (Test-Path $tmp) { Remove-Item $tmp -Force }
     $doc = $word.Documents.Open("$dir\sampul.doc", $false, $true)
     $doc.SaveAs2($tmp, 16)
@@ -212,7 +214,7 @@ try {
     }
 
     # ---------- 3. المصادر والمراجع (tabel tanpa garis, urut abjad) ----------
-    $nT++; Judul 'المصادر والمراجع' "t_$nT" $true; [void]$toc.Add(@{ t = 'المصادر والمراجع'; bm = "t_$nT"; lvl = 0 })
+    $nT++; Judul 'المصادر والمراجع' "t_$nT" $true; [void]$toc.Add(@{ t = 'المصادر والمراجع'; bm = "t_$nT"; lvl = 0 }); $bmMasadir = "t_$nT"
     $n = $DATA.pustaka.Count
     $tb = Tabel $n @(1.3, 13.7) 0
     for ($r = 1; $r -le $n; $r++) {
@@ -288,7 +290,7 @@ try {
     # ---------- 6. Simpan ----------
     $pages = $doc.ComputeStatistics(2)
     # halaman isi = المقدمة s.d. sebelum المصادر والمراجع (nomor halaman dihitung mulai dari المقدمة)
-    $isi = (Hal ($toc | Where-Object { $_.t -eq 'المصادر والمراجع' }).bm) - 1
+    $isi = (Hal $bmMasadir) - 1
     $lap = @("HALAMAN=$pages", "HALAMAN_ISI=$isi","CATATAN_KAKI=$($doc.Footnotes.Count)", "KATA(termasuk catatan kaki)=$($doc.ComputeStatistics(0, $true))")
     foreach ($e in $toc) { $lap += ("hal {0}: {1}" -f (Hal $e.bm), $e.t) }
     [IO.File]::AppendAllLines($Laporan, [string[]]$lap)
