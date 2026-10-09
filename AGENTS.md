@@ -10,7 +10,7 @@ Anggap pemakai baru pertama kali memakai agent, tidak membaca README, dan hanya 
 1. Repo belum ada di komputer → cek dulu folder `mesin-bahts` di dalam folder Dokumen pemakai. Belum ada → unduh ke sana: `git clone`, atau kalau `git` tidak ada, unduh `https://github.com/Farisarditiyanto/mesin-bahts/archive/refs/heads/main.zip` lalu ekstrak dan namai foldernya `mesin-bahts` (zip itu terekstrak sebagai `mesin-bahts-main`). Folder Dokumen = folder dokumen akun pemakai (di Windows bisa berada di dalam OneDrive). Jangan mengunduh ke folder sistem, folder program, atau folder kerja orang lain. Semua bahts pemakai tinggal di dalam folder itu.
 2. Jalankan `python mesin/bahts.py periksa` (di Linux/macOS biasanya `python3`). Bereskan sendiri tiap baris `BELUM` dengan perintah yang disebutnya, lalu ulangi sampai tidak ada lagi yang bisa kamu bereskan. `python` tidak dikenal → pasang Python 3.12 dulu (Windows: `winget install Python.Python.3.12`); kalau sesudah itu `python` masih tidak dikenal di terminalmu, pakai `py`. Beri tahu pemakai bahwa `siapkan` memasang satu font (font mushaf) untuk akunnya.
 3. `periksa` bilang `rakit` BELUM karena Windows atau Microsoft Word → beri tahu pemakai SEKARANG, sebelum menulis apa pun: hasilnya berhenti di naskah yang sudah dicek, tanpa Word dan PDF. Tanya: lanjut, atau pasang Word dulu. Jangan memasang Word sendiri dan jangan memakai pengganti Word. Yang BELUM «huruf Traditional Arabic» → jalankan perintah PowerShell admin yang disebut `periksa`, dan beri tahu pemakai dulu bahwa Windows akan menampilkan satu jendela izin: cukup klik Yes. Perintah itu selesai sesudah jendelanya menutup; ulangi `periksa`. Masih BELUM → minta pemakai menambah papan ketik Arab seperti yang disebut `periksa`.
-4. Connector `shamela` sangat disarankan. Alat `shamela_*` tidak tersedia → beri tahu pemakai sekali: gunanya (mencari kitab yang membahas suatu masalah, termasuk yang belum diunduh) dan caranya (setujui connector `shamela` yang ditawarkan Claude Code, lalu masuk dengan akun shamela.link sendiri). Pemakai menolak atau belum bisa → lanjut dengan `katalog` dan `cari`, dan tulis di laporan akhir bahwa pencarian bahan lebih sempit.
+4. Connector `shamela` sangat disarankan. Alat `shamela_*` tidak tersedia → beri tahu pemakai sekali: gunanya (mencari kitab yang membahas suatu masalah, termasuk yang belum diunduh) dan caranya (setujui connector `shamela` yang ditawarkan Claude Code, lalu masuk dengan akun shamela.link sendiri). Pemakai menolak atau belum bisa → lanjut dengan `temukan`, `katalog`, dan `cari` (connector `turath` tidak butuh akun), dan tulis di laporan akhir bahwa pencarian bahan lebih sempit.
 
 ## Sebelum tiap bahts
 
@@ -27,9 +27,9 @@ Anggap pemakai baru pertama kali memakai agent, tidak membaca README, dan hanya 
 
 1. `baru`, lalu susun خطة (فصل/مبحث/مطلب) sesuai permintaan dosen.
 2. Kumpulkan bahan; kutip hanya dari teks yang benar-benar terbaca di kitab lokal.
-   Belum tahu kitab mana yang membahas → `katalog`, atau (kalau pemakai menyalakannya; terdaftar di `.mcp.json`) tanya connector `shamela_*` (shamela.link: seluruh kitab Shamela, nomor kitabnya sama dengan `ambil`). Connector hanya penunjuk jalan: kitabnya tetap di-`ambil`, kutipannya tetap harus lolos `cek`. Batasnya: tidak resmi, butuh akun pemakai sendiri, berkuota, hasil kosong di sana bukan bukti tidak ada, dan subjek pencarian harus frasa pendek persis seperti di kitab.
+   Belum tahu kitab mana yang membahas → `temukan "<frasa>"` (isi semua kitab Shamela lewat turath.io, tanpa akun), `katalog` (judul/pengarang), atau (kalau pemakai menyalakannya; terdaftar di `.mcp.json`) tanya connector `shamela_*` (shamela.link: seluruh kitab Shamela, nomor kitabnya sama dengan `ambil`). Connector hanya penunjuk jalan: kitabnya tetap di-`ambil`, kutipannya tetap harus lolos `cek`. Batasnya: tidak resmi, butuh akun pemakai sendiri, berkuota, hasil kosong di sana bukan bukti tidak ada, dan subjek pencarian harus frasa pendek persis seperti di kitab.
 3. Tulis `naskah.txt`. Setiap kutipan/penisbatan diberi catatan kaki berisi bukti `<<...>>`. Contoh yang lolos cek: `contoh/naskah.txt`.
-4. `cek` sampai `GAGAL: 0`, lalu `rakit`.
+4. `cek` sampai `GAGAL: 0`. Lalu bereskan tiap baris `perhatian`: bukti di حاشية المحقق = kalimat muhaqqiq, jangan dinisbatkan ke pengarang kitab; kitab «مرقم آليا» = nomor halamannya bukan nomor cetakan, `ambil` edisi yang «موافق للمطبوع». Yang tidak bisa dibereskan → sebut di laporan akhir. Lalu `rakit`.
 5. Sebelum lapor selesai: minta subagent baru (yang tidak ikut menulis) membuka sendiri halaman kitab tiap catatan kaki dan menilai PDF hasil terhadap permintaan awal + aturan di bawah; perbaiki temuannya; rakit ulang.
 
 `cek` hanya membuktikan bahwa teksnya ada di juz/halaman itu. `cek` TIDAK bisa menilai: apakah yang berkata memang orang itu (bukan matan yang disyarah, bukan nukilan pihak lain, bukan hujah lawan), apakah nama kitab yang tercetak benar, dan kutipan yang tidak diberi catatan kaki. Itu tugas langkah 5.
@@ -37,6 +37,7 @@ Anggap pemakai baru pertama kali memakai agent, tidak membaca README, dan hanya 
 ## Aturan penulisan (tidak dijaga mesin)
 
 - Ayat selalu lewat `{Q:…}`; catatan kakinya: `سورة …، آية: n.`
+- Mencari tempat hadits dan siapa yang menghukuminya: `hadits "<طرف>"`. Itu penunjuk jalan dan datanya bisa salah: كتاب, باب, nomor, juz/halaman, dan derajat tetap ditulis dari kitab yang dibaca sendiri.
 - Takhrij hadits: `أخرجه البخاري، كتاب …، باب …، رقم الحديث (n)، juz/hal.`; di luar Shahihain wajib sebut derajatnya beserta siapa yang menghukumi. Catatan kaki hadits cukup takhrij itu; data cetak kitab haditsnya (muhaqqiq, penerbit, cetakan) ditulis di المصادر والمراجع.
 - Rujukan pertama sebuah kitab selain kitab hadits yang ditakhrij: data lengkap (judul, pengarang, muhaqqiq, penerbit-kota, cetakan-tahun, juz/hal) — ambil dari `kartu`. Berikutnya ringkas: `judul، pengarang، juz/hal.`
 - Nukilan lafaz di antara tanda kutip; nukilan makna diawali `انظر:`. Penisbatan lewat perantara harus disebut perantaranya.
@@ -55,6 +56,7 @@ Anggap pemakai baru pertama kali memakai agent, tidak membaca README, dan hanya 
 
 - Repo ini publik: nama orang, nomor mahasiswa, dan naskah siapa pun jangan masuk berkas yang dilacak git.
 - Yang ada di `main` langsung dilihat semua orang. Perubahan dikerjakan di cabang lain (mis. `kerja`), dicoba dulu lewat pintu pemakai (`periksa`, `cek contoh`, `rakit contoh`), baru digabung ke `main` sebagai satu commit (`git merge --squash`). Cabang kerja dibuat baru dari `main` tiap putaran; cabang yang sudah digabung jangan dipakai lagi.
+- `temukan`, `hadits`, `dirasat`, dan connector di `.mcp.json` memakai layanan orang lain (turath.io, alminasa.ai, OpenAlex, DOAJ, shamela.link) yang bisa berubah atau mati tanpa kabar. Semuanya hanya penunjuk jalan: `cek` dan `rakit` tidak boleh bergantung padanya.
 - Tes otomatis = `.github/workflows/tes.yml`: `siapkan`, `ambil`, lalu `cek contoh`. Nomor kitab di berkas itu harus sama dengan bukti di `contoh/naskah.txt` (salinan terpaksa).
 - Perubahan yang dirasakan pemakai dicatat di `CHANGELOG.md`.
 - `CLAUDE.md` hanya menunjuk ke berkas ini.

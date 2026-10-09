@@ -13,6 +13,7 @@ Bahts (tiap bahts = satu folder berisi naskah.txt):
 Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
   kitab                        daftar kitab yang sudah diunduh
   katalog "<pola>"             cari judul/pengarang di katalog Shamela (regex)
+  temukan "<frasa>" [maks]     cari frasa di isi SEMUA kitab Shamela (turath.io, butuh internet) -> kitab + juz/halaman
   ambil <id> [<id> ...]        unduh kitab (sekali saja)
   kartu <id>                   data cetak kitab (untuk rujukan pertama & daftar pustaka)
   cari <id|semua> "<frasa>"    cari frasa -> juz/halaman cetak
@@ -20,7 +21,10 @@ Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
   bab <id> "<frasa>"           rantai judul kitab/bab tempat frasa berada
   halaman <id> <juz> <hal>     isi satu halaman (juz "-" untuk kitab satu jilid)
 
-Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex, butuh internet):
+Takhrij (penunjuk jalan, «المنصة الحديثية», butuh internet):
+  hadits "<طرف>" [maks]        tempat hadits di 12 kitab hadits + hukum ulama; tetap dibaca di kitabnya sendiri
+
+Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex dan DOAJ, butuh internet):
   dirasat "<kata kunci>" [maks]   judul, peneliti, tahun, jurnal, tautan, dan ringkasan
 """
 import hashlib, http.client, json, os, re, subprocess, sys, urllib.error, urllib.request
@@ -190,12 +194,14 @@ PERINTAH = {  # nama: (jumlah argumen minimal, pemanggil)
     "tanda": (0, lambda a: print(tanda())),
     "kitab": (0, lambda a: shamela().daftar()),
     "katalog": (1, lambda a: shamela().katalog(a[0])),
+    "temukan": (1, lambda a: shamela().temukan(a[0], *map(int, a[1:2]))),
     "ambil": (1, lambda a: [shamela().ambil(x) for x in a]),
     "kartu": (1, lambda a: shamela().kartu(a[0])),
     "cari": (2, lambda a: shamela().cari(a[0], a[1])),
     "teks": (2, lambda a: shamela().teks(a[0], a[1], *map(int, a[2:4]))),
     "bab": (2, lambda a: shamela().bab(a[0], a[1])),
     "halaman": (3, lambda a: shamela().halaman(*a[:3])),
+    "hadits": (1, lambda a: hadits().cari(a[0], *map(int, a[1:2]))),
     "dirasat": (1, lambda a: dirasat().cari(a[0], *map(int, a[1:2]))),
 }
 
@@ -209,6 +215,11 @@ def tanda():
 def shamela():
     import shamela
     return shamela
+
+
+def hadits():
+    import hadits
+    return hadits
 
 
 def dirasat():

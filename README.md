@@ -72,7 +72,8 @@ Connector = sambungan dari agent ke layanan luar. Connector `shamela` (shamela.l
 - Berkas `.mcp.json` di repo ini sudah mendaftarkannya. Saat folder ini dibuka, Claude Code menawarkan untuk menyalakannya.
 - Kalau kamu setuju, kamu masuk dengan akun shamela.link milikmu sendiri.
 - Layanan itu tidak resmi dan berkuota. Proyek ini tidak mengelolanya.
-- Kalau kamu menolak, mesin tetap jalan: agent mencari lewat `katalog` dan `cari`, tetapi hanya di judul kitab dan di kitab yang sudah diunduh.
+- Kalau kamu menolak, mesin tetap jalan: agent mencari lewat `temukan` (isi semua kitab, lewat turath.io, tanpa akun), `katalog`, dan `cari`.
+- `.mcp.json` juga mendaftarkan connector `turath` (turath.io): tanpa akun, mencari di isi semua kitab. Layanan itu juga bukan milik proyek ini.
 
 ## Pakai
 
