@@ -5,10 +5,11 @@ Hanya penunjuk jalan: layanan orang lain, tanpa janji tetap ada, dan datanya bis
 yang terbaca di kitab lokal (`ambil`, `halaman`) dan lolos `cek`. Isinya 12 kitab: الكتب التسعة, المستدرك,
 صحيح ابن حبان, صحيح ابن خزيمة; hadits di luar itu dicari dengan `temukan`.
 """
-import json, re, urllib.request
+import json, urllib.request
+
+from shamela import HARAKAT
 
 ALMINASA = "https://alminasa.ai/api/reactivesearchproxy/es-prod-euw1-hadith-12-read/_search"
-HARAKAT = re.compile("[ً-ْٰـ]")
 KOLOM = ["book_name", "number", "editions", "chapter", "sub_chapter", "matn", "rulings"]
 
 
@@ -31,5 +32,9 @@ def cari(taraf, maks=10, lebar=110):
         print(f"    المتن: {(s.get('matn') or '')[:lebar]}")
         for k in s.get("rulings") or []:
             print(f"    حكم: {k.get('ruler')}: {k.get('ruling')} — {k.get('book_name')}، {k.get('volume')}/{k.get('page')}")
-    if not d["hits"]:
+    if d["total"]["value"] > len(d["hits"]):
+        print(f"\n(ditampilkan {len(d['hits'])}; tambah angka sesudah طرف untuk melihat lebih banyak)")
+    if d["hits"]:
+        print("\nPenunjuk saja, datanya bisa salah: baca di kitabnya sendiri (`ambil`, `halaman`) sebelum menulis.")
+    else:  # pencariannya frasa persis: kosong di sini bukan bukti haditsnya tidak ada
         print("Coba طرف yang lebih pendek (3-5 kata berurutan dari matan), atau `temukan`.")

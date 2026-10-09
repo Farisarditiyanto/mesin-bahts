@@ -13,7 +13,7 @@ Bahts (tiap bahts = satu folder berisi naskah.txt):
 Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
   kitab                        daftar kitab yang sudah diunduh
   katalog "<pola>"             cari judul/pengarang di katalog Shamela (regex)
-  temukan "<frasa>" [maks]     cari frasa di isi SEMUA kitab Shamela (turath.io, butuh internet) -> kitab + juz/halaman
+  temukan "<frasa>" [maks]     cari frasa di isi SEMUA kitab Shamela (turath.io, butuh internet) -> kitab + juz/halaman; paling banyak 20
   ambil <id> [<id> ...]        unduh kitab (sekali saja)
   kartu <id>                   data cetak kitab (untuk rujukan pertama & daftar pustaka)
   cari <id|semua> "<frasa>"    cari frasa -> juz/halaman cetak
@@ -236,6 +236,10 @@ if __name__ == "__main__":
         sys.exit(__doc__)
     try:
         PERINTAH[cmd][1](a)
+    except urllib.error.HTTPError as e:
+        if not 400 <= e.code < 500 or e.code == 429:
+            sys.exit(f"Perintah '{cmd}': layanannya sedang menolak atau sibuk (HTTP {e.code}). Ulangi sebentar lagi.")
+        sys.exit(f"Perintah '{cmd}': layanannya menolak permintaan ini (HTTP {e.code}). Periksa kata/angka yang diketik: {a}")
     except GAGAL_UNDUH as e:
         sys.exit(f"Perintah '{cmd}' gagal mengunduh (cek internet, lalu ulangi): {e!r}")
     except (ValueError, FileNotFoundError, re.error) as e:

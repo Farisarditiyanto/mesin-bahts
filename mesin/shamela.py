@@ -1,8 +1,8 @@
 """Perpustakaan Shamela lokal: unduh kitab per-judul dari dataset Hugging Face
 AuthenticIlm/Shamela4_Full_DB ke folder kitab/, lalu cari kutipan secara offline
-(tanpa kredit, tanpa internet). Dipanggil lewat bahts.py.
+(tanpa kredit, tanpa internet). Hanya `temukan` yang bertanya ke luar (turath.io). Dipanggil lewat bahts.py.
 """
-import gzip, json, re, time, urllib.error, urllib.parse, urllib.request
+import gzip, html, json, re, time, urllib.error, urllib.parse, urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent / "kitab"
@@ -85,11 +85,15 @@ def katalog(pat):
 
 
 TURATH = "https://api.turath.io/search"  # pencarian isi seluruh Shamela; nomor kitabnya = shamela_id (sama dengan `ambil`)
+TURATH_MAKS = 20  # turath menjawab sebanyak ini tiap pencarian
 
 
 def temukan(frasa, maks=20):
     """Cari frasa di ISI semua kitab Shamela lewat turath.io, termasuk yang belum diunduh: kitab mana, juz/halaman berapa.
     Hanya penunjuk jalan: layanan orang lain, tanpa janji tetap ada. Kitabnya tetap di-`ambil`, kutipannya tetap lewat `cek`."""
+    _kunci(frasa)  # frasa tanpa huruf Arab ditolak di sini, bukan oleh turath
+    maks = min(maks, TURATH_MAKS)
+
     def tanya(ketat):
         url = TURATH + "?" + urllib.parse.urlencode({"q": frasa, "ver": 3, "precision": 3 if ketat else 2})
         for ulang in (True, False):
@@ -106,13 +110,18 @@ def temukan(frasa, maks=20):
         print("Kata-katanya tidak ketemu berurutan; ini hasil pencarian longgar:")
     print(f"{d['count']} tempat cocok di seluruh Shamela: {frasa}")
     ada = set(punya())
+    df = _meta()
+    berjilid = set(df[df["has_multi_part"] == True]["shamela_id"])  # turath menulis «ج1» juga untuk kitab satu jilid
     for x in d["data"][:maks]:
         m = json.loads(x["meta"])
-        cuplikan = re.sub(r"\s+", " ", HARAKAT.sub("", TAGS.sub("", x["snip"])))
-        print(f"[{x['book_id']}] {'ADA' if x['book_id'] in ada else '-'}\tج{m.get('vol') or '-'} ص{m.get('page')}\t"
+        cuplikan = re.sub(r"\s+", " ", HARAKAT.sub("", html.unescape(TAGS.sub("", x["snip"]))))
+        juz = m.get("vol") if x["book_id"] in berjilid else "-"
+        print(f"[{x['book_id']}] {'ADA' if x['book_id'] in ada else '-'}\tج{juz or '-'} ص{m.get('page')}\t"
               f"{m['book_name']} — {m['author_name']} :: {cuplikan[:160]}")
     if d["count"] > maks:
-        print(f"(ditampilkan {min(maks, len(d['data']))}; persempit frasanya untuk hasil lain)")
+        print(f"(ditampilkan {min(maks, len(d['data']))}, paling banyak {TURATH_MAKS}; persempit frasanya untuk hasil lain)")
+    if not d["count"]:
+        print("Coba frasa lebih pendek (2-4 kata inti), atau ejaan lain.")
 
 
 def punya():

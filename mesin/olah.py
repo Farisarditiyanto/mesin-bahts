@@ -97,7 +97,7 @@ def halaman_potongan(r, awal, pot):
 
 
 # kalimat di kartu kitab Shamela yang berarti nomor halamannya bukan nomor cetakan
-OTOMATIS = re.compile("مرقم آليا|بترقيم الشاملة")
+OTOMATIS = re.compile("مرقمة? آليا|بترقيم الشاملة")
 
 
 def cek(sid, juz, hal, pot, perhatian):
@@ -137,14 +137,16 @@ def cek(sid, juz, hal, pot, perhatian):
     if ada_di_lain:
         return f"teks ada tapi di hal {ada_di_lain[0]}-{ada_di_lain[1]}, bukan {hal} ({sid}) :: {pot[:40]}"
     # cari di seluruh kitab untuk memberi petunjuk: matan dulu, baru حاشية
-    for bagian, tanda in (("body", ""), ("footnotes", " [حاشية]")):
-        for r in kitab(sid):
-            if q not in vnorm(r.get(bagian) or ""):
-                continue
-            h = r.get("page_num")
-            if bagian == "body":
-                h = halaman_potongan(r, h or 0, q)[0]
-            return f"teks TIDAK di {juz}/{hal}; ketemu di ج{r.get('part')} ص{h}{tanda} ({sid}) :: {pot[:40]}"
+    hasyiah = None
+    for r in kitab(sid):
+        h = halaman_potongan(r, r.get("page_num") or 0, q)
+        if h:
+            return f"teks TIDAK di {juz}/{hal}; ketemu di ج{shamela._juz(r)} ص{h[0]} ({sid}) :: {pot[:40]}"
+        if not hasyiah and q in vnorm(r.get("footnotes") or ""):
+            hasyiah = r
+    if hasyiah:
+        return (f"teks TIDAK di {juz}/{hal}; ketemu di ج{shamela._juz(hasyiah)} ص{hasyiah.get('page_num')} [حاشية] "
+                f"({sid}) :: {pot[:40]}")
     return f"teks TIDAK KETEMU di kitab {sid} :: {pot[:60]}"
 
 
