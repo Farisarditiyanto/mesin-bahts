@@ -26,6 +26,8 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
 import gzip, json, re
 from pathlib import Path
 
+import shamela
+
 HERE = Path(__file__).parent
 SHAMELA = HERE.parent / "kitab"
 QURAN = json.load(open(HERE / "quran_hafs_v22.json", encoding="utf8"))
@@ -94,10 +96,20 @@ def halaman_potongan(r, awal, pot):
     return h1, h2
 
 
-def cek(sid, juz, hal, pot, sumber):
-    """Kembalikan '' kalau cocok, atau pesan kesalahan."""
+# kalimat di kartu kitab Shamela yang berarti nomor halamannya bukan nomor cetakan
+OTOMATIS = re.compile("مرقمة? آليا|بترقيم الشاملة")
+
+
+def cek(sid, juz, hal, pot, perhatian):
+    """Kembalikan '' kalau cocok, atau pesan kesalahan.
+    Yang lolos tetapi harus dilihat orang (bukti di حاشية, nomor halaman bukan cetakan) ditambahkan ke `perhatian`."""
     if not (SHAMELA / str(sid) / "pages.jsonl.gz").exists():
         return f"kitab {sid} belum diunduh (python mesin/bahts.py ambil {sid})"
+    if OTOMATIS.search(shamela.info(sid)["betaka_text"]):
+        pesan = (f"kitab {sid}: nomor halamannya buatan Shamela (مرقم آليا), bukan nomor cetakan — "
+                 "pakai edisi yang «موافق للمطبوع», atau cocokkan ke cetakannya")
+        if pesan not in perhatian:
+            perhatian.append(pesan)
     p1, _, p2 = hal.partition("-")
     p1 = int(p1); p2 = int(p2) if p2 else p1
     if pot.startswith("#"):
@@ -109,7 +121,7 @@ def cek(sid, juz, hal, pot, sumber):
     q = vnorm(pot)
     if len(q) < 6:
         return f"potongan terlalu pendek: {pot}"
-    ada_di_lain = None
+    ada_di_lain, di_hasyiah = None, False
     for r, awal in rekaman(sid, juz, p1, p2):
         h = halaman_potongan(r, awal, q)
         if h:
@@ -117,13 +129,24 @@ def cek(sid, juz, hal, pot, sumber):
                 return ""
             ada_di_lain = h
         elif q in vnorm(r.get("footnotes") or ""):
-            return ""
+            di_hasyiah = True
+    if di_hasyiah:
+        perhatian.append(f"bukti ada di حاشية المحقق, bukan di matan kitab {sid} {juz}/{hal}: "
+                         f"itu kalimat muhaqqiq, bukan pengarang :: {pot[:40]}")
+        return ""
     if ada_di_lain:
         return f"teks ada tapi di hal {ada_di_lain[0]}-{ada_di_lain[1]}, bukan {hal} ({sid}) :: {pot[:40]}"
-    # cari di seluruh kitab untuk memberi petunjuk
+    # cari di seluruh kitab untuk memberi petunjuk: matan dulu, baru حاشية
+    hasyiah = None
     for r in kitab(sid):
-        if q in vnorm(r.get("body") or ""):
-            return f"teks TIDAK di {juz}/{hal}; ketemu di ج{r.get('part')} ص{r.get('page_num')} ({sid}) :: {pot[:40]}"
+        h = halaman_potongan(r, r.get("page_num") or 0, q)
+        if h:
+            return f"teks TIDAK di {juz}/{hal}; ketemu di ج{shamela._juz(r)} ص{h[0]} ({sid}) :: {pot[:40]}"
+        if not hasyiah and q in vnorm(r.get("footnotes") or ""):
+            hasyiah = r
+    if hasyiah:
+        return (f"teks TIDAK di {juz}/{hal}; ketemu di ج{shamela._juz(hasyiah)} ص{hasyiah.get('page_num')} [حاشية] "
+                f"({sid}) :: {pot[:40]}")
     return f"teks TIDAK KETEMU di kitab {sid} :: {pot[:60]}"
 
 
@@ -180,7 +203,7 @@ TOKEN = re.compile(r"(\*\*|\{(?:Q|H2|H|P):[^}]*\}|\[\^|\])")
 KUNCI = re.compile(r"[a-z]+")
 
 
-def urai(teks, catatan, ayat_idx, hadits_idx, galat, di_catatan=False):
+def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False):
     """Pecah satu baris jadi 'runs'. Catatan kaki ([^...]) diurai rekursif."""
     runs, tebal, i = [], False, 0
     q_akhir = None  # ayat terakhir di baris ini (untuk mencocokkan catatan kaki «سورة …»)
@@ -258,11 +281,11 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, di_catatan=False):
                     if not mk:
                         galat.append(f"[tanpa kutipan] {isi[:50]}"); continue
                     f.append(mk.group(1))
-                e = cek(int(f[0]), f[1], f[2], f[3], isi)
+                e = cek(int(f[0]), f[1], f[2], f[3], perhatian)
                 if e:
                     galat.append(e + f"  || fn: {isi[:45]}")
             galat += cocok_halaman(isi, terbukti)
-            sub = urai(isi, None, ayat_idx, hadits_idx, galat, di_catatan=True)
+            sub = urai(isi, None, ayat_idx, hadits_idx, galat, perhatian, di_catatan=True)
             catatan.append({"runs": sub, "bukti": len(bukti)})
             runs.append({"fn": len(catatan) - 1})
         else:  # "]" nyasar
@@ -278,7 +301,7 @@ def utama(folder):
     """Olah naskah di `folder`. Kembalikan (jumlah galat, baris laporan)."""
     folder = Path(folder)
     baris = [(n, x.rstrip("\n")) for n, x in enumerate(open(folder / "naskah.txt", encoding="utf-8-sig"), 1) if x.strip()]
-    blok, catatan, ayat_idx, hadits_idx, galat, pustaka = [], [], [], [], [], []
+    blok, catatan, ayat_idx, hadits_idx, galat, perhatian, pustaka = [], [], [], [], [], [], []
     meta = {"berkas": folder.name}
     mode_r = False
     for n, b in baris:
@@ -295,7 +318,7 @@ def utama(folder):
             pustaka.append(b.strip())
         else:
             try:
-                blok.append({"k": "P", "runs": urai(b, catatan, ayat_idx, hadits_idx, galat)})
+                blok.append({"k": "P", "runs": urai(b, catatan, ayat_idx, hadits_idx, galat, perhatian)})
             except (ValueError, KeyError, IndexError) as e:
                 galat.append(f"baris {n}: tanda rusak — {e}")
     if not mode_r:
@@ -335,6 +358,8 @@ def utama(folder):
     lap = [f"blok={len(blok)} | kata matan={n_matan} | catatan kaki={len(catatan)} ({n_fn} kata) | ayat={len(ayat_idx)} | hadits={len(hadits_idx)} | pustaka={len(pustaka)}",
            f"bukti dicek ke Shamela lokal: {n_bukti} | GAGAL: {len(galat)}"]
     lap += [f"  ✗ {g}" for g in galat]
+    lap.append(f"perhatian (lolos, tetapi lihat sendiri): {len(perhatian)}")
+    lap += [f"  ! {p}" for p in perhatian]
     lap.append(f"catatan kaki tanpa bukti (selain rujukan ayat): {len(fn_tanpa)}")
     lap += [f"  - {f}" for f in fn_tanpa]
     return len(galat), lap

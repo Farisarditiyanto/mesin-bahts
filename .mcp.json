@@ -3,6 +3,10 @@
     "shamela": {
       "type": "http",
       "url": "https://shamela.link/mcp"
+    },
+    "turath": {
+      "type": "http",
+      "url": "https://mcp.turath.io/mcp/"
     }
   }
 }
