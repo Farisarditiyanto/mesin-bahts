@@ -95,7 +95,7 @@ def periksa():
     baris(sys.version_info >= (3, 12), f"Python {sys.version_info.major}.{sys.version_info.minor} (butuh 3.12 ke atas)",
           "pasang Python 3.12 (Windows: winget install Python.Python.3.12), lalu ulangi dengan Python itu")
     baris(all(importlib.util.find_spec(m) for m in ("pandas", "pyarrow")), "pustaka Python (pandas, pyarrow)",
-          "pip install -r requirements.txt")
+          "python -m pip install -r requirements.txt")
     baris((AKAR / "kitab" / shamela().KATALOG).exists(), "katalog kitab", "python mesin/bahts.py siapkan")
     baris(os.name == "nt", "Windows", "`rakit` hanya jalan di Windows; di sini mesin berhenti di `cek`", untuk_cek=False)
     if os.name == "nt":
@@ -143,7 +143,7 @@ def baru(nama, judul):
     kosong = re.findall(r"^@(\w+):[ \t]*$", isi, re.M)
     if kosong:
         print("Data sampul yang masih kosong: " + ", ".join("@" + k for k in kosong)
-              + f"\nIsi di naskah itu, atau sekali saja di {SAMPUL_SAYA.name} (dipakai tiap `baru`).")
+              + f"\nIsi di naskah itu. Yang sama untuk tiap bahts (nama, nim, jenis, fasl) boleh ditulis sekali di {SAMPUL_SAYA.name}.")
 
 
 def cek(nama):

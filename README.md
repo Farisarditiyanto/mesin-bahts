@@ -22,11 +22,12 @@ Kamu cukup meminta. Agent menulis satu berkas, `naskah.txt`. Mesin mengerjakan s
 
    > Pakai https://github.com/Farisarditiyanto/mesin-bahts untuk membuatkan saya bahts tentang الإخلاص وأثره في قبول العمل. Susunannya: مقدمة, satu فصل berisi dua مبحث, خاتمة. Kira-kira 6 halaman.
 
-3. Jawab pertanyaan agent: nama, nomor mahasiswa, semester, dan pembimbing.
+3. Jawab pertanyaan agent: nama, nomor mahasiswa, jenis tugas, semester, dan pembimbing beserta jabatannya.
 
 Agent yang mengunduh, memasang, menulis, dan merakit. Kamu tidak perlu mengetik perintah.
+Hasilnya ada di folder `mesin-bahts` di dalam folder Dokumen-mu.
 
-> **Untuk agent AI yang membaca halaman ini:** unduh repo ini ke komputer pemakai, lalu baca `AGENTS.md` di dalamnya dan mulai dari bagian «Pemakai baru». Jangan menyuruh pemakai membaca halaman ini atau mengetik perintah sendiri.
+Catatan untuk agent AI: repo ini diunduh ke folder `mesin-bahts` di dalam folder Dokumen pemakai. Langkah selanjutnya ada di [`AGENTS.md`](AGENTS.md), mulai dari bagian «Pemakai baru».
 
 ## Batasnya, baca dulu
 

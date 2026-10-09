@@ -7,16 +7,20 @@ Daftar perintah: `python mesin/bahts.py`. Daftar tanda naskah: `python mesin/bah
 
 Anggap pemakai baru pertama kali memakai agent, tidak membaca README, dan hanya memberi tautan repo plus permintaan bahts. Kerjakan semuanya sendiri; pemakai cukup menjawab pertanyaan. Pakai bahasa awam.
 
-1. Repo belum ada di komputer → cek dulu folder `mesin-bahts` di dalam folder Dokumen pemakai. Belum ada → unduh ke sana: `git clone`, atau kalau `git` tidak ada, unduh `https://github.com/Farisarditiyanto/mesin-bahts/archive/refs/heads/main.zip` lalu ekstrak. Jangan mengunduh ke folder sistem, folder program, atau folder kerja orang lain. Semua bahts pemakai tinggal di dalam folder itu.
-2. Jalankan `python mesin/bahts.py periksa`. Bereskan sendiri tiap baris `BELUM` dengan perintah yang disebutnya, lalu ulangi sampai tidak ada lagi yang bisa kamu bereskan. `python` tidak dikenal → pasang Python 3.12 dulu (Windows: `winget install Python.Python.3.12`), lalu buka terminal baru.
-3. `periksa` bilang `rakit` BELUM karena Windows atau Microsoft Word → beri tahu pemakai SEKARANG, sebelum menulis apa pun: hasilnya berhenti di naskah yang sudah dicek, tanpa Word dan PDF. Tanya: lanjut, atau pasang Word dulu. Jangan memasang Word sendiri dan jangan memakai pengganti Word.
+1. Repo belum ada di komputer → cek dulu folder `mesin-bahts` di dalam folder Dokumen pemakai. Belum ada → unduh ke sana: `git clone`, atau kalau `git` tidak ada, unduh `https://github.com/Farisarditiyanto/mesin-bahts/archive/refs/heads/main.zip` lalu ekstrak dan namai foldernya `mesin-bahts` (zip itu terekstrak sebagai `mesin-bahts-main`). Folder Dokumen = folder dokumen akun pemakai (di Windows bisa berada di dalam OneDrive). Jangan mengunduh ke folder sistem, folder program, atau folder kerja orang lain. Semua bahts pemakai tinggal di dalam folder itu.
+2. Jalankan `python mesin/bahts.py periksa` (di Linux/macOS biasanya `python3`). Bereskan sendiri tiap baris `BELUM` dengan perintah yang disebutnya, lalu ulangi sampai tidak ada lagi yang bisa kamu bereskan. `python` tidak dikenal → pasang Python 3.12 dulu (Windows: `winget install Python.Python.3.12`); kalau sesudah itu `python` masih tidak dikenal di terminalmu, pakai `py`. Beri tahu pemakai bahwa `siapkan` memasang satu font (font mushaf) untuk akunnya.
+3. `periksa` bilang `rakit` BELUM karena Windows atau Microsoft Word → beri tahu pemakai SEKARANG, sebelum menulis apa pun: hasilnya berhenti di naskah yang sudah dicek, tanpa Word dan PDF. Tanya: lanjut, atau pasang Word dulu. Jangan memasang Word sendiri dan jangan memakai pengganti Word. Yang BELUM hanya «huruf Traditional Arabic» → minta pemakai mengerjakan langkah Settings yang disebut `periksa`; itu tidak bisa kamu kerjakan.
 4. Connector `shamela` sangat disarankan. Alat `shamela_*` tidak tersedia → beri tahu pemakai sekali: gunanya (mencari kitab yang membahas suatu masalah, termasuk yang belum diunduh) dan caranya (setujui connector `shamela` yang ditawarkan Claude Code, lalu masuk dengan akun shamela.link sendiri). Pemakai menolak atau belum bisa → lanjut dengan `katalog` dan `cari`, dan tulis di laporan akhir bahwa pencarian bahan lebih sempit.
 
 ## Sebelum tiap bahts
 
-- `sampul_saya.txt` belum ada → tanya pemakai sekali: nama (huruf Arab), nomor mahasiswa, jenis tugas, semester. Simpan sebagai baris `@nama:`, `@nim:`, `@jenis:`, `@fasl:` di berkas itu. `baru` memakainya untuk tiap bahts.
-- Pembimbing (`@musyrif`, `@jabatan`) ditanya tiap bahts: dosennya bisa berbeda.
+- `sampul_saya.txt` belum ada → tanya pemakai sekali: nama (huruf Arab), nomor mahasiswa, jenis tugas, semester, dan mahasiswa atau mahasiswi. Simpan sebagai baris `@nama:`, `@nim:`, `@jenis:`, `@fasl:` di berkas itu. `baru` memakainya untuk tiap bahts.
 - Pemakainya mahasiswi → tambah baris `@thalibah: ya` di `sampul_saya.txt`: sampul mencetak «اسم الطالبة».
+- Pembimbing (`@musyrif`, `@jabatan`) ditanya tiap bahts dan ditulis di naskahnya: dosennya bisa berbeda.
+- Sampul mencetak جامعة الإمام محمد بن سعود الإسلامية، معهد العلوم الإسلامية والعربية في جاكرتا، كلية الشريعة. Beri tahu pemakai sekali; kalau kampusnya lain, bilang bahwa sampul perlu diganti dulu (`mesin/sampul.doc`).
+- Nama folder untuk `baru`: pendek, huruf Latin, tanpa spasi (mis. `ikhlas`). Nama berkas hasil diatur `@berkas`.
+- Pemakai menyebut jumlah halaman → ingat bahwa مقدمة, tiap فصل, dan خاتمة selalu mulai halaman baru, dan PDF juga memuat sampul, المصادر والمراجع, dan tiga فهرس. Sesudah `rakit`, sebut ke pemakai jumlah halaman isi dan jumlah halaman seluruhnya.
+- Laporan akhir ke pemakai: tulis letak lengkap berkas PDF-nya.
 
 ## Alur kerja
 
