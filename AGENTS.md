@@ -3,9 +3,17 @@
 Satu bahts = satu folder; yang ditulis cuma `naskah.txt`, sisanya (cek rujukan, Word, PDF) dikerjakan mesin. Bahan bahts jangan masuk `mesin/`; `kitab/` dipakai semua bahts.
 Daftar perintah: `python mesin/bahts.py`. Daftar tanda naskah: `python mesin/bahts.py tanda`.
 
-## Sebelum bahts pertama
+## Pemakai baru
 
-- Perintah menjawab «belum ada» / «belum terpasang» → jalankan bagian «Pasang» di `README.md` (perintahnya hanya ditulis di sana).
+Anggap pemakai baru pertama kali memakai agent, tidak membaca README, dan hanya memberi tautan repo plus permintaan bahts. Kerjakan semuanya sendiri; pemakai cukup menjawab pertanyaan. Pakai bahasa awam.
+
+1. Repo belum ada di komputer → cek dulu folder `mesin-bahts` di dalam folder Dokumen pemakai. Belum ada → unduh ke sana: `git clone`, atau kalau `git` tidak ada, unduh `https://github.com/Farisarditiyanto/mesin-bahts/archive/refs/heads/main.zip` lalu ekstrak. Jangan mengunduh ke folder sistem, folder program, atau folder kerja orang lain. Semua bahts pemakai tinggal di dalam folder itu.
+2. Jalankan `python mesin/bahts.py periksa`. Bereskan sendiri tiap baris `BELUM` dengan perintah yang disebutnya, lalu ulangi sampai tidak ada lagi yang bisa kamu bereskan. `python` tidak dikenal → pasang Python 3.12 dulu (Windows: `winget install Python.Python.3.12`), lalu buka terminal baru.
+3. `periksa` bilang `rakit` BELUM karena Windows atau Microsoft Word → beri tahu pemakai SEKARANG, sebelum menulis apa pun: hasilnya berhenti di naskah yang sudah dicek, tanpa Word dan PDF. Tanya: lanjut, atau pasang Word dulu. Jangan memasang Word sendiri dan jangan memakai pengganti Word.
+4. Connector `shamela` sangat disarankan. Alat `shamela_*` tidak tersedia → beri tahu pemakai sekali: gunanya (mencari kitab yang membahas suatu masalah, termasuk yang belum diunduh) dan caranya (setujui connector `shamela` yang ditawarkan Claude Code, lalu masuk dengan akun shamela.link sendiri). Pemakai menolak atau belum bisa → lanjut dengan `katalog` dan `cari`, dan tulis di laporan akhir bahwa pencarian bahan lebih sempit.
+
+## Sebelum tiap bahts
+
 - `sampul_saya.txt` belum ada → tanya pemakai sekali: nama (huruf Arab), nomor mahasiswa, jenis tugas, semester. Simpan sebagai baris `@nama:`, `@nim:`, `@jenis:`, `@fasl:` di berkas itu. `baru` memakainya untuk tiap bahts.
 - Pembimbing (`@musyrif`, `@jabatan`) ditanya tiap bahts: dosennya bisa berbeda.
 - Pemakainya mahasiswi → tambah baris `@thalibah: ya` di `sampul_saya.txt`: sampul mencetak «اسم الطالبة».
@@ -44,3 +52,5 @@ Daftar perintah: `python mesin/bahts.py`. Daftar tanda naskah: `python mesin/bah
 - Tes otomatis = `.github/workflows/tes.yml`: `siapkan`, `ambil`, lalu `cek contoh`. Nomor kitab di berkas itu harus sama dengan bukti di `contoh/naskah.txt` (salinan terpaksa).
 - Perubahan yang dirasakan pemakai dicatat di `CHANGELOG.md`.
 - `CLAUDE.md` hanya menunjuk ke berkas ini.
+- Kebutuhan komputer dan cara membereskannya ditulis di satu tempat: `periksa` di `mesin/bahts.py`. README dan berkas ini hanya menyuruh menjalankannya.
+- `dok/hasil.png` = halaman 1, 3, dan 8 PDF hasil `rakit contoh` (salinan terpaksa): buat ulang kalau sampul atau bentuk halaman berubah. `dok/alur.svg` = gambar alur di README.

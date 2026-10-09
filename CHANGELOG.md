@@ -5,6 +5,9 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `periksa`: menyebut apa yang sudah siap di komputer dan perintah untuk tiap yang belum.
+- `AGENTS.md` punya bagian «Pemakai baru» untuk orang yang baru pertama kali memakai agent.
+- README: gambar hasil, gambar alur, dan «Cara tercepat».
 - `siapkan` punya sumber font kedua: salinan di rilis GitHub proyek ini.
 - `.mcp.json` mendaftarkan connector `shamela` (pilihan) untuk Claude Code.
 - Unduhan yang putus di tengah tidak lagi dianggap jadi: `ambil` mengunduh ulang, `siapkan` pindah ke sumber font berikutnya.

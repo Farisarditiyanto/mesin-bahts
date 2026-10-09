@@ -10,5 +10,6 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements.txt
       - run: python mesin/bahts.py siapkan
+      - run: python mesin/bahts.py periksa
       - run: python mesin/bahts.py ambil 11223
       - run: python mesin/bahts.py cek contoh

@@ -1,6 +1,7 @@
 """Satu pintu mesin bahts:  python mesin/bahts.py <perintah>
 
 Sekali sesudah mengunduh repo:
+  periksa                      apa yang sudah siap di komputer ini, dan perintah untuk tiap yang belum
   siapkan                      unduh katalog kitab + font mushaf, lalu pasang font itu (Windows)
 
 Bahts (tiap bahts = satu folder berisi naskah.txt):
@@ -80,6 +81,40 @@ def siapkan():
     print('Siap. Bahts baru: python mesin/bahts.py baru <folder> "<judul>"')
 
 
+def periksa():
+    """Apa yang sudah siap di komputer ini, dan perintah untuk tiap yang belum. Tidak mengubah apa pun."""
+    import importlib.util
+    siap_cek, siap_rakit = True, True
+
+    def baris(ok, apa, kalau_belum, untuk_cek=True):
+        nonlocal siap_cek, siap_rakit
+        print(("SIAP   " if ok else "BELUM  ") + apa + ("" if ok else f"\n       -> {kalau_belum}"))
+        siap_rakit &= ok
+        siap_cek &= ok or not untuk_cek
+
+    baris(sys.version_info >= (3, 12), f"Python {sys.version_info.major}.{sys.version_info.minor} (butuh 3.12 ke atas)",
+          "pasang Python 3.12 (Windows: winget install Python.Python.3.12), lalu ulangi dengan Python itu")
+    baris(all(importlib.util.find_spec(m) for m in ("pandas", "pyarrow")), "pustaka Python (pandas, pyarrow)",
+          "pip install -r requirements.txt")
+    baris((AKAR / "kitab" / shamela().KATALOG).exists(), "katalog kitab", "python mesin/bahts.py siapkan")
+    baris(os.name == "nt", "Windows", "`rakit` hanya jalan di Windows; di sini mesin berhenti di `cek`", untuk_cek=False)
+    if os.name == "nt":
+        import winreg
+        try:
+            winreg.CloseKey(winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"Word.Application\CLSID"))
+            word = True
+        except OSError:
+            word = False
+        baris(word, "Microsoft Word versi desktop", "pasang Microsoft Word (pemakai sendiri; butuh lisensinya). "
+              "Tanpa Word naskah tetap bisa ditulis dan dicek, tetapi .docx dan .pdf tidak terbentuk", untuk_cek=False)
+        baris(font_terpasang(), "font mushaf", "python mesin/bahts.py siapkan", untuk_cek=False)
+        baris(any((Path(r"C:\Windows\Fonts") / n).exists() for n in ("trado.ttf", "tradbdo.ttf")), "huruf Traditional Arabic",
+              "Settings > System > Optional features > tambah «Arabic Script Supplemental Fonts»", untuk_cek=False)
+    print(f"\nMenulis dan `cek`: {'SIAP' if siap_cek else 'BELUM'}.  `rakit` (Word + PDF): {'SIAP' if siap_rakit else 'BELUM'}.")
+    print("WSL tidak diperlukan. Connector shamela: pilihan, sangat disarankan (lihat README).")
+    sys.exit(0 if siap_cek else 1)
+
+
 def folder_bahts(nama):
     f = AKAR / nama.strip("/\\")
     if not (f / "naskah.txt").exists():
@@ -145,6 +180,7 @@ def rakit(nama):
 
 
 PERINTAH = {  # nama: (jumlah argumen minimal, pemanggil)
+    "periksa": (0, lambda a: periksa()),
     "siapkan": (0, lambda a: siapkan()),
     "baru": (2, lambda a: baru(a[0], a[1])),
     "cek": (1, lambda a: sys.exit(1 if cek(a[0])[1] else 0)),

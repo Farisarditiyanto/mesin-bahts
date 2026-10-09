@@ -16,6 +16,7 @@
 !/requirements.txt
 !/mesin/
 !/contoh/
+!/dok/
 /contoh/*
 !/contoh/naskah.txt
 # bahan antara mesin, sisa Word/Python, dan font mushaf (diunduh `siapkan`, lihat NOTICE)
