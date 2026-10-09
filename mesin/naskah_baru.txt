@@ -1,8 +1,10 @@
 @judul: {judul}
-@jenis: بحث صفي للمستوى الرابع
-@nama: محمد فارس أرديتيانتو
-@nim: 446011150
-@fasl: الفصل الدراسي الأول من العام الجامعي 1448هـ
+@jenis:
+@nama:
+@nim:
+@fasl:
+@musyrif:
+@jabatan:
 @berkas: {folder}
 @format: imam_ayat16
 

@@ -12,6 +12,8 @@ $uMatan = [single]$FMT.matan; $uCatatan = [single]$FMT.catatan; $uJudul = [singl
 $uAyat = if ($FMT.ayat) { [single]$FMT.ayat } else { $uMatan }   # ukuran ayat di matan dan فهرس الآيات; profil tanpa "ayat" = sama dengan matan
 $ULANG = if ($FMT.catatan_ulang_tiap_halaman) { 2 } else { 0 }   # nomor catatan kaki: 2 = mulai ulang tiap halaman, 0 = bersambung
 $JUDUL = $M.judul; $NAMA = $M.nama; $NIM = $M.nim
+$MUSYRIF = if ($M.musyrif -and $M.musyrif -ne '-') { [string]$M.musyrif } else { '' }
+$JABATAN = if ($MUSYRIF -and $M.jabatan -and $M.jabatan -ne '-') { [string]$M.jabatan } else { '' }
 
 # bersihkan instance Word otomatis yang tertinggal dari percobaan sebelumnya (hanya yang /Automation)
 Get-CimInstance Win32_Process -Filter "Name='WINWORD.EXE'" | Where-Object { $_.CommandLine -match '/Automation' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
@@ -47,10 +49,10 @@ try {
         elseif ($t -like 'اسم*الطالبة*') { Ganti $p 'اسم الطالب :'; $pNama = $p }
         elseif ($t -eq '4300000') { Ganti $p $NIM }
         elseif ($t -like 'الفصل الدراسي*') { Ganti $p $M.fasl }
-        # pembimbing: bawaan template dipakai apa adanya; @musyrif/@jabatan menggantinya, "-" mengosongkannya
-        elseif ($t -like 'المشرف على البحث*') { if ($M.musyrif -eq '-') { Ganti $p '' } }
-        elseif ($t -like 'د. سليمان*') { if ($M.musyrif -eq '-') { Ganti $p '' } elseif ($M.musyrif) { Ganti $p $M.musyrif } }
-        elseif ($t -like 'الأستاذ المشارك*') { if ($M.musyrif -eq '-' -or $M.jabatan -eq '-') { Ganti $p '' } elseif ($M.jabatan) { Ganti $p $M.jabatan } }
+        # pembimbing: tanpa @musyrif (atau "-") ketiga barisnya kosong; tanpa @jabatan (atau "-") baris jabatannya kosong
+        elseif ($t -like 'المشرف على البحث*') { if (-not $MUSYRIF) { Ganti $p '' } }
+        elseif ($t -eq 'اسم المشرف') { Ganti $p $MUSYRIF }
+        elseif ($t -eq 'الدرجة العلمية للمشرف') { Ganti $p $JABATAN }
     }
     $pNama.Range.InsertParagraphAfter()
     $pBaru = $pNama.Next(1); Ganti $pBaru $NAMA

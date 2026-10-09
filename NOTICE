@@ -1,0 +1,24 @@
+The MIT license in LICENSE covers the scripts in mesin/ (.py, .ps1, format.json,
+nama_surah.json, naskah_baru.txt), contoh/, and the documentation of this repository.
+
+It does NOT cover the following. Their rights stay with their owners.
+
+1. mesin/quran_hafs_v22.json: the mushaf text (riwayat Hafs, rasm Uthmani), one
+   entry per ayah, as published by King Fahd Glorious Quran Printing Complex
+   (KFGQPC, https://qurancomplex.gov.sa).
+
+2. The font "KFGQPC HAFS Uthmanic Script" (UthmanicHafs_V22.ttf).
+   Copyright (c) King Fahd Glorious Quran Printing Complex, all rights reserved.
+   It is NOT part of this repository. `python mesin/bahts.py siapkan` downloads
+   it to the user's computer from the Tarteel QUL mirror (address and checksum:
+   FONT_URL and FONT_SHA256 in mesin/bahts.py). Publisher's site:
+   https://fonts.qurancomplex.gov.sa
+
+3. mesin/sampul.doc: the cover page follows a course template of
+   معهد العلوم الإسلامية والعربية في جاكرتا. The name and the logo of
+   جامعة الإمام محمد بن سعود الإسلامية belong to the university. This project is
+   not affiliated with, or endorsed by, the university or the institute.
+
+4. Book texts are NOT part of this repository. `ambil` downloads them to the
+   user's computer from the Hugging Face dataset AuthenticIlm/Shamela4_Full_DB
+   (an extraction of المكتبة الشاملة, https://shamela.ws).

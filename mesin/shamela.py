@@ -39,9 +39,27 @@ def _ls(path=""):
     return out
 
 
+KATALOG = "_meta/book_metadata.parquet"
+
+
+def siapkan():
+    """Unduh katalog kitab (judul, pengarang, letak tiap kitab di dataset) kalau belum ada."""
+    f = ROOT / KATALOG
+    if not f.exists():
+        f.parent.mkdir(parents=True, exist_ok=True)
+        with urllib.request.urlopen(urllib.request.Request(f"{RAW}/{KATALOG}", headers=UA)) as resp:
+            f.write_bytes(resp.read())
+    print(f"katalog kitab: {len(_meta())} judul")
+
+
 def _meta():
-    import pandas as pd
-    return pd.read_parquet(ROOT / "_meta" / "book_metadata.parquet")
+    if not (ROOT / KATALOG).exists():
+        raise SystemExit("Katalog kitab belum ada: python mesin/bahts.py siapkan")
+    try:
+        import pandas as pd
+    except ImportError:
+        raise SystemExit("Pustaka Python belum terpasang: pip install -r requirements.txt")
+    return pd.read_parquet(ROOT / KATALOG)
 
 
 def katalog(pat):
@@ -56,7 +74,7 @@ def katalog(pat):
 
 def punya():
     """shamela_id semua kitab yang sudah diunduh."""
-    return sorted(int(d.name) for d in ROOT.iterdir() if (d / "pages.jsonl.gz").exists())
+    return sorted(int(d.name) for d in ROOT.glob("*") if (d / "pages.jsonl.gz").exists())
 
 
 def info(sid):
