@@ -47,9 +47,21 @@ def siapkan():
     f = ROOT / KATALOG
     if not f.exists():
         f.parent.mkdir(parents=True, exist_ok=True)
-        with urllib.request.urlopen(urllib.request.Request(f"{RAW}/{KATALOG}", headers=UA)) as resp:
-            f.write_bytes(resp.read())
+        _unduh(f"{RAW}/{KATALOG}", f, lambda q: open(q, "wb"))
     print(f"katalog kitab: {len(_meta())} judul")
+
+
+def _unduh(url, tujuan, buka):
+    """Unduh ke <tujuan>.part, baru dinamai <tujuan> kalau utuh: unduhan yang putus tidak pernah dianggap jadi."""
+    part = tujuan.with_name(tujuan.name + ".part")
+    n = 0
+    with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=120) as resp, buka(part) as o:
+        while chunk := resp.read(1 << 20):
+            o.write(chunk); n += len(chunk)
+        janji = resp.headers.get("Content-Length")
+    if janji and int(janji) != n:
+        raise ConnectionError(f"unduhan terpotong: {n} dari {janji} byte ({tujuan.name})")
+    part.replace(tujuan)
 
 
 def _meta():
@@ -111,12 +123,13 @@ def ambil(sid):
         print(sid, "folder tidak ketemu"); return
     dst.mkdir(parents=True, exist_ok=True)
     # isi kitab disimpan terkompres (.gz) supaya hemat disk: teks Arab menyusut ±5x
+    # pages.jsonl terakhir: dialah tanda "sudah ada", jadi kitab yang unduhannya putus diunduh ulang
     for f in ("book_metadata.json", "toc.jsonl", "pages.jsonl"):
         url = f"{RAW}/{urllib.parse.quote(folder[0])}/{f}"
-        buka = (lambda q: gzip.open(q.with_name(q.name + ".gz"), "wb")) if f.endswith(".jsonl") else (lambda q: open(q, "wb"))
-        with urllib.request.urlopen(urllib.request.Request(url, headers=UA)) as resp, buka(dst / f) as o:
-            while chunk := resp.read(1 << 20):
-                o.write(chunk)
+        if f.endswith(".jsonl"):
+            _unduh(url, dst / (f + ".gz"), lambda q: gzip.open(q, "wb"))
+        else:
+            _unduh(url, dst / f, lambda q: open(q, "wb"))
     mb = (dst / "pages.jsonl.gz").stat().st_size / 1e6
     print(f"{sid} OK  {r.title_ar}  ({mb:.1f} MB)")
 

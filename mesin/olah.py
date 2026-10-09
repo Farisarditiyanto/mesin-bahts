@@ -315,6 +315,8 @@ def utama(folder):
     n_matan = sum(kata(b["runs"]) for b in blok)
     n_fn = sum(kata(c["runs"]) for c in catatan)
     galat += [f"data sampul belum diisi: @{k}" for k in WAJIB if not meta.get(k)]
+    if meta.get("thalibah", "ya") != "ya":
+        galat.append(f"@thalibah: «{meta['thalibah']}» tidak dikenal: tulis «ya», atau hapus barisnya")
     fmt = meta.get("format", "imam")
     if fmt not in FORMAT:
         galat.append(f"@format: «{fmt}» tidak ada di mesin/format.json (yang ada: {'، '.join(FORMAT)})")

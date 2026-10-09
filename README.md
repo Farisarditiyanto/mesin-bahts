@@ -7,7 +7,7 @@ Kamu dan agent hanya menulis satu berkas, `naskah.txt`. Mesin mengerjakan sisany
 - menulis ayat dengan rasm Utsmani;
 - merakit Word dan PDF: sampul, catatan kaki, المصادر والمراجع, فهرس الآيات, فهرس الأحاديث والآثار, فهرس الموضوعات.
 
-Contoh naskah yang lolos cek: [`contoh/naskah.txt`](contoh/naskah.txt).
+Contoh naskah: [`contoh/naskah.txt`](contoh/naskah.txt). Untuk mencobanya sesudah «Pasang»: `python mesin/bahts.py ambil 11223`, lalu `python mesin/bahts.py cek contoh`.
 
 ## Batasnya, baca dulu
 

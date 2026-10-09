@@ -7,6 +7,8 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 - `siapkan` punya sumber font kedua: salinan di rilis GitHub proyek ini.
 - `.mcp.json` mendaftarkan connector `shamela` (pilihan) untuk Claude Code.
+- Unduhan yang putus di tengah tidak lagi dianggap jadi: `ambil` mengunduh ulang, `siapkan` pindah ke sumber font berikutnya.
+- `@thalibah` selain «ya» ditolak `cek`; `sampul_saya.txt` yang bukan UTF-8 ditolak `baru` dengan pesan jelas.
 
 ## 0.0.1 — 2026-10-09
 

@@ -22,7 +22,7 @@ Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
 Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex, butuh internet):
   dirasat "<kata kunci>" [maks]   judul, peneliti, tahun, jurnal, tautan, dan ringkasan
 """
-import hashlib, json, os, re, subprocess, sys, urllib.error, urllib.request
+import hashlib, http.client, json, os, re, subprocess, sys, urllib.error, urllib.request
 from pathlib import Path
 
 MESIN = Path(__file__).parent
@@ -34,6 +34,8 @@ FONT_SUMBER = ("https://static-cdn.tarteel.ai/qul/fonts/" + FONT,  # dicoba beru
 FONT_SHA256 = "aa68bffce289b4c0ebac68e90502eb69e42356abcd1603cb2b8e99c2c723f145"
 FONT_NAMA = "KFGQPC HAFS Uthmanic Script (TrueType)"
 FONT_PEMAKAI = Path(os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Windows\Fonts"))
+# unduhan gagal: alamat mati, ditolak, putus di tengah, atau kehabisan waktu
+GAGAL_UNDUH = (urllib.error.URLError, http.client.HTTPException, ConnectionError, TimeoutError)
 SAMPUL_SAYA = AKAR / "sampul_saya.txt"  # data sampul pemakai (@kunci: nilai); mengisi @kunci yang kosong di naskah baru
 
 
@@ -49,8 +51,8 @@ def siapkan():
         for url in FONT_SUMBER:
             try:
                 isi = urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "curl/8"}), timeout=120).read()
-            except urllib.error.URLError as e:
-                print(f"font mushaf: gagal dari {url} ({e})")
+            except GAGAL_UNDUH as e:
+                print(f"font mushaf: gagal dari {url} ({e!r})")
                 continue
             if hashlib.sha256(isi).hexdigest() == FONT_SHA256:
                 f.write_bytes(isi)
@@ -89,14 +91,18 @@ def baru(nama, judul):
     f = AKAR / nama.strip("/\\")
     if f.exists():
         sys.exit(f"Folder {f.name} sudah ada.")
-    f.mkdir()
     isi = (MESIN / "naskah_baru.txt").read_text(encoding="utf8").replace("{judul}", judul).replace("{folder}", f.name)
     if SAMPUL_SAYA.exists():
-        for k, v in re.findall(r"^@(\w+):[ \t]*(\S.*)$", SAMPUL_SAYA.read_text(encoding="utf-8-sig"), re.M):
+        try:
+            saya = SAMPUL_SAYA.read_text(encoding="utf-8-sig")
+        except UnicodeDecodeError:
+            sys.exit(f"{SAMPUL_SAYA.name} harus disimpan sebagai UTF-8. Simpan ulang, lalu ulangi.")
+        for k, v in re.findall(r"^@(\w+):[ \t]*(\S.*)$", saya, re.M):
             if re.search(rf"^@{k}:", isi, re.M):
                 isi = re.sub(rf"^@{k}:[ \t]*$", lambda m: f"@{k}: {v.strip()}", isi, flags=re.M)
             else:  # kunci yang tidak ada di kerangka (mis. @thalibah) ikut ditulis
                 isi = isi.replace("@berkas:", f"@{k}: {v.strip()}\n@berkas:", 1)
+    f.mkdir()
     (f / "naskah.txt").write_text(isi, encoding="utf8")
     print(f"Siap: {f.name}/naskah.txt")
     kosong = re.findall(r"^@(\w+):[ \t]*$", isi, re.M)
@@ -181,7 +187,7 @@ if __name__ == "__main__":
         sys.exit(__doc__)
     try:
         PERINTAH[cmd][1](a)
-    except urllib.error.URLError as e:
-        sys.exit(f"Perintah '{cmd}' gagal mengunduh (cek internet, lalu ulangi): {e}")
+    except GAGAL_UNDUH as e:
+        sys.exit(f"Perintah '{cmd}' gagal mengunduh (cek internet, lalu ulangi): {e!r}")
     except (ValueError, FileNotFoundError, re.error) as e:
         sys.exit(f"Perintah '{cmd}' salah pakai: {e}\nLihat: python mesin/bahts.py")
