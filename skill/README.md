@@ -64,6 +64,11 @@ Sebelum langkah ini, semua nomor halaman di الفهارس tertulis «1». Itu b
 
 Zip tidak memuat data pribadi.
 
+## Lisensi
+
+- `SKILL.md` dan skrip di `mesin/`: lisensi MIT. Kamu boleh memakai, mengubah, dan membagikannya. Lihat [`LICENSE`](LICENSE).
+- Huruf mushaf dan teks mushaf tidak termasuk lisensi itu. Hurufnya milik King Fahd Glorious Quran Printing Complex dan mengikuti ketentuan pemiliknya.
+
 ## Lapor masalah
 
 Tulis di [Issues](https://github.com/Farisarditiyanto/bahts-skill/issues). Butuh akun GitHub.
