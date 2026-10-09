@@ -5,6 +5,9 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `@tanpa: ayat, hadits, maudhuat` membuang فهرس yang tidak diinginkan; فهرس الآيات dan فهرس الأحاديث yang kosong tidak lagi dicetak.
+- `rakit` mencetak `HALAMAN_ISI` (المقدمة sampai الخاتمة).
+- `periksa` memberi jalan memasang huruf Traditional Arabic tanpa membuka Settings.
 - `periksa`: menyebut apa yang sudah siap di komputer dan perintah untuk tiap yang belum.
 - `AGENTS.md` punya bagian «Pemakai baru» untuk orang yang baru pertama kali memakai agent.
 - README: gambar hasil, gambar alur, dan «Cara tercepat».
