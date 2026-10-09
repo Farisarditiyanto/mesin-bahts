@@ -8,6 +8,7 @@ Daftar perintah: `python mesin/bahts.py`. Daftar tanda naskah: `python mesin/bah
 - Perintah menjawab «belum ada» / «belum terpasang» → jalankan bagian «Pasang» di `README.md` (perintahnya hanya ditulis di sana).
 - `sampul_saya.txt` belum ada → tanya pemakai sekali: nama (huruf Arab), nomor mahasiswa, jenis tugas, semester. Simpan sebagai baris `@nama:`, `@nim:`, `@jenis:`, `@fasl:` di berkas itu. `baru` memakainya untuk tiap bahts.
 - Pembimbing (`@musyrif`, `@jabatan`) ditanya tiap bahts: dosennya bisa berbeda.
+- Pemakainya mahasiswi → tambah baris `@thalibah: ya` di `sampul_saya.txt`: sampul mencetak «اسم الطالبة».
 
 ## Alur kerja
 

@@ -45,10 +45,14 @@ def siapkan():
     shamela().siapkan()
     f = MESIN / FONT
     if not f.exists():
-        isi = urllib.request.urlopen(urllib.request.Request(FONT_URL, headers={"User-Agent": "curl/8"}), timeout=120).read()
-        if hashlib.sha256(isi).hexdigest() != FONT_SHA256:
-            sys.exit(f"Font dari {FONT_URL} berbeda dari yang dikenal mesin: tidak dipakai.")
+        try:
+            isi = urllib.request.urlopen(urllib.request.Request(FONT_URL, headers={"User-Agent": "curl/8"}), timeout=120).read()
+        except urllib.error.URLError as e:
+            sys.exit(f"Font mushaf gagal diunduh dari {FONT_URL} ({e}).\n"
+                     f"Jalan cadangan: cari sendiri {FONT} (penerbitnya: https://fonts.qurancomplex.gov.sa), taruh di mesin/, lalu ulangi `siapkan`.")
         f.write_bytes(isi)
+    if hashlib.sha256(f.read_bytes()).hexdigest() != FONT_SHA256:
+        sys.exit(f"mesin/{FONT} berbeda dari font yang dikenal mesin (sha256 {FONT_SHA256}): pindahkan berkas itu, lalu ulangi `siapkan`.")
     print("font mushaf: ada di mesin/")
     if os.name != "nt":
         print("font mushaf: TIDAK dipasang (bukan Windows). `cek` tetap jalan; `rakit` butuh Windows + Microsoft Word.")
@@ -81,7 +85,10 @@ def baru(nama, judul):
     isi = (MESIN / "naskah_baru.txt").read_text(encoding="utf8").replace("{judul}", judul).replace("{folder}", f.name)
     if SAMPUL_SAYA.exists():
         for k, v in re.findall(r"^@(\w+):[ \t]*(\S.*)$", SAMPUL_SAYA.read_text(encoding="utf-8-sig"), re.M):
-            isi = re.sub(rf"^@{k}:[ \t]*$", lambda m: f"@{k}: {v.strip()}", isi, flags=re.M)
+            if re.search(rf"^@{k}:", isi, re.M):
+                isi = re.sub(rf"^@{k}:[ \t]*$", lambda m: f"@{k}: {v.strip()}", isi, flags=re.M)
+            else:  # kunci yang tidak ada di kerangka (mis. @thalibah) ikut ditulis
+                isi = isi.replace("@berkas:", f"@{k}: {v.strip()}\n@berkas:", 1)
     (f / "naskah.txt").write_text(isi, encoding="utf8")
     print(f"Siap: {f.name}/naskah.txt")
     kosong = re.findall(r"^@(\w+):[ \t]*$", isi, re.M)

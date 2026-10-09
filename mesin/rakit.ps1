@@ -46,7 +46,7 @@ try {
         $t = $p.Range.Text.Trim()
         if ($t -eq 'عنوان البحث') { Ganti $p $JUDUL }
         elseif ($t -like 'بحث صفي للمستوى*') { Ganti $p $M.jenis }
-        elseif ($t -like 'اسم*الطالبة*') { Ganti $p 'اسم الطالب :'; $pNama = $p }
+        elseif ($t -like 'اسم*الطالبة*') { Ganti $p $(if ($M.thalibah -eq 'ya') { 'اسم الطالبة :' } else { 'اسم الطالب :' }); $pNama = $p }
         elseif ($t -eq '4300000') { Ganti $p $NIM }
         elseif ($t -like 'الفصل الدراسي*') { Ganti $p $M.fasl }
         # pembimbing: tanpa @musyrif (atau "-") ketiga barisnya kosong; tanpa @jabatan (atau "-") baris jabatannya kosong
