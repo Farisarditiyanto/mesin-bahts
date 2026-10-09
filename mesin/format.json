@@ -1,0 +1,27 @@
+{
+  "imam": {
+    "_sumber": "القواعد المنظمة لتسجيل الرسالة العلمية وكتابتها وطباعتها وتقديمها (عمادة الدراسات العليا بجامعة الإمام، 1442هـ)",
+    "huruf": "Traditional Arabic",
+    "matan": 18,
+    "catatan": 14,
+    "judul": 20,
+    "catatan_ulang_tiap_halaman": true
+  },
+  "imam_ayat16": {
+    "_sumber": "sama dengan «imam», kecuali ayat di matan dan فهرس الآيات 16 (huruf mushaf tampak lebih besar daripada matan pada angka yang sama)",
+    "huruf": "Traditional Arabic",
+    "matan": 18,
+    "ayat": 16,
+    "catatan": 14,
+    "judul": 20,
+    "catatan_ulang_tiap_halaman": true
+  },
+  "dalil": {
+    "_sumber": "دليل إعداد وكتابة الرسائل العلمية (ماجستير/دكتوراه) بجامعة الإمام، الطبعة الثانية — hanya huruf dan ukurannya; gaya rujukan tetap catatan kaki",
+    "huruf": "Sakkal Majalla",
+    "matan": 16,
+    "catatan": 12,
+    "judul": 18,
+    "catatan_ulang_tiap_halaman": true
+  }
+}

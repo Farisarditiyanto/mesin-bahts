@@ -1,0 +1,24 @@
+# Yang masuk git cuma mesin, contoh, dan berkas akar. Sisanya tetap lokal:
+# - folder bahts (naskah, Word, PDF)
+# - kitab/ = perpustakaan Shamela lokal (diunduh lewat `python mesin/bahts.py siapkan` dan `ambil <id>`)
+# - sampul_saya.txt = data sampul pemakai
+/*
+!/.gitignore
+!/.gitattributes
+!/.github/
+!/AGENTS.md
+!/CLAUDE.md
+!/README.md
+!/CHANGELOG.md
+!/LICENSE
+!/NOTICE
+!/requirements.txt
+!/mesin/
+!/contoh/
+/contoh/*
+!/contoh/naskah.txt
+# bahan antara mesin, sisa Word/Python, dan font mushaf (diunduh `siapkan`, lihat NOTICE)
+mesin/_tmp/
+mesin/*.ttf
+__pycache__/
+~$*

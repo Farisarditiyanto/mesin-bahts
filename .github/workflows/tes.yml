@@ -1,0 +1,14 @@
+name: tes
+on: [push, pull_request]
+jobs:
+  cek-contoh:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python mesin/bahts.py siapkan
+      - run: python mesin/bahts.py ambil 11223
+      - run: python mesin/bahts.py cek contoh
