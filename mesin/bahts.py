@@ -29,7 +29,8 @@ MESIN = Path(__file__).parent
 AKAR = MESIN.parent
 # Font mushaf «KFGQPC HAFS Uthmanic Script» milik مجمع الملك فهد: tidak ikut repo (lihat NOTICE), diunduh oleh `siapkan`.
 FONT = "UthmanicHafs_V22.ttf"
-FONT_URL = "https://static-cdn.tarteel.ai/qul/fonts/" + FONT
+FONT_SUMBER = ("https://static-cdn.tarteel.ai/qul/fonts/" + FONT,  # dicoba berurutan
+               "https://github.com/Farisarditiyanto/mesin-bahts/releases/download/v0.0.1/" + FONT)
 FONT_SHA256 = "aa68bffce289b4c0ebac68e90502eb69e42356abcd1603cb2b8e99c2c723f145"
 FONT_NAMA = "KFGQPC HAFS Uthmanic Script (TrueType)"
 FONT_PEMAKAI = Path(os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Windows\Fonts"))
@@ -45,12 +46,19 @@ def siapkan():
     shamela().siapkan()
     f = MESIN / FONT
     if not f.exists():
-        try:
-            isi = urllib.request.urlopen(urllib.request.Request(FONT_URL, headers={"User-Agent": "curl/8"}), timeout=120).read()
-        except urllib.error.URLError as e:
-            sys.exit(f"Font mushaf gagal diunduh dari {FONT_URL} ({e}).\n"
-                     f"Jalan cadangan: cari sendiri {FONT} (penerbitnya: https://fonts.qurancomplex.gov.sa), taruh di mesin/, lalu ulangi `siapkan`.")
-        f.write_bytes(isi)
+        for url in FONT_SUMBER:
+            try:
+                isi = urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "curl/8"}), timeout=120).read()
+            except urllib.error.URLError as e:
+                print(f"font mushaf: gagal dari {url} ({e})")
+                continue
+            if hashlib.sha256(isi).hexdigest() == FONT_SHA256:
+                f.write_bytes(isi)
+                break
+            print(f"font mushaf: berkas dari {url} berbeda dari yang dikenal mesin, dilewati")
+        else:
+            sys.exit(f"Font mushaf gagal diunduh dari semua sumber.\n"
+                     f"Jalan terakhir: cari sendiri {FONT} (penerbitnya: https://fonts.qurancomplex.gov.sa), taruh di mesin/, lalu ulangi `siapkan`.")
     if hashlib.sha256(f.read_bytes()).hexdigest() != FONT_SHA256:
         sys.exit(f"mesin/{FONT} berbeda dari font yang dikenal mesin (sha256 {FONT_SHA256}): pindahkan berkas itu, lalu ulangi `siapkan`.")
     print("font mushaf: ada di mesin/")

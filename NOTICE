@@ -9,9 +9,12 @@ It does NOT cover the following. Their rights stay with their owners.
 
 2. The font "KFGQPC HAFS Uthmanic Script" (UthmanicHafs_V22.ttf).
    Copyright (c) King Fahd Glorious Quran Printing Complex, all rights reserved.
-   It is NOT part of this repository. `python mesin/bahts.py siapkan` downloads
-   it to the user's computer from the Tarteel QUL mirror (address and checksum:
-   FONT_URL and FONT_SHA256 in mesin/bahts.py). Publisher's site:
+   It is NOT part of the source tree. `python mesin/bahts.py siapkan` downloads
+   it to the user's computer from the Tarteel QUL mirror or, failing that, from
+   an unmodified copy attached to this project's GitHub release (addresses and
+   checksum: FONT_SUMBER and FONT_SHA256 in mesin/bahts.py). That copy is
+   passed on free of charge under the font's own end-user license agreement,
+   which is embedded in the font file. Publisher's site:
    https://fonts.qurancomplex.gov.sa
 
 3. mesin/sampul.doc: the cover page follows a course template of
