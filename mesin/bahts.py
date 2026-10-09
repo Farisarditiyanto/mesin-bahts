@@ -109,7 +109,9 @@ def periksa():
               "Tanpa Word naskah tetap bisa ditulis dan dicek, tetapi .docx dan .pdf tidak terbentuk", untuk_cek=False)
         baris(font_terpasang(), "font mushaf", "python mesin/bahts.py siapkan", untuk_cek=False)
         baris(any((Path(r"C:\Windows\Fonts") / n).exists() for n in ("trado.ttf", "tradbdo.ttf")), "huruf Traditional Arabic",
-              "Settings > System > Optional features > tambah «Arabic Script Supplemental Fonts»", untuk_cek=False)
+              "huruf ini ikut terpasang kalau Windows punya papan ketik Arab (Settings > Time & language > Language & region > Add a language > العربية).\n"
+              "          Atau lewat PowerShell admin (pemakai cukup klik Yes): Start-Process powershell -Verb RunAs -Wait -ArgumentList "
+              "\"Add-WindowsCapability -Online -Name Language.Fonts.Arab~~~und-ARAB~0.0.1.0\"", untuk_cek=False)
     print(f"\nMenulis dan `cek`: {'SIAP' if siap_cek else 'BELUM'}.  `rakit` (Word + PDF): {'SIAP' if siap_rakit else 'BELUM'}.")
     print("WSL tidak diperlukan. Connector shamela: pilihan, sangat disarankan (lihat README).")
     sys.exit(0 if siap_cek else 1)

@@ -14,6 +14,11 @@ $ULANG = if ($FMT.catatan_ulang_tiap_halaman) { 2 } else { 0 }   # nomor catatan
 $JUDUL = $M.judul; $NAMA = $M.nama; $NIM = $M.nim
 $MUSYRIF = if ($M.musyrif -and $M.musyrif -ne '-') { [string]$M.musyrif } else { '' }
 $JABATAN = if ($MUSYRIF -and $M.jabatan -and $M.jabatan -ne '-') { [string]$M.jabatan } else { '' }
+# فهرس dicetak kalau ada isinya dan tidak disebut di @tanpa (ayat, hadits, maudhuat)
+$TANPA = @(([string]$M.tanpa -split '[,، ]+') | Where-Object { $_ })
+$adaAy = [bool]@($DATA.ayat).Count -and $TANPA -notcontains 'ayat'
+$adaHd = [bool]@($DATA.hadits).Count -and $TANPA -notcontains 'hadits'
+$adaTo = $TANPA -notcontains 'maudhuat'
 
 # bersihkan instance Word otomatis yang tertinggal dari percobaan sebelumnya (hanya yang /Automation)
 Get-CimInstance Win32_Process -Filter "Name='WINWORD.EXE'" | Where-Object { $_.CommandLine -match '/Automation' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
@@ -24,7 +29,9 @@ $wordIni = @(Get-Process WINWORD -ErrorAction SilentlyContinue | Where-Object { 
 $word.Visible = $false; $word.ScreenUpdating = $false; $word.DisplayAlerts = 0
 $tmp = "$dir\_tmp\_kerja.docx"
 try {
-    # ---------- 1. Sampul: berangkat dari template dosen ----------
+    # huruf profil yang tidak terpasang diganti Word diam-diam: berhenti di sini saja
+    if (@($word.FontNames) -notcontains $TA) { throw "Huruf [$TA] belum terpasang di Windows. Jalankan: python mesin/bahts.py periksa" }
+    # ---------- 1. Sampul: berangkat dari template sampul ----------
     if (Test-Path $tmp) { Remove-Item $tmp -Force }
     $doc = $word.Documents.Open("$dir\sampul.doc", $false, $true)
     $doc.SaveAs2($tmp, 16)
@@ -207,7 +214,7 @@ try {
     }
 
     # ---------- 3. المصادر والمراجع (tabel tanpa garis, urut abjad) ----------
-    $nT++; Judul 'المصادر والمراجع' "t_$nT" $true; [void]$toc.Add(@{ t = 'المصادر والمراجع'; bm = "t_$nT"; lvl = 0 })
+    $nT++; Judul 'المصادر والمراجع' "t_$nT" $true; [void]$toc.Add(@{ t = 'المصادر والمراجع'; bm = "t_$nT"; lvl = 0 }); $bmMasadir = "t_$nT"
     $n = $DATA.pustaka.Count
     $tb = Tabel $n @(1.3, 13.7) 0
     for ($r = 1; $r -le $n; $r++) {
@@ -218,6 +225,7 @@ try {
     Sel-Akhir
 
     # ---------- 4. الفهارس ----------
+    if ($adaAy) {
     $nT++; Judul 'فهرس الآيات القرآنية' "t_$nT" $true; [void]$toc.Add(@{ t = 'فهرس الآيات القرآنية'; bm = "t_$nT"; lvl = 0 })
     # gabung ayat yang sama, urut mushaf
     $ay = @{}; $urut = New-Object System.Collections.ArrayList
@@ -241,18 +249,23 @@ try {
         Sel $tAy $r 2 $a.surah 1 0; Sel $tAy $r 3 $a.a 1 0; Sel $tAy $r 4 '00' 1 0
     }
     Sel-Akhir
+    }
+    if ($adaHd) {
     $nT++; Judul 'فهرس الأحاديث والآثار' "t_$nT" $true; [void]$toc.Add(@{ t = 'فهرس الأحاديث والآثار'; bm = "t_$nT"; lvl = 0 })
     $tHd = Tabel ($DATA.hadits.Count + 1) @(8.6, 4.4, 2.0) 1
     Sel $tHd 1 1 'طرف الحديث أو الأثر' 1 1; Sel $tHd 1 2 'الراوي' 1 1; Sel $tHd 1 3 'الصفحة' 1 1
     $r = 1
     foreach ($h in $DATA.hadits) { $r++; Sel $tHd $r 1 ('«' + $h.t + '»') 3 0; Sel $tHd $r 2 $h.r 1 0; Sel $tHd $r 3 '00' 1 0 }
     Sel-Akhir
+    }
+    if ($adaTo) {
     $nT++; Judul 'فهرس الموضوعات' "t_$nT" $true; [void]$toc.Add(@{ t = 'فهرس الموضوعات'; bm = "t_$nT"; lvl = 0 })
     $tTo = Tabel ($toc.Count + 1) @(13.0, 2.0) 1
     Sel $tTo 1 1 'الموضوع' 1 1; Sel $tTo 1 2 'الصفحة' 1 1
     $r = 1
     foreach ($e in $toc) { $r++; Sel $tTo $r 1 $e.t 3 ([int]($e.lvl -eq 0)); $tTo.Cell($r, 1).Range.ParagraphFormat.RightIndent = 0; $tTo.Cell($r, 1).Range.ParagraphFormat.LeftIndent = 0; if ($e.lvl -gt 0) { $tTo.Cell($r, 1).Range.ParagraphFormat.RightIndent = $word.CentimetersToPoints(0.7 * $e.lvl) }; Sel $tTo $r 2 '00' 1 0 }
     Sel-Akhir
+    }
 
     # naskah tanpa catatan kaki tidak punya story catatan kaki
     if ($doc.Footnotes.Count) { foreach ($fpp in $doc.StoryRanges.Item(2).Paragraphs) { $fpp.ReadingOrder = 0; $fpp.Alignment = 3 } }
@@ -262,9 +275,9 @@ try {
     # ---------- 5. Isi nomor halaman ----------
     $doc.Repaginate()
     function Hal($bm) { return $doc.Bookmarks.Item($bm).Range.Information(1) }   # 1 = nomor halaman seperti yang tercetak
-    $r = 1; foreach ($key in $urut) { $r++; $pg = ($ay[$key].bm | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '; Sel $tAy $r 4 $pg 1 0 }
-    $r = 1; foreach ($h in $DATA.hadits) { $r++; $ks = @($h.k); if ($h.lagi) { $ks += $h.lagi }; $pg = ($ks | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '; Sel $tHd $r 3 $pg 1 0 }
-    $r = 1; foreach ($e in $toc) { $r++; Sel $tTo $r 2 ([string](Hal $e.bm)) 1 0 }
+    if ($adaAy) { $r = 1; foreach ($key in $urut) { $r++; $pg = ($ay[$key].bm | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '; Sel $tAy $r 4 $pg 1 0 } }
+    if ($adaHd) { $r = 1; foreach ($h in $DATA.hadits) { $r++; $ks = @($h.k); if ($h.lagi) { $ks += $h.lagi }; $pg = ($ks | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '; Sel $tHd $r 3 $pg 1 0 } }
+    if ($adaTo) { $r = 1; foreach ($e in $toc) { $r++; Sel $tTo $r 2 ([string](Hal $e.bm)) 1 0 } }
     foreach ($fn in $doc.Footnotes) {
         $t = $fn.Range.Text
         if ($t -match '⟦(h_[a-z]+)⟧') {
@@ -276,7 +289,9 @@ try {
 
     # ---------- 6. Simpan ----------
     $pages = $doc.ComputeStatistics(2)
-    $lap = @("HALAMAN=$pages", "CATATAN_KAKI=$($doc.Footnotes.Count)", "KATA(termasuk catatan kaki)=$($doc.ComputeStatistics(0, $true))")
+    # halaman isi = المقدمة s.d. sebelum المصادر والمراجع (nomor halaman dihitung mulai dari المقدمة)
+    $isi = (Hal $bmMasadir) - 1
+    $lap = @("HALAMAN=$pages", "HALAMAN_ISI=$isi","CATATAN_KAKI=$($doc.Footnotes.Count)", "KATA(termasuk catatan kaki)=$($doc.ComputeStatistics(0, $true))")
     foreach ($e in $toc) { $lap += ("hal {0}: {1}" -f (Hal $e.bm), $e.t) }
     [IO.File]::AppendAllLines($Laporan, [string[]]$lap)
     if (Test-Path "$Out.docx") { Remove-Item "$Out.docx" -Force }

@@ -4,7 +4,9 @@
 Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   @kunci: nilai       data sampul, di awal naskah. Wajib: judul, jenis, nama, nim, fasl.
                       Opsional: musyrif, jabatan (kosong atau "-" = tidak tercetak), thalibah (ya = sampul mencetak «اسم الطالبة»),
-                      berkas (nama file hasil), format (profil di format.json; bawaan imam)
+                      berkas (nama file hasil), format (profil di format.json; bawaan imam),
+                      tanpa (فهرس yang tidak dicetak: ayat, hadits, maudhuat; mis. «@tanpa: ayat, hadits»).
+                      فهرس الآيات dan فهرس الأحاديث yang kosong tidak dicetak dengan sendirinya
   #K #F #B #M teks    judul tengah + masuk فهرس الموضوعات: K = مقدمة/خاتمة, F = فصل (keduanya mulai halaman baru), B = مبحث, M = مطلب.
                       Bahts pendek tanpa فصل: #F untuk مبحث, #B untuk مطلب
   #S teks             sub-judul kanan (tidak masuk فهرس)
@@ -30,6 +32,7 @@ QURAN = json.load(open(HERE / "quran_hafs_v22.json", encoding="utf8"))
 SURAH = json.load(open(HERE / "nama_surah.json", encoding="utf8"))
 FORMAT = json.load(open(HERE / "format.json", encoding="utf8"))  # huruf & ukuran tiap pedoman; dipilih dengan @format
 WAJIB = ("judul", "jenis", "nama", "nim", "fasl")
+TANPA = ("ayat", "hadits", "maudhuat")  # فهرس yang boleh dibuang lewat @tanpa; perakitnya di rakit.ps1
 
 HARAKAT = re.compile(r"[ؐ-ًؚ-ٰٟۖ-ۭـ]")
 TAGS = re.compile(r"<[^>]+>")
@@ -315,6 +318,9 @@ def utama(folder):
     n_matan = sum(kata(b["runs"]) for b in blok)
     n_fn = sum(kata(c["runs"]) for c in catatan)
     galat += [f"data sampul belum diisi: @{k}" for k in WAJIB if not meta.get(k)]
+    asing = [t for t in re.split(r"[,، ]+", meta.get("tanpa", "")) if t and t not in TANPA]
+    if asing:
+        galat.append(f"@tanpa: «{'، '.join(asing)}» tidak dikenal (yang ada: {', '.join(TANPA)})")
     if meta.get("thalibah", "ya") != "ya":
         galat.append(f"@thalibah: «{meta['thalibah']}» tidak dikenal: tulis «ya», atau hapus barisnya")
     fmt = meta.get("format", "imam")
