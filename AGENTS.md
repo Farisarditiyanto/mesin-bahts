@@ -14,7 +14,7 @@ Daftar perintah: `python mesin/bahts.py`. Daftar tanda naskah: `python mesin/bah
 
 1. `baru`, lalu susun خطة (فصل/مبحث/مطلب) sesuai permintaan dosen.
 2. Kumpulkan bahan; kutip hanya dari teks yang benar-benar terbaca di kitab lokal.
-   Belum tahu kitab mana yang membahas → `katalog`, atau (kalau terpasang) tanya connector `shamela_*` (shamela.link: seluruh kitab Shamela, nomor kitabnya sama dengan `ambil`). Connector hanya penunjuk jalan: kitabnya tetap di-`ambil`, kutipannya tetap harus lolos `cek`. Batasnya: tidak resmi, butuh akun pemakai sendiri, berkuota, hasil kosong di sana bukan bukti tidak ada, dan subjek pencarian harus frasa pendek persis seperti di kitab.
+   Belum tahu kitab mana yang membahas → `katalog`, atau (kalau pemakai menyalakannya; terdaftar di `.mcp.json`) tanya connector `shamela_*` (shamela.link: seluruh kitab Shamela, nomor kitabnya sama dengan `ambil`). Connector hanya penunjuk jalan: kitabnya tetap di-`ambil`, kutipannya tetap harus lolos `cek`. Batasnya: tidak resmi, butuh akun pemakai sendiri, berkuota, hasil kosong di sana bukan bukti tidak ada, dan subjek pencarian harus frasa pendek persis seperti di kitab.
 3. Tulis `naskah.txt`. Setiap kutipan/penisbatan diberi catatan kaki berisi bukti `<<...>>`. Contoh yang lolos cek: `contoh/naskah.txt`.
 4. `cek` sampai `GAGAL: 0`, lalu `rakit`.
 5. Sebelum lapor selesai: minta subagent baru (yang tidak ikut menulis) membuka sendiri halaman kitab tiap catatan kaki dan menilai PDF hasil terhadap permintaan awal + aturan di bawah; perbaiki temuannya; rakit ulang.

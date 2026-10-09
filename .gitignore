@@ -6,6 +6,7 @@
 !/.gitignore
 !/.gitattributes
 !/.github/
+!/.mcp.json
 !/AGENTS.md
 !/CLAUDE.md
 !/README.md

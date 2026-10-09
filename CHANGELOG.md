@@ -6,6 +6,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 ## Belum dirilis
 
 - `siapkan` punya sumber font kedua: salinan di rilis GitHub proyek ini.
+- `.mcp.json` mendaftarkan connector `shamela` (pilihan) untuk Claude Code.
 
 ## 0.0.1 — 2026-10-09
 

@@ -51,6 +51,15 @@ python mesin/bahts.py siapkan
 
 `siapkan` mengunduh katalog kitab dan font mushaf, lalu memasang font itu untuk akunmu (tanpa hak admin). Aman diulang.
 
+## Connector shamela (pilihan)
+
+Connector = sambungan dari agent ke layanan luar. Connector `shamela` (shamela.link) membantu agent mencari kitab mana yang membahas suatu masalah.
+
+- Berkas `.mcp.json` di repo ini sudah mendaftarkannya. Saat folder ini dibuka, Claude Code menawarkan untuk menyalakannya.
+- Kalau kamu setuju, kamu masuk dengan akun shamela.link milikmu sendiri.
+- Layanan itu tidak resmi dan berkuota. Proyek ini tidak mengelolanya.
+- Kalau kamu menolak, mesin tetap jalan: agent mencari lewat `katalog` dan `cari`.
+
 ## Pakai
 
 1. Buka folder ini di Claude Code.
