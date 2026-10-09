@@ -30,14 +30,4 @@ Daftar perintah: `python mesin/bahts.py`. Daftar tanda naskah: `python mesin/bah
 - `rakit` satu-satu, jangan dua sekaligus (memakai Word yang sama).
 - Teks kitab = ketikan Shamela, jadi bisa salah ketik. Bacaan yang meragukan: `ambil` edisi lain kitab yang sama lalu bandingkan; kalau masih ragu, cocokkan ke scan cetakan (mis. archive.org).
 - Faroos membaca dan mengumpulkan PDF. `.docx` hanya untuk Word (di Google Docs tampilannya pasti beda). Perubahan isi selalu lewat `naskah.txt`, bukan lewat .docx.
-
-## Skill untuk Claude web (`skill/`)
-
-Supaya orang lain bisa memakai mesin ini hanya dengan Claude web + connector shamela. Yang dibagikan: `skill/bahts.zip` (diunggah di Customize → Skills).
-
-- `python skill/bangun.py` membangun zip dari `skill/SKILL.md` + isi `mesin/`. Jalankan lagi tiap `mesin/`, `skill/SKILL.md`, atau «Aturan penulisan» di atas berubah; zip-nya ikut di-commit.
-- Zip tidak boleh memuat data pribadi: `bangun.py` mengosongkan `@nama/@nim/@jenis/@fasl` dari `naskah_baru.txt`, membuang `_sumber` dari `format.json`, dan tidak menyertakan `sampul.doc`.
-- Di sana tidak ada Word dan tidak bisa `ambil`: `rakit` memakai `mesin/rakit_docx.py` (sampul netral, nomor halaman فهارس berupa field), dan kitab diisi per halaman lewat `simpan` dari hasil connector. Karena halamannya disalin AI, `cek` di sana lebih lemah daripada di sini.
-- Tempat orang lain mengunduh: repo publik `github.com/Farisarditiyanto/bahts-skill`, isinya hanya `skill/bahts.zip`, `skill/README.md` (panduan pasang), `skill/LICENSE` (MIT untuk skill), dan `skill/NOTICE` (huruf dan teks mushaf dikecualikan); sumbernya di sini. Salah satunya berubah → salin keempatnya ke klon sementara repo itu di luar `C:\dev`, commit, push. Repo ini sendiri tetap privat.
-- Salinan yang terpaksa: ukuran halaman, lebar tabel, dan susunan فهارس ada di `rakit.ps1` dan `rakit_docx.py`. Ubah satu → ubah yang lain.
-- Uji `rakit_docx.py` di WSL (`os.name != "nt"`), di salinan di luar `C:\dev`, lalu buka .docx-nya di Word.
+- `mesin/rakit_docx.py` = perakit tanpa Word; `rakit` memakainya kalau bukan di Windows. Salinan yang terpaksa: ukuran halaman, lebar tabel, dan susunan فهارس ada di `rakit.ps1` dan `rakit_docx.py`. Ubah satu → ubah yang lain. Ujinya di WSL (`os.name != "nt"`), di salinan di luar `C:\dev`, lalu buka .docx-nya di Word.

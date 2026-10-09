@@ -1,9 +1,0 @@
-The MIT license in LICENSE covers SKILL.md and the Python scripts in mesin/ only.
-
-It does NOT cover these two files inside bahts.zip:
-
-- mesin/UthmanicHafs_V22.ttf, the font "KFGQPC HAFS Uthmanic Script".
-  Copyright (c) 2010 King Fahd Glorious Quran Printing Complex, all rights
-  reserved. It is subject to its own end-user license agreement:
-  http://fonts.qurancomplex.gov.sa/
-- mesin/quran_hafs_v22.json, the mushaf text.
