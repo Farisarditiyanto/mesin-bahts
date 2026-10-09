@@ -22,7 +22,7 @@ Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
 Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex, butuh internet):
   dirasat "<kata kunci>" [maks]   judul, peneliti, tahun, jurnal, tautan, dan ringkasan
 """
-import hashlib, json, os, re, subprocess, sys, urllib.request
+import hashlib, json, os, re, subprocess, sys, urllib.error, urllib.request
 from pathlib import Path
 
 MESIN = Path(__file__).parent
@@ -102,6 +102,8 @@ def rakit(nama):
     f, galat, lap = cek(nama)
     if galat:
         sys.exit(f"Belum dirakit: {galat} galat di atas harus beres dulu.")
+    if os.name != "nt":
+        sys.exit("`rakit` butuh Windows + Microsoft Word. Naskahnya sudah lolos `cek`.")
     if not font_terpasang():
         sys.exit("Font mushaf belum terpasang: python mesin/bahts.py siapkan, lalu ulangi.")
     ps1 = MESIN / "rakit.ps1"
@@ -158,9 +160,13 @@ def dirasat():
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
     cmd, *a = sys.argv[1:] or [""]
+    if not cmd:
+        print(__doc__); sys.exit(0)
     if cmd not in PERINTAH or len(a) < PERINTAH[cmd][0]:
         sys.exit(__doc__)
     try:
         PERINTAH[cmd][1](a)
+    except urllib.error.URLError as e:
+        sys.exit(f"Perintah '{cmd}' gagal mengunduh (cek internet, lalu ulangi): {e}")
     except (ValueError, FileNotFoundError, re.error) as e:
         sys.exit(f"Perintah '{cmd}' salah pakai: {e}\nLihat: python mesin/bahts.py")

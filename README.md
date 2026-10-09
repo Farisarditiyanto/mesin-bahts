@@ -31,10 +31,14 @@ Profil bawaan memakai huruf Traditional Arabic. Kalau Word-mu tidak punya huruf 
 
 ## Pasang
 
-Cara cepat: buka folder hasil unduhan di Claude Code, lalu tulis «siapkan mesin bahts ini». Agent menjalankan perintah kedua dan ketiga di bawah.
+Cara cepat: buka folder hasil unduhan di Claude Code, lalu tulis «siapkan mesin bahts ini». Agent menjalankan dua perintah terakhir di bawah.
 
 ```bash
 git clone https://github.com/Farisarditiyanto/mesin-bahts.git
+```
+
+```bash
+cd mesin-bahts
 ```
 
 ```bash
@@ -54,7 +58,7 @@ python mesin/bahts.py siapkan
 
    > Buatkan bahts tentang الإخلاص وأثره في قبول العمل. Susunannya: مقدمة, satu فصل berisi dua مبحث, خاتمة. Kira-kira 6 halaman.
 
-3. Agent menanyakan data sampul (nama, nomor mahasiswa, semester, pembimbing). Jawabanmu disimpan di `sampul_saya.txt` supaya tidak ditanya lagi.
+3. Agent menanyakan data sampul. Nama, nomor mahasiswa, jenis tugas, dan semester disimpan di `sampul_saya.txt` supaya tidak ditanya lagi. Pembimbing ditanya tiap bahts.
 4. Agent menyusun خطة, mengunduh kitab, menulis `naskah.txt`, menjalankan `cek`, lalu `rakit`.
 5. Hasilnya ada di folder bahts itu: `.pdf` untuk dibaca dan dikumpulkan, `.docx` untuk dibuka di Word.
 

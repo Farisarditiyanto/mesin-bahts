@@ -254,8 +254,8 @@ try {
     foreach ($e in $toc) { $r++; Sel $tTo $r 1 $e.t 3 ([int]($e.lvl -eq 0)); $tTo.Cell($r, 1).Range.ParagraphFormat.RightIndent = 0; $tTo.Cell($r, 1).Range.ParagraphFormat.LeftIndent = 0; if ($e.lvl -gt 0) { $tTo.Cell($r, 1).Range.ParagraphFormat.RightIndent = $word.CentimetersToPoints(0.7 * $e.lvl) }; Sel $tTo $r 2 '00' 1 0 }
     Sel-Akhir
 
-    $fs = $doc.StoryRanges.Item(2)
-    foreach ($fpp in $fs.Paragraphs) { $fpp.ReadingOrder = 0; $fpp.Alignment = 3 }
+    # naskah tanpa catatan kaki tidak punya story catatan kaki
+    if ($doc.Footnotes.Count) { foreach ($fpp in $doc.StoryRanges.Item(2).Paragraphs) { $fpp.ReadingOrder = 0; $fpp.Alignment = 3 } }
     foreach ($sc in $doc.Sections) { $sc.Range.FootnoteOptions.NumberingRule = $ULANG; $sc.Range.FootnoteOptions.StartingNumber = 1 }
     $doc.Range().FootnoteOptions.NumberingRule = $ULANG
 
