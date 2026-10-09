@@ -3,7 +3,7 @@
 Bahts (tiap bahts = satu folder berisi naskah.txt):
   baru <folder> "<judul>"      buat folder bahts baru + kerangka naskah.txt
   cek <folder>                 periksa naskah: tanda, ayat, dan semua bukti <<...>> ke kitab lokal
-  rakit <folder>               cek, lalu rakit .docx + .pdf ke dalam folder itu (Windows: Word asli; selain itu: rakit_docx.py)
+  rakit <folder>               cek, lalu rakit .docx + .pdf (Word) ke dalam folder itu
   tanda                        daftar tanda yang dipakai di naskah.txt
 
 Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
@@ -15,7 +15,6 @@ Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
   teks <id> "<frasa>" [lebar] [maks]   teks asli di sekitar frasa, untuk disalin persis
   bab <id> "<frasa>"           rantai judul kitab/bab tempat frasa berada
   halaman <id> <juz> <hal>     isi satu halaman (juz "-" untuk kitab satu jilid)
-  simpan <id> <juz> <hal> <berkas>   catat satu halaman dari berkas teks (hanya di tempat yang tidak bisa `ambil`)
 
 Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex, butuh internet):
   dirasat "<kata kunci>" [maks]   judul, peneliti, tahun, jurnal, tautan, dan ringkasan
@@ -49,10 +48,6 @@ def cek(nama):
     import olah
     f = folder_bahts(nama)
     galat, lap = olah.utama(f)
-    tiruan = shamela().salinan()
-    if tiruan:
-        lap.append(f"PERHATIAN: {len(tiruan)} kitab di sini berisi halaman salinan (`simpan`), bukan unduhan asli: "
-                   "bukti di atas hanya sekuat salinannya. Bandingkan lagi tiap kutipan dengan sumbernya.")
     print("\n".join(lap))
     return f, galat, lap
 
@@ -61,18 +56,14 @@ def rakit(nama):
     f, galat, lap = cek(nama)
     if galat:
         sys.exit(f"Belum dirakit: {galat} galat di atas harus beres dulu.")
-    (f / "laporan.txt").write_text("\n".join(lap) + "\n", encoding="utf8")
-    build = MESIN / "_tmp" / f"{f.name}.json"
-    if os.name != "nt":  # tanpa Word (Linux, kotak kerja Claude web)
-        import rakit_docx
-        print("\n".join(rakit_docx.rakit(build, f, MESIN / FONT)))
-        return
     if not any((Path(d) / FONT).exists() for d in (os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Windows\Fonts"), r"C:\Windows\Fonts")):
         sys.exit(f"Font mushaf belum terpasang: klik kanan mesin\\{FONT} > Install, lalu ulangi.")
     ps1 = MESIN / "rakit.ps1"
     # Windows PowerShell 5.1 hanya membaca huruf Arab di skrip kalau berkasnya ber-BOM
     if not ps1.read_bytes().startswith(b"\xef\xbb\xbf"):
         ps1.write_bytes(b"\xef\xbb\xbf" + ps1.read_bytes())
+    (f / "laporan.txt").write_text("\n".join(lap) + "\n", encoding="utf8")
+    build = MESIN / "_tmp" / f"{f.name}.json"
     r = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(ps1),
                         "-Build", str(build), "-Folder", str(f)])
     if r.returncode:
@@ -97,7 +88,6 @@ PERINTAH = {  # nama: (jumlah argumen minimal, pemanggil)
     "teks": (2, lambda a: shamela().teks(a[0], a[1], *map(int, a[2:4]))),
     "bab": (2, lambda a: shamela().bab(a[0], a[1])),
     "halaman": (3, lambda a: shamela().halaman(*a[:3])),
-    "simpan": (4, lambda a: shamela().simpan(*a[:4])),
     "dirasat": (1, lambda a: dirasat().cari(a[0], *map(int, a[1:2]))),
 }
 

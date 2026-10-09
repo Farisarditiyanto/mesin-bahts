@@ -234,34 +234,3 @@ def halaman(sid, juz, hal):
                 print("ـــــ\n" + TAGS.sub("", p["footnotes"]))
     if not ada:
         print(f"[{sid}] TIDAK ADA halaman {juz}/{hal}")
-
-
-def simpan(sid, juz, hal, berkas):
-    """Kebalikan `halaman`: catat satu halaman cetak ke kitab lokal supaya bisa di-`cek`, untuk tempat yang
-    tidak bisa `ambil` (kotak kerja Claude web: teksnya disalin dari connector shamela).
-    Isi berkas = matan apa adanya; hasyiah, kalau ada, di bawah baris garis («ـــــ» atau «_____», minimal tiga)."""
-    if not re.fullmatch(r"[1-9][0-9]*", str(sid)) or not re.fullmatch(r"-|[1-9][0-9]*", juz) or not re.fullmatch(r"[0-9]+", str(hal)):
-        raise SystemExit(f"simpan {sid} {juz} {hal}: nomor kitab, juz, dan halaman harus angka Latin tanpa nol di depan (juz «-» = satu jilid).")
-    dst = ROOT / str(int(sid))
-    if (dst / "book_metadata.json").exists():
-        raise SystemExit(f"Kitab {sid} unduhan asli (`ambil`): halamannya tidak boleh ditimpa salinan.")
-    body, foot = (re.split(r"^[ \t]*[ـ_]{3,}[ \t]*$", Path(berkas).read_text(encoding="utf-8-sig"), maxsplit=1, flags=re.M) + [""])[:2]
-    if not re.search("[ء-ي]", body):
-        raise SystemExit(f"{berkas}: tidak ada teks Arab untuk disimpan.")
-    f = dst / "pages.jsonl.gz"
-    lama = list(_pages(sid)) if f.exists() else []
-    lain = [p for p in lama if (str(_juz(p)), str(p.get("page_num"))) != (str(juz), str(int(hal)))]
-    dst.mkdir(parents=True, exist_ok=True)
-    baru = {"part": None if juz == "-" else juz, "page_num": int(hal), "body": body.strip(), "footnotes": foot.strip()}
-    with gzip.open(f, "wt", encoding="utf8") as g:
-        for p in lain + [baru]:
-            g.write(json.dumps(p, ensure_ascii=False) + "\n")
-    ganti = " — MENGGANTI salinan lama halaman itu" if len(lain) < len(lama) else ""
-    print(f"[{sid}] ج{juz} ص{int(hal)} tersimpan ({len(norm(body).split())} kata matan, {len(norm(foot).split())} kata hasyiah){ganti}")
-
-
-def salinan():
-    """shamela_id kitab yang isinya halaman hasil `simpan` (bukan unduhan `ambil`)."""
-    if not ROOT.exists():
-        return []
-    return sorted(int(d.name) for d in ROOT.iterdir() if (d / "pages.jsonl.gz").exists() and not (d / "book_metadata.json").exists())

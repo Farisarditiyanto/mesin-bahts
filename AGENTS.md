@@ -30,4 +30,3 @@ Daftar perintah: `python mesin/bahts.py`. Daftar tanda naskah: `python mesin/bah
 - `rakit` satu-satu, jangan dua sekaligus (memakai Word yang sama).
 - Teks kitab = ketikan Shamela, jadi bisa salah ketik. Bacaan yang meragukan: `ambil` edisi lain kitab yang sama lalu bandingkan; kalau masih ragu, cocokkan ke scan cetakan (mis. archive.org).
 - Faroos membaca dan mengumpulkan PDF. `.docx` hanya untuk Word (di Google Docs tampilannya pasti beda). Perubahan isi selalu lewat `naskah.txt`, bukan lewat .docx.
-- `mesin/rakit_docx.py` = perakit tanpa Word; `rakit` memakainya kalau bukan di Windows. Salinan yang terpaksa: ukuran halaman, lebar tabel, dan susunan فهارس ada di `rakit.ps1` dan `rakit_docx.py`. Ubah satu → ubah yang lain. Ujinya di WSL (`os.name != "nt"`), di salinan di luar `C:\dev`, lalu buka .docx-nya di Word.

@@ -3,8 +3,7 @@
 
 Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   @kunci: nilai       data sampul, di awal naskah. Wajib: judul, jenis, nama, nim, fasl.
-                      Opsional: musyrif, jabatan ("-" = kosongkan), berkas (nama file hasil), format (profil di format.json; bawaan imam),
-                      lembaga (baris kepala sampul rakit_docx.py, dipisah "|"; Word memakai sampul.doc)
+                      Opsional: musyrif, jabatan ("-" = kosongkan), berkas (nama file hasil), format (profil di format.json; bawaan imam)
   #K #F #B #M teks    judul tengah + masuk فهرس الموضوعات: K = مقدمة/خاتمة, F = فصل (keduanya mulai halaman baru), B = مبحث, M = مطلب.
                       Bahts pendek tanpa فصل: #F untuk مبحث, #B untuk مطلب
   #S teks             sub-judul kanan (tidak masuk فهرس)
