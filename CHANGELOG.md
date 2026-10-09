@@ -3,7 +3,7 @@
 Tiap rilis ditulis di sini: yang baru di atas. Nomor versi = `besar.kecil.tambalan`:
 besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan baru, tambalan naik kalau hanya perbaikan.
 
-## Belum dirilis
+## 0.0.2 — 2026-10-09
 
 - `@tanpa: ayat, hadits, maudhuat` membuang فهرس yang tidak diinginkan; فهرس الآيات dan فهرس الأحاديث yang kosong tidak lagi dicetak.
 - `rakit` mencetak `HALAMAN_ISI` (المقدمة sampai الخاتمة).
