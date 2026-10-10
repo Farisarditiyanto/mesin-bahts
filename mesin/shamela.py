@@ -19,12 +19,15 @@ HORMAT = re.compile(
 
 BUKAN_HURUF = re.compile(r"[^ء-ي0-9]+")
 BUKAN_ABJAD = re.compile(r"[^ء-ي]+")
+SYAI = re.compile(r"شئ(?![ء-ي])")
 
 
 def norm(s):
     """Samakan tulisan Arab: buang harakat/tatwil dan kalimat hormat, satukan bentuk alif/ya/ta marbuthah."""
     s = HORMAT.sub("", HARAKAT.sub("", TAGS.sub("", s)))
-    for dari, ke in (("إ", "ا"), ("أ", "ا"), ("آ", "ا"), ("ٱ", "ا"), ("شئ", "شيء"), ("ى", "ي"), ("ة", "ه"), ("ؤ", "و"), ("ئ", "ي")):
+    if "شئ" in s:  # ejaan lama «شئ» = «شيء»; «شئت» (kehendak) tidak ikut
+        s = SYAI.sub("شيء", s)
+    for dari, ke in (("إ", "ا"), ("أ", "ا"), ("آ", "ا"), ("ٱ", "ا"), ("ى", "ي"), ("ة", "ه"), ("ؤ", "و"), ("ئ", "ي")):
         s = s.replace(dari, ke)  # str.replace jauh lebih cepat daripada regex untuk ganti satu huruf
     return BUKAN_HURUF.sub(" ", s).strip()
 
@@ -224,12 +227,13 @@ def _kunci(frasa):
 
 
 def tempat(p, q):
-    """Halaman cetak (awal, akhir) tempat q (sudah `padat`) berada di badan rekaman p; None kalau tidak ada."""
+    """Halaman cetak (awal, akhir) tempat q (sudah `padat`) berada di badan rekaman p; None kalau tidak ada.
+    Halamannya None kalau rekaman itu tidak bernomor halaman."""
     if "_padat" not in p:  # dinormalkan sekali saja per rekaman
         teks, batas = "", []
         for hal, b in _potong(p):
             n = padat(b)
-            batas.append((len(teks), len(teks) + len(n), hal or 0))
+            batas.append((len(teks), len(teks) + len(n), hal))
             teks += n
         p["_padat"] = teks, batas
     teks, batas = p["_padat"]
@@ -237,7 +241,7 @@ def tempat(p, q):
     if j < 0:
         return None
     k = j + len(q) - 1
-    return (next(h for a, z, h in batas if a <= j < z or a == z == j), next(h for a, z, h in batas if a <= k < z))
+    return next(h for a, z, h in batas if a <= j < z), next(h for a, z, h in batas if a <= k < z)
 
 
 def cari(sid, frasa, konteks=90, maks=15, diam=False):

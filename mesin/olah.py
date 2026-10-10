@@ -106,7 +106,7 @@ def cek(sid, juz, hal, pot, perhatian):
     for r in rekaman(sid, juz, p1, p2):
         h = shamela.tempat(r, q)
         if h:
-            if h[0] >= p1 and h[1] <= p2:
+            if (h[0] or 0) >= p1 and (h[1] or 0) <= p2:
                 return ""
             ada_di_lain = h
         elif di_hasyiah(r, q):
@@ -197,6 +197,8 @@ def kutipan_akhir(teks):
             tunggu.append("«" if c == "»" else '"')
         elif tunggu and c == tunggu[-1]:
             tunggu.pop()
+        elif c == "«" and "«" in tunggu:  # " yang tidak berpasangan di dalam «…» diabaikan
+            del tunggu[len(tunggu) - 1 - tunggu[::-1].index("«"):]
         elif not tunggu:
             return None
         if not tunggu:
