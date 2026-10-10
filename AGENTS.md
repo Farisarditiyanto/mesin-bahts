@@ -12,6 +12,9 @@ Anggap pemakai baru pertama kali memakai agent, tidak membaca README, dan hanya 
 3. `periksa` bilang `rakit` BELUM karena Windows atau Microsoft Word → beri tahu pemakai SEKARANG, sebelum menulis apa pun: hasilnya berhenti di naskah yang sudah dicek, tanpa Word dan PDF. Tanya: lanjut, atau pasang Word dulu. Jangan memasang Word sendiri dan jangan memakai pengganti Word. Yang BELUM «huruf Traditional Arabic» → jalankan perintah PowerShell admin yang disebut `periksa`, dan beri tahu pemakai dulu bahwa Windows akan menampilkan satu jendela izin: cukup klik Yes. Perintah itu selesai sesudah jendelanya menutup; ulangi `periksa`. Masih BELUM → minta pemakai menambah papan ketik Arab seperti yang disebut `periksa`.
 4. Connector `shamela` sangat disarankan. Alat `shamela_*` tidak tersedia → beri tahu pemakai sekali: gunanya (mencari kitab yang membahas suatu masalah, termasuk yang belum diunduh) dan caranya (setujui connector `shamela` yang ditawarkan Claude Code, lalu masuk dengan akun shamela.link sendiri). Pemakai menolak atau belum bisa → lanjut dengan `temukan`, `katalog`, dan `cari` (connector `turath` tidak butuh akun), dan tulis di laporan akhir bahwa pencarian bahan lebih sempit.
 
+5. Connector lain di `.mcp.json` semuanya pilihan dan hanya penunjuk jalan. Tanpa akun: `turath` (isi semua kitab), `hadithunlocked` (hadits, derajat, syarah), `tafsir` (tafsir per ayat), `quran` (teks ayat). `openalex` (penelitian terdahulu): pemakai masuk dengan surelnya di openalex.org. Yang ditolak pemakai → lewati saja.
+6. `kunci_openalex.txt` belum ada → beri tahu pemakai sekali: `dirasat` tetap jalan dengan jatah kecil; kunci gratis (openalex.org > Settings > API key) menaikkannya dan membuka `dirasat-pdf`. Pemakai memberi kuncinya → simpan sebagai satu baris di berkas itu. Jangan menulis kunci itu di tempat lain.
+
 ## Sebelum tiap bahts
 
 - `sampul_saya.txt` belum ada → tanya pemakai sekali: nama (huruf Arab), nomor mahasiswa, jenis tugas, semester, dan mahasiswa atau mahasiswi. Simpan sebagai baris `@nama:`, `@nim:`, `@jenis:`, `@fasl:` di berkas itu. `baru` memakainya untuk tiap bahts.
@@ -27,7 +30,7 @@ Anggap pemakai baru pertama kali memakai agent, tidak membaca README, dan hanya 
 
 1. `baru`, lalu susun خطة (فصل/مبحث/مطلب) sesuai permintaan dosen.
 2. Kumpulkan bahan; kutip hanya dari teks yang benar-benar terbaca di kitab lokal.
-   Belum tahu kitab mana yang membahas → `temukan "<frasa>"` (isi semua kitab Shamela lewat turath.io, tanpa akun), `katalog` (judul/pengarang), atau (kalau pemakai menyalakannya; terdaftar di `.mcp.json`) tanya connector `shamela_*` (shamela.link: seluruh kitab Shamela, nomor kitabnya sama dengan `ambil`). Connector hanya penunjuk jalan: kitabnya tetap di-`ambil`, kutipannya tetap harus lolos `cek`. Batasnya: tidak resmi, butuh akun pemakai sendiri, berkuota, hasil kosong di sana bukan bukti tidak ada, dan subjek pencarian harus frasa pendek persis seperti di kitab.
+   Belum tahu kitab mana yang membahas → `temukan "<frasa>"` (isi semua kitab Shamela lewat turath.io, tanpa akun; berjatah, jadi jangan dipanggil ratusan kali berturut-turut), `katalog` (judul/pengarang), atau (kalau pemakai menyalakannya; terdaftar di `.mcp.json`) tanya connector `shamela_*` (shamela.link: seluruh kitab Shamela, nomor kitabnya sama dengan `ambil`). Connector hanya penunjuk jalan: kitabnya tetap di-`ambil`, kutipannya tetap harus lolos `cek`. Batasnya: tidak resmi, butuh akun pemakai sendiri, berkuota, hasil kosong di sana bukan bukti tidak ada, dan subjek pencarian harus frasa pendek persis seperti di kitab.
 3. Tulis `naskah.txt`. Setiap kutipan/penisbatan diberi catatan kaki berisi bukti `<<...>>`. Contoh yang lolos cek: `contoh/naskah.txt`.
 4. `cek` sampai `GAGAL: 0`. Lalu bereskan tiap baris `perhatian`: bukti di حاشية المحقق = kalimat muhaqqiq, jangan dinisbatkan ke pengarang kitab; kitab «مرقم آليا» = nomor halamannya bukan nomor cetakan, `ambil` edisi yang «موافق للمطبوع». Yang tidak bisa dibereskan → sebut di laporan akhir. Lalu `rakit`.
 5. Sebelum lapor selesai: minta subagent baru (yang tidak ikut menulis) membuka sendiri halaman kitab tiap catatan kaki dan menilai PDF hasil terhadap permintaan awal + aturan di bawah; perbaiki temuannya; rakit ulang.
@@ -41,7 +44,7 @@ Anggap pemakai baru pertama kali memakai agent, tidak membaca README, dan hanya 
 - Takhrij hadits: `أخرجه البخاري، كتاب …، باب …، رقم الحديث (n)، juz/hal.`; di luar Shahihain wajib sebut derajatnya beserta siapa yang menghukumi. Catatan kaki hadits cukup takhrij itu; data cetak kitab haditsnya (muhaqqiq, penerbit, cetakan) ditulis di المصادر والمراجع.
 - Rujukan pertama sebuah kitab selain kitab hadits yang ditakhrij: data lengkap (judul, pengarang, muhaqqiq, penerbit-kota, cetakan-tahun, juz/hal) — ambil dari `kartu`. Berikutnya ringkas: `judul، pengarang، juz/hal.`
 - Nukilan lafaz di antara tanda kutip; nukilan makna diawali `انظر:`. Penisbatan lewat perantara harus disebut perantaranya.
-- الدراسات السابقة (kalau dosen minta): `#S` di المقدمة; tiap penelitian disebut judul, peneliti, jurnal/kampus, tahun, lalu وجه الاتفاق والاختلاف dengan bahts ini. Hanya dari `dirasat` yang ringkasan atau PDF-nya benar-benar dibaca.
+- الدراسات السابقة (kalau dosen minta): `#S` di المقدمة; tiap penelitian disebut judul, peneliti, jurnal/kampus, tahun, lalu وجه الاتفاق والاختلاف dengan bahts ini. Hanya dari `dirasat` yang ringkasan atau PDF-nya benar-benar dibaca. `dirasat` mencari menurut kata dan menurut makna: kalau kata kunci pendek tidak ketemu, tulis masalahnya sebagai kalimat. PDF-nya: `dirasat-pdf <W…> <folder>` (butuh kunci OpenAlex), lalu baca berkasnya.
 - Dilarang mengarang: nomor halaman, lafaz, penisbatan pendapat, dan derajat hadits harus terbaca di kitab lokal. Yang tidak bisa dibuktikan → jangan ditulis, atau laporkan sebagai «belum dicek».
 
 ## Yang perlu diketahui
@@ -56,7 +59,7 @@ Anggap pemakai baru pertama kali memakai agent, tidak membaca README, dan hanya 
 
 - Repo ini publik: nama orang, nomor mahasiswa, dan naskah siapa pun jangan masuk berkas yang dilacak git.
 - Yang ada di `main` langsung dilihat semua orang. Perubahan dikerjakan di cabang lain (mis. `kerja`), dicoba dulu lewat pintu pemakai (`periksa`, `cek contoh`, `rakit contoh`), baru digabung ke `main` sebagai satu commit (`git merge --squash`). Cabang kerja dibuat baru dari `main` tiap putaran; cabang yang sudah digabung jangan dipakai lagi.
-- `temukan`, `hadits`, `dirasat`, dan connector di `.mcp.json` memakai layanan orang lain (turath.io, alminasa.ai, OpenAlex, DOAJ, shamela.link) yang bisa berubah atau mati tanpa kabar. Semuanya hanya penunjuk jalan: `cek` dan `rakit` tidak boleh bergantung padanya.
+- `temukan`, `hadits`, `dirasat`, dan connector di `.mcp.json` memakai layanan orang lain (turath.io, alminasa.ai, OpenAlex, DOAJ, shamela.link, hadithunlocked.com, tafsir.net, quran.ai) yang bisa berubah atau mati tanpa kabar. Semuanya hanya penunjuk jalan: `cek` dan `rakit` tidak boleh bergantung padanya.
 - Tes otomatis = `.github/workflows/tes.yml`: `siapkan`, `ambil`, lalu `cek contoh`. Nomor kitab di berkas itu harus sama dengan bukti di `contoh/naskah.txt` (salinan terpaksa).
 - Perubahan yang dirasakan pemakai dicatat di `CHANGELOG.md`.
 - `CLAUDE.md` hanya menunjuk ke berkas ini.

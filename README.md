@@ -73,7 +73,23 @@ Connector = sambungan dari agent ke layanan luar. Connector `shamela` (shamela.l
 - Kalau kamu setuju, kamu masuk dengan akun shamela.link milikmu sendiri.
 - Layanan itu tidak resmi dan berkuota. Proyek ini tidak mengelolanya.
 - Kalau kamu menolak, mesin tetap jalan: agent mencari lewat `temukan` (isi semua kitab, lewat turath.io, tanpa akun), `katalog`, dan `cari`.
-- `.mcp.json` juga mendaftarkan connector `turath` (turath.io): tanpa akun, mencari di isi semua kitab. Layanan itu juga bukan milik proyek ini.
+- `.mcp.json` juga mendaftarkan connector pilihan lain. Semuanya layanan orang lain, bukan milik proyek ini:
+
+| Connector | Gunanya | Masuk |
+|---|---|---|
+| `turath` | mencari di isi semua kitab | tanpa akun |
+| `hadithunlocked` | hadits, derajatnya, dan syarahnya | tanpa akun |
+| `tafsir` | tafsir per ayat | tanpa akun |
+| `quran` | teks ayat | tanpa akun |
+| `openalex` | penelitian terdahulu | surel kamu di openalex.org |
+
+## Kunci OpenAlex (pilihan)
+
+`dirasat` mencari penelitian terdahulu. Tanpa kunci, jatahnya kecil. Kunci gratis menaikkan jatah itu dan membuka `dirasat-pdf` (mengunduh PDF penelitian).
+
+1. Daftar di https://openalex.org.
+2. Salin kunci dari Settings > API key.
+3. Simpan sebagai satu baris di berkas `kunci_openalex.txt` di folder ini, atau berikan ke agent.
 
 ## Pakai
 

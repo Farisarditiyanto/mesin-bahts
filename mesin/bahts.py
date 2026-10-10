@@ -25,7 +25,9 @@ Takhrij (penunjuk jalan, «المنصة الحديثية», butuh internet):
   hadits "<طرف>" [maks]        tempat hadits di 12 kitab hadits + hukum ulama; tetap dibaca di kitabnya sendiri
 
 Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex dan DOAJ, butuh internet):
-  dirasat "<kata kunci>" [maks]   judul, peneliti, tahun, jurnal, tautan, dan ringkasan
+  dirasat "<kata kunci>" [maks] [saringan]   judul, peneliti, tahun, jurnal, tautan, dan ringkasan; dicari menurut kata
+                               dan menurut makna. Saringan OpenAlex, mis. language:ar,type:dissertation
+  dirasat-pdf <W…> <folder>    unduh PDF penelitian (nomor OpenAlex dari `dirasat`) ke folder bahts; butuh kunci OpenAlex
 """
 import hashlib, http.client, json, os, re, subprocess, sys, urllib.error, urllib.request
 from pathlib import Path
@@ -202,7 +204,8 @@ PERINTAH = {  # nama: (jumlah argumen minimal, pemanggil)
     "bab": (2, lambda a: shamela().bab(a[0], a[1])),
     "halaman": (3, lambda a: shamela().halaman(*a[:3])),
     "hadits": (1, lambda a: hadits().cari(a[0], *map(int, a[1:2]))),
-    "dirasat": (1, lambda a: dirasat().cari(a[0], *map(int, a[1:2]))),
+    "dirasat": (1, lambda a: dirasat().cari(a[0], *map(int, a[1:2]), *a[2:3])),
+    "dirasat-pdf": (2, lambda a: dirasat().pdf(a[0], folder_bahts(a[1]))),
 }
 
 
@@ -240,6 +243,10 @@ if __name__ == "__main__":
         if not 400 <= e.code < 500 or e.code == 429:
             sys.exit(f"Perintah '{cmd}': layanannya sedang menolak atau sibuk (HTTP {e.code}). Ulangi sebentar lagi.")
         sys.exit(f"Perintah '{cmd}': layanannya menolak permintaan ini (HTTP {e.code}). Periksa kata/angka yang diketik: {a}")
+    except OSError as e:
+        if type(e) is not OSError:  # OSError polos = kalimat buatan mesin; turunannya (jaringan, berkas) diurus di bawah
+            raise
+        sys.exit(f"Perintah '{cmd}' gagal: {e}")
     except GAGAL_UNDUH as e:
         sys.exit(f"Perintah '{cmd}' gagal mengunduh (cek internet, lalu ulangi): {e!r}")
     except (ValueError, FileNotFoundError, re.error) as e:
