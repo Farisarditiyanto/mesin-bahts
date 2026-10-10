@@ -32,6 +32,8 @@ Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex dan DOAJ
 import hashlib, http.client, json, os, re, subprocess, sys, urllib.error, urllib.request
 from pathlib import Path
 
+import dirasat, hadits, shamela  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
+
 MESIN = Path(__file__).parent
 AKAR = MESIN.parent
 # Font mushaf «KFGQPC HAFS Uthmanic Script» milik مجمع الملك فهد: tidak ikut repo (lihat NOTICE), diunduh oleh `siapkan`.
@@ -52,7 +54,7 @@ def font_terpasang():
 
 def siapkan():
     """Lengkapi yang tidak ikut repo: katalog kitab dan font mushaf. Aman diulang."""
-    shamela().siapkan()
+    shamela.siapkan()
     f = MESIN / FONT
     if not f.exists():
         for url in FONT_SUMBER:
@@ -102,7 +104,7 @@ def periksa():
           "pasang Python 3.12 (Windows: winget install Python.Python.3.12), lalu ulangi dengan Python itu")
     baris(all(importlib.util.find_spec(m) for m in ("pandas", "pyarrow")), "pustaka Python (pandas, pyarrow)",
           "python -m pip install -r requirements.txt")
-    baris((AKAR / "kitab" / shamela().KATALOG).exists(), "katalog kitab", "python mesin/bahts.py siapkan")
+    baris((AKAR / "kitab" / shamela.KATALOG).exists(), "katalog kitab", "python mesin/bahts.py siapkan")
     baris(os.name == "nt", "Windows", "`rakit` hanya jalan di Windows; di sini mesin berhenti di `cek`", untuk_cek=False)
     if os.name == "nt":
         import winreg
@@ -196,18 +198,18 @@ PERINTAH = {  # nama: (jumlah argumen minimal, pemanggil)
     "cek": (1, lambda a: sys.exit(1 if cek(a[0])[1] else 0)),
     "rakit": (1, lambda a: rakit(a[0])),
     "tanda": (0, lambda a: print(tanda())),
-    "kitab": (0, lambda a: shamela().daftar()),
-    "katalog": (1, lambda a: shamela().katalog(a[0])),
-    "temukan": (1, lambda a: shamela().temukan(a[0], *map(int, a[1:2]))),
-    "ambil": (1, lambda a: [shamela().ambil(x) for x in a]),
-    "kartu": (1, lambda a: shamela().kartu(a[0])),
-    "cari": (2, lambda a: shamela().cari(a[0], a[1])),
-    "teks": (2, lambda a: shamela().teks(a[0], a[1], *map(int, a[2:4]))),
-    "bab": (2, lambda a: shamela().bab(a[0], a[1])),
-    "halaman": (3, lambda a: shamela().halaman(*a[:3])),
-    "hadits": (1, lambda a: hadits().cari(a[0], *map(int, a[1:2]))),
-    "dirasat": (1, lambda a: dirasat().cari(a[0], *map(int, a[1:2]), *a[2:3])),
-    "dirasat-pdf": (2, lambda a: dirasat().pdf(a[0], folder_bahts(a[1]))),
+    "kitab": (0, lambda a: shamela.daftar()),
+    "katalog": (1, lambda a: shamela.katalog(a[0])),
+    "temukan": (1, lambda a: shamela.temukan(a[0], *map(int, a[1:2]))),
+    "ambil": (1, lambda a: [shamela.ambil(x) for x in a]),
+    "kartu": (1, lambda a: shamela.kartu(a[0])),
+    "cari": (2, lambda a: shamela.cari(a[0], a[1])),
+    "teks": (2, lambda a: shamela.teks(a[0], a[1], *map(int, a[2:4]))),
+    "bab": (2, lambda a: shamela.bab(a[0], a[1])),
+    "halaman": (3, lambda a: shamela.halaman(*a[:3])),
+    "hadits": (1, lambda a: hadits.cari(a[0], *map(int, a[1:2]))),
+    "dirasat": (1, lambda a: dirasat.cari(a[0], *map(int, a[1:2]), *a[2:3])),
+    "dirasat-pdf": (2, lambda a: dirasat.pdf(a[0], folder_bahts(a[1]))),
 }
 
 
@@ -215,21 +217,6 @@ def tanda():
     """Daftar tanda naskah: ditulis sekali di kepala olah.py (tempat tanda itu diurai), dicetak dari sana."""
     import olah
     return olah.__doc__[olah.__doc__.index("Tanda di naskah"):].rstrip()
-
-
-def shamela():
-    import shamela
-    return shamela
-
-
-def hadits():
-    import hadits
-    return hadits
-
-
-def dirasat():
-    import dirasat
-    return dirasat
 
 
 if __name__ == "__main__":
