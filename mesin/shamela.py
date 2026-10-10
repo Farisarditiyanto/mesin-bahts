@@ -86,6 +86,7 @@ def katalog(pat):
 
 TURATH = "https://api.turath.io/search"  # pencarian isi seluruh Shamela; nomor kitabnya = shamela_id (sama dengan `ambil`)
 TURATH_MAKS = 20  # turath menjawab sebanyak ini tiap pencarian
+TURATH_SABAR = 30  # detik; turath minta menunggu lebih lama dari ini = jatah pencarian habis, bukan sekadar terlalu cepat
 
 
 def temukan(frasa, maks=20):
@@ -101,9 +102,14 @@ def temukan(frasa, maks=20):
                 with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60) as r:
                     return json.load(r)
             except urllib.error.HTTPError as e:
-                if e.code != 429 or not ulang:
+                if e.code != 429:
                     raise
-                time.sleep(int(e.headers.get("retry-after") or 11) + 1)  # turath membatasi permintaan beruntun
+                tunggu = e.headers.get("retry-after") or ""
+                tunggu = int(tunggu) if tunggu.isdigit() else 11  # turath membatasi permintaan beruntun dan jumlah pencarian
+                if tunggu > TURATH_SABAR or not ulang:
+                    raise SystemExit(f"Jatah pencarian turath.io untuk komputer ini habis; terbuka lagi sekitar {tunggu // 60 + 1} menit lagi. "
+                                     "Sementara itu: connector `turath` (jatahnya terpisah), `katalog`, atau `cari semua`.")
+                time.sleep(tunggu + 1)
     d = tanya(True)
     if not d["count"]:
         d = tanya(False)

@@ -7,6 +7,22 @@
     "turath": {
       "type": "http",
       "url": "https://mcp.turath.io/mcp/"
+    },
+    "hadithunlocked": {
+      "type": "http",
+      "url": "https://hadithunlocked.com/mcp"
+    },
+    "tafsir": {
+      "type": "http",
+      "url": "https://mcp.tafsir.net/mcp"
+    },
+    "quran": {
+      "type": "http",
+      "url": "https://mcp.quran.ai"
+    },
+    "openalex": {
+      "type": "http",
+      "url": "https://mcp.openalex.org/mcp"
     }
   }
 }
