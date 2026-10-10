@@ -111,8 +111,9 @@ def cek(sid, juz, hal, pot, perhatian):
         if pesan not in perhatian:
             perhatian.append(pesan)
     juz_ada = {r.get("part") for r in kitab(sid)}
-    if juz == "-" and None not in juz_ada:
-        return f"kitab {sid} berjilid: tulis juz-nya, mis. <<{sid}|1|{hal}>> (juz \"-\" hanya untuk kitab satu jilid)"
+    if juz == "-" and len(juz_ada) > 1 and None not in juz_ada:  # satu nilai juz saja = kitab satu jilid
+        contoh = min(juz_ada, key=lambda x: (not str(x).isdigit(), str(x).zfill(4)))
+        return f"kitab {sid} berjilid: tulis juz-nya, mis. <<{sid}|{contoh}|{hal}>> (juz \"-\" hanya untuk kitab satu jilid)"
     if juz != "-" and juz not in juz_ada:
         if juz_ada == {None}:
             return f"kitab {sid} satu jilid: tulis juz \"-\", mis. <<{sid}|-|{hal}>>"
@@ -309,7 +310,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             runs.append({"t": "]", "b": tebal}); polos += "]"
     if tebal:
         raise ValueError("tanda ** tidak berpasangan")
-    if "<<" in polos or ">>" in polos:
+    if re.search(r"<<\d+\|", polos):
         raise ValueError("bukti <<...>> hanya boleh di dalam catatan kaki [^...]; di luar itu ia ikut tercetak")
     if re.search(r"\{(?:Q|H2|H|P):", polos):
         raise ValueError("tanda {Q:/{H:/{H2:/{P: tidak ditutup dengan }")
