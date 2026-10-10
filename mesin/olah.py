@@ -110,8 +110,17 @@ def cek(sid, juz, hal, pot, perhatian):
                  "pakai edisi yang «موافق للمطبوع», atau cocokkan ke cetakannya")
         if pesan not in perhatian:
             perhatian.append(pesan)
+    juz_ada = {r.get("part") for r in kitab(sid)}
+    if juz == "-" and None not in juz_ada:
+        return f"kitab {sid} berjilid: tulis juz-nya, mis. <<{sid}|1|{hal}>> (juz \"-\" hanya untuk kitab satu jilid)"
+    if juz != "-" and juz not in juz_ada:
+        if juz_ada == {None}:
+            return f"kitab {sid} satu jilid: tulis juz \"-\", mis. <<{sid}|-|{hal}>>"
+        return f"kitab {sid} tidak punya juz {juz} (yang ada: {'، '.join(sorted(map(str, juz_ada - {None}), key=lambda x: (not x.isdigit(), x.zfill(4))))})"
     p1, _, p2 = hal.partition("-")
     p1 = int(p1); p2 = int(p2) if p2 else p1
+    if p2 < p1:
+        return f"rentang halaman terbalik: {hal}"
     if pot.startswith("#"):
         nomor = "".join(AD[int(c)] for c in pot[1:])
         for r, awal in rekaman(sid, juz, p1, p2):
@@ -137,13 +146,19 @@ def cek(sid, juz, hal, pot, perhatian):
     if ada_di_lain:
         return f"teks ada tapi di hal {ada_di_lain[0]}-{ada_di_lain[1]}, bukan {hal} ({sid}) :: {pot[:40]}"
     # cari di seluruh kitab untuk memberi petunjuk: matan dulu, baru حاشية
-    hasyiah = None
+    hasyiah, tempat = None, []
     for r in kitab(sid):
         h = halaman_potongan(r, r.get("page_num") or 0, q)
         if h:
-            return f"teks TIDAK di {juz}/{hal}; ketemu di ج{shamela._juz(r)} ص{h[0]} ({sid}) :: {pot[:40]}"
-        if not hasyiah and q in vnorm(r.get("footnotes") or ""):
+            t = f"ج{shamela._juz(r)} ص{h[0]}"
+            if t not in tempat:
+                tempat.append(t)
+        elif not hasyiah and q in vnorm(r.get("footnotes") or ""):
             hasyiah = r
+    if tempat:
+        tempat.sort(key=lambda t: not t.startswith(f"ج{juz} "))  # juz yang ditulis didahulukan
+        lagi = f" (dan {len(tempat) - 3} tempat lain)" if len(tempat) > 3 else ""
+        return f"teks TIDAK di {juz}/{hal}; ketemu di {'، '.join(tempat[:3])}{lagi} ({sid}) :: {pot[:40]}"
     if hasyiah:
         return (f"teks TIDAK di {juz}/{hal}; ketemu di ج{shamela._juz(hasyiah)} ص{hasyiah.get('page_num')} [حاشية] "
                 f"({sid}) :: {pot[:40]}")
@@ -181,6 +196,8 @@ def ayat(spec):
         raise ValueError(f"{{Q:{spec}}}: surat/ayat itu tidak ada")
     if "-" in p[1]:
         a, b = map(int, p[1].split("-"))
+        if a > b:
+            raise ValueError(f"{{Q:{spec}}}: rentang ayat harus dari kecil ke besar")
         bagian = []
         for n in range(a, b + 1):
             bagian.append(QURAN[f"{s}:{n}"])
@@ -270,7 +287,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 if SURAH[s - 1] not in isi or not all(re.search(rf"(?<!\d){x}(?!\d)", isi) for x in a.split("-")):
                     galat.append(f"catatan kaki ayat tidak cocok dengan {{Q:{s}:{a}}} (سورة {SURAH[s - 1]}) || fn: {isi[:45]}")
             # kutipan terakhir tepat sebelum catatan kaki
-            mk = re.search(r"[\"«]([^\"«»]*)[\"»][\s.،؛!؟]*$", polos)
+            mk = re.search(r"[\"«]([^\"«»]*)[\"»][\s.،؛!؟\"»]*$", polos)
             terbukti = []  # (sid, juz, p1, p2) tiap bukti, untuk dicocokkan dengan yang tercetak
             for b in bukti:
                 f = b.split("|")
@@ -292,6 +309,8 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             runs.append({"t": "]", "b": tebal}); polos += "]"
     if tebal:
         raise ValueError("tanda ** tidak berpasangan")
+    if "<<" in polos or ">>" in polos:
+        raise ValueError("bukti <<...>> hanya boleh di dalam catatan kaki [^...]; di luar itu ia ikut tercetak")
     if re.search(r"\{(?:Q|H2|H|P):", polos):
         raise ValueError("tanda {Q:/{H:/{H2:/{P: tidak ditutup dengan }")
     return [r for r in runs if r.get("t", "x") != ""]
@@ -354,7 +373,7 @@ def utama(folder):
               open(HERE / "_tmp" / f"{folder.name}.json", "w", encoding="utf8"), ensure_ascii=False)
     n_bukti = sum(c["bukti"] for c in catatan)
     fn_tanpa = [HARAKAT.sub("", "".join(r.get("t", "") for r in c["runs"]))[:60] for c in catatan
-                if c["bukti"] == 0 and not "".join(r.get("t", "") for r in c["runs"]).startswith("سورة")]
+                if c["bukti"] == 0 and not "".join(r.get("t", "") for r in c["runs"]).startswith(("سورة", "سبق تخريجه"))]
     lap = [f"blok={len(blok)} | kata matan={n_matan} | catatan kaki={len(catatan)} ({n_fn} kata) | ayat={len(ayat_idx)} | hadits={len(hadits_idx)} | pustaka={len(pustaka)}",
            f"bukti dicek ke Shamela lokal: {n_bukti} | GAGAL: {len(galat)}"]
     lap += [f"  ✗ {g}" for g in galat]
