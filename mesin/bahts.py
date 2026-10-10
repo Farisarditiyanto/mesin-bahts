@@ -243,10 +243,6 @@ if __name__ == "__main__":
         if not 400 <= e.code < 500 or e.code == 429:
             sys.exit(f"Perintah '{cmd}': layanannya sedang menolak atau sibuk (HTTP {e.code}). Ulangi sebentar lagi.")
         sys.exit(f"Perintah '{cmd}': layanannya menolak permintaan ini (HTTP {e.code}). Periksa kata/angka yang diketik: {a}")
-    except OSError as e:
-        if type(e) is not OSError:  # OSError polos = kalimat buatan mesin; turunannya (jaringan, berkas) diurus di bawah
-            raise
-        sys.exit(f"Perintah '{cmd}' gagal: {e}")
     except GAGAL_UNDUH as e:
         sys.exit(f"Perintah '{cmd}' gagal mengunduh (cek internet, lalu ulangi): {e!r}")
     except (ValueError, FileNotFoundError, re.error) as e:

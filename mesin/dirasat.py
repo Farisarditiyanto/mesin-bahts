@@ -21,26 +21,45 @@ DOAJ = "https://doaj.org/api/search/articles/"
 ARAH = re.compile("[‎‏‪-‮⁦-⁩]")  # tanda arah tulisan yang ikut tersalin dari PDF
 
 
+class Ditolak(OSError):
+    """Layanan menjawab, tetapi menolak; isinya kalimat untuk pemakai."""
+
+
 def _kunci():
     return KUNCI.read_text(encoding="utf-8-sig").strip() if KUNCI.exists() else ""
 
 
 def _buka(url):
-    """Buka alamat (kunci OpenAlex ikut hanya ke openalex.org); galat OpenAlex yang dikenal dijadikan kalimat."""
+    """Buka alamat (kunci OpenAlex ikut hanya ke openalex.org); penolakan OpenAlex yang dikenal dijadikan kalimat."""
     kepala = {"User-Agent": "bahts/1"}
-    if _kunci() and urllib.parse.urlsplit(url).hostname.endswith(".openalex.org"):
+    openalex = urllib.parse.urlsplit(url).hostname.endswith(".openalex.org")
+    if openalex and _kunci():
         kepala["Authorization"] = "Bearer " + _kunci()
-    try:
-        return urllib.request.urlopen(urllib.request.Request(url, headers=kepala), timeout=120)
-    except urllib.error.HTTPError as e:
-        if e.code == 401:
-            raise OSError(f"kunci di {KUNCI.name} ditolak atau belum ada: salin ulang dari Settings > API key di https://openalex.org")
-        if e.code == 429:
-            raise OSError("jatah hari ini habis (kembali penuh 00.00 UTC). " + ("" if _kunci() else
-                          f"Kunci gratis menaikkannya 10 kali: pemakai daftar di https://openalex.org, lalu simpan kuncinya di {KUNCI.name}"))
-        if e.code == 400:
-            raise OSError("permintaan ditolak (HTTP 400): periksa saringan dan kata yang diketik")
-        raise
+    for sisa_coba in (2, 1, 0):
+        try:
+            return urllib.request.urlopen(urllib.request.Request(url, headers=kepala), timeout=120)
+        except urllib.error.HTTPError as e:
+            pesan = e.read().decode("utf8", "replace")
+            # mesin pencari makna OpenAlex kadang kewalahan (dijawabnya sebagai 400), begitu juga 5xx: tunggu, coba lagi
+            if sisa_coba and (e.code >= 500 or "Failed to embed" in pesan):
+                time.sleep(3)
+                continue
+            if not openalex:
+                raise
+            if e.code == 401:
+                raise Ditolak(f"kunci di {KUNCI.name} ditolak atau belum ada: salin ulang dari Settings > API key di https://openalex.org")
+            if e.code == 429:
+                raise Ditolak("jatah hari ini habis (kembali penuh 00.00 UTC). " + ("" if _kunci() else
+                              f"Kunci gratis menaikkannya 10 kali: pemakai daftar di https://openalex.org, lalu simpan kuncinya di {KUNCI.name}"))
+            if "Failed to embed" in pesan:
+                raise Ditolak("mesin pencari makna OpenAlex sedang sibuk: ulangi sebentar lagi")
+            if e.code == 400:
+                try:
+                    pesan = json.loads(pesan)["message"]
+                except (ValueError, KeyError, TypeError):
+                    pass
+                raise Ditolak(f"OpenAlex menolak permintaan ini: {pesan[:300]}")
+            raise
 
 
 def _doi(d):
@@ -49,7 +68,8 @@ def _doi(d):
 
 def _openalex(cara, kata, maks, saringan):
     """(jumlah yang cocok, [penelitian], sisa jatah USD) dari OpenAlex; cara = nama parameter pencariannya."""
-    p = {cara: kata, "per_page": maks, "select": KOLOM}
+    # corpus=all: ikut mencari di kumpulan tambahan OpenAlex, tempat banyak risalah kampus berada
+    p = {cara: kata, "per_page": maks, "select": KOLOM, "corpus": "all"}
     if saringan:
         p["filter"] = saringan
     if cara == "search" and _kunci():
@@ -103,8 +123,10 @@ SUMBER = (("OpenAlex, menurut kata", _kata), ("OpenAlex, menurut makna", _makna)
 
 def cari(kata, maks=10, saringan="", lebar=400):
     """Judul, peneliti, tahun, jenis, jurnal/kampus, tautan, dan ringkasan tiap penelitian yang cocok, dari tiap sumber.
-    saringan = saringan OpenAlex apa adanya, mis. «language:ar», «type:dissertation», «from_publication_date:2015-01-01»
+    saringan = saringan OpenAlex apa adanya, mis. «language:ar», «type:dissertation», «publication_year:>2014»
     (beberapa dipisah koma)."""
+    if not kata.strip() or not 1 <= maks <= 100:
+        raise ValueError('bentuknya: dirasat "<kata kunci>" [maks 1-100] [saringan]')
     n, sudah, gagal, sisa = 0, set(), 0, None
     for nama, ambil in SUMBER:
         try:
@@ -141,14 +163,19 @@ def pdf(nomor, folder):
     if not re.fullmatch(r"W\d+", nomor):
         raise ValueError(f"«{nomor}» bukan nomor OpenAlex (bentuknya W123…, tercetak oleh `dirasat`)")
     tujuan = Path(folder) / f"{nomor}.pdf"
+    if tujuan.exists():
+        print(f"Sudah ada: {tujuan}")
+        return
     try:
         with _buka(PDF.format(nomor)) as r:
             isi = r.read()
+    except Ditolak as e:
+        raise SystemExit(f"PDF {nomor} tidak terunduh: {e}")
     except urllib.error.HTTPError as e:
         if e.code != 404:
             raise
-        raise OSError(f"OpenAlex tidak menyimpan PDF {nomor}: pakai tautan «PDF:» yang dicetak `dirasat`, kalau ada")
+        raise SystemExit(f"OpenAlex tidak menyimpan PDF {nomor}: pakai tautan «PDF:» yang dicetak `dirasat`, kalau ada")
     if not isi.startswith(b"%PDF"):
-        raise OSError(f"jawaban OpenAlex untuk {nomor} bukan PDF")
+        raise SystemExit(f"Jawaban OpenAlex untuk {nomor} bukan PDF.")
     tujuan.write_bytes(isi)
     print(f"Jadi: {tujuan} ({len(isi) / 1e6:.1f} MB)")

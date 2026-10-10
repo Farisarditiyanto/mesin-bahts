@@ -104,7 +104,8 @@ def temukan(frasa, maks=20):
             except urllib.error.HTTPError as e:
                 if e.code != 429:
                     raise
-                tunggu = int(e.headers.get("retry-after") or 11)  # turath membatasi permintaan beruntun dan jumlah pencarian
+                tunggu = e.headers.get("retry-after") or ""
+                tunggu = int(tunggu) if tunggu.isdigit() else 11  # turath membatasi permintaan beruntun dan jumlah pencarian
                 if tunggu > TURATH_SABAR or not ulang:
                     raise SystemExit(f"Jatah pencarian turath.io untuk komputer ini habis; terbuka lagi sekitar {tunggu // 60 + 1} menit lagi. "
                                      "Sementara itu: connector `turath` (jatahnya terpisah), `katalog`, atau `cari semua`.")
