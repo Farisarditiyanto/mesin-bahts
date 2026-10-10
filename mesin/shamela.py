@@ -17,15 +17,16 @@ HORMAT = re.compile(
     r"صل[يى] الله عليه وسلم|رض[يى] الله عنه(?:ما|م|ا)?|عليه(?:ما)? السلام|رحمه الله|عز وجل|قدس الله روحه")
 
 
+BUKAN_HURUF = re.compile(r"[^ء-ي0-9]+")
+BUKAN_ABJAD = re.compile(r"[^ء-ي]+")
+
+
 def norm(s):
-    """Samakan tulisan Arab: buang harakat/tatwil, satukan bentuk alif/ya/ta marbuthah."""
-    s = TAGS.sub("", s)
-    s = HARAKAT.sub("", s)
-    s = HORMAT.sub("", s)
-    s = re.sub("[إأآٱ]", "ا", s)
-    s = s.replace("ى", "ي").replace("ة", "ه").replace("ؤ", "و").replace("ئ", "ي")
-    s = re.sub(r"[^ء-ي0-9 ]", " ", s)
-    return re.sub(r"\s+", " ", s).strip()
+    """Samakan tulisan Arab: buang harakat/tatwil dan kalimat hormat, satukan bentuk alif/ya/ta marbuthah."""
+    s = HORMAT.sub("", HARAKAT.sub("", TAGS.sub("", s)))
+    for dari, ke in (("إ", "ا"), ("أ", "ا"), ("آ", "ا"), ("ٱ", "ا"), ("شئ", "شيء"), ("ى", "ي"), ("ة", "ه"), ("ؤ", "و"), ("ئ", "ي")):
+        s = s.replace(dari, ke)  # str.replace jauh lebih cepat daripada regex untuk ganti satu huruf
+    return BUKAN_HURUF.sub(" ", s).strip()
 
 
 def _ls(path=""):
@@ -183,7 +184,6 @@ def ambil(sid):
 
 
 PENANDA = re.compile(r"⦗([٠-٩]+)⦘")
-AD = "٠١٢٣٤٥٦٧٨٩"
 
 
 def _pages(sid):
@@ -204,29 +204,40 @@ def _potong(p):
     hal, out = p.get("page_num"), []
     for k, b in enumerate(PENANDA.split(p.get("body") or "")):
         if k % 2:
-            hal = int("".join(str(AD.index(c)) for c in b))
+            hal = int(b)  # int() membaca angka Arab ٠-٩ juga
         else:
             out.append((hal, b))
     return out
 
 
+def padat(s):
+    """Huruf Arab saja, tanpa spasi dan angka: bentuk yang dicocokkan `cari`, `teks`, `bab`, dan `cek`.
+    Spasi diabaikan supaya «و "الإحياء"» tetap ketemu dengan «والإحياء»."""
+    return BUKAN_ABJAD.sub("", norm(s))
+
+
 def _kunci(frasa):
-    q = norm(frasa).replace(" ", "")
+    q = padat(frasa)
     if not q:
         raise SystemExit("Frasa pencarian harus berhuruf Arab.")
     return q
 
 
-def _hal(p, q):
-    """Halaman cetak tempat q (frasa ternormal tanpa spasi) mulai di badan rekaman p; None kalau tidak ada."""
-    seg = [(h, norm(b).replace(" ", "")) for h, b in _potong(p)]
-    j = "".join(t for _, t in seg).find(q)
+def tempat(p, q):
+    """Halaman cetak (awal, akhir) tempat q (sudah `padat`) berada di badan rekaman p; None kalau tidak ada."""
+    if "_padat" not in p:  # dinormalkan sekali saja per rekaman
+        teks, batas = "", []
+        for hal, b in _potong(p):
+            n = padat(b)
+            batas.append((len(teks), len(teks) + len(n), hal or 0))
+            teks += n
+        p["_padat"] = teks, batas
+    teks, batas = p["_padat"]
+    j = teks.find(q)
     if j < 0:
         return None
-    for h, t in seg:
-        if j < len(t):
-            return h
-        j -= len(t)
+    k = j + len(q) - 1
+    return (next(h for a, z, h in batas if a <= j < z or a == z == j), next(h for a, z, h in batas if a <= k < z))
 
 
 def cari(sid, frasa, konteks=90, maks=15, diam=False):
@@ -236,18 +247,17 @@ def cari(sid, frasa, konteks=90, maks=15, diam=False):
         if not n:
             print("TIDAK KETEMU di kitab mana pun:", frasa)
         return n
-    # spasi diabaikan saat mencocokkan, supaya «و "الإحياء"» tetap ketemu dengan «والإحياء»
     q = _kunci(frasa)
     n = 0
     for p in _pages(sid):
         for bagian in ("body", "footnotes"):
             t = norm(p.get(bagian) or "")
-            peta = [k for k, c in enumerate(t) if c != " "]
-            j = t.replace(" ", "").find(q)
+            j = BUKAN_ABJAD.sub("", t).find(q)
             if j >= 0:
+                peta = [k for k, c in enumerate(t) if "ء" <= c <= "ي"]  # letak tiap huruf `padat` di t
                 n += 1
                 i, akhir = peta[j], peta[j + len(q) - 1] + 1
-                hal, tanda = (_hal(p, q), "") if bagian == "body" else (p.get("page_num"), " [حاشية]")
+                hal, tanda = (tempat(p, q)[0], "") if bagian == "body" else (p.get("page_num"), " [حاشية]")
                 print(f"[{sid}] ج{_juz(p)} ص{hal}{tanda}: …{t[max(0, i - konteks): akhir + konteks]}…")
                 if n >= maks:
                     print(f"[{sid}] (dipotong, masih ada lagi)"); return n
@@ -261,7 +271,7 @@ def teks(sid, frasa, lebar=260, maks=3):
     q = _kunci(frasa)
     n = 0
     for p in _pages(sid):
-        hal = _hal(p, q)
+        hal = (tempat(p, q) or [None])[0]
         if hal is not None:
             n += 1
             raw = re.sub(r"\s+", " ", HARAKAT.sub("", TAGS.sub("", p.get("body") or "")))
@@ -269,7 +279,7 @@ def teks(sid, frasa, lebar=260, maks=3):
             kata = HARAKAT.sub("", frasa).split()[0]
             i = max(raw.find(kata), 0)
             for m in re.finditer(re.escape(kata), raw):
-                if q[:12] in norm(raw[m.start(): m.start() + 200]).replace(" ", ""):
+                if q[:12] in padat(raw[m.start(): m.start() + 200]):
                     i = m.start(); break
             print(f"[{sid}] ج{_juz(p)} ص{hal}: {raw[max(0, i - lebar // 3): i + lebar]}")
             if n >= maks: return
@@ -286,7 +296,7 @@ def bab(sid, frasa):
     byid = {t["title_id"]: t for t in toc}
     toc.sort(key=lambda t: (t["page_id"], t["title_id"]))
     for p in _pages(sid):
-        hal = _hal(p, q)
+        hal = (tempat(p, q) or [None])[0]
         if hal is not None:
             last = None
             for t in toc:

@@ -23,77 +23,48 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       juz "-" = kitab satu jilid; hal boleh rentang 12-14
   Contoh: قال ابن القيم: "…"[^مدارج السالكين، ابن القيم، 2/15. <<8370|2|15>>].
 """
-import gzip, json, re
+import functools, json, re
 from pathlib import Path
 
 import shamela
 
 HERE = Path(__file__).parent
-SHAMELA = HERE.parent / "kitab"
 QURAN = json.load(open(HERE / "quran_hafs_v22.json", encoding="utf8"))
 SURAH = json.load(open(HERE / "nama_surah.json", encoding="utf8"))
 FORMAT = json.load(open(HERE / "format.json", encoding="utf8"))  # huruf & ukuran tiap pedoman; dipilih dengan @format
 WAJIB = ("judul", "jenis", "nama", "nim", "fasl")
 TANPA = ("ayat", "hadits", "maudhuat")  # فهرس yang boleh dibuang lewat @tanpa; perakitnya di rakit.ps1
 
-HARAKAT = re.compile(r"[ؐ-ًؚ-ٰٟۖ-ۭـ]")
-TAGS = re.compile(r"<[^>]+>")
-HORMAT = re.compile(
-    r"صل[يى] الله عليه وسلم|رض[يى] الله عنه(?:ما|م|ا)?|عليه(?:ما)? السلام|رحمه الله|عز وجل|قدس الله روحه")
-AD = "٠١٢٣٤٥٦٧٨٩"
+HARAKAT = shamela.HARAKAT
+AD = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
 
 
-def vnorm(s):
-    s = TAGS.sub("", s)
-    s = HARAKAT.sub("", s)
-    s = HORMAT.sub("", s)
-    s = re.sub("[إأآٱ]", "ا", s)
-    s = s.replace("شئ", "شيء")
-    s = s.replace("ى", "ي").replace("ة", "ه").replace("ؤ", "و").replace("ئ", "ي")
-    return re.sub(r"[^ء-ي]", "", s)
-
-
-_cache = {}
-
-
+@functools.cache
 def kitab(sid):
-    if sid not in _cache:
-        with gzip.open(SHAMELA / str(sid) / "pages.jsonl.gz", "rt", encoding="utf8") as f:
-            _cache[sid] = [json.loads(x) for x in f]
-    return _cache[sid]
+    """Rekaman kitab per juz ({part: [rekaman]}); tiap rekaman diberi «_akhir», halaman cetak terakhirnya."""
+    juz = {}
+    for r in shamela._pages(sid):
+        r["_akhir"] = max([r.get("page_num") or 0] + [int(n) for n in shamela.PENANDA.findall(r.get("body") or "")])
+        juz.setdefault(r.get("part"), []).append(r)
+    return juz
 
 
-def rekaman(sid, juz, p1, p2):
-    """Rekaman Shamela yang mencakup halaman p1..p2 (satu rekaman bisa memuat beberapa halaman lewat ⦗n⦘)."""
-    for r in kitab(sid):
-        if juz != "-" and str(r.get("part")) != str(juz):
-            continue
-        body = r.get("body") or ""
-        awal = r.get("page_num") or 0
-        tanda = [int("".join(str(AD.index(c)) for c in m)) for m in re.findall(r"⦗([٠-٩]+)⦘", body)]
-        akhir = max([awal] + tanda)
-        if awal <= p2 and akhir >= p1:
-            yield r, awal
+def rekaman(sid, juz, p1=0, p2=float("inf")):
+    """Rekaman juz itu (juz "-" = semua) yang menyentuh halaman p1..p2."""
+    semua = [r for rr in kitab(sid).values() for r in rr] if juz == "-" else kitab(sid)[juz]
+    return [r for r in semua if r["_akhir"] >= p1 and (r.get("page_num") or 0) <= p2]
 
 
-def halaman_potongan(r, awal, pot):
-    """Cari potongan (sudah dinormalkan) di badan rekaman; kembalikan (hal_awal, hal_akhir) atau None."""
-    body = r.get("body") or ""
-    bagian = re.split(r"⦗([٠-٩]+)⦘", body)
-    teks, batas, hal = "", [], awal
-    for i, b in enumerate(bagian):
-        if i % 2:
-            hal = int("".join(str(AD.index(c)) for c in b)); continue
-        n = vnorm(b)
-        batas.append((len(teks), len(teks) + len(n), hal))
-        teks += n
-    j = teks.find(pot)
-    if j < 0:
-        return None
-    k = j + len(pot) - 1
-    h1 = next(h for a, z, h in batas if a <= j < z or (a == z == j))
-    h2 = next(h for a, z, h in batas if a <= k < z)
-    return h1, h2
+def di_hasyiah(r, pot):
+    """Apakah potongan ada di حاشية rekaman ini."""
+    if "_hasyiah" not in r:
+        r["_hasyiah"] = shamela.padat(r.get("footnotes") or "")
+    return pot in r["_hasyiah"]
+
+
+def urut_juz(j):
+    """Juz berangka dulu menurut angkanya, lalu yang bernama (mis. المقدمة)."""
+    return (not str(j).isdigit(), str(j).zfill(4))
 
 
 # kalimat di kartu kitab Shamela yang berarti nomor halamannya bukan nomor cetakan
@@ -103,44 +74,44 @@ OTOMATIS = re.compile("مرقمة? آليا|بترقيم الشاملة")
 def cek(sid, juz, hal, pot, perhatian):
     """Kembalikan '' kalau cocok, atau pesan kesalahan.
     Yang lolos tetapi harus dilihat orang (bukti di حاشية, nomor halaman bukan cetakan) ditambahkan ke `perhatian`."""
-    if not (SHAMELA / str(sid) / "pages.jsonl.gz").exists():
+    if not (shamela.ROOT / str(sid) / "pages.jsonl.gz").exists():
         return f"kitab {sid} belum diunduh (python mesin/bahts.py ambil {sid})"
     if OTOMATIS.search(shamela.info(sid)["betaka_text"]):
         pesan = (f"kitab {sid}: nomor halamannya buatan Shamela (مرقم آليا), bukan nomor cetakan — "
                  "pakai edisi yang «موافق للمطبوع», atau cocokkan ke cetakannya")
         if pesan not in perhatian:
             perhatian.append(pesan)
-    juz_ada = {r.get("part") for r in kitab(sid)}
+    juz_ada = set(kitab(sid))
     if juz == "-" and len(juz_ada) > 1 and None not in juz_ada:  # satu nilai juz saja = kitab satu jilid
-        contoh = min(juz_ada, key=lambda x: (not str(x).isdigit(), str(x).zfill(4)))
+        contoh = sorted(juz_ada, key=urut_juz)[0]
         return f"kitab {sid} berjilid: tulis juz-nya, mis. <<{sid}|{contoh}|{hal}>> (juz \"-\" hanya untuk kitab satu jilid)"
     if juz != "-" and juz not in juz_ada:
         if juz_ada == {None}:
             return f"kitab {sid} satu jilid: tulis juz \"-\", mis. <<{sid}|-|{hal}>>"
-        return f"kitab {sid} tidak punya juz {juz} (yang ada: {'، '.join(sorted(map(str, juz_ada - {None}), key=lambda x: (not x.isdigit(), x.zfill(4))))})"
+        return f"kitab {sid} tidak punya juz {juz} (yang ada: {'، '.join(sorted(juz_ada - {None}, key=urut_juz))})"
     p1, _, p2 = hal.partition("-")
     p1 = int(p1); p2 = int(p2) if p2 else p1
     if p2 < p1:
         return f"rentang halaman terbalik: {hal}"
     if pot.startswith("#"):
-        nomor = "".join(AD[int(c)] for c in pot[1:])
-        for r, awal in rekaman(sid, juz, p1, p2):
+        nomor = pot[1:].translate(AD)
+        for r in rekaman(sid, juz, p1, p2):
             if re.search(rf"(?<![٠-٩]){nomor}(?![٠-٩])", r.get("body") or ""):
                 return ""
         return f"nomor {pot[1:]} tidak ada di {sid} {juz}/{hal}"
-    q = vnorm(pot)
+    q = shamela.padat(pot)
     if len(q) < 6:
         return f"potongan terlalu pendek: {pot}"
-    ada_di_lain, di_hasyiah = None, False
-    for r, awal in rekaman(sid, juz, p1, p2):
-        h = halaman_potongan(r, awal, q)
+    ada_di_lain, hasyiah = None, False
+    for r in rekaman(sid, juz, p1, p2):
+        h = shamela.tempat(r, q)
         if h:
             if h[0] >= p1 and h[1] <= p2:
                 return ""
             ada_di_lain = h
-        elif q in vnorm(r.get("footnotes") or ""):
-            di_hasyiah = True
-    if di_hasyiah:
+        elif di_hasyiah(r, q):
+            hasyiah = True
+    if hasyiah:
         perhatian.append(f"bukti ada di حاشية المحقق, bukan di matan kitab {sid} {juz}/{hal}: "
                          f"itu kalimat muhaqqiq, bukan pengarang :: {pot[:40]}")
         return ""
@@ -148,13 +119,13 @@ def cek(sid, juz, hal, pot, perhatian):
         return f"teks ada tapi di hal {ada_di_lain[0]}-{ada_di_lain[1]}, bukan {hal} ({sid}) :: {pot[:40]}"
     # cari di seluruh kitab untuk memberi petunjuk: matan dulu, baru حاشية
     hasyiah, tempat = None, []
-    for r in kitab(sid):
-        h = halaman_potongan(r, r.get("page_num") or 0, q)
+    for r in rekaman(sid, "-"):
+        h = shamela.tempat(r, q)
         if h:
             t = f"ج{shamela._juz(r)} ص{h[0]}"
             if t not in tempat:
                 tempat.append(t)
-        elif not hasyiah and q in vnorm(r.get("footnotes") or ""):
+        elif not hasyiah and di_hasyiah(r, q):
             hasyiah = r
     if tempat:
         tempat.sort(key=lambda t: not t.startswith(f"ج{juz} "))  # juz yang ditulis didahulukan
@@ -203,7 +174,7 @@ def ayat(spec):
         for n in range(a, b + 1):
             bagian.append(QURAN[f"{s}:{n}"])
             if n < b:
-                bagian.append(" " + "".join(AD[int(c)] for c in str(n)))
+                bagian.append(" " + str(n).translate(AD))
         return " ".join(bagian).replace("  ", " "), s, p[1]
     t = QURAN[f"{s}:{p[1]}"]
     if len(p) > 2:
@@ -213,6 +184,24 @@ def ayat(spec):
             raise ValueError(f"{{Q:{spec}}}: ayat itu hanya {len(t.split())} kata")
         t = " ".join(t.split()[i - 1: j])
     return t, s, p[1]
+
+
+def kutipan_akhir(teks):
+    """Isi kutipan "..." atau «...» yang menutup teks (tanda baca sesudahnya boleh), termasuk kutipan di dalamnya:
+    «قال: "…" ثم سكت» -> seluruh isi «…». None kalau teks tidak berakhir dengan kutipan."""
+    teks = teks.rstrip(" \t.،؛!؟")
+    tunggu = []  # tanda pembuka yang dicari, dari belakang
+    for i in range(len(teks) - 1, -1, -1):
+        c = teks[i]
+        if c == "»" or (c == '"' and tunggu[-1:] != ['"']):
+            tunggu.append("«" if c == "»" else '"')
+        elif tunggu and c == tunggu[-1]:
+            tunggu.pop()
+        elif not tunggu:
+            return None
+        if not tunggu:
+            return teks[i + 1:-1]
+    return None
 
 
 TOKEN = re.compile(r"(\*\*|\{(?:Q|H2|H|P):[^}]*\}|\[\^|\])")
@@ -288,7 +277,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 if SURAH[s - 1] not in isi or not all(re.search(rf"(?<!\d){x}(?!\d)", isi) for x in a.split("-")):
                     galat.append(f"catatan kaki ayat tidak cocok dengan {{Q:{s}:{a}}} (سورة {SURAH[s - 1]}) || fn: {isi[:45]}")
             # kutipan terakhir tepat sebelum catatan kaki
-            mk = re.search(r"[\"«]([^\"«»]*)[\"»][\s.،؛!؟\"»]*$", polos)
+            mk = kutipan_akhir(polos)
             terbukti = []  # (sid, juz, p1, p2) tiap bukti, untuk dicocokkan dengan yang tercetak
             for b in bukti:
                 f = b.split("|")
@@ -296,9 +285,9 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                     raise ValueError(f"<<{b}>>: bentuknya <<sid|juz|hal>> atau <<sid|juz|hal|potongan>>")
                 terbukti.append((f[0], f[1], *map(int, (f[2] + "-" + f[2]).split("-")[:2])))
                 if len(f) == 3:
-                    if not mk:
+                    if mk is None:
                         galat.append(f"[tanpa kutipan] {isi[:50]}"); continue
-                    f.append(mk.group(1))
+                    f.append(mk)
                 e = cek(int(f[0]), f[1], f[2], f[3], perhatian)
                 if e:
                     galat.append(e + f"  || fn: {isi[:45]}")
