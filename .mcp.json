@@ -19,10 +19,6 @@
     "quran": {
       "type": "http",
       "url": "https://mcp.quran.ai"
-    },
-    "openalex": {
-      "type": "http",
-      "url": "https://mcp.openalex.org/mcp"
     }
   }
 }
