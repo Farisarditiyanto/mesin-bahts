@@ -88,7 +88,7 @@ Connector = sambungan dari agent ke layanan luar. Connector `shamela` (shamela.l
 
 1. Daftar di https://openalex.org.
 2. Salin kunci dari Settings > API key.
-3. Simpan sebagai satu baris di berkas `kunci_openalex.txt` di folder ini, atau berikan ke agent.
+3. Simpan sebagai satu baris di berkas `kunci_openalex.txt` di folder ini, atau berikan ke agent. Di komputer tanpa berkas itu (mis. cloud), isi variabel lingkungan `OPENALEX_API_KEY`.
 
 ## Pakai
 

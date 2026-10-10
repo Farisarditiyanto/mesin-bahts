@@ -5,13 +5,15 @@ OpenAlex ditanya dua kali: menurut kata (judul, ringkasan, kata kunci) dan menur
 yang kata-katanya lain tetapi bahasannya sama; pertanyaan panjang boleh). DOAJ = jurnal akses terbuka.
 
 Kunci OpenAlex (gratis: daftar di https://openalex.org, salin dari Settings > API key) disimpan sebagai satu baris
-di kunci_openalex.txt, di samping folder mesin/. Tanpa kunci: jatah sehari sekitar 50 kali `dirasat`, dan `dirasat-pdf`
+di kunci_openalex.txt, di samping folder mesin/; berkas itu tidak ada → dibaca dari variabel lingkungan OPENALEX_API_KEY
+(untuk komputer yang tidak menyimpan berkas, mis. cloud). Tanpa kunci: jatah sehari sekitar 50 kali `dirasat`, dan `dirasat-pdf`
 tidak jalan. Dengan kunci: sekitar 300 kali `dirasat` atau 100 PDF sehari; jatah kembali penuh tiap 00.00 UTC.
 """
-import json, re, time, urllib.error, urllib.parse, urllib.request
+import json, os, re, time, urllib.error, urllib.parse, urllib.request
 from pathlib import Path
 
 KUNCI = Path(__file__).parent.parent / "kunci_openalex.txt"
+KUNCI_ENV = "OPENALEX_API_KEY"
 OPENALEX = "https://api.openalex.org/works"
 PDF = "https://content.openalex.org/works/{}.pdf"  # salinan PDF yang disimpan OpenAlex
 KOLOM = ("id,title,publication_year,type,language,cited_by_count,authorships,primary_location,best_oa_location,"
@@ -26,7 +28,9 @@ class Ditolak(OSError):
 
 
 def _kunci():
-    return KUNCI.read_text(encoding="utf-8-sig").strip() if KUNCI.exists() else ""
+    if KUNCI.exists():
+        return KUNCI.read_text(encoding="utf-8-sig").strip()
+    return os.environ.get(KUNCI_ENV, "").strip()
 
 
 def _buka(url):
@@ -47,7 +51,7 @@ def _buka(url):
             if not openalex:
                 raise
             if e.code == 401:
-                raise Ditolak(f"kunci di {KUNCI.name} ditolak atau belum ada: salin ulang dari Settings > API key di https://openalex.org")
+                raise Ditolak(f"kunci di {KUNCI.name} (atau {KUNCI_ENV}) ditolak atau belum ada: salin ulang dari Settings > API key di https://openalex.org")
             if e.code == 429:
                 raise Ditolak("jatah hari ini habis (kembali penuh 00.00 UTC). " + ("" if _kunci() else
                               f"Kunci gratis menaikkannya 10 kali: pemakai daftar di https://openalex.org, lalu simpan kuncinya di {KUNCI.name}"))
