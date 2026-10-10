@@ -11,7 +11,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 - `dirasat-pdf <W…> <folder>`: mengunduh PDF penelitian ke folder bahts (butuh kunci OpenAlex).
 - Kunci OpenAlex dikirim lewat kepala permintaan, bukan lewat alamat.
 - `temukan` tidak lagi menunggu puluhan menit kalau jatah pencarian turath.io habis: ia berhenti dan menyebut kapan terbuka lagi.
-- `.mcp.json` mendaftarkan connector pilihan `hadithunlocked`, `tafsir`, `quran`, dan `openalex`.
+- `.mcp.json` mendaftarkan connector pilihan `hadithunlocked`, `tafsir`, dan `quran`.
 
 ## 0.1.0 — 2026-10-10
 

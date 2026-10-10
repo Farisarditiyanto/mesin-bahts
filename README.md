@@ -81,7 +81,6 @@ Connector = sambungan dari agent ke layanan luar. Connector `shamela` (shamela.l
 | `hadithunlocked` | hadits, derajatnya, dan syarahnya | tanpa akun |
 | `tafsir` | tafsir per ayat | tanpa akun |
 | `quran` | teks ayat | tanpa akun |
-| `openalex` | penelitian terdahulu | surel kamu di openalex.org |
 
 ## Kunci OpenAlex (pilihan)
 
