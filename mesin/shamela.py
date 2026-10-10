@@ -154,6 +154,8 @@ def kartu(sid):
 
 
 def ambil(sid):
+    if not str(sid).isdigit():
+        print(sid, "bukan nomor kitab (nomornya dari `katalog` atau `temukan`)"); return
     sid = int(sid)
     dst = ROOT / str(sid)
     if (dst / "pages.jsonl.gz").exists():
@@ -278,6 +280,7 @@ def teks(sid, frasa, lebar=260, maks=3):
 def bab(sid, frasa):
     """Tampilkan rantai judul (kitab > bab) tempat sebuah frasa berada, plus juz/halaman."""
     q = _kunci(frasa)
+    info(sid)  # kitab belum diunduh -> pesan yang jelas
     with gzip.open(ROOT / str(sid) / "toc.jsonl.gz", "rt", encoding="utf8") as f:
         toc = [json.loads(x) for x in f]
     byid = {t["title_id"]: t for t in toc}

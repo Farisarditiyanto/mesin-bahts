@@ -131,6 +131,8 @@ def folder_bahts(nama):
 
 
 def baru(nama, judul):
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", nama.strip("/\\")):
+        sys.exit(f"Nama folder «{nama}»: pakai huruf Latin, angka, - atau _ saja, tanpa spasi (mis. ikhlas).")
     f = AKAR / nama.strip("/\\")
     if f.exists():
         sys.exit(f"Folder {f.name} sudah ada.")
@@ -243,6 +245,8 @@ if __name__ == "__main__":
         if not 400 <= e.code < 500 or e.code == 429:
             sys.exit(f"Perintah '{cmd}': layanannya sedang menolak atau sibuk (HTTP {e.code}). Ulangi sebentar lagi.")
         sys.exit(f"Perintah '{cmd}': layanannya menolak permintaan ini (HTTP {e.code}). Periksa kata/angka yang diketik: {a}")
+    except BrokenPipeError:  # keluarannya dipotong pembaca (mis. `| head`): bukan masalah internet
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
     except GAGAL_UNDUH as e:
         sys.exit(f"Perintah '{cmd}' gagal mengunduh (cek internet, lalu ulangi): {e!r}")
     except (ValueError, FileNotFoundError, re.error) as e:
