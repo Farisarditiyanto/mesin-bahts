@@ -82,7 +82,8 @@ def cek(sid, juz, hal, pot, perhatian):
         if pesan not in perhatian:
             perhatian.append(pesan)
     juz_ada = set(kitab(sid))
-    if juz == "-" and len(juz_ada) > 1 and None not in juz_ada:  # satu nilai juz saja = kitab satu jilid
+    # kitab satu jilid = satu nilai juz saja, atau bagiannya hanya bernama (mis. المقدمة + الكتاب) tanpa juz berangka
+    if juz == "-" and len(juz_ada) > 1 and any(str(j).isdigit() for j in juz_ada):
         contoh = sorted(juz_ada, key=urut_juz)[0]
         return f"kitab {sid} berjilid: tulis juz-nya, mis. <<{sid}|{contoh}|{hal}>> (juz \"-\" hanya untuk kitab satu jilid)"
     if juz != "-" and juz not in juz_ada:
