@@ -34,7 +34,7 @@ Anggap pemakai baru pertama kali memakai agent, tidak membaca README, dan hanya 
    Alat `shamela_*` tersedia → wajib dipakai: untuk tiap مبحث, cari dulu istilah kuncinya di sana sebelum menulis, juga kalau kitab lokal terasa sudah cukup (`cari <id>` hanya melihat kitab yang kamu sebut; connector melihat semuanya). Laporan akhir menyebut alat pencari yang dipakai dan yang tidak.
 3. Tulis `naskah.txt`. Setiap kutipan/penisbatan diberi catatan kaki berisi bukti `<<...>>`. Contoh yang lolos cek: `contoh/naskah.txt`.
 4. `cek` sampai `GAGAL: 0`. Lalu bereskan tiap baris `perhatian`: bukti di حاشية المحقق = kalimat muhaqqiq, jangan dinisbatkan ke pengarang kitab; kitab «مرقم آليا» = nomor halamannya bukan nomor cetakan, `ambil` edisi yang «موافق للمطبوع». Yang tidak bisa dibereskan → sebut di laporan akhir. Lalu `rakit`.
-5. Sebelum lapor selesai: minta subagent baru (yang tidak ikut menulis) membuka sendiri halaman kitab tiap catatan kaki dan menilai PDF hasil terhadap permintaan awal + aturan di bawah; perbaiki temuannya; rakit ulang.
+5. Sebelum lapor selesai: minta subagent baru (yang tidak ikut menulis) membuka sendiri halaman kitab tiap catatan kaki dan menilai PDF hasil (tanpa `rakit`: naskah yang sudah lolos `cek`) terhadap permintaan awal + aturan di bawah; perbaiki temuannya; `cek` dan rakit ulang.
 
 `cek` hanya membuktikan bahwa teksnya ada di juz/halaman itu. `cek` TIDAK bisa menilai: apakah yang berkata memang orang itu (bukan matan yang disyarah, bukan nukilan pihak lain, bukan hujah lawan), apakah nama kitab yang tercetak benar, dan kutipan yang tidak diberi catatan kaki. Itu tugas langkah 5.
 
@@ -65,4 +65,4 @@ Anggap pemakai baru pertama kali memakai agent, tidak membaca README, dan hanya 
 - Perubahan yang dirasakan pemakai dicatat di `CHANGELOG.md`.
 - `CLAUDE.md` hanya menunjuk ke berkas ini.
 - Kebutuhan komputer dan cara membereskannya ditulis di satu tempat: `periksa` di `mesin/bahts.py`. README dan berkas ini hanya menyuruh menjalankannya.
-- `dok/hasil.png` = sampul, halaman isi kedua, dan halaman terakhir PDF hasil `rakit contoh` (salinan terpaksa): buat ulang kalau sampul atau bentuk halaman berubah. `dok/alur.svg` = gambar alur di README.
+- `dok/hasil.png` = sampul, halaman isi kedua, dan halaman terakhir PDF hasil `rakit contoh` (salinan terpaksa): buat ulang kalau sampul atau bentuk halaman berubah. `dok/alur.svg` (alur sepuluh langkah) dan `dok/bukti.svg` (cara `cek` bekerja, dengan keluaran `cek` asli) = gambar di README (salinan terpaksa): ubah kalau alur kerja di atas atau pesan `cek` berubah.

@@ -4,16 +4,43 @@
 [![rilis](https://img.shields.io/github/v/release/Farisarditiyanto/mesin-bahts?label=rilis)](https://github.com/Farisarditiyanto/mesin-bahts/releases)
 [![lisensi](https://img.shields.io/badge/lisensi-MIT-blue)](LICENSE)
 
-Alat bantu menulis **بحث** (makalah ilmiah syar'i berbahasa Arab) bersama agent AI seperti Claude Code.
-Kamu cukup meminta. Agent menulis satu berkas, `naskah.txt`. Mesin mengerjakan sisanya:
+Tulis **بحث** (makalah ilmiah syar'i berbahasa Arab) bersama agent AI, dengan **tiap kutipan dicocokkan ke halaman kitabnya**.
 
-- mencocokkan tiap kutipan ke teks kitab (المكتبة الشاملة) pada juz dan halaman yang tertulis;
-- menulis ayat dengan rasm Utsmani;
+Agent AI (program AI yang bisa membaca berkas dan menjalankan perintah di komputermu, mis. Claude Code) pandai menulis, tetapi bisa mengarang kutipan dan nomor halaman. Mesin ini mempersempit celah itu:
+
+- Agent hanya mengutip dari kitab المكتبة الشاملة yang sudah diunduh ke komputermu.
+- Tiap kutipan diberi alamat di catatan kakinya: nomor kitab, juz, halaman.
+- Mesin membuka alamat itu. Kutipan yang tidak ada di sana ditolak sebelum dirakit.
+- Catatan kaki tanpa alamat dilaporkan. Kutipan tanpa catatan kaki tidak terdeteksi mesin: itu diperiksa agent kedua dan kamu.
+
+Kamu cukup meminta dan menjawab beberapa pertanyaan. Agent menulis satu berkas, `naskah.txt`. Mesin mengerjakan sisanya:
+
+- mencocokkan tiap kutipan ke teks kitab pada juz dan halaman yang tertulis;
+- menulis ayat dengan rasm Utsmani dari mushaf مجمع الملك فهد;
 - merakit Word dan PDF: sampul, catatan kaki, المصادر والمراجع, فهرس الآيات, فهرس الأحاديث والآثار, فهرس الموضوعات.
 
 ![Sampul, halaman isi dengan catatan kaki, dan daftar isi hasil mesin](dok/hasil.png)
 
-![Alur: kamu meminta, agent menulis naskah, cek mencocokkan kutipan ke kitab, rakit membuat Word dan PDF](dok/alur.svg)
+## Cara kerjanya
+
+Gambar 1. Sepuluh langkah dari permintaan sampai PDF. Langkah 6 sampai 9 bisa berputar beberapa kali sampai tidak ada yang salah.
+
+1. **Kamu** meminta bahts: judul, susunan bab, kira-kira berapa halaman.
+2. **Agent** menyiapkan komputer (sekali saja): `periksa`, `siapkan`.
+3. **Kamu** menjawab data sampul. Nama, NIM, jenis tugas, dan semester ditanya sekali; pembimbing tiap bahts.
+4. **Agent** membuat folder bahts dan menyusun خطة (`baru`).
+5. **Agent** mencari dan membaca bahan di kitab: `temukan`, `ambil`, `cari`, `teks`, `kartu`, juga `hadits` dan `dirasat`.
+6. **Agent** menulis `naskah.txt`. Tiap kutipan diberi catatan kaki beserta alamatnya.
+7. **Mesin** mencocokkan tiap kutipan ke halaman kitabnya (`cek`). Lanjut hanya kalau `GAGAL: 0`.
+8. **Mesin** merakit Word dan PDF (`rakit`, butuh Windows + Word).
+9. **Agent kedua** yang tidak ikut menulis membuka halaman tiap catatan kaki dan membaca PDF-nya. Ada yang salah → kembali ke langkah 6.
+10. **Kamu** membaca, memeriksa kutipan utama, lalu mengumpulkan PDF-nya.
+
+![Alur lengkap: kamu meminta, agent menyiapkan komputer dan menyusun rencana, mencari bahan di kitab, menulis naskah; mesin mengecek tiap kutipan; agent kedua memeriksa ulang; mesin merakit Word dan PDF; kamu membaca dan mengumpulkan](dok/alur.svg)
+
+Gambar 2. Apa yang terjadi di langkah 7 (`cek`). Contoh ini keluaran mesin yang sebenarnya.
+
+![Cara cek bekerja: bukti di catatan kaki menunjuk kitab, juz, dan halaman; mesin mencari kalimatnya di halaman itu; hasilnya lolos, tidak ketemu, atau ketemu di halaman lain](dok/bukti.svg)
 
 ## Cara tercepat
 
@@ -23,6 +50,8 @@ Kamu cukup meminta. Agent menulis satu berkas, `naskah.txt`. Mesin mengerjakan s
    > Pakai https://github.com/Farisarditiyanto/mesin-bahts untuk membuatkan saya bahts tentang الإخلاص وأثره في قبول العمل. Susunannya: مقدمة, satu فصل berisi dua مبحث, خاتمة. Kira-kira 6 halaman.
 
 3. Jawab pertanyaan agent: nama, nomor mahasiswa, jenis tugas, semester, dan pembimbing beserta jabatannya.
+
+Belum punya Claude Code? Lihat https://claude.com/claude-code. Claude Code butuh akun Claude berbayar.
 
 Agent yang mengunduh, memasang, menulis, dan merakit. Kamu tidak perlu mengetik perintah.
 Hasilnya ada di folder `mesin-bahts` di dalam folder Dokumen-mu.
@@ -36,6 +65,16 @@ Catatan untuk agent AI: repo ini diunduh ke folder `mesin-bahts` di dalam folder
 - Teks kitab adalah ketikan Shamela. Ketikan bisa salah.
 - Bentuk halaman mengikuti pedoman جامعة الإمام محمد بن سعود الإسلامية. Sampulnya sampul معهد العلوم الإسلامية والعربية في جاكرتا. Kampus lain perlu mengganti `mesin/sampul.doc` dan menambah profil di `mesin/format.json`.
 - Proyek ini bukan milik dan tidak mewakili kampus mana pun.
+
+## Pertanyaan umum
+
+**Gratis?** Mesinnya gratis (lisensi MIT). Yang berbayar ada di luar mesin: akun Claude untuk Claude Code, dan Microsoft Word untuk `rakit`.
+
+**Bisa di Mac atau Linux?** Bisa menulis dan `cek`. Word dan PDF hanya bisa dibuat di Windows dengan Microsoft Word.
+
+**Jadi bahts-ku ditulis AI?** Drafnya ya. Nama di sampul tetap namamu, jadi isinya tanggung jawabmu. Baca seluruhnya, periksa kutipan utama, dan tanyakan ke dosenmu apakah bantuan AI dibolehkan.
+
+**Kampusku bukan جامعة الإمام?** Bentuk halaman dan sampul perlu disesuaikan dulu: ganti `mesin/sampul.doc` dan tambah profil di `mesin/format.json`.
 
 ## Yang kamu butuhkan
 
