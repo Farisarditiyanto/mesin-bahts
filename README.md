@@ -44,14 +44,14 @@ Gambar 2. Apa yang terjadi di langkah 7 (`cek`). Contoh ini keluaran mesin yang 
 
 ## Cara tercepat
 
-1. Buka Claude Code.
+1. Buka Claude Code, Codex, Hermes, atau agent lain yang membaca `AGENTS.md`.
 2. Tempel kalimat ini, ganti judulnya:
 
    > Pakai https://github.com/Farisarditiyanto/mesin-bahts untuk membuatkan saya bahts tentang الإخلاص وأثره في قبول العمل. Susunannya: مقدمة, satu فصل berisi dua مبحث, خاتمة. Kira-kira 6 halaman.
 
 3. Jawab pertanyaan agent: nama, nomor mahasiswa, jenis tugas, semester, dan pembimbing beserta jabatannya.
 
-Belum punya Claude Code? Lihat https://claude.com/claude-code. Claude Code butuh akun Claude berbayar.
+Belum punya agent? Contohnya Claude Code (https://claude.com/claude-code, butuh akun Claude berbayar). Agent lain juga bisa: lihat «Pakai agent selain Claude Code».
 
 Agent yang mengunduh, memasang, menulis, dan merakit. Kamu tidak perlu mengetik perintah.
 Hasilnya ada di folder `mesin-bahts` di dalam folder Dokumen-mu.
@@ -68,7 +68,7 @@ Catatan untuk agent AI: repo ini diunduh ke folder `mesin-bahts` di dalam folder
 
 ## Pertanyaan umum
 
-**Gratis?** Mesinnya gratis (lisensi MIT). Yang berbayar ada di luar mesin: akun Claude untuk Claude Code, dan Microsoft Word untuk `rakit`.
+**Gratis?** Mesinnya gratis (lisensi MIT). Yang berbayar ada di luar mesin: agent AI-nya (mis. akun Claude untuk Claude Code), dan Microsoft Word untuk `rakit`.
 
 **Bisa di Mac atau Linux?** Bisa menulis dan `cek`. Word dan PDF hanya bisa dibuat di Windows dengan Microsoft Word.
 
@@ -121,6 +121,15 @@ Connector = sambungan dari agent ke layanan luar. Connector `shamela` (shamela.l
 | `tafsir` | tafsir per ayat | tanpa akun |
 | `quran` | teks ayat | tanpa akun |
 
+## Pakai agent selain Claude Code
+
+Semua aturan kerja agent ada di [`AGENTS.md`](AGENTS.md). Berkas ini dibaca sendiri oleh Claude Code (lewat `CLAUDE.md`), Codex, Hermes, dan agent lain yang mengikuti format AGENTS.md. Mesinnya cuma Python, tidak terikat agent mana pun.
+
+Bedanya cuma dua:
+
+1. Connector di `.mcp.json` hanya ditawarkan otomatis oleh Claude Code. Di agent lain, daftarkan alamatnya sendiri lewat pengaturan MCP agent itu. Contoh Codex: `codex mcp add shamela --url https://shamela.link/mcp`. Tanpa connector, mesin tetap jalan.
+2. Kalau agentmu tidak bisa membuat agent kedua untuk memeriksa (langkah 9 di Gambar 1), buka sesi baru agent itu di folder ini dan minta ia memeriksa naskahmu.
+
 ## Kunci OpenAlex (pilihan)
 
 `dirasat` mencari penelitian terdahulu. Tanpa kunci, jatahnya kecil. Kunci gratis menaikkan jatah itu dan membuka `dirasat-pdf` (mengunduh PDF penelitian).
@@ -131,7 +140,7 @@ Connector = sambungan dari agent ke layanan luar. Connector `shamela` (shamela.l
 
 ## Pakai
 
-1. Buka folder ini di Claude Code.
+1. Buka folder ini di agentmu (Claude Code, Codex, Hermes, dll.).
 2. Tulis permintaanmu, seperti contoh di «Cara tercepat».
 3. Agent menanyakan data sampul. Nama, nomor mahasiswa, jenis tugas, dan semester disimpan di `sampul_saya.txt` supaya tidak ditanya lagi. Pembimbing ditanya tiap bahts.
 4. Agent menyusun خطة, mengunduh kitab, menulis `naskah.txt`, menjalankan `cek`, lalu `rakit`.
