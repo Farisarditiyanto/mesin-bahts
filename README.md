@@ -6,11 +6,12 @@
 
 Tulis **بحث** (makalah ilmiah syar'i berbahasa Arab) bersama agent AI, dengan **tiap kutipan dicocokkan ke halaman kitabnya**.
 
-Agent AI pandai menulis, tetapi bisa mengarang kutipan dan nomor halaman. Mesin ini menutup celah itu:
+Agent AI (program AI yang bisa membaca berkas dan menjalankan perintah di komputermu, mis. Claude Code) pandai menulis, tetapi bisa mengarang kutipan dan nomor halaman. Mesin ini mempersempit celah itu:
 
 - Agent hanya mengutip dari kitab المكتبة الشاملة yang sudah diunduh ke komputermu.
-- Tiap kutipan wajib membawa alamatnya: nomor kitab, juz, halaman.
+- Tiap kutipan diberi alamat di catatan kakinya: nomor kitab, juz, halaman.
 - Mesin membuka alamat itu. Kutipan yang tidak ada di sana ditolak sebelum dirakit.
+- Catatan kaki tanpa alamat dilaporkan. Kutipan tanpa catatan kaki tidak terdeteksi mesin: itu diperiksa agent kedua dan kamu.
 
 Kamu cukup meminta dan menjawab beberapa pertanyaan. Agent menulis satu berkas, `naskah.txt`. Mesin mengerjakan sisanya:
 
@@ -22,7 +23,18 @@ Kamu cukup meminta dan menjawab beberapa pertanyaan. Agent menulis satu berkas, 
 
 ## Cara kerjanya
 
-Gambar 1. Sepuluh langkah dari permintaan sampai PDF. Langkah 7 dan 8 bisa berputar beberapa kali sampai tidak ada yang salah.
+Gambar 1. Sepuluh langkah dari permintaan sampai PDF. Langkah 6 sampai 9 bisa berputar beberapa kali sampai tidak ada yang salah.
+
+1. **Kamu** meminta bahts: judul, susunan bab, kira-kira berapa halaman.
+2. **Agent** menyiapkan komputer (sekali saja): `periksa`, `siapkan`.
+3. **Kamu** menjawab data sampul. Nama, NIM, jenis tugas, dan semester ditanya sekali; pembimbing tiap bahts.
+4. **Agent** membuat folder bahts dan menyusun خطة (`baru`).
+5. **Agent** mencari dan membaca bahan di kitab: `temukan`, `ambil`, `cari`, `teks`, `kartu`, juga `hadits` dan `dirasat`.
+6. **Agent** menulis `naskah.txt`. Tiap kutipan diberi catatan kaki beserta alamatnya.
+7. **Mesin** mencocokkan tiap kutipan ke halaman kitabnya (`cek`). Lanjut hanya kalau `GAGAL: 0`.
+8. **Mesin** merakit Word dan PDF (`rakit`, butuh Windows + Word).
+9. **Agent kedua** yang tidak ikut menulis membuka halaman tiap catatan kaki dan membaca PDF-nya. Ada yang salah → kembali ke langkah 6.
+10. **Kamu** membaca, memeriksa kutipan utama, lalu mengumpulkan PDF-nya.
 
 ![Alur lengkap: kamu meminta, agent menyiapkan komputer dan menyusun rencana, mencari bahan di kitab, menulis naskah; mesin mengecek tiap kutipan; agent kedua memeriksa ulang; mesin merakit Word dan PDF; kamu membaca dan mengumpulkan](dok/alur.svg)
 
