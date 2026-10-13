@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 790" width="1000" height="790" role="img" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<title>Cara cek membuktikan kutipan: bukti di catatan kaki dicocokkan ke halaman kitab</title>
+<defs><marker id="p" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 1L10 5L0 9z" fill="#6b6a65"/></marker></defs>
+<rect width="1000" height="790" rx="16" fill="#ffffff"/>
+<text x="40" y="58" font-size="27" font-weight="700" fill="#22211f">Cara cek menangkap kutipan karangan</text>
+<text x="40" y="88" font-size="15" fill="#6b6a65">Tiap kutipan membawa alamatnya. Mesin membuka alamat itu dan mencari kalimatnya, huruf demi huruf.</text>
+<rect x="40" y="115" width="440" height="250" rx="12" fill="#e7f0fb" stroke="#2f6db5"/>
+<rect x="56" y="129" width="104" height="20" rx="10" fill="#2f6db5"/><text x="108" y="143" font-size="11.5" font-weight="700" fill="#fff" text-anchor="middle">naskah.txt</text>
+<text x="172" y="145" font-size="15" font-weight="700" fill="#22211f">Yang ditulis agent</text>
+<text x="460" y="192" font-size="19" font-family="Traditional Arabic, Amiri, Noto Naskh Arabic, Segoe UI, sans-serif" direction="rtl" text-anchor="start" fill="#22211f">«ثلاث لا يغل عليهن قلب مسلم إخلاص العمل لله»</text>
+<text x="460" y="230" font-size="13" fill="#6b6a65" text-anchor="end">catatan kakinya menyimpan bukti (tidak ikut tercetak):</text>
+<rect x="142" y="246" width="250" height="40" rx="8" fill="#ffffff" stroke="#2f6db5"/>
+<text x="267" y="273" font-size="21" font-weight="700" font-family="Consolas, Menlo, monospace" text-anchor="middle" fill="#1c4a80">&lt;&lt;30148|-|36&gt;&gt;</text>
+<path d="M212 290V312" stroke="#2f6db5"/><text x="212" y="328" font-size="12.5" fill="#1c4a80" text-anchor="middle">nomor kitab</text>
+<path d="M273 290V338" stroke="#2f6db5"/><text x="273" y="352" font-size="12.5" fill="#1c4a80" text-anchor="middle">juz (- = satu jilid)</text>
+<path d="M315 290V312" stroke="#2f6db5"/><text x="342" y="328" font-size="12.5" fill="#1c4a80" text-anchor="middle">halaman</text>
+<path d="M486 240H546" stroke="#6b6a65" stroke-width="2" marker-end="url(#p)"/>
+<text x="516" y="228" font-size="13" font-weight="700" fill="#0d5640" text-anchor="middle">cek</text>
+<rect x="556" y="115" width="404" height="250" rx="12" fill="#e3f4ec" stroke="#16805f"/>
+<rect x="572" y="129" width="62" height="20" rx="10" fill="#16805f"/><text x="603" y="143" font-size="11.5" font-weight="700" fill="#fff" text-anchor="middle">Mesin</text>
+<text x="644" y="145" font-size="15" font-weight="700" fill="#22211f">Kitab 30148, halaman 36</text>
+<text x="644" y="164" font-size="12.5" fill="#6b6a65">teks Shamela yang sudah diunduh ke komputermu</text>
+<rect x="576" y="178" width="364" height="170" rx="6" fill="#fffdf7" stroke="#d8d3c4"/>
+<text x="926" y="208" font-size="18" font-family="Traditional Arabic, Amiri, Noto Naskh Arabic, Segoe UI, sans-serif" direction="rtl" text-anchor="start" fill="#7d7a70">لماذا التوحيد أولا؟ — ص36</text>
+<text x="926" y="240" font-size="18" font-family="Traditional Arabic, Amiri, Noto Naskh Arabic, Segoe UI, sans-serif" direction="rtl" text-anchor="start" fill="#55534c">... عبد الله بن مسعود ...</text>
+<rect x="584" y="252" width="348" height="62" rx="4" fill="#ffe28a"/>
+<text x="926" y="275" font-size="18" font-family="Traditional Arabic, Amiri, Noto Naskh Arabic, Segoe UI, sans-serif" direction="rtl" text-anchor="start" fill="#22211f">«ثلاث لا يغل عليهن قلب مسلم</text>
+<text x="926" y="305" font-size="18" font-family="Traditional Arabic, Amiri, Noto Naskh Arabic, Segoe UI, sans-serif" direction="rtl" text-anchor="start" fill="#22211f">إخلاص العمل لله،</text>
+<text x="926" y="336" font-size="18" font-family="Traditional Arabic, Amiri, Noto Naskh Arabic, Segoe UI, sans-serif" direction="rtl" text-anchor="start" fill="#55534c">ومناصحة ولاة الأمر ...</text>
+<text x="40" y="410" font-size="18" font-weight="700" fill="#22211f">Tiga kemungkinan hasil (keluaran cek yang sebenarnya)</text>
+<rect x="40" y="428" width="920" height="70" rx="12" fill="#e3f4ec" stroke="#16805f"/>
+<circle cx="74" cy="463" r="17" fill="#16805f"/><text x="74" y="470" font-size="19" font-weight="700" fill="#fff" text-anchor="middle">✓</text>
+<text x="104" y="458" font-size="15" font-weight="700" fill="#22211f">Kalimatnya ada di halaman itu</text>
+<text x="104" y="481" font-size="13" fill="#55534c">lolos, dihitung di «bukti dicek ke Shamela lokal»</text>
+<text x="944" y="481" font-size="12.5" font-family="Consolas, Menlo, monospace" fill="#16805f" text-anchor="end">GAGAL: 0</text>
+<rect x="40" y="510" width="920" height="70" rx="12" fill="#fbe9e7" stroke="#b3362f"/>
+<circle cx="74" cy="545" r="17" fill="#b3362f"/><text x="74" y="552" font-size="19" font-weight="700" fill="#fff" text-anchor="middle">✗</text>
+<text x="104" y="540" font-size="15" font-weight="700" fill="#22211f">Kalimatnya dikarang (tidak ada di kitab itu sama sekali)</text>
+<text x="104" y="563" font-size="13" fill="#55534c">agent harus membuang kutipan itu</text>
+<text x="944" y="563" font-size="12.5" font-family="Consolas, Menlo, monospace" fill="#b3362f" text-anchor="end">teks TIDAK KETEMU di kitab 30148</text>
+<rect x="40" y="592" width="920" height="70" rx="12" fill="#fbe9e7" stroke="#b3362f"/>
+<circle cx="74" cy="627" r="17" fill="#b3362f"/><text x="74" y="634" font-size="19" font-weight="700" fill="#fff" text-anchor="middle">✗</text>
+<text x="104" y="622" font-size="15" font-weight="700" fill="#22211f">Kalimatnya ada, tetapi halamannya salah (ditulis halaman 99)</text>
+<text x="104" y="645" font-size="13" fill="#55534c">mesin menyebut letak yang benar, agent membetulkan nomornya</text>
+<text x="944" y="645" font-size="12.5" font-family="Consolas, Menlo, monospace" fill="#b3362f" text-anchor="end">(30148)</text>
+<text x="886" y="646" font-size="14" font-family="Traditional Arabic, Amiri, Noto Naskh Arabic, Segoe UI, sans-serif" direction="rtl" text-anchor="start" fill="#b3362f">ج- ص36</text>
+<text x="810" y="645" font-size="12.5" font-family="Consolas, Menlo, monospace" fill="#b3362f" text-anchor="end">teks TIDAK di -/99; ketemu di</text>
+<rect x="40" y="680" width="920" height="84" rx="12" fill="#fdf1de" stroke="#c9831f"/>
+<text x="60" y="710" font-size="15" font-weight="700" fill="#7a4a0c">Yang TIDAK bisa dinilai cek</text>
+<text x="60" y="733" font-size="13.5" fill="#3d3c38">Benarkah yang berkata memang orang itu (bukan matan yang disyarah atau pendapat lawan), benarkah nama kitabnya,</text>
+<text x="60" y="752" font-size="13.5" fill="#3d3c38">derajat hadits, dan kutipan tanpa catatan kaki. Itu tugas agent kedua (langkah 8), lalu kamu sendiri.</text>
+</svg>

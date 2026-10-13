@@ -3,6 +3,12 @@
 Tiap rilis ditulis di sini: yang baru di atas. Nomor versi = `besar.kecil.tambalan`:
 besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan baru, tambalan naik kalau hanya perbaikan.
 
+## Belum dirilis
+
+- README ditulis ulang untuk pembaca baru: masalah yang diselesaikan di awal, bagian «Cara kerjanya», dan «Pertanyaan umum» (biaya, Mac/Linux, tanggung jawab isi, kampus lain).
+- Gambar alur baru (`dok/alur.svg`): sepuluh langkah lengkap, siapa yang mengerjakan tiap langkah, dan putaran balik kalau `cek` atau pemeriksa menemukan salah.
+- Gambar baru `dok/bukti.svg`: cara `cek` mencocokkan bukti `<<kitab|juz|hal>>` ke halaman kitab, dengan tiga hasil yang mungkin.
+
 ## 0.2.4 — 2026-10-10
 
 - `cek` menerima juz `-` untuk kitab satu jilid yang di Shamela dibagi menjadi bagian bernama (mis. «الفوائد»: المقدمة + الكتاب): dulu rujukan «ص136» ditolak sebagai «berjilid» dan tidak bisa ditulis dengan benar. Kitab yang punya juz berangka tetap wajib menyebut juznya.
