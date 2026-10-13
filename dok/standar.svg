@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1310" width="1000" height="1310" role="img" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<title>Asal aturan tulisan dan tata letak mesin bahts</title>
+<rect width="1000" height="1310" rx="16" fill="#ffffff"/>
+<text x="40" y="58" font-size="27" font-weight="700" fill="#22211f">Aturan tulisan dan tata letak: dari mana asalnya</text>
+<text x="40" y="88" font-size="15" fill="#6b6a65">Tiap aturan di mesin punya sumber. Warnanya menunjukkan sumber yang mana.</text>
+<rect x="40" y="112" width="296" height="220" rx="12" fill="#e7f0fb" stroke="#2f6db5"/>
+<circle cx="66" cy="140" r="9" fill="#2f6db5"/><text x="84" y="146" font-size="17" font-weight="700" fill="#22211f">Aturan kampus</text>
+<text x="58" y="174" font-size="13" fill="#3d3c38">Jāmiʿat al-Imām, disahkan tahun 1442 H.</text>
+<rect x="54" y="204" width="268" height="76" rx="8" fill="#ffffff" stroke="#2f6db5" stroke-opacity="0.5"/>
+<text x="310" y="234" font-size="15" font-weight="700" direction="rtl" text-anchor="start" fill="#1c4a80">القواعد المنظمة لتسجيل الرسالة</text>
+<text x="310" y="264" font-size="15" font-weight="700" direction="rtl" text-anchor="start" fill="#1c4a80">العلمية وكتابتها وطباعتها وتقديمها</text>
+<text x="58" y="310" font-size="12.5" fill="#55534c">Untuk tesis; dipakai juga di bahts kelas.</text>
+<rect x="352" y="112" width="296" height="220" rx="12" fill="#fdf1de" stroke="#c9831f"/>
+<circle cx="378" cy="140" r="9" fill="#c9831f"/><text x="396" y="146" font-size="17" font-weight="700" fill="#22211f">Catatan dosen</text>
+<text x="370" y="174" font-size="13" fill="#3d3c38">Dosen bahts kelas di Ma'had Jakarta,</text>
+<text x="370" y="193" font-size="13" fill="#3d3c38">tahun ajaran 1447 H.</text>
+<rect x="366" y="204" width="268" height="76" rx="8" fill="#ffffff" stroke="#c9831f" stroke-opacity="0.5"/>
+<text x="622" y="234" font-size="15" font-weight="700" direction="rtl" text-anchor="start" fill="#7a4a0c">تنبيهات مهمة في البحوث الصفية</text>
+<text x="622" y="264" font-size="15" font-weight="700" direction="rtl" text-anchor="start" fill="#7a4a0c">الملاحظات التي ينبغي مراعاتها</text>
+<text x="370" y="310" font-size="12.5" fill="#55534c">Merujuk ke aturan kampus di kiri.</text>
+<rect x="664" y="112" width="296" height="220" rx="12" fill="#efeeea" stroke="#7d7a70"/>
+<circle cx="690" cy="140" r="9" fill="#7d7a70"/><text x="708" y="146" font-size="17" font-weight="700" fill="#22211f">Pilihan mesin</text>
+<text x="682" y="174" font-size="13" fill="#3d3c38">Tidak disebut dua sumber itu,</text>
+<text x="682" y="193" font-size="13" fill="#3d3c38">atau hanya disebut garis besarnya.</text>
+<text x="682" y="310" font-size="12.5" fill="#55534c">Bisa diubah lewat mesin/format.json.</text>
+<text x="40" y="368" font-size="18" font-weight="700" fill="#22211f">Yang dipakai mesin</text>
+<rect x="40" y="380" width="920" height="34" rx="6" fill="#f3f2ee"/>
+<text x="56" y="402" font-size="12.5" font-weight="700" letter-spacing="1" fill="#6b6a65">ATURAN</text>
+<text x="220" y="402" font-size="12.5" font-weight="700" letter-spacing="1" fill="#6b6a65">DI MESIN</text>
+<text x="800" y="402" font-size="12.5" font-weight="700" letter-spacing="1" fill="#6b6a65">SUMBER</text>
+<text x="56" y="450" font-size="14.5" font-weight="700" fill="#22211f">Kertas</text>
+<text x="220" y="450" font-size="14.5" fill="#22211f">A4, dicetak satu sisi</text>
+<rect x="800" y="434" width="67.6" height="22" rx="11" fill="#e7f0fb" stroke="#2f6db5"/><text x="833.8" y="449.5" font-size="12" font-weight="700" fill="#1c4a80" text-anchor="middle">Kampus</text>
+<rect x="40" y="470" width="920" height="50" fill="#faf9f6"/>
+<text x="56" y="500" font-size="14.5" font-weight="700" fill="#22211f">Huruf</text>
+<text x="220" y="500" font-size="14.5" fill="#22211f">Traditional Arabic</text>
+<rect x="800" y="484" width="67.6" height="22" rx="11" fill="#e7f0fb" stroke="#2f6db5"/><text x="833.8" y="499.5" font-size="12" font-weight="700" fill="#1c4a80" text-anchor="middle">Kampus</text>
+<text x="56" y="540" font-size="14.5" font-weight="700" fill="#22211f">Ukuran huruf</text>
+<text x="220" y="540" font-size="14.5" fill="#22211f">isi 18, catatan kaki 14, judul 20 tebal</text>
+<text x="220" y="560" font-size="12" fill="#6b6a65">kampus: judul tebal dan lebih besar; dosen: 20</text>
+<rect x="800" y="534" width="67.6" height="22" rx="11" fill="#e7f0fb" stroke="#2f6db5"/><text x="833.8" y="549.5" font-size="12" font-weight="700" fill="#1c4a80" text-anchor="middle">Kampus</text>
+<rect x="873.6" y="534" width="60.0" height="22" rx="11" fill="#fdf1de" stroke="#c9831f"/><text x="903.6" y="549.5" font-size="12" font-weight="700" fill="#7a4a0c" text-anchor="middle">Dosen</text>
+<rect x="40" y="570" width="920" height="50" fill="#faf9f6"/>
+<text x="56" y="590" font-size="14.5" font-weight="700" fill="#22211f">Ayat</text>
+<text x="220" y="590" font-size="14.5" fill="#22211f">rasm Utsmani, huruf mushaf KFGQPC, ukuran 16</text>
+<text x="220" y="610" font-size="12" fill="#6b6a65">kampus: sama dengan isi (18); mesin 16 supaya tidak tampak lebih besar</text>
+<rect x="800" y="584" width="67.6" height="22" rx="11" fill="#e7f0fb" stroke="#2f6db5"/><text x="833.8" y="599.5" font-size="12" font-weight="700" fill="#1c4a80" text-anchor="middle">Kampus</text>
+<rect x="873.6" y="584" width="60.0" height="22" rx="11" fill="#efeeea" stroke="#7d7a70"/><text x="903.6" y="599.5" font-size="12" font-weight="700" fill="#47453f" text-anchor="middle">Mesin</text>
+<text x="56" y="650" font-size="14.5" font-weight="700" fill="#22211f">Margin</text>
+<text x="220" y="650" font-size="14.5" fill="#22211f">kanan 3,5 cm; atas, bawah, kiri 2,5 cm</text>
+<rect x="800" y="634" width="67.6" height="22" rx="11" fill="#e7f0fb" stroke="#2f6db5"/><text x="833.8" y="649.5" font-size="12" font-weight="700" fill="#1c4a80" text-anchor="middle">Kampus</text>
+<rect x="40" y="670" width="920" height="50" fill="#faf9f6"/>
+<text x="56" y="700" font-size="14.5" font-weight="700" fill="#22211f">Jarak baris</text>
+<text x="220" y="700" font-size="14.5" fill="#22211f">tunggal</text>
+<rect x="800" y="684" width="67.6" height="22" rx="11" fill="#e7f0fb" stroke="#2f6db5"/><text x="833.8" y="699.5" font-size="12" font-weight="700" fill="#1c4a80" text-anchor="middle">Kampus</text>
+<rect x="873.6" y="684" width="60.0" height="22" rx="11" fill="#fdf1de" stroke="#c9831f"/><text x="903.6" y="699.5" font-size="12" font-weight="700" fill="#7a4a0c" text-anchor="middle">Dosen</text>
+<text x="56" y="740" font-size="14.5" font-weight="700" fill="#22211f">Awal paragraf</text>
+<text x="220" y="740" font-size="14.5" fill="#22211f">menjorok 0,8 cm</text>
+<text x="220" y="760" font-size="12" fill="#6b6a65">kampus: lima spasi; 0,8 cm pilihan mesin</text>
+<rect x="800" y="734" width="67.6" height="22" rx="11" fill="#e7f0fb" stroke="#2f6db5"/><text x="833.8" y="749.5" font-size="12" font-weight="700" fill="#1c4a80" text-anchor="middle">Kampus</text>
+<rect x="873.6" y="734" width="60.0" height="22" rx="11" fill="#efeeea" stroke="#7d7a70"/><text x="903.6" y="749.5" font-size="12" font-weight="700" fill="#47453f" text-anchor="middle">Mesin</text>
+<rect x="40" y="770" width="920" height="50" fill="#faf9f6"/>
+<text x="56" y="800" font-size="14.5" font-weight="700" fill="#22211f">Nomor halaman</text>
+<text x="220" y="800" font-size="14.5" fill="#22211f">tengah bawah, mulai 1 dari المقدمة</text>
+<rect x="800" y="784" width="67.6" height="22" rx="11" fill="#e7f0fb" stroke="#2f6db5"/><text x="833.8" y="799.5" font-size="12" font-weight="700" fill="#1c4a80" text-anchor="middle">Kampus</text>
+<text x="56" y="850" font-size="14.5" font-weight="700" fill="#22211f">Catatan kaki</text>
+<text x="220" y="850" font-size="14.5" fill="#22211f">nomor (1) dalam kurung, mulai 1 lagi tiap halaman</text>
+<rect x="800" y="834" width="60.0" height="22" rx="11" fill="#fdf1de" stroke="#c9831f"/><text x="830.0" y="849.5" font-size="12" font-weight="700" fill="#7a4a0c" text-anchor="middle">Dosen</text>
+<rect x="40" y="870" width="920" height="50" fill="#faf9f6"/>
+<text x="56" y="900" font-size="14.5" font-weight="700" fill="#22211f">Susunan</text>
+<text x="770" y="901" font-size="16" direction="rtl" text-anchor="start" fill="#22211f">مقدمة ← فصول ومباحث ← خاتمة ← المصادر والمراجع ← الفهارس</text>
+<rect x="800" y="884" width="60.0" height="22" rx="11" fill="#fdf1de" stroke="#c9831f"/><text x="830.0" y="899.5" font-size="12" font-weight="700" fill="#7a4a0c" text-anchor="middle">Dosen</text>
+<text x="56" y="940" font-size="14.5" font-weight="700" fill="#22211f">Halaman baru</text>
+<text x="220" y="940" font-size="14.5" fill="#22211f">tiap مقدمة dan فصل dan خاتمة</text>
+<text x="220" y="960" font-size="12" fill="#6b6a65">kampus juga menyebut مبحث; mesin hanya فصل</text>
+<rect x="800" y="934" width="67.6" height="22" rx="11" fill="#e7f0fb" stroke="#2f6db5"/><text x="833.8" y="949.5" font-size="12" font-weight="700" fill="#1c4a80" text-anchor="middle">Kampus</text>
+<rect x="40" y="970" width="920" height="50" fill="#faf9f6"/>
+<text x="56" y="1000" font-size="14.5" font-weight="700" fill="#22211f">Daftar pustaka</text>
+<text x="220" y="1000" font-size="14.5" fill="#22211f">tabel tanpa garis, urut abjad, القرآن الكريم paling atas</text>
+<rect x="800" y="984" width="60.0" height="22" rx="11" fill="#fdf1de" stroke="#c9831f"/><text x="830.0" y="999.5" font-size="12" font-weight="700" fill="#7a4a0c" text-anchor="middle">Dosen</text>
+<rect x="866.0" y="984" width="60.0" height="22" rx="11" fill="#efeeea" stroke="#7d7a70"/><text x="896.0" y="999.5" font-size="12" font-weight="700" fill="#47453f" text-anchor="middle">Mesin</text>
+<text x="56" y="1040" font-size="14.5" font-weight="700" fill="#22211f">Fihris</text>
+<text x="220" y="1040" font-size="14.5" fill="#22211f">ayat (urut mushaf), hadits (urut abjad), isi</text>
+<text x="220" y="1060" font-size="12" fill="#6b6a65">kampus: «menurut kebiasaan tiap bidang»; daftar pastinya belum ada sumber tertulis</text>
+<rect x="800" y="1034" width="60.0" height="22" rx="11" fill="#efeeea" stroke="#7d7a70"/><text x="830.0" y="1049.5" font-size="12" font-weight="700" fill="#47453f" text-anchor="middle">Mesin</text>
+<rect x="40" y="1070" width="920" height="50" fill="#faf9f6"/>
+<text x="56" y="1100" font-size="14.5" font-weight="700" fill="#22211f">Sampul</text>
+<text x="220" y="1100" font-size="14.5" fill="#22211f">template dosen, logo resmi kampus</text>
+<rect x="800" y="1084" width="60.0" height="22" rx="11" fill="#fdf1de" stroke="#c9831f"/><text x="830.0" y="1099.5" font-size="12" font-weight="700" fill="#7a4a0c" text-anchor="middle">Dosen</text>
+<text x="56" y="1150" font-size="14.5" font-weight="700" fill="#22211f">Cara merujuk</text>
+<text x="220" y="1150" font-size="14.5" fill="#22211f">ayat, hadits, kitab, dan انظر untuk nukilan makna</text>
+<rect x="800" y="1134" width="60.0" height="22" rx="11" fill="#fdf1de" stroke="#c9831f"/><text x="830.0" y="1149.5" font-size="12" font-weight="700" fill="#7a4a0c" text-anchor="middle">Dosen</text>
+<rect x="40" y="1188" width="920" height="110" rx="12" fill="#fbe9e7" stroke="#b3362f"/>
+<text x="60" y="1218" font-size="15" font-weight="700" fill="#8a2a24">Bukan standar kementerian</text>
+<text x="60" y="1242" font-size="13.5" fill="#3d3c38">Aturan bentuk halaman disahkan dewan pascasarjana kampus (عمادة الدراسات العليا), bukan oleh kementerian.</text>
+<text x="60" y="1261" font-size="13.5" fill="#3d3c38">وزارة التعليم di sampul hanya baris kop yang diminta aturan kampus itu, di atas nama kampus.</text>
+<text x="60" y="1280" font-size="12.5" fill="#6b6a65">Aturan kampus menyebut dasarnya: اللائحة الموحدة للدراسات العليا في الجامعات. Isi peraturan dasar itu belum dicek.</text>
+</svg>

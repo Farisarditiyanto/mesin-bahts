@@ -8,6 +8,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 - README ditulis ulang untuk pembaca baru: masalah yang diselesaikan di awal, bagian «Cara kerjanya», dan «Pertanyaan umum» (biaya, Mac/Linux, tanggung jawab isi, kampus lain).
 - Gambar alur baru (`dok/alur.svg`): sepuluh langkah lengkap, siapa yang mengerjakan tiap langkah, dan putaran balik kalau `cek` atau pemeriksa menemukan salah.
 - Gambar baru `dok/bukti.svg`: cara `cek` mencocokkan bukti `<<kitab|juz|hal>>` ke halaman kitab, dengan tiga hasil yang mungkin.
+- Gambar baru `dok/standar.svg` dan bagian «Standar yang dipakai» di README: asal tiap aturan bentuk halaman (aturan kampus 1442 H, catatan dosen, atau pilihan mesin).
 - README dan `AGENTS.md`: cara memakai agent selain Claude Code (Codex, Hermes, dll.). Connector didaftarkan sendiri di agent itu, dan pemeriksaan kedua bisa lewat sesi baru kalau agentnya tidak bisa membuat subagent.
 
 ## 0.2.4 — 2026-10-10
