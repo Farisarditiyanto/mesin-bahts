@@ -58,6 +58,17 @@ Hasilnya ada di folder `mesin-bahts` di dalam folder Dokumen-mu.
 
 Catatan untuk agent AI: repo ini diunduh ke folder `mesin-bahts` di dalam folder Dokumen pemakai. Langkah selanjutnya ada di [`AGENTS.md`](AGENTS.md), mulai dari bagian «Pemakai baru».
 
+## Standar yang dipakai
+
+Gambar 3. Asal tiap aturan bentuk halaman: aturan kampus, catatan dosen, atau pilihan mesin.
+
+![Asal aturan: kertas, huruf, ukuran, margin, jarak baris, nomor halaman, catatan kaki, susunan, daftar pustaka, fihris, sampul, dan cara merujuk, masing-masing dengan sumbernya](dok/standar.svg)
+
+- Aturan kampus: «[القواعد المنظمة لتسجيل الرسالة العلمية وكتابتها وطباعتها وتقديمها](https://units.imamu.edu.sa/colleges/cmc/AcademicDepts/SiteAssets/Pages/d_j_e_p/%D8%A7%D9%84%D9%82%D9%88%D8%A7%D8%B9%D8%AF%20%D8%A7%D9%84%D9%85%D9%86%D8%B8%D9%85%D8%A9%20%D9%84%D8%AA%D8%B3%D8%AC%D9%8A%D9%84%20%D8%A7%D9%84%D8%B1%D8%B3%D8%A7%D9%84%D8%A9%20%D8%A7%D9%84%D8%B9%D9%84%D9%85%D9%8A%D8%A9.pdf)», disahkan عمادة الدراسات العليا جامعة الإمام tahun 1442 H. Aturan ini ditulis untuk tesis.
+- Catatan dosen: «تنبيهات مهمة في البحوث الصفية» dan «الملاحظات التي ينبغي مراعاتها عند كتابة البحوث», dari dosen bahts kelas di معهد العلوم الإسلامية والعربية في جاكرتا. Catatan ini tidak dipublikasikan.
+- Ini bukan standar kementerian. وزارة التعليم di sampul hanya baris kop yang diminta aturan kampus.
+- Dosenmu minta lain? Tambah profil di `mesin/format.json`.
+
 ## Batasnya, baca dulu
 
 - Ini alat bantu, bukan jaminan. `cek` hanya membuktikan bahwa teksnya ada di juz dan halaman itu.
