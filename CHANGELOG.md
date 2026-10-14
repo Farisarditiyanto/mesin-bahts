@@ -5,7 +5,19 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
-- README diringkas (dari ±1450 jadi ±525 kata) dan disesuaikan dengan `cek` terbaru; teks gambar alur dan cara `cek` dipendekkan.
+- README diringkas (dari ±1450 jadi ±575 kata) dan disesuaikan dengan `cek` terbaru; teks gambar alur dan cara `cek` dipendekkan.
+
+## 2.0.0 — 2026-10-15
+
+Besar naik: naskah yang memakai petik tunggal atau `<<luar>>` untuk kitab Shamela bisa kini GAGAL.
+
+- Kutipan bertanda petik tunggal (‘…’, ’…‘, '…', juga ‛…’ dan ‚…‘) yang isinya huruf Arab dikenali dan dicek seperti "…"; „…“ ＂…＂ ‹…› 「…」 ﹁…﹂ juga dikenali. Dulu kutipan karangan bertanda itu lolos tanpa tanda apa pun. Apostrof transliterasi yang menempel huruf Latin (Qur'an, Ibn 'Uthaymin, ‘Abduh, ‘Uthaymīn) bukan tanda petik.
+- Tanda petik tanpa pasangan sebelum catatan kaki berbukti (mis. campuran ‘…") masuk `perhatian`: kutipannya tidak dikenali, jadi tidak dicek.
+- `<<luar>>` pada catatan kaki yang judulnya kitab Shamela kini GAGAL, dengan nomor kitabnya untuk di-`ambil`. Yang dicocokkan: bagian pertama catatan kaki (sesudah «انظر/ينظر/راجع/كتاب», sampai tanda baca seperti «،» «-» «:» «؛»), utuh atau disusul pengarang («للشيخ …», «لابن …»), paling sedikit dua kata. Judul yang hanya mengawali judul lain (mis. «الزواج» di «الزواج لدى المسلمين»), judul satu kata, judul di bagian lain catatan kaki, dan judul jurnal («مجلة …») cukup masuk `perhatian` beserta nomor kitab yang mirip. Butuh katalog lokal (`siapkan`); tanpa katalog, `<<luar>>` tetap hanya perhatian.
+- Ringkasan `cek` menyebut jumlah `<<luar>>` («tidak dicek mesin») kalau ada.
+- Tiap kutipan yang dipotong `...`/`…` masuk `perhatian` dengan jumlah huruf kitab yang dilompati: sambungan yang rapat pun bisa mengubah makna atau pembicaranya. Kutipan yang dipisah ayat `{Q:}` masuk `perhatian` kalau bagiannya berjauhan (lebih dari 300 huruf). Dua kutipan yang disambung `...` di luar tanda petik juga masuk `perhatian`.
+- «"…"، انتهى كلامه» dikenali sebagai kutipan, seperti «اهـ» dan «انتهى».
+- Tes otomatis: jebakan GAGAL baru (`@jebakan`), dan jumlah `perhatian` di bagian `#S` naskah jebakan ikut dijaga (`@perhatian_jebakan`).
 
 ## 1.0.0 — 2026-10-15
 
