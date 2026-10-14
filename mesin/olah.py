@@ -5,12 +5,14 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   @kunci: nilai       data sampul, di awal naskah. Wajib: judul, jenis, nama, nim, fasl.
                       Opsional: musyrif, jabatan (kosong atau "-" = tidak tercetak), thalibah (ya = sampul mencetak «اسم الطالبة»),
                       berkas (nama file hasil), format (profil di format.json; bawaan imam),
-                      tanpa (فهرس yang tidak dicetak: ayat, hadits, maudhuat; mis. «@tanpa: ayat, hadits»).
+                      tanpa (yang tidak dicetak: فهرس ayat, hadits, maudhuat, dan pustaka = المصادر والمراجع
+                      bila dosen minta sumber cukup di catatan kaki; mis. «@tanpa: ayat, hadits»).
                       فهرس الآيات dan فهرس الأحاديث yang kosong tidak dicetak dengan sendirinya
   #K #F #B #M teks    judul tengah + masuk فهرس الموضوعات: K = مقدمة/خاتمة, F = فصل (keduanya mulai halaman baru), B = مبحث, M = مطلب.
                       Bahts pendek tanpa فصل: #F untuk مبحث, #B untuk مطلب
   #S teks             sub-judul kanan (tidak masuk فهرس)
-  #R teks             awal المصادر والمراجع; sesudahnya satu kitab per baris (diurutkan abjad otomatis, القرآن الكريم paling atas)
+  #R teks             awal المصادر والمراجع; sesudahnya satu kitab per baris (diurutkan abjad otomatis, القرآن الكريم paling atas).
+                      Wajib, kecuali «@tanpa: pustaka»
   **...**             tebal
   {Q:s:a} {Q:s:a-b} {Q:s:a:i-j}   ayat surat s ayat a (atau a-b; atau kata ke-i s.d. j): teks resmi rasm Utsmani + masuk فهرس الآيات
   {H:طرف|راوٍ|kunci}   daftarkan hadits/atsar ke فهرس الأحاديث; taruh tepat sebelum «matan». Kunci: huruf kecil a-z, satu kunci satu hadits
@@ -40,7 +42,7 @@ QURAN = json.load(open(HERE / "quran_hafs_v22.json", encoding="utf8"))
 SURAH = json.load(open(HERE / "nama_surah.json", encoding="utf8"))
 FORMAT = json.load(open(HERE / "format.json", encoding="utf8"))  # huruf & ukuran tiap pedoman; dipilih dengan @format
 WAJIB = ("judul", "jenis", "nama", "nim", "fasl")
-TANPA = ("ayat", "hadits", "maudhuat")  # فهرس yang boleh dibuang lewat @tanpa; perakitnya di rakit.ps1
+TANPA = ("ayat", "hadits", "maudhuat", "pustaka")  # فهرس dan المصادر yang boleh dibuang lewat @tanpa; perakitnya di rakit.ps1
 
 HARAKAT = shamela.HARAKAT
 AD = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
@@ -587,7 +589,11 @@ def utama(folder):
                 blok.append({"k": "P", "runs": urai(b, catatan, ayat_idx, hadits_idx, galat, perhatian)})
             except (ValueError, KeyError, IndexError) as e:
                 galat.append(f"baris {n}: tanda rusak — {e}")
-    if not mode_r:
+    tanpa = [t for t in re.split(r"[,، ]+", meta.get("tanpa", "")) if t]
+    if "pustaka" in tanpa:  # sumber cukup di catatan kaki (rujukan pertama tiap kitab berdata lengkap)
+        if mode_r:
+            galat.append("@tanpa: pustaka, tetapi ada #R: hapus #R beserta daftarnya, atau hapus «pustaka» dari @tanpa")
+    elif not mode_r:
         galat.append("tidak ada #R (المصادر والمراجع) di akhir naskah")
     elif not pustaka:
         galat.append("المصادر والمراجع masih kosong: tulis satu kitab per baris sesudah #R")
@@ -613,7 +619,7 @@ def utama(folder):
     n_matan = sum(kata(b["runs"]) for b in blok)
     n_fn = sum(kata(c["runs"]) for c in catatan)
     galat += [f"data sampul belum diisi: @{k}" for k in WAJIB if not meta.get(k)]
-    asing = [t for t in re.split(r"[,، ]+", meta.get("tanpa", "")) if t and t not in TANPA]
+    asing = [t for t in tanpa if t not in TANPA]
     if asing:
         galat.append(f"@tanpa: «{'، '.join(asing)}» tidak dikenal (yang ada: {', '.join(TANPA)})")
     if meta.get("thalibah", "ya") != "ya":
