@@ -19,6 +19,7 @@ $TANPA = @(([string]$M.tanpa -split '[,، ]+') | Where-Object { $_ })
 $adaAy = [bool]@($DATA.ayat).Count -and $TANPA -notcontains 'ayat'
 $adaHd = [bool]@($DATA.hadits).Count -and $TANPA -notcontains 'hadits'
 $adaTo = $TANPA -notcontains 'maudhuat'
+$adaPu = $TANPA -notcontains 'pustaka'   # @tanpa: pustaka = sumber cukup di catatan kaki
 
 # satu rakit dalam satu waktu: rakit kedua berhenti di sini, sebelum mematikan Word milik rakit pertama (kunci lepas sendiri saat proses ini selesai)
 try { $kunci = [IO.File]::Open("$dir\_tmp\rakit.kunci", 'OpenOrCreate', 'ReadWrite', 'None') }
@@ -217,7 +218,9 @@ try {
     }
 
     # ---------- 3. المصادر والمراجع (tabel tanpa garis, urut abjad) ----------
-    $nT++; Judul 'المصادر والمراجع' "t_$nT" $true; [void]$toc.Add(@{ t = 'المصادر والمراجع'; bm = "t_$nT"; lvl = 0 }); $bmMasadir = "t_$nT"
+    $bmSesudahIsi = "t_$($nT + 1)"   # judul pertama sesudah الخاتمة (المصادر, atau فهرس pertama): HALAMAN_ISI = halamannya - 1
+    if ($adaPu) {
+    $nT++; Judul 'المصادر والمراجع' "t_$nT" $true; [void]$toc.Add(@{ t = 'المصادر والمراجع'; bm = "t_$nT"; lvl = 0 })
     $n = $DATA.pustaka.Count
     # baris القرآن الكريم (selalu paling atas kalau ada) bertanda «-», kitab lain bernomor 1, 2, ...
     # penandanya dari olah.py (kunci "quran"); olah.py tanpa kunci itu: dilihat dari baris pertama, harakat (= shamela.HARAKAT) dibuang
@@ -231,6 +234,7 @@ try {
         Sel $tb $r 2 $DATA.pustaka[$r - 1] 3 0
     }
     Sel-Akhir
+    }
 
     # ---------- 4. الفهارس ----------
     if ($adaAy) {
@@ -298,8 +302,9 @@ try {
 
     # ---------- 6. Simpan ----------
     $pages = $doc.ComputeStatistics(2)
-    # halaman isi = المقدمة s.d. sebelum المصادر والمراجع (nomor halaman dihitung mulai dari المقدمة)
-    $isi = (Hal $bmMasadir) - 1
+    # halaman isi = المقدمة s.d. الخاتمة (nomor halaman dihitung mulai dari المقدمة); tanpa المصادر dan فهرس = halaman terakhir
+    if ($doc.Bookmarks.Exists($bmSesudahIsi)) { $isi = (Hal $bmSesudahIsi) - 1 }
+    else { $akhir = $doc.Content.End - 1; $isi = $doc.Range($akhir, $akhir).Information(1) }
     $lap = @("HALAMAN=$pages", "HALAMAN_ISI=$isi","CATATAN_KAKI=$($doc.Footnotes.Count)", "KATA(termasuk catatan kaki)=$($doc.ComputeStatistics(0, $true))")
     foreach ($e in $toc) { $lap += ("hal {0}: {1}" -f (Hal $e.bm), $e.t) }
     [IO.File]::AppendAllLines($Laporan, [string[]]$lap)

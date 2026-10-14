@@ -3,8 +3,9 @@
 Tiap rilis ditulis di sini: yang baru di atas. Nomor versi = `besar.kecil.tambalan`:
 besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan baru, tambalan naik kalau hanya perbaikan.
 
-## Belum dirilis
+## 2.1.0 — 2026-10-15
 
+- `@tanpa: pustaka`: PDF tanpa المصادر والمراجع, untuk dosen yang minta sumber cukup di catatan kaki (rujukan pertama tiap kitab tetap berdata lengkap). Naskahnya tanpa `#R`; `#R` yang tetap ada ditolak `cek`. `HALAMAN_ISI` tetap benar walau tanpa المصادر dan فهرس.
 - README diringkas (dari ±1450 jadi ±575 kata) dan disesuaikan dengan `cek` terbaru; teks gambar alur dan cara `cek` dipendekkan.
 
 ## 2.0.0 — 2026-10-15
