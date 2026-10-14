@@ -3,7 +3,7 @@
 <defs><marker id="p" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L10 5L0 9z" fill="#6b6a65"/></marker><marker id="pm" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L10 5L0 9z" fill="#b3362f"/></marker></defs>
 <rect width="1000" height="1334" rx="16" fill="#ffffff"/>
 <text x="40" y="58" font-size="27" font-weight="700" fill="#22211f">Dari satu kalimat sampai PDF siap kumpul</text>
-<text x="40" y="88" font-size="15" fill="#6b6a65">Kamu cukup meminta dan menjawab. Agent menulis. Mesin memeriksa dan merakit.</text>
+<text x="40" y="88" font-size="15" fill="#6b6a65">Kamu meminta. Agent menulis. Mesin memeriksa dan merakit.</text>
 <rect x="40" y="104" width="56.4" height="26" rx="13" fill="#fdf1de" stroke="#c9831f"/><text x="68.2" y="122" font-size="13" font-weight="600" text-anchor="middle" fill="#7a4a0c">Kamu</text>
 <rect x="106.4" y="104" width="90.8" height="26" rx="13" fill="#e7f0fb" stroke="#2f6db5"/><text x="151.8" y="122" font-size="13" font-weight="600" text-anchor="middle" fill="#1c4a80">Agent AI</text>
 <rect x="207.2" y="104" width="65.0" height="26" rx="13" fill="#e3f4ec" stroke="#16805f"/><text x="239.7" y="122" font-size="13" font-weight="600" text-anchor="middle" fill="#0d5640">Mesin</text>
@@ -32,7 +32,7 @@
 <rect x="150" y="150" width="810" height="88" rx="12" fill="#fdf1de" stroke="#c9831f" stroke-width="1.2"/>
 <rect x="166" y="164" width="45.6" height="20" rx="10" fill="#c9831f"/><text x="188.8" y="178" font-size="11.5" font-weight="700" fill="#fff" text-anchor="middle">Kamu</text>
 <text x="221.6" y="180" font-size="17" font-weight="700" fill="#22211f">Minta bahts</text>
-<text x="166" y="205" font-size="13.5" fill="#3d3c38">Tempel satu kalimat: judul, susunan bab, kira-kira berapa halaman.</text>
+<text x="166" y="205" font-size="13.5" fill="#3d3c38">Judul, susunan bab, kira-kira berapa halaman.</text>
 <rect x="888.2" y="163" width="57.8" height="22" rx="5" fill="#ffffff" stroke="#c9831f" stroke-opacity="0.55"/><text x="917.1" y="178.5" font-size="12" font-family="Consolas, Menlo, monospace" fill="#7a4a0c" text-anchor="middle">Hermes</text>
 <rect x="831.7" y="163" width="50.5" height="22" rx="5" fill="#ffffff" stroke="#c9831f" stroke-opacity="0.55"/><text x="856.95" y="178.5" font-size="12" font-family="Consolas, Menlo, monospace" fill="#7a4a0c" text-anchor="middle">Codex</text>
 <rect x="731.4000000000001" y="163" width="94.3" height="22" rx="5" fill="#ffffff" stroke="#c9831f" stroke-opacity="0.55"/><text x="778.5500000000001" y="178.5" font-size="12" font-family="Consolas, Menlo, monospace" fill="#7a4a0c" text-anchor="middle">Claude Code</text>
@@ -40,7 +40,7 @@
 <rect x="150" y="264" width="810" height="88" rx="12" fill="#e7f0fb" stroke="#2f6db5" stroke-width="1.2"/>
 <rect x="166" y="278" width="75.2" height="20" rx="10" fill="#2f6db5"/><text x="203.6" y="292" font-size="11.5" font-weight="700" fill="#fff" text-anchor="middle">Agent AI</text>
 <text x="251.2" y="294" font-size="17" font-weight="700" fill="#22211f">Siapkan komputer (sekali saja)</text>
-<text x="166" y="319" font-size="13.5" fill="#3d3c38">Unduh repo, periksa apa yang kurang, unduh katalog kitab dan font mushaf.</text>
+<text x="166" y="319" font-size="13.5" fill="#3d3c38">Unduh repo, katalog kitab, dan font mushaf.</text>
 <text x="166" y="338" font-size="13.5" fill="#3d3c38">Di Windows, font mushaf langsung dipasang.</text>
 <rect x="880.9" y="277" width="65.1" height="22" rx="5" fill="#ffffff" stroke="#2f6db5" stroke-opacity="0.55"/><text x="913.4499999999999" y="292.5" font-size="12" font-family="Consolas, Menlo, monospace" fill="#1c4a80" text-anchor="middle">siapkan</text>
 <rect x="809.8" y="277" width="65.1" height="22" rx="5" fill="#ffffff" stroke="#2f6db5" stroke-opacity="0.55"/><text x="842.3499999999999" y="292.5" font-size="12" font-family="Consolas, Menlo, monospace" fill="#1c4a80" text-anchor="middle">periksa</text>
@@ -48,20 +48,20 @@
 <rect x="150" y="378" width="810" height="88" rx="12" fill="#fdf1de" stroke="#c9831f" stroke-width="1.2"/>
 <rect x="166" y="392" width="45.6" height="20" rx="10" fill="#c9831f"/><text x="188.8" y="406" font-size="11.5" font-weight="700" fill="#fff" text-anchor="middle">Kamu</text>
 <text x="221.6" y="408" font-size="17" font-weight="700" fill="#22211f">Jawab data sampul</text>
-<text x="166" y="433" font-size="13.5" fill="#3d3c38">Nama, NIM, jenis tugas, semester: ditanya sekali, lalu diingat.</text>
-<text x="166" y="452" font-size="13.5" fill="#3d3c38">Pembimbing: ditanya tiap bahts.</text>
+<text x="166" y="433" font-size="13.5" fill="#3d3c38">Nama, NIM, jenis tugas, semester: sekali saja.</text>
+<text x="166" y="452" font-size="13.5" fill="#3d3c38">Pembimbing: tiap bahts.</text>
 <circle cx="118" cy="535" r="15" fill="#2f6db5"/><text x="118" y="540" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">4</text>
 <rect x="150" y="492" width="810" height="88" rx="12" fill="#e7f0fb" stroke="#2f6db5" stroke-width="1.2"/>
 <rect x="166" y="506" width="75.2" height="20" rx="10" fill="#2f6db5"/><text x="203.6" y="520" font-size="11.5" font-weight="700" fill="#fff" text-anchor="middle">Agent AI</text>
 <text x="251.2" y="522" font-size="17" font-weight="700" fill="#22211f">Susun rencana</text>
-<text x="166" y="547" font-size="13.5" fill="#3d3c38">Buat folder bahts dan susun kerangka bab (خطة) sesuai permintaan dosen.</text>
+<text x="166" y="547" font-size="13.5" fill="#3d3c38">Folder bahts + kerangka bab (خطة) sesuai permintaan dosen.</text>
 <rect x="902.8" y="505" width="43.2" height="22" rx="5" fill="#ffffff" stroke="#2f6db5" stroke-opacity="0.55"/><text x="924.4" y="520.5" font-size="12" font-family="Consolas, Menlo, monospace" fill="#1c4a80" text-anchor="middle">baru</text>
 <circle cx="118" cy="649" r="15" fill="#2f6db5"/><text x="118" y="654" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">5</text>
 <rect x="150" y="606" width="810" height="88" rx="12" fill="#e7f0fb" stroke="#2f6db5" stroke-width="1.2"/>
 <rect x="166" y="620" width="75.2" height="20" rx="10" fill="#2f6db5"/><text x="203.6" y="634" font-size="11.5" font-weight="700" fill="#fff" text-anchor="middle">Agent AI</text>
 <text x="251.2" y="636" font-size="17" font-weight="700" fill="#22211f">Cari dan baca bahan</text>
-<text x="166" y="661" font-size="13.5" fill="#3d3c38">Cari kitab yang membahas, unduh ke komputer, salin teks persis + data cetaknya.</text>
-<text x="166" y="680" font-size="13.5" fill="#3d3c38">Takhrij hadits dan penelitian terdahulu (الدراسات السابقة) juga dicari.</text>
+<text x="166" y="661" font-size="13.5" fill="#3d3c38">Cari kitab, unduh, salin teks persis + data cetaknya.</text>
+<text x="166" y="680" font-size="13.5" fill="#3d3c38">Juga takhrij hadits dan الدراسات السابقة.</text>
 <rect x="880.9" y="619" width="65.1" height="22" rx="5" fill="#ffffff" stroke="#2f6db5" stroke-opacity="0.55"/><text x="913.4499999999999" y="634.5" font-size="12" font-family="Consolas, Menlo, monospace" fill="#1c4a80" text-anchor="middle">dirasat</text>
 <rect x="817.1" y="619" width="57.8" height="22" rx="5" fill="#ffffff" stroke="#2f6db5" stroke-opacity="0.55"/><text x="846.0" y="634.5" font-size="12" font-family="Consolas, Menlo, monospace" fill="#1c4a80" text-anchor="middle">hadits</text>
 <rect x="760.6" y="619" width="50.5" height="22" rx="5" fill="#ffffff" stroke="#2f6db5" stroke-opacity="0.55"/><text x="785.85" y="634.5" font-size="12" font-family="Consolas, Menlo, monospace" fill="#1c4a80" text-anchor="middle">kartu</text>
@@ -73,39 +73,39 @@
 <rect x="150" y="720" width="810" height="88" rx="12" fill="#e7f0fb" stroke="#2f6db5" stroke-width="1.2"/>
 <rect x="166" y="734" width="75.2" height="20" rx="10" fill="#2f6db5"/><text x="203.6" y="748" font-size="11.5" font-weight="700" fill="#fff" text-anchor="middle">Agent AI</text>
 <text x="251.2" y="750" font-size="17" font-weight="700" fill="#22211f">Tulis naskah.txt</text>
-<text x="166" y="775" font-size="13.5" fill="#3d3c38">Tiap kutipan diberi catatan kaki + alamatnya: nomor kitab, juz, halaman.</text>
-<text x="166" y="794" font-size="13.5" fill="#3d3c38">Ayat cukup ditulis nomornya; teksnya diambil dari mushaf resmi.</text>
+<text x="166" y="775" font-size="13.5" fill="#3d3c38">Tiap kutipan membawa alamat di catatan kaki: kitab, juz, halaman.</text>
+<text x="166" y="794" font-size="13.5" fill="#3d3c38">Ayat cukup nomornya; teksnya dari mushaf resmi.</text>
 <rect x="859.0" y="733" width="87.0" height="22" rx="5" fill="#ffffff" stroke="#2f6db5" stroke-opacity="0.55"/><text x="902.5" y="748.5" font-size="12" font-family="Consolas, Menlo, monospace" fill="#1c4a80" text-anchor="middle">naskah.txt</text>
 <circle cx="118" cy="877" r="15" fill="#16805f"/><text x="118" y="882" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">7</text>
 <rect x="150" y="834" width="810" height="88" rx="12" fill="#e3f4ec" stroke="#16805f" stroke-width="1.2"/>
 <rect x="166" y="848" width="53.0" height="20" rx="10" fill="#16805f"/><text x="192.5" y="862" font-size="11.5" font-weight="700" fill="#fff" text-anchor="middle">Mesin</text>
 <text x="229.0" y="864" font-size="17" font-weight="700" fill="#22211f">cek: cocokkan tiap kutipan ke kitab</text>
-<text x="166" y="889" font-size="13.5" fill="#3d3c38">Kutipan yang tidak ada di halaman itu = GAGAL. Kalau ada di halaman lain, letaknya disebut.</text>
+<text x="166" y="889" font-size="13.5" fill="#3d3c38">Kutipan yang tidak ada di halaman itu, atau tanpa alamat = GAGAL.</text>
 <text x="166" y="908" font-size="13.5" fill="#3d3c38">Lanjut hanya kalau GAGAL: 0.</text>
 <rect x="910.1" y="847" width="35.9" height="22" rx="5" fill="#ffffff" stroke="#16805f" stroke-opacity="0.55"/><text x="928.0500000000001" y="862.5" font-size="12" font-family="Consolas, Menlo, monospace" fill="#0d5640" text-anchor="middle">cek</text>
 <circle cx="118" cy="991" r="15" fill="#16805f"/><text x="118" y="996" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">8</text>
 <rect x="150" y="948" width="810" height="88" rx="12" fill="#e3f4ec" stroke="#16805f" stroke-width="1.2"/>
 <rect x="166" y="962" width="53.0" height="20" rx="10" fill="#16805f"/><text x="192.5" y="976" font-size="11.5" font-weight="700" fill="#fff" text-anchor="middle">Mesin</text>
 <text x="229.0" y="978" font-size="17" font-weight="700" fill="#22211f">rakit: Word + PDF</text>
-<text x="166" y="1003" font-size="13.5" fill="#3d3c38">Sampul, isi, catatan kaki, daftar pustaka (المصادر والمراجع), dan فهرس ayat, hadits, isi.</text>
+<text x="166" y="1003" font-size="13.5" fill="#3d3c38">Sampul, isi, catatan kaki, المصادر والمراجع, dan الفهارس.</text>
 <text x="166" y="1022" font-size="13.5" fill="#3d3c38">Butuh Windows + Microsoft Word.</text>
 <rect x="895.5" y="961" width="50.5" height="22" rx="5" fill="#ffffff" stroke="#16805f" stroke-opacity="0.55"/><text x="920.75" y="976.5" font-size="12" font-family="Consolas, Menlo, monospace" fill="#0d5640" text-anchor="middle">rakit</text>
 <circle cx="118" cy="1105" r="15" fill="#2f6db5"/><text x="118" y="1110" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">9</text>
 <rect x="150" y="1062" width="810" height="88" rx="12" fill="#e7f0fb" stroke="#2f6db5" stroke-width="1.2"/>
 <rect x="166" y="1076" width="75.2" height="20" rx="10" fill="#2f6db5"/><text x="203.6" y="1090" font-size="11.5" font-weight="700" fill="#fff" text-anchor="middle">Agent AI</text>
 <text x="251.2" y="1092" font-size="17" font-weight="700" fill="#22211f">Diperiksa agent kedua</text>
-<text x="166" y="1117" font-size="13.5" fill="#3d3c38">Agent baru yang tidak ikut menulis membuka halaman tiap catatan kaki dan membaca PDF-nya:</text>
+<text x="166" y="1117" font-size="13.5" fill="#3d3c38">Agent yang tidak ikut menulis membuka halaman tiap catatan kaki dan membaca PDF:</text>
 <text x="166" y="1136" font-size="13.5" fill="#3d3c38">benarkah yang berkata orang itu, benarkah nama kitabnya, sesuaikah dengan permintaanmu.</text>
 <circle cx="118" cy="1219" r="15" fill="#c9831f"/><text x="118" y="1224" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">10</text>
 <rect x="150" y="1176" width="810" height="88" rx="12" fill="#fdf1de" stroke="#c9831f" stroke-width="1.2"/>
 <rect x="166" y="1190" width="45.6" height="20" rx="10" fill="#c9831f"/><text x="188.8" y="1204" font-size="11.5" font-weight="700" fill="#fff" text-anchor="middle">Kamu</text>
 <text x="221.6" y="1206" font-size="17" font-weight="700" fill="#22211f">Baca, periksa kutipan utama, kumpulkan</text>
-<text x="166" y="1231" font-size="13.5" fill="#3d3c38">PDF untuk dibaca dan dikumpulkan; .docx untuk dibuka di Word.</text>
+<text x="166" y="1231" font-size="13.5" fill="#3d3c38">PDF dikumpulkan; .docx untuk Word.</text>
 <rect x="895.5" y="1189" width="50.5" height="22" rx="5" fill="#ffffff" stroke="#c9831f" stroke-opacity="0.55"/><text x="920.75" y="1204.5" font-size="12" font-family="Consolas, Menlo, monospace" fill="#7a4a0c" text-anchor="middle">.docx</text>
 <rect x="846.3" y="1189" width="43.2" height="22" rx="5" fill="#ffffff" stroke="#c9831f" stroke-opacity="0.55"/><text x="867.9" y="1204.5" font-size="12" font-family="Consolas, Menlo, monospace" fill="#7a4a0c" text-anchor="middle">.pdf</text>
 <path d="M960 900H978" stroke="#b3362f" stroke-width="1.6" fill="none" stroke-dasharray="5 4"/>
 <path d="M960 1128H978" stroke="#b3362f" stroke-width="1.6" fill="none" stroke-dasharray="5 4"/>
 <path d="M978 1128V786H962" stroke="#b3362f" stroke-width="1.6" fill="none" stroke-dasharray="5 4" marker-end="url(#pm)"/>
 <text x="970" y="826" font-size="12" font-weight="700" fill="#b3362f" text-anchor="end">ada yang salah? kembali menulis, lalu cek dan rakit ulang</text>
-<text x="150" y="1306" font-size="13" fill="#6b6a65">Tanpa Windows atau Word, langkah 8 dilewati: naskah tetap dicek dan diperiksa agent kedua, tetapi Word dan PDF tidak dibuat.</text>
+<text x="150" y="1306" font-size="13" fill="#6b6a65">Tanpa Windows atau Word: langkah 8 dilewati, naskah tetap dicek dan diperiksa.</text>
 </svg>

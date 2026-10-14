@@ -4,102 +4,59 @@
 [![rilis](https://img.shields.io/github/v/release/Farisarditiyanto/mesin-bahts?label=rilis)](https://github.com/Farisarditiyanto/mesin-bahts/releases)
 [![lisensi](https://img.shields.io/badge/lisensi-MIT-blue)](LICENSE)
 
-Tulis **بحث** (makalah ilmiah syar'i berbahasa Arab) bersama agent AI, dengan **tiap kutipan dicocokkan ke halaman kitabnya**.
+Tulis **بحث** (makalah syar'i berbahasa Arab) bersama agent AI. **Tiap kutipan dicocokkan ke halaman kitabnya** sebelum jadi PDF.
 
-Agent AI (program AI yang bisa membaca berkas dan menjalankan perintah di komputermu, mis. Claude Code) pandai menulis, tetapi bisa mengarang kutipan dan nomor halaman. Mesin ini mempersempit celah itu:
+Agent AI pandai menulis, tetapi bisa mengarang kutipan. Di mesin ini:
 
-- Agent hanya mengutip dari kitab المكتبة الشاملة yang sudah diunduh ke komputermu.
-- Tiap kutipan diberi alamat di catatan kakinya: nomor kitab, juz, halaman.
-- Mesin membuka alamat itu. Kutipan yang tidak ada di sana ditolak sebelum dirakit.
-- Catatan kaki tanpa alamat dilaporkan. Kutipan tanpa catatan kaki tidak terdeteksi mesin: itu diperiksa agent kedua dan kamu.
-
-Kamu cukup meminta dan menjawab beberapa pertanyaan. Agent menulis satu berkas, `naskah.txt`. Mesin mengerjakan sisanya:
-
-- mencocokkan tiap kutipan ke teks kitab pada juz dan halaman yang tertulis;
-- menulis ayat dengan rasm Utsmani dari mushaf مجمع الملك فهد;
-- merakit Word dan PDF: sampul, catatan kaki, المصادر والمراجع, فهرس الآيات, فهرس الأحاديث والآثار, فهرس الموضوعات.
+- Agent mengutip kitab المكتبة الشاملة yang sudah diunduh ke komputermu. Sumber lain (jurnal, PDF penelitian) ditandai untuk kamu periksa sendiri.
+- Tiap kutipan membawa alamat di catatan kakinya: kitab, juz, halaman.
+- Mesin membuka alamat itu. Kutipan yang tidak ada di sana, atau tanpa alamat, ditolak.
+- Ayat ditulis dari mushaf مجمع الملك فهد. Word dan PDF dirakit lengkap: sampul, catatan kaki, المصادر والمراجع, dan الفهارس.
 
 ![Sampul, halaman isi dengan catatan kaki, dan daftar isi hasil mesin](dok/hasil.png)
 
-## Cara kerjanya
+## Mulai
 
-Gambar 1. Sepuluh langkah dari permintaan sampai PDF. Langkah 6 sampai 9 bisa berputar beberapa kali sampai tidak ada yang salah.
-
-1. **Kamu** meminta bahts: judul, susunan bab, kira-kira berapa halaman.
-2. **Agent** menyiapkan komputer (sekali saja): `periksa`, `siapkan`.
-3. **Kamu** menjawab data sampul. Nama, NIM, jenis tugas, dan semester ditanya sekali; pembimbing tiap bahts.
-4. **Agent** membuat folder bahts dan menyusun خطة (`baru`).
-5. **Agent** mencari dan membaca bahan di kitab: `temukan`, `ambil`, `cari`, `teks`, `kartu`, juga `hadits` dan `dirasat`.
-6. **Agent** menulis `naskah.txt`. Tiap kutipan diberi catatan kaki beserta alamatnya.
-7. **Mesin** mencocokkan tiap kutipan ke halaman kitabnya (`cek`). Lanjut hanya kalau `GAGAL: 0`.
-8. **Mesin** merakit Word dan PDF (`rakit`, butuh Windows + Word).
-9. **Agent kedua** yang tidak ikut menulis membuka halaman tiap catatan kaki dan membaca PDF-nya. Ada yang salah → kembali ke langkah 6.
-10. **Kamu** membaca, memeriksa kutipan utama, lalu mengumpulkan PDF-nya.
-
-![Alur lengkap: kamu meminta, agent menyiapkan komputer dan menyusun rencana, mencari bahan di kitab, menulis naskah; mesin mengecek tiap kutipan; agent kedua memeriksa ulang; mesin merakit Word dan PDF; kamu membaca dan mengumpulkan](dok/alur.svg)
-
-Gambar 2. Apa yang terjadi di langkah 7 (`cek`). Contoh ini keluaran mesin yang sebenarnya.
-
-![Cara cek bekerja: bukti di catatan kaki menunjuk kitab, juz, dan halaman; mesin mencari kalimatnya di halaman itu; hasilnya lolos, tidak ketemu, atau ketemu di halaman lain](dok/bukti.svg)
-
-## Cara tercepat
-
-1. Buka Claude Code, Codex, Hermes, atau agent lain yang membaca `AGENTS.md`.
+1. Buka agent yang membaca `AGENTS.md`: [Claude Code](https://claude.com/claude-code) (butuh akun Claude berbayar), Codex, Hermes, dll.
 2. Tempel kalimat ini, ganti judulnya:
 
    > Pakai https://github.com/Farisarditiyanto/mesin-bahts untuk membuatkan saya bahts tentang الإخلاص وأثره في قبول العمل. Susunannya: مقدمة, satu فصل berisi dua مبحث, خاتمة. Kira-kira 6 halaman.
 
-3. Jawab pertanyaan agent: nama, nomor mahasiswa, jenis tugas, semester, dan pembimbing beserta jabatannya.
+3. Jawab pertanyaan agent: nama, nomor mahasiswa, jenis tugas, semester, pembimbing. Kamu tidak perlu mengetik perintah.
 
-Belum punya agent? Contohnya Claude Code (https://claude.com/claude-code, butuh akun Claude berbayar). Agent lain juga bisa: lihat «Pakai agent selain Claude Code».
-
-Agent yang mengunduh, memasang, menulis, dan merakit. Kamu tidak perlu mengetik perintah.
 Hasilnya ada di folder `mesin-bahts` di dalam folder Dokumen-mu.
 
-Catatan untuk agent AI: repo ini diunduh ke folder `mesin-bahts` di dalam folder Dokumen pemakai. Langkah selanjutnya ada di [`AGENTS.md`](AGENTS.md), mulai dari bagian «Pemakai baru».
+Catatan untuk agent AI: lanjutkan dari [`AGENTS.md`](AGENTS.md), bagian «Pemakai baru».
 
-## Standar yang dipakai
+## Cara kerjanya
 
-Gambar 3. Asal tiap aturan bentuk halaman: aturan kampus, catatan dosen, atau pilihan mesin.
+![Sepuluh langkah: kamu meminta, agent menyiapkan komputer dan menulis naskah, mesin mengecek kutipan dan merakit, agent kedua memeriksa ulang, kamu mengumpulkan](dok/alur.svg)
 
-![Asal aturan: kertas, huruf, ukuran, margin, jarak baris, nomor halaman, catatan kaki, susunan, daftar pustaka, fihris, sampul, dan cara merujuk, masing-masing dengan sumbernya](dok/standar.svg)
+![Cara cek bekerja: alamat di catatan kaki menunjuk kitab, juz, dan halaman; hasilnya lolos, tidak ketemu, atau ketemu di halaman lain](dok/bukti.svg)
 
-- Aturan kampus: «[القواعد المنظمة لتسجيل الرسالة العلمية وكتابتها وطباعتها وتقديمها](https://units.imamu.edu.sa/colleges/cmc/AcademicDepts/SiteAssets/Pages/d_j_e_p/%D8%A7%D9%84%D9%82%D9%88%D8%A7%D8%B9%D8%AF%20%D8%A7%D9%84%D9%85%D9%86%D8%B8%D9%85%D8%A9%20%D9%84%D8%AA%D8%B3%D8%AC%D9%8A%D9%84%20%D8%A7%D9%84%D8%B1%D8%B3%D8%A7%D9%84%D8%A9%20%D8%A7%D9%84%D8%B9%D9%84%D9%85%D9%8A%D8%A9.pdf)», disahkan عمادة الدراسات العليا جامعة الإمام tahun 1442 H. Aturan ini ditulis untuk tesis.
-- Catatan dosen: «تنبيهات مهمة في البحوث الصفية» dan «الملاحظات التي ينبغي مراعاتها عند كتابة البحوث», dari dosen bahts kelas di معهد العلوم الإسلامية والعربية في جاكرتا. Catatan ini tidak dipublikasikan.
-- Ini bukan standar kementerian. وزارة التعليم di sampul hanya baris kop yang diminta aturan kampus.
-- Dosenmu minta lain? Tambah profil di `mesin/format.json`.
+## Batasnya
 
-## Batasnya, baca dulu
+- `cek` hanya membuktikan bahwa teksnya ada di halaman itu. Ia tidak menilai siapa yang berkata, derajat hadits, kutipan tanpa catatan kaki, atau sumber di luar Shamela. Itu diperiksa agent kedua (tanpa subagent: buka sesi agent baru), lalu kamu. **Periksa sendiri kutipan utamamu.**
+- Teks kitab adalah ketikan Shamela, jadi bisa salah ketik.
+- Nama di sampul namamu: isinya tanggung jawabmu. Tanyakan ke dosen apakah bantuan AI dibolehkan.
+- Proyek ini tidak mewakili kampus mana pun.
 
-- Ini alat bantu, bukan jaminan. `cek` hanya membuktikan bahwa teksnya ada di juz dan halaman itu.
-- `cek` tidak bisa menilai: siapa yang berkata, benar tidaknya nama kitab, derajat hadits, dan kutipan tanpa catatan kaki. **Periksa sendiri kutipan utamamu sebelum mengumpulkan.**
-- Teks kitab adalah ketikan Shamela. Ketikan bisa salah.
-- Bentuk halaman mengikuti pedoman جامعة الإمام محمد بن سعود الإسلامية. Sampulnya sampul معهد العلوم الإسلامية والعربية في جاكرتا. Kampus lain perlu mengganti `mesin/sampul.doc` dan menambah profil di `mesin/format.json`.
-- Proyek ini bukan milik dan tidak mewakili kampus mana pun.
-
-## Pertanyaan umum
-
-**Gratis?** Mesinnya gratis (lisensi MIT). Yang berbayar ada di luar mesin: agent AI-nya (mis. akun Claude untuk Claude Code), dan Microsoft Word untuk `rakit`.
-
-**Bisa di Mac atau Linux?** Bisa menulis dan `cek`. Word dan PDF hanya bisa dibuat di Windows dengan Microsoft Word.
-
-**Jadi bahts-ku ditulis AI?** Drafnya ya. Nama di sampul tetap namamu, jadi isinya tanggung jawabmu. Baca seluruhnya, periksa kutipan utama, dan tanyakan ke dosenmu apakah bantuan AI dibolehkan.
-
-**Kampusku bukan جامعة الإمام?** Bentuk halaman dan sampul perlu disesuaikan dulu: ganti `mesin/sampul.doc` dan tambah profil di `mesin/format.json`.
-
-## Yang kamu butuhkan
+## Yang dibutuhkan
 
 | Untuk | Butuh |
 |---|---|
 | Semua perintah | Python 3.12 ke atas, internet saat mengunduh kitab |
-| Word dan PDF (`rakit`) | Windows dan Microsoft Word versi desktop |
-| Menulis bersama agent | Claude Code, atau agent lain yang membaca `AGENTS.md` |
+| Word dan PDF (`rakit`) | Windows dan Microsoft Word desktop |
 
-- Tanpa Windows dan Word, mesin berhenti di `cek`: naskah terperiksa, tetapi Word dan PDF tidak terbentuk.
-- WSL tidak diperlukan.
-- Belum yakin apa yang kurang? Perintah `periksa` di bawah menyebutnya satu per satu, lengkap dengan cara membereskannya.
+Mac/Linux bisa menulis dan `cek`, tanpa Word dan PDF. `python mesin/bahts.py periksa` menyebut apa yang kurang dan cara membereskannya.
 
-## Pasang sendiri (tanpa agent)
+## Pilihan
+
+- **Connector `shamela`** (sangat disarankan): agent bisa mencari kitab yang belum diunduh. Sudah terdaftar di `.mcp.json`; masuk dengan akun shamela.link sendiri. Connector lain tanpa akun: `turath`, `hadithunlocked`, `tafsir`, `quran`. Semuanya layanan orang lain; tanpa itu mesin tetap jalan.
+- **Agent selain Claude Code**: daftarkan connector sendiri (mis. `codex mcp add shamela --url https://shamela.link/mcp`, lalu `codex mcp login shamela`).
+- **Kunci OpenAlex** untuk `dirasat` (penelitian terdahulu): tanpa kunci jatahnya kecil dan `dirasat-pdf` tertutup. Daftar di https://openalex.org, salin dari Settings > API key, simpan di `kunci_openalex.txt` (atau variabel `OPENALEX_API_KEY`).
+
+## Tanpa agent
 
 ```bash
 git clone https://github.com/Farisarditiyanto/mesin-bahts.git
@@ -113,80 +70,16 @@ cd mesin-bahts
 python mesin/bahts.py periksa
 ```
 
-`periksa` tidak mengubah apa pun. Ia menulis `SIAP` atau `BELUM` untuk tiap kebutuhan, dan perintah untuk tiap yang belum. Jalankan perintah itu, lalu ulangi `periksa` sampai semuanya `SIAP`.
+Daftar perintah: `python mesin/bahts.py`. Daftar tanda naskah: `python mesin/bahts.py tanda`. Contoh: [`contoh/naskah.txt`](contoh/naskah.txt); coba dengan `python mesin/bahts.py ambil 11223`, lalu `python mesin/bahts.py cek contoh`.
 
-## Connector shamela (pilihan, sangat disarankan)
+## Standar halaman
 
-Connector = sambungan dari agent ke layanan luar. Connector `shamela` (shamela.link) membantu agent mencari kitab mana yang membahas suatu masalah, termasuk kitab yang belum kamu unduh.
+![Asal tiap aturan bentuk halaman: aturan kampus, catatan dosen, atau pilihan mesin](dok/standar.svg)
 
-- Berkas `.mcp.json` di repo ini sudah mendaftarkannya. Saat folder ini dibuka, Claude Code menawarkan untuk menyalakannya.
-- Kalau kamu setuju, kamu masuk dengan akun shamela.link milikmu sendiri.
-- Layanan itu tidak resmi dan berkuota. Proyek ini tidak mengelolanya.
-- Kalau kamu menolak, mesin tetap jalan: agent mencari lewat `temukan` (isi semua kitab, lewat turath.io, tanpa akun), `katalog`, dan `cari`.
-- `.mcp.json` juga mendaftarkan connector pilihan lain. Semuanya layanan orang lain, bukan milik proyek ini:
+Dasarnya «[القواعد المنظمة لتسجيل الرسالة العلمية وكتابتها وطباعتها وتقديمها](https://units.imamu.edu.sa/colleges/cmc/AcademicDepts/SiteAssets/Pages/d_j_e_p/%D8%A7%D9%84%D9%82%D9%88%D8%A7%D8%B9%D8%AF%20%D8%A7%D9%84%D9%85%D9%86%D8%B8%D9%85%D8%A9%20%D9%84%D8%AA%D8%B3%D8%AC%D9%8A%D9%84%20%D8%A7%D9%84%D8%B1%D8%B3%D8%A7%D9%84%D8%A9%20%D8%A7%D9%84%D8%B9%D9%84%D9%85%D9%8A%D8%A9.pdf)» (جامعة الإمام, 1442 H) dan catatan dosen bahts kelas معهد العلوم الإسلامية والعربية في جاكرتا. Kampus atau dosen lain: ganti `mesin/sampul.doc` dan tambah profil di `mesin/format.json`.
 
-| Connector | Gunanya | Masuk |
-|---|---|---|
-| `turath` | mencari di isi semua kitab | tanpa akun |
-| `hadithunlocked` | hadits, derajatnya, dan syarahnya | tanpa akun |
-| `tafsir` | tafsir per ayat | tanpa akun |
-| `quran` | teks ayat | tanpa akun |
+## Lain-lain
 
-## Pakai agent selain Claude Code
-
-Semua aturan kerja agent ada di [`AGENTS.md`](AGENTS.md). Berkas ini dibaca sendiri oleh Claude Code (lewat `CLAUDE.md`), Codex, Hermes, dan agent lain yang mengikuti format AGENTS.md. Mesinnya cuma Python, tidak terikat agent mana pun.
-
-Bedanya cuma dua:
-
-1. Connector di `.mcp.json` hanya ditawarkan otomatis oleh Claude Code. Di agent lain, daftarkan alamatnya sendiri lewat pengaturan MCP agent itu. Contoh Codex: `codex mcp add shamela --url https://shamela.link/mcp`. Tanpa connector, mesin tetap jalan.
-2. Kalau agentmu tidak bisa membuat agent kedua untuk memeriksa (langkah 9 di Gambar 1), buka sesi baru agent itu di folder ini dan minta ia memeriksa naskahmu.
-
-## Kunci OpenAlex (pilihan)
-
-`dirasat` mencari penelitian terdahulu. Tanpa kunci, jatahnya kecil. Kunci gratis menaikkan jatah itu dan membuka `dirasat-pdf` (mengunduh PDF penelitian).
-
-1. Daftar di https://openalex.org.
-2. Salin kunci dari Settings > API key.
-3. Simpan sebagai satu baris di berkas `kunci_openalex.txt` di folder ini, atau berikan ke agent. Di komputer tanpa berkas itu (mis. cloud), isi variabel lingkungan `OPENALEX_API_KEY`.
-
-## Pakai
-
-1. Buka folder ini di agentmu (Claude Code, Codex, Hermes, dll.).
-2. Tulis permintaanmu, seperti contoh di «Cara tercepat».
-3. Agent menanyakan data sampul. Nama, nomor mahasiswa, jenis tugas, dan semester disimpan di `sampul_saya.txt` supaya tidak ditanya lagi. Pembimbing ditanya tiap bahts.
-4. Agent menyusun خطة, mengunduh kitab, menulis `naskah.txt`, menjalankan `cek`, lalu `rakit`.
-5. Hasilnya ada di folder bahts itu: `.pdf` untuk dibaca dan dikumpulkan, `.docx` untuk dibuka di Word.
-
-Alur kerja lengkap dan aturan penulisan untuk agent: [`AGENTS.md`](AGENTS.md).
-
-Tanpa agent juga bisa. Daftar perintah:
-
-```bash
-python mesin/bahts.py
-```
-
-Daftar tanda untuk `naskah.txt`:
-
-```bash
-python mesin/bahts.py tanda
-```
-
-Contoh naskah: [`contoh/naskah.txt`](contoh/naskah.txt). Untuk mencobanya: `python mesin/bahts.py ambil 11223`, lalu `python mesin/bahts.py cek contoh`.
-
-## Yang tidak ikut repo
-
-- Naskah, Word, dan PDF-mu. Folder bahts hanya ada di komputermu.
-- `sampul_saya.txt`, data sampulmu.
-- `kitab/`, kitab yang kamu unduh.
-- Font mushaf. `siapkan` mengunduhnya.
-
-## Lisensi
-
-Kode dan dokumentasi: MIT, lihat [`LICENSE`](LICENSE).
-Teks mushaf, font mushaf, logo kampus, dan teks kitab bukan bagian dari lisensi itu: lihat [`NOTICE`](NOTICE).
-
-## Melapor dan menyumbang
-
-Masalah atau usul: buka issue di GitHub. Sertakan keluaran `python mesin/bahts.py periksa`, perintah yang kamu jalankan, dan pesan yang keluar.
-Perubahan kode: kirim pull request. Tes otomatis (`.github/workflows/tes.yml`) harus hijau.
-Riwayat perubahan: [`CHANGELOG.md`](CHANGELOG.md).
+- Naskah, PDF, `sampul_saya.txt`, dan `kitab/` tetap di komputermu, tidak ikut repo.
+- Lisensi kode: MIT ([`LICENSE`](LICENSE)). Teks mushaf, font, logo, dan teks kitab: [`NOTICE`](NOTICE).
+- Masalah: buka issue dengan keluaran `periksa`, perintahnya, dan pesannya. Perubahan: pull request dengan tes hijau. Riwayat: [`CHANGELOG.md`](CHANGELOG.md).

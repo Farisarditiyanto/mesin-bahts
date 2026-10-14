@@ -3,6 +3,10 @@
 Tiap rilis ditulis di sini: yang baru di atas. Nomor versi = `besar.kecil.tambalan`:
 besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan baru, tambalan naik kalau hanya perbaikan.
 
+## Belum dirilis
+
+- README diringkas (dari ±1450 jadi ±575 kata) dan disesuaikan dengan `cek` terbaru; teks gambar alur dan cara `cek` dipendekkan.
+
 ## 2.0.0 — 2026-10-15
 
 Besar naik: naskah yang memakai petik tunggal atau `<<luar>>` untuk kitab Shamela bisa kini GAGAL.
