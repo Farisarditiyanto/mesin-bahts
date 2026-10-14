@@ -29,7 +29,7 @@ Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex dan DOAJ
                                dan menurut makna. Saringan OpenAlex, mis. language:ar,type:dissertation
   dirasat-pdf <W…> <folder>    unduh PDF penelitian (nomor OpenAlex dari `dirasat`) ke folder bahts; butuh kunci OpenAlex
 """
-import hashlib, http.client, json, os, re, subprocess, sys, urllib.error, urllib.request
+import difflib, hashlib, http.client, json, math, os, re, shutil, subprocess, sys, urllib.error, urllib.request
 from pathlib import Path
 
 import dirasat, hadits, shamela  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
@@ -46,6 +46,45 @@ FONT_PEMAKAI = Path(os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Windows\Fonts"
 # unduhan gagal: alamat mati, ditolak, putus di tengah, atau kehabisan waktu
 GAGAL_UNDUH = (urllib.error.URLError, http.client.HTTPException, ConnectionError, TimeoutError)
 SAMPUL_SAYA = AKAR / "sampul_saya.txt"  # data sampul pemakai (@kunci: nilai); mengisi @kunci yang kosong di naskah baru
+NAMA_FOLDER = r"[A-Za-z0-9_-]+"  # nama folder bahts yang diterima `baru`
+FORMAT = json.load(open(MESIN / "format.json", encoding="utf8"))  # profil bentuk halaman; dipilih @format di naskah
+HURUF_SARAN = ("huruf ini ikut terpasang kalau Windows punya papan ketik Arab (Settings > Time & language > Language & region > Add a language > العربية).\n"
+               "          Atau lewat PowerShell admin (pemakai cukup klik Yes): Start-Process powershell -Verb RunAs -Wait -ArgumentList "
+               "\"Add-WindowsCapability -Online -Name Language.Fonts.Arab~~~und-ARAB~0.0.1.0\"")
+# perkiraan halaman isi tanpa Word: kata per halaman pada huruf matan 18 (ditera dari satu bahts nyata: ±5500 kata setara matan = 24 halaman isi)
+KATA_PER_HALAMAN_18 = 260
+
+
+def perintah(argumen):
+    """Perintah mesin yang bisa ditempel apa adanya: jalur lengkap kalau dijalankan dari folder lain, Python yang sedang dipakai."""
+    py = "python"
+    w = shutil.which("python")
+    try:
+        if not (w and os.path.samefile(w, sys.executable)):
+            py = f'"{sys.executable}"'
+    except OSError:
+        py = f'"{sys.executable}"'
+    try:
+        disini = Path.cwd().resolve() == AKAR.resolve()
+    except OSError:
+        disini = False
+    skrip = "mesin/bahts.py" if disini else f'"{MESIN / "bahts.py"}"'
+    return f"{py} {skrip} {argumen}"
+
+
+def huruf_ada(nama):
+    """Huruf `nama` terpasang di Windows, untuk semua akun atau untuk akun ini saja (daftar huruf di registry)."""
+    import winreg
+    for akar in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
+        try:
+            with winreg.OpenKey(akar, r"Software\Microsoft\Windows NT\CurrentVersion\Fonts") as k:
+                for i in range(winreg.QueryInfoKey(k)[1]):
+                    # nama terdaftar mis. «Traditional Arabic (TrueType)» atau «Cambria & Cambria Math (TrueType)»
+                    if nama.lower() in (x.strip().lower() for x in re.sub(r"\s*\(.*\)$", "", winreg.EnumValue(k, i)[0]).split("&")):
+                        return True
+        except OSError:
+            pass
+    return False
 
 
 def font_terpasang():
@@ -69,7 +108,7 @@ def siapkan():
             print(f"font mushaf: berkas dari {url} berbeda dari yang dikenal mesin, dilewati")
         else:
             sys.exit(f"Font mushaf gagal diunduh dari semua sumber.\n"
-                     f"Jalan terakhir: cari sendiri {FONT} (penerbitnya: https://fonts.qurancomplex.gov.sa), taruh di mesin/, lalu ulangi `siapkan`.")
+                     f"Jalan terakhir: cari sendiri {FONT} (penerbitnya: https://fonts.qurancomplex.gov.sa), taruh di {MESIN}, lalu ulangi `siapkan`.")
     if hashlib.sha256(f.read_bytes()).hexdigest() != FONT_SHA256:
         sys.exit(f"mesin/{FONT} berbeda dari font yang dikenal mesin (sha256 {FONT_SHA256}): pindahkan berkas itu, lalu ulangi `siapkan`.")
     print("font mushaf: ada di mesin/")
@@ -86,7 +125,7 @@ def siapkan():
             winreg.SetValueEx(k, FONT_NAMA, 0, winreg.REG_SZ, str(FONT_PEMAKAI / FONT))
         ctypes.windll.gdi32.AddFontResourceW(str(FONT_PEMAKAI / FONT))
         print("font mushaf: dipasang")
-    print('Siap. Bahts baru: python mesin/bahts.py baru <folder> "<judul>"')
+    print("Siap. Bahts baru: " + perintah('baru <folder> "<judul>"'))
 
 
 def periksa():
@@ -94,17 +133,17 @@ def periksa():
     import importlib.util
     siap_cek, siap_rakit = True, True
 
-    def baris(ok, apa, kalau_belum, untuk_cek=True):
+    def baris(ok, apa, kalau_belum, untuk_cek=True, untuk_rakit=True):
         nonlocal siap_cek, siap_rakit
         print(("SIAP   " if ok else "BELUM  ") + apa + ("" if ok else f"\n       -> {kalau_belum}"))
-        siap_rakit &= ok
+        siap_rakit &= ok or not untuk_rakit
         siap_cek &= ok or not untuk_cek
 
     baris(sys.version_info >= (3, 12), f"Python {sys.version_info.major}.{sys.version_info.minor} (butuh 3.12 ke atas)",
           "pasang Python 3.12 (Windows: winget install Python.Python.3.12), lalu ulangi dengan Python itu")
     baris(all(importlib.util.find_spec(m) for m in ("pandas", "pyarrow")), "pustaka Python (pandas, pyarrow)",
-          "python -m pip install -r requirements.txt")
-    baris((AKAR / "kitab" / shamela.KATALOG).exists(), "katalog kitab", "python mesin/bahts.py siapkan")
+          f'"{sys.executable}" -m pip install -r "{AKAR / "requirements.txt"}"')
+    baris((AKAR / "kitab" / shamela.KATALOG).exists(), "katalog kitab", perintah("siapkan"))
     baris(os.name == "nt", "Windows", "`rakit` hanya jalan di Windows; di sini mesin berhenti di `cek`", untuk_cek=False)
     if os.name == "nt":
         import winreg
@@ -115,11 +154,14 @@ def periksa():
             word = False
         baris(word, "Microsoft Word versi desktop", "pasang Microsoft Word (pemakai sendiri; butuh lisensinya). "
               "Tanpa Word naskah tetap bisa ditulis dan dicek, tetapi .docx dan .pdf tidak terbentuk", untuk_cek=False)
-        baris(font_terpasang(), "font mushaf", "python mesin/bahts.py siapkan", untuk_cek=False)
-        baris(any((Path(r"C:\Windows\Fonts") / n).exists() for n in ("trado.ttf", "tradbdo.ttf")), "huruf Traditional Arabic",
-              "huruf ini ikut terpasang kalau Windows punya papan ketik Arab (Settings > Time & language > Language & region > Add a language > العربية).\n"
-              "          Atau lewat PowerShell admin (pemakai cukup klik Yes): Start-Process powershell -Verb RunAs -Wait -ArgumentList "
-              "\"Add-WindowsCapability -Online -Name Language.Fonts.Arab~~~und-ARAB~0.0.1.0\"", untuk_cek=False)
+        baris(font_terpasang(), "font mushaf", perintah("siapkan"), untuk_cek=False)
+        # huruf tiap profil format.json; yang wajib hanya huruf profil bahts baru (@format di kerangka naskah)
+        m = re.search(r"^@format:[ \t]*(\S+)", (MESIN / "naskah_baru.txt").read_text(encoding="utf8"), re.M)
+        wajib = FORMAT[m.group(1) if m else "imam"]["huruf"]
+        for h in dict.fromkeys(p["huruf"] for p in FORMAT.values()):
+            profil = [k for k, p in FORMAT.items() if p["huruf"] == h]
+            baris(huruf_ada(h), f"huruf {h}" + ("" if h == wajib else f" (hanya untuk @format {', '.join(profil)})"),
+                  HURUF_SARAN, untuk_cek=False, untuk_rakit=h == wajib)
     print(f"\nMenulis dan `cek`: {'SIAP' if siap_cek else 'BELUM'}.  `rakit` (Word + PDF): {'SIAP' if siap_rakit else 'BELUM'}.")
     print("WSL tidak diperlukan. Connector shamela: pilihan, sangat disarankan (lihat README).")
     sys.exit(0 if siap_cek else 1)
@@ -127,13 +169,23 @@ def periksa():
 
 def folder_bahts(nama):
     f = AKAR / nama.strip("/\\")
-    if not (f / "naskah.txt").exists():
-        sys.exit(f"Tidak ada {f.name}/naskah.txt. Bahts baru: python mesin/bahts.py baru {f.name} \"<judul>\"")
-    return f
+    if f.name.lower() == "naskah.txt":  # yang disebut berkas naskahnya, bukan foldernya
+        f = f.parent
+    if (f / "naskah.txt").exists():
+        return f
+    ada = sorted(d.name for d in AKAR.iterdir() if (d / "naskah.txt").exists())
+    mirip = difflib.get_close_matches(f.name, ada, n=1, cutoff=0.6)
+    pesan = [f"Tidak ada bahts «{f.name}» (folder berisi naskah.txt) di {AKAR}."]
+    if mirip:
+        pesan.append(f"Maksudnya «{mirip[0]}»?")
+    pesan.append("Bahts yang ada: " + (", ".join(ada) if ada else "belum ada"))
+    usul = re.sub(r"[^A-Za-z0-9_-]", "", f.name) or "<nama-latin>"
+    pesan.append("Kalau memang bahts baru: " + perintah(f'baru {usul} "<judul>"'))
+    sys.exit("\n".join(pesan))
 
 
 def baru(nama, judul):
-    if not re.fullmatch(r"[A-Za-z0-9_-]+", nama.strip("/\\")):
+    if not re.fullmatch(NAMA_FOLDER, nama.strip("/\\")):
         sys.exit(f"Nama folder «{nama}»: pakai huruf Latin, angka, - atau _ saja, tanpa spasi (mis. ikhlas).")
     f = AKAR / nama.strip("/\\")
     if f.exists():
@@ -155,7 +207,32 @@ def baru(nama, judul):
     kosong = re.findall(r"^@(\w+):[ \t]*$", isi, re.M)
     if kosong:
         print("Data sampul yang masih kosong: " + ", ".join("@" + k for k in kosong)
-              + f"\nIsi di naskah itu. Yang sama untuk tiap bahts (nama, nim, jenis, fasl) boleh ditulis sekali di {SAMPUL_SAYA.name}.")
+              + f"\nIsi di naskah itu. Yang sama untuk tiap bahts (nama, nim, jenis, fasl) boleh ditulis sekali di {SAMPUL_SAYA.name}."
+              + ("\nContoh @jenis (huruf Arab, tercetak di sampul): بحث صفي للمستوى الرابع" if "jenis" in kosong else ""))
+
+
+def bahan(f):
+    """Bahan rakit yang ditulis olah.utama saat `cek` (meta, format, blok, catatan, ...)."""
+    return MESIN / "_tmp" / f"{f.name}.json"
+
+
+def perkiraan_halaman(d):
+    """Perkiraan kasar halaman isi (المقدمة s.d. الخاتمة) dari jumlah kata, untuk yang belum bisa `rakit`.
+    Tiap #K/#F mulai halaman baru; kata catatan kaki dihitung menurut perbandingan luas hurufnya."""
+    fmt = d.get("format")
+    if not fmt:
+        return None
+    per_hal = KATA_PER_HALAMAN_18 * (18 / fmt["matan"]) ** 2
+    def kata(runs): return sum(len(re.findall(r"[؀-ۿ]+", r.get("t") or "")) for r in runs)
+    bagian = []
+    for b in d["blok"]:
+        if b["k"] == "R":
+            break
+        if b["k"] in ("K", "F") or not bagian:
+            bagian.append(0.0)
+        fn = sum(kata(d["catatan"][r["fn"]]["runs"]) for r in b["runs"] if r.get("fn") is not None)
+        bagian[-1] += kata(b["runs"]) + fn * (fmt["catatan"] / fmt["matan"]) ** 2
+    return sum(max(1, math.ceil(x / per_hal)) for x in bagian)
 
 
 def cek(nama):
@@ -163,6 +240,12 @@ def cek(nama):
     f = folder_bahts(nama)
     galat, lap = olah.utama(f)
     print("\n".join(lap))
+    try:
+        n = perkiraan_halaman(json.load(open(bahan(f), encoding="utf8")))
+    except (OSError, ValueError, KeyError, IndexError, TypeError):
+        n = None
+    if n:
+        print(f"perkiraan halaman isi (المقدمة s.d. الخاتمة): ±{n} (kasar, dari jumlah kata; angka pasti = HALAMAN_ISI sesudah `rakit`)")
     return f, galat, lap
 
 
@@ -173,13 +256,17 @@ def rakit(nama):
     if os.name != "nt":
         sys.exit("`rakit` butuh Windows + Microsoft Word. Naskahnya sudah lolos `cek`.")
     if not font_terpasang():
-        sys.exit("Font mushaf belum terpasang: python mesin/bahts.py siapkan, lalu ulangi.")
+        sys.exit(f"Font mushaf belum terpasang: {perintah('siapkan')}, lalu ulangi.")
+    build = bahan(f)
+    huruf = json.load(open(build, encoding="utf8"))["format"]["huruf"]
+    if not huruf_ada(huruf):  # tanpa huruf profil, Word diam-diam memakai huruf lain
+        sys.exit(f"Huruf {huruf} (dipakai @format naskah ini) belum terpasang di Windows.\n       -> {HURUF_SARAN}\n"
+                 f"Sesudah itu: {perintah('periksa')}, lalu ulangi `rakit`.")
     ps1 = MESIN / "rakit.ps1"
     # Windows PowerShell 5.1 hanya membaca huruf Arab di skrip kalau berkasnya ber-BOM
     if not ps1.read_bytes().startswith(b"\xef\xbb\xbf"):
         ps1.write_bytes(b"\xef\xbb\xbf" + ps1.read_bytes())
     (f / "laporan.txt").write_text("\n".join(lap) + "\n", encoding="utf8")
-    build = MESIN / "_tmp" / f"{f.name}.json"
     r = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(ps1),
                         "-Build", str(build), "-Folder", str(f)])
     if r.returncode:
@@ -188,7 +275,39 @@ def rakit(nama):
     for baris in (f / "laporan.txt").read_text(encoding="utf8").splitlines():
         if baris.startswith(("HALAMAN", "CATATAN_KAKI", "KATA")):
             print(baris)
-    print(f"Jadi: {f.name}/{berkas}.docx dan .pdf")
+    print(f"Jadi: {f / berkas}.docx dan .pdf")
+
+
+def angka(teks, apa):
+    """Argumen angka (maks, lebar): ditolak dengan pesan yang bisa dipahami kalau bukan bilangan bulat 1 ke atas."""
+    try:
+        n = int(teks)
+    except ValueError:
+        raise ValueError(f"{apa} harus angka, mis. 10 (yang tertulis: «{teks}»)") from None
+    if n < 1:
+        raise ValueError(f"{apa} paling kecil 1 (yang tertulis: {n})")
+    return n
+
+
+def pola(teks):
+    """Pola `katalog` (regex). Yang bukan regex sah, mis. judul berkurung «(», dicari sebagai teks biasa."""
+    try:
+        re.compile(teks)
+        return teks
+    except re.error:
+        return re.escape(teks)
+
+
+def ambil(nomor):
+    """Unduh tiap kitab; satu yang gagal tidak membatalkan yang lain. Keluar dengan kode 1 kalau ada yang belum terunduh."""
+    for x in nomor:
+        try:
+            shamela.ambil(x)
+        except GAGAL_UNDUH as e:
+            print(f"{x} gagal mengunduh (cek internet, lalu ulangi): {e!r}")
+    gagal = [x for x in nomor if not (x.isdigit() and (shamela.ROOT / str(int(x)) / "pages.jsonl.gz").exists())]
+    if gagal:
+        sys.exit(f"Belum terunduh: {', '.join(gagal)} (lihat pesan di atas).")
 
 
 PERINTAH = {  # nama: (jumlah argumen minimal, pemanggil)
@@ -199,16 +318,16 @@ PERINTAH = {  # nama: (jumlah argumen minimal, pemanggil)
     "rakit": (1, lambda a: rakit(a[0])),
     "tanda": (0, lambda a: print(tanda())),
     "kitab": (0, lambda a: shamela.daftar()),
-    "katalog": (1, lambda a: shamela.katalog(a[0])),
-    "temukan": (1, lambda a: shamela.temukan(a[0], *map(int, a[1:2]))),
-    "ambil": (1, lambda a: [shamela.ambil(x) for x in a]),
+    "katalog": (1, lambda a: shamela.katalog(pola(a[0]))),
+    "temukan": (1, lambda a: shamela.temukan(a[0], *(angka(x, "maks") for x in a[1:2]))),
+    "ambil": (1, lambda a: ambil(a)),
     "kartu": (1, lambda a: shamela.kartu(a[0])),
     "cari": (2, lambda a: shamela.cari(a[0], a[1])),
-    "teks": (2, lambda a: shamela.teks(a[0], a[1], *map(int, a[2:4]))),
+    "teks": (2, lambda a: shamela.teks(a[0], a[1], *(angka(x, apa) for x, apa in zip(a[2:4], ("lebar", "maks"))))),
     "bab": (2, lambda a: shamela.bab(a[0], a[1])),
     "halaman": (3, lambda a: shamela.halaman(*a[:3])),
-    "hadits": (1, lambda a: hadits.cari(a[0], *map(int, a[1:2]))),
-    "dirasat": (1, lambda a: dirasat.cari(a[0], *map(int, a[1:2]), *a[2:3])),
+    "hadits": (1, lambda a: hadits.cari(a[0], *(angka(x, "maks") for x in a[1:2]))),
+    "dirasat": (1, lambda a: dirasat.cari(a[0], *(angka(x, "maks") for x in a[1:2]), *a[2:3])),
     "dirasat-pdf": (2, lambda a: dirasat.pdf(a[0], folder_bahts(a[1]))),
 }
 
@@ -222,10 +341,16 @@ def tanda():
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
     cmd, *a = sys.argv[1:] or [""]
-    if not cmd:
+    if cmd in ("", "-h", "--help", "bantuan"):
         print(__doc__); sys.exit(0)
-    if cmd not in PERINTAH or len(a) < PERINTAH[cmd][0]:
-        sys.exit(__doc__)
+    if cmd not in PERINTAH:
+        mirip = difflib.get_close_matches(cmd, PERINTAH, n=1)
+        sys.exit(f"Perintah «{cmd}» tidak dikenal." + (f" Maksudnya «{mirip[0]}»?" if mirip else "")
+                 + "\nDaftar perintah: " + perintah("").rstrip())
+    if len(a) < PERINTAH[cmd][0]:
+        # cukup baris bantuan perintah itu, berikut baris lanjutannya yang menjorok
+        bantu = re.search(rf"^  {re.escape(cmd)}\s.*(?:\n {{20,}}\S.*)*", __doc__, re.M)
+        sys.exit(f"Perintah «{cmd}» kurang argumen. Bentuknya:\n{bantu.group(0) if bantu else cmd}")
     try:
         PERINTAH[cmd][1](a)
     except urllib.error.HTTPError as e:
@@ -237,4 +362,4 @@ if __name__ == "__main__":
     except GAGAL_UNDUH as e:
         sys.exit(f"Perintah '{cmd}' gagal mengunduh (cek internet, lalu ulangi): {e!r}")
     except (ValueError, FileNotFoundError, re.error) as e:
-        sys.exit(f"Perintah '{cmd}' salah pakai: {e}\nLihat: python mesin/bahts.py")
+        sys.exit(f"Perintah '{cmd}' salah pakai: {e}\nDaftar perintah: " + perintah("").rstrip())

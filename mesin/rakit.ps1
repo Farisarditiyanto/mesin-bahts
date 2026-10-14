@@ -3,7 +3,7 @@
 param([Parameter(Mandatory)][string]$Build, [Parameter(Mandatory)][string]$Folder)
 $ErrorActionPreference = 'Stop'
 $dir = $PSScriptRoot
-$DATA = Get-Content $Build -Raw -Encoding UTF8 | ConvertFrom-Json
+$DATA = Get-Content -LiteralPath $Build -Raw -Encoding UTF8 | ConvertFrom-Json
 $M = $DATA.meta
 $Out = Join-Path $Folder $M.berkas; $Laporan = Join-Path $Folder 'laporan.txt'
 $FMT = $DATA.format                                      # profil dari format.json (dipilih @format)
@@ -20,6 +20,9 @@ $adaAy = [bool]@($DATA.ayat).Count -and $TANPA -notcontains 'ayat'
 $adaHd = [bool]@($DATA.hadits).Count -and $TANPA -notcontains 'hadits'
 $adaTo = $TANPA -notcontains 'maudhuat'
 
+# satu rakit dalam satu waktu: rakit kedua berhenti di sini, sebelum mematikan Word milik rakit pertama (kunci lepas sendiri saat proses ini selesai)
+try { $kunci = [IO.File]::Open("$dir\_tmp\rakit.kunci", 'OpenOrCreate', 'ReadWrite', 'None') }
+catch { throw "Rakit lain sedang jalan (memakai Word yang sama): tunggu sampai selesai, lalu ulangi." }
 # bersihkan instance Word otomatis yang tertinggal dari percobaan sebelumnya (hanya yang /Automation)
 Get-CimInstance Win32_Process -Filter "Name='WINWORD.EXE'" | Where-Object { $_.CommandLine -match '/Automation' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 Start-Sleep -Milliseconds 800
@@ -32,7 +35,7 @@ try {
     # huruf profil yang tidak terpasang diganti Word diam-diam: berhenti di sini saja
     if (@($word.FontNames) -notcontains $TA) { throw "Huruf [$TA] belum terpasang di Windows. Jalankan: python mesin/bahts.py periksa" }
     # ---------- 1. Sampul: berangkat dari template sampul ----------
-    if (Test-Path $tmp) { Remove-Item $tmp -Force }
+    if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force }
     $doc = $word.Documents.Open("$dir\sampul.doc", $false, $true)
     $doc.SaveAs2($tmp, 16)
     $doc.Convert()
@@ -216,9 +219,14 @@ try {
     # ---------- 3. المصادر والمراجع (tabel tanpa garis, urut abjad) ----------
     $nT++; Judul 'المصادر والمراجع' "t_$nT" $true; [void]$toc.Add(@{ t = 'المصادر والمراجع'; bm = "t_$nT"; lvl = 0 }); $bmMasadir = "t_$nT"
     $n = $DATA.pustaka.Count
+    # baris القرآن الكريم (selalu paling atas kalau ada) bertanda «-», kitab lain bernomor 1, 2, ...
+    # penandanya dari olah.py (kunci "quran"); olah.py tanpa kunci itu: dilihat dari baris pertama, harakat (= shamela.HARAKAT) dibuang
+    if ($DATA.PSObject.Properties.Name -contains 'quran') { $adaQuran = [bool]$DATA.quran }
+    else { $adaQuran = $n -gt 0 -and ([string]$DATA.pustaka[0] -replace '[ؐ-ًؚ-ٰٟۖ-ۭـ]', '').StartsWith('القرآن') }
+    $geser = if ($adaQuran) { 1 } else { 0 }
     $tb = Tabel $n @(1.3, 13.7) 0
     for ($r = 1; $r -le $n; $r++) {
-        $no = if ($r -eq 1) { '-' } else { ($r - 1).ToString() + '.' }
+        $no = if ($adaQuran -and $r -eq 1) { '-' } else { ($r - $geser).ToString() + '.' }
         Sel $tb $r 1 $no 1 0
         Sel $tb $r 2 $DATA.pustaka[$r - 1] 3 0
     }
@@ -278,13 +286,14 @@ try {
     if ($adaAy) { $r = 1; foreach ($key in $urut) { $r++; $pg = ($ay[$key].bm | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '; Sel $tAy $r 4 $pg 1 0 } }
     if ($adaHd) { $r = 1; foreach ($h in $DATA.hadits) { $r++; $ks = @($h.k); if ($h.lagi) { $ks += $h.lagi }; $pg = ($ks | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '; Sel $tHd $r 3 $pg 1 0 } }
     if ($adaTo) { $r = 1; foreach ($e in $toc) { $r++; Sel $tTo $r 2 ([string](Hal $e.bm)) 1 0 } }
+    # {P:kunci} di catatan kaki: tiap ⟦h_…⟧ diganti nomor halaman hadits itu (satu catatan kaki bisa memuat beberapa)
     foreach ($fn in $doc.Footnotes) {
-        $t = $fn.Range.Text
-        if ($t -match '⟦(h_[a-z]+)⟧') {
+        foreach ($k in @([regex]::Matches($fn.Range.Text, '⟦(h_[^⟧]+)⟧') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)) {
             $rg = $fn.Range; $f = $rg.Find; $f.ClearFormatting(); $f.Replacement.ClearFormatting()
-            [void]$f.Execute(('⟦' + $Matches[1] + '⟧'), $true, $false, $false, $false, $false, $true, 0, $false, ([string](Hal $Matches[1])), 1)
+            [void]$f.Execute(('⟦' + $k + '⟧'), $true, $false, $false, $false, $false, $true, 0, $false, ([string](Hal $k)), 2)
         }
     }
+    foreach ($fn in $doc.Footnotes) { if ($fn.Range.Text.Contains('⟦')) { throw "Nomor halaman {P:...} gagal diisi di catatan kaki: $($fn.Range.Text.Trim())" } }
     $doc.Repaginate()
 
     # ---------- 6. Simpan ----------
@@ -294,7 +303,7 @@ try {
     $lap = @("HALAMAN=$pages", "HALAMAN_ISI=$isi","CATATAN_KAKI=$($doc.Footnotes.Count)", "KATA(termasuk catatan kaki)=$($doc.ComputeStatistics(0, $true))")
     foreach ($e in $toc) { $lap += ("hal {0}: {1}" -f (Hal $e.bm), $e.t) }
     [IO.File]::AppendAllLines($Laporan, [string[]]$lap)
-    if (Test-Path "$Out.docx") { Remove-Item "$Out.docx" -Force }
+    if (Test-Path -LiteralPath "$Out.docx") { Remove-Item -LiteralPath "$Out.docx" -Force }
     $doc.EmbedTrueTypeFonts = $true; $doc.SaveSubsetFonts = $false; $doc.DoNotEmbedSystemFonts = $false
     $doc.SaveAs2("$Out.docx", 16)
     $doc.ExportAsFixedFormat("$Out.pdf", 17)
@@ -302,10 +311,11 @@ try {
 }
 finally {
     try { foreach ($d in @($word.Documents)) { $d.Close($false) } } catch {}
-    try { $word.Quit(0) } catch {}
+    try { $word.Quit([ref]0) } catch {}                   # Quit menerima argumen ref; Quit(0) selalu gagal
     [void][Runtime.InteropServices.Marshal]::ReleaseComObject($word)
-    # Word buatan skrip ini kadang tidak ikut mati setelah Quit: matikan yang itu saja
+    # cadangan: Word buatan skrip ini yang belum mati sesudah Quit dimatikan (yang itu saja)
     Start-Sleep -Milliseconds 500
     foreach ($id in $wordIni) { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue }
-    Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+    $kunci.Close()
 }

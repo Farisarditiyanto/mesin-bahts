@@ -3,8 +3,58 @@
 Tiap rilis ditulis di sini: yang baru di atas. Nomor versi = `besar.kecil.tambalan`:
 besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan baru, tambalan naik kalau hanya perbaikan.
 
-## Belum dirilis
+## 1.0.0 — 2026-10-15
 
+Besar naik: naskah lama yang dulu lolos bisa kini GAGAL, karena `cek` menutup celah kutipan karangan.
+
+`cek` lebih ketat:
+- Kutipan bertanda petik sebelum catatan kaki selalu dicek, juga kalau buktinya membawa potongan sendiri (`<<sid|juz|hal|potongan>>`). Dulu kutipannya tidak dibandingkan sama sekali.
+- Kutipan yang catatan kakinya tanpa bukti `<<...>>` kini GAGAL (kecuali «سورة …» sesudah `{Q:}` dan «سبق تخريجه، ص{P:…}»). Dulu hanya didaftar, dan `rakit` tetap jalan.
+- Tanda baru `<<luar>>` untuk kutipan dari sumber yang tidak ada di Shamela (jurnal, PDF penelitian, kamus): lolos, tetapi masuk `perhatian` untuk dicocokkan sendiri.
+- Kutipan harus utuh per kata: kutipan yang mulai atau berakhir di tengah kata kitab GAGAL.
+- Kutipan boleh dipotong dengan `...`/`…`: tiap bagian dicek dan harus berurutan; bagian yang berjauhan (lebih dari 300 huruf) masuk `perhatian`. Dulu ditolak sebagai «TIDAK KETEMU».
+- Kutipan yang ditutup «اهـ» atau «انتهى» sebelum catatan kaki dikenali sebagai kutipan.
+- Tanda petik “ ” (dari Word/HP) diterima.
+- Potongan sendiri paling sedikit 7 huruf (dulu 6).
+- Judul (`#K/#F/#B/#M/#S/#R`) yang memuat `[^`, `<<`, `{Q:`/`{H:` atau `**` ditolak: dulu tercetak mentah di PDF.
+- Bukti di حاشية dicek per halaman; pesannya menyebut halaman حاشية yang benar.
+- Catatan kaki «سورة …» dicocokkan dengan nama surah utuh; angka ٠-٩ diterima. «سبق تخريجه» yang memuat bukti dicek halamannya.
+- `#R` kosong ditolak; `@berkas` kosong kembali ke nama folder, `@berkas` bertanda terlarang (`: / \ ? * < > | "`) ditolak sebelum Word dibuka.
+- Juz salah hanya memberi satu galat. Catatan kaki bersarang dan naskah bukan UTF-8 memberi pesan, bukan traceback.
+- `perhatian` baru: kutipan lain tanpa catatan kaki sendiri, kata nafi (لا/ما/ليس) tepat sebelum kutipan di kitab, dan angka di kutipan yang tidak terbaca di halaman itu.
+- `cek` mencetak perkiraan halaman isi, untuk yang belum punya Word.
+
+Pencarian kitab:
+- `cari`, `teks`, `bab`, dan `cek` menyamakan huruf Persia (ی ک), ligatur (ﻻ), ligatur kalimat hormat (﵎ ﷾ ﷿ dan sejenisnya), serta «ابن»/«بن» di tengah nama.
+- `cari` dan `halaman` memberi halaman حاشية yang benar untuk rekaman banyak halaman. `teks` dan `bab` juga mencari di حاشية, dan `teks` menemukan letak yang benar walau diketik tanpa hamzah.
+- `bab` memilih judul bab yang benar kalau satu rekaman memuat beberapa judul, dan menulis RAGU kalau tidak pasti.
+- `katalog` menyamakan hamzah, ta marbuthah, dan harakat; menerima judul berkurung; menolak pola kosong; menulis TIDAK KETEMU.
+- `ambil` mencoba ulang unduhan yang putus 3 kali, lanjut ke kitab berikutnya kalau satu gagal, lalu keluar dengan kode 1 dan daftar yang gagal.
+
+Pemakai baru:
+- Salah ketik perintah diberi usulan («Maksudnya «cek»?»); argumen kurang hanya menampilkan bentuk perintah itu; `--help` keluar dengan kode 0.
+- Folder bahts salah tulis menyebut bahts yang ada dan nama terdekat; `cek <folder>/naskah.txt` diterima.
+- Petunjuk perintah memakai jalur lengkap dan Python yang sedang dipakai, jadi bisa ditempel dari folder mana pun.
+- `maks`/`lebar` yang bukan angka atau kurang dari 1 ditolak dengan pesan biasa.
+- `periksa` menemukan huruf yang dipasang untuk satu akun saja dan menyebut huruf tiap profil; `rakit` berhenti sebelum Word kalau huruf profilnya tidak ada.
+
+Layanan luar:
+- `dirasat` dan `hadits`: layanan yang sedang perawatan, berubah bentuk, atau wifi yang minta masuk dulu memberi pesan jelas. Satu sumber `dirasat` yang rusak tidak lagi menghapus hasil sumber lain.
+- `dirasat`: saringan salah dihentikan dengan contoh saringan sah; hasil DOAJ diberi tanda bahwa saringan tidak berlaku di sana; tanpa kunci tidak lagi menyarankan `dirasat-pdf`; nama sumber tercetak sebelum ditanya, dan sumber yang macet ditinggal sesudah 45 detik.
+- `temukan` tidak lagi menjanjikan hasil longgar yang kosong; juz bernama tercetak ج«…».
+
+PDF (`rakit`):
+- Catatan kaki dengan dua `{P:…}` terisi semua (dulu yang kedua tercetak «⟦h_…⟧»).
+- المصادر والمراجع tanpa «القرآن الكريم» bernomor mulai 1.
+- Word ditutup dengan benar; dua `rakit` bersamaan ditolak dengan pesan jelas; folder bernama dengan `[ ]` bisa dirakit.
+
+Lain-lain:
+- Tes otomatis memeriksa `contoh/jebakan/naskah.txt`: tiap celah yang ditutup di atas harus GAGAL.
+- `AGENTS.md`: cara membereskan `perhatian` baru.
+- README ditulis ulang untuk pembaca baru: masalah yang diselesaikan di awal, bagian «Cara kerjanya», dan «Pertanyaan umum» (biaya, Mac/Linux, tanggung jawab isi, kampus lain).
+- Gambar alur baru (`dok/alur.svg`): sepuluh langkah lengkap, siapa yang mengerjakan tiap langkah, dan putaran balik kalau `cek` atau pemeriksa menemukan salah.
+- Gambar baru `dok/bukti.svg`: cara `cek` mencocokkan bukti `<<kitab|juz|hal>>` ke halaman kitab, dengan tiga hasil yang mungkin.
+- Gambar baru `dok/standar.svg` dan bagian «Standar yang dipakai» di README: asal tiap aturan bentuk halaman (aturan kampus 1442 H, catatan dosen, atau pilihan mesin).
 - README ditulis ulang untuk pembaca baru: masalah yang diselesaikan di awal, bagian «Cara kerjanya», dan «Pertanyaan umum» (biaya, Mac/Linux, tanggung jawab isi, kampus lain).
 - Gambar alur baru (`dok/alur.svg`): sepuluh langkah lengkap, siapa yang mengerjakan tiap langkah, dan putaran balik kalau `cek` atau pemeriksa menemukan salah.
 - Gambar baru `dok/bukti.svg`: cara `cek` mencocokkan bukti `<<kitab|juz|hal>>` ke halaman kitab, dengan tiga hasil yang mungkin.
