@@ -2,7 +2,7 @@
 AuthenticIlm/Shamela4_Full_DB ke folder kitab/, lalu cari kutipan secara offline
 (tanpa kredit, tanpa internet). Hanya `temukan` yang bertanya ke luar (turath.io). Dipanggil lewat bahts.py.
 """
-import gzip, html, json, re, time, urllib.error, urllib.parse, urllib.request
+import functools, gzip, html, http.client, json, re, time, unicodedata, urllib.error, urllib.parse, urllib.request, warnings
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent / "kitab"
@@ -10,35 +10,56 @@ REPO = "AuthenticIlm/Shamela4_Full_DB"
 API = f"https://huggingface.co/api/datasets/{REPO}/tree/main"
 RAW = f"https://huggingface.co/datasets/{REPO}/resolve/main"
 UA = {"User-Agent": "curl/8"}
+# unduhan yang putus/gagal di jaringan (bukan nomor kitab yang salah)
+GAGAL_JARINGAN = (urllib.error.URLError, http.client.HTTPException, ConnectionError, TimeoutError)
+COBA = 3  # tiap kitab dicoba sebanyak ini kalau unduhannya putus
 
-HARAKAT = re.compile(r"[ؐ-ًؚ-ٰٟۖ-ۭـ]")
+HARAKAT = re.compile(r"[\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06ed\u0640]")  # harakat, tanda mushaf, tatwil (ditulis sebagai kode: penyunting teks bisa menukar urutan harakat)
 TAGS = re.compile(r"<[^>]+>")
 HORMAT = re.compile(
-    r"صل[يى] الله عليه وسلم|رض[يى] الله عنه(?:ما|م|ا)?|عليه(?:ما)? السلام|رحمه الله|عز وجل|قدس الله روحه")
+    r"صل[يى] الله عليه وسلم|رض[يى] الله عنه(?:ما|م|ا|ن)?|علي(?:هما|هم|ه) السلام|رحمه(?:ما|م|ا)? الله|عز وجل|جل جلاله"
+    r"|سبحانه وتعالى|تبارك وتعالى|صلعم|قدس الله روحه")
+# ligatur kalimat hormat tanpa pecahan NFKC (﵀-﵏ dari Unicode 14, ﷾ ﷿): dibuang, bentuk panjangnya dibuang HORMAT
+LIGATUR_HORMAT = re.compile(r"[﵀-﵏﷾﷿]")
+# bentuk huruf yang disamakan; huruf Persia (ی ک ە ھ) sering terbawa dari PDF/situs
+SAMA = (("إ", "ا"), ("أ", "ا"), ("آ", "ا"), ("ٱ", "ا"), ("ى", "ي"), ("ة", "ه"), ("ؤ", "و"), ("ئ", "ي"),
+        ("ی", "ي"), ("ک", "ك"), ("ە", "ه"), ("ھ", "ه"), ("ۀ", "ه"))
 
 
 BUKAN_HURUF = re.compile(r"[^ء-ي0-9]+")
 BUKAN_ABJAD = re.compile(r"[^ء-ي]+")
+PRESENTASI = re.compile(r"[\u0675-\u0678\ufb50-\ufdfc\ufe70-\ufefc]")  # bentuk presentasi yang dipecah NFKC (﷽ ﷾ ﷿ tidak)
 SYAI = re.compile(r"شئ(?![ء-ي])")
+IBNU = re.compile(r"(?<![ء-ي])ابن(?![ء-ي])")
+SAMBUNG = "وفبلك"  # huruf sambung di depan kata: kutipan boleh mulai sesudahnya («و"الإحياء"» = «والإحياء»)
+BAGIAN = (("body", ""), ("footnotes", " [حاشية]"))  # bagian rekaman kitab, dan tandanya di keluaran
 
 
 def norm(s):
     """Samakan tulisan Arab: buang harakat/tatwil dan kalimat hormat, satukan bentuk alif/ya/ta marbuthah."""
-    s = HORMAT.sub("", HARAKAT.sub("", TAGS.sub("", s)))
+    # NFKC paling awal: memecah ﻻ dan bentuk presentasi lain (ﷺ/ﷻ jadi kalimat hormat, yang lalu dibuang HORMAT).
+    # ﷺ dan ﷻ (ada di hampir tiap halaman kitab hadits) langsung dibuang: hasilnya sama, NFKC-nya tidak perlu.
+    s = LIGATUR_HORMAT.sub(" ", s.replace("ﷺ", " ").replace("ﷻ", " "))
+    if PRESENTASI.search(s):
+        s = unicodedata.normalize("NFKC", s)
+    s = HORMAT.sub(" ", HARAKAT.sub("", TAGS.sub("", s)))
     if "شئ" in s:  # ejaan lama «شئ» = «شيء»; «شئت» (kehendak) tidak ikut
         s = SYAI.sub("شيء", s)
-    for dari, ke in (("إ", "ا"), ("أ", "ا"), ("آ", "ا"), ("ٱ", "ا"), ("ى", "ي"), ("ة", "ه"), ("ؤ", "و"), ("ئ", "ي")):
+    for dari, ke in SAMA:
         s = s.replace(dari, ke)  # str.replace jauh lebih cepat daripada regex untuk ganti satu huruf
+    if "ابن" in s:  # «محمد ابن يحيى» = «محمد بن يحيى»: alif «ابن» ditulis atau tidak menurut penyunting
+        s = IBNU.sub("بن", s)
     return BUKAN_HURUF.sub(" ", s).strip()
 
 
+@functools.cache  # daftar folder dataset tidak berubah selama satu perintah
 def _ls(path=""):
     url = API + ("/" + urllib.parse.quote(path) if path else "")
     out = []
     while url:
-        r = urllib.request.urlopen(urllib.request.Request(url, headers=UA))
-        out += json.load(r)
-        link = r.headers.get("Link")
+        with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60) as r:
+            out += json.load(r)
+            link = r.headers.get("Link")
         url = link.split(";")[0].strip("<> ") if link and 'rel="next"' in link else None
     return out
 
@@ -68,6 +89,7 @@ def _unduh(url, tujuan, buka):
     part.replace(tujuan)
 
 
+@functools.cache
 def _meta():
     if not (ROOT / KATALOG).exists():
         raise SystemExit("Katalog kitab belum ada: python mesin/bahts.py siapkan")
@@ -78,11 +100,35 @@ def _meta():
     return pd.read_parquet(ROOT / KATALOG)
 
 
-def katalog(pat):
-    """Cari kitab di katalog Shamela (judul atau nama pengarang)."""
+REGEX = re.compile(r"[\\^$.|?*+()\[\]{}]")  # pola katalog yang memuat tanda ini dicoba juga sebagai regex
+ADA = "(ADA = sudah diunduh; - = belum, unduh dengan: python mesin/bahts.py ambil <nomor>)"
+
+
+def katalog(pola):
+    """Cari kitab di katalog Shamela (judul atau nama pengarang). Ejaan disamakan seperti `cari` (hamzah, ta marbuthah,
+    harakat, spasi). Pola bertanda regex dicoba dulu sebagai regex; tidak ada hasil -> sebagai teks biasa."""
+    if not pola.strip():
+        raise SystemExit('Tulis sebagian judul atau nama pengarang, mis.: python mesin/bahts.py katalog "مدارج السالكين"')
     df = _meta()
-    hit = df[df["title_ar"].str.contains(pat, regex=True, na=False)
-             | df["main_author_name_ar"].str.contains(pat, regex=True, na=False)]
+    hit = df.iloc[:0]
+    if REGEX.search(pola):
+        try:
+            with warnings.catch_warnings():  # pandas memperingatkan pola ber-(kurung) dalam bahasa Inggris
+                warnings.simplefilter("ignore")
+                hit = df[df["title_ar"].str.contains(pola, regex=True, na=False)
+                         | df["main_author_name_ar"].str.contains(pola, regex=True, na=False)]
+        except re.error:
+            pass  # judul bertanda kurung yang disalin persis: dicocokkan sebagai teks biasa di bawah
+    rata = padat if not re.search(r"[A-Za-z]", pola) else str  # padat membuang huruf Latin
+    q = rata(pola)
+    if hit.empty and q:
+        hit = df[df["title_ar"].fillna("").map(rata).str.contains(q, regex=False)
+                 | df["main_author_name_ar"].fillna("").map(rata).str.contains(q, regex=False)]
+    if hit.empty:
+        print(f"TIDAK KETEMU di katalog: {pola}\nCoba satu kata judul atau nama pengarang saja, "
+              "atau `temukan \"<frasa>\"` untuk mencari di isi kitab.")
+        return
+    print("nomor\tADA\tjudul\tpengarang\tbidang  " + ADA)
     for _, r in hit.iterrows():
         ada = "ADA" if (ROOT / str(r.shamela_id) / "pages.jsonl.gz").exists() else "-"
         print(f"{r.shamela_id}\t{ada}\t{r.title_ar}\t{r.main_author_name_ar}\t{r.category_name_ar}")
@@ -117,8 +163,13 @@ def temukan(frasa, maks=20):
     d = tanya(True)
     if not d["count"]:
         d = tanya(False)
-        print("Kata-katanya tidak ketemu berurutan; ini hasil pencarian longgar:")
-    print(f"{d['count']} tempat cocok di seluruh Shamela: {frasa}")
+        if d["count"]:
+            print("Kata-katanya tidak ketemu berurutan; ini hasil pencarian longgar:")
+    if not d["count"]:
+        print(f"TIDAK KETEMU di seluruh Shamela, berurutan maupun longgar: {frasa}\n"
+              "Coba frasa lebih pendek (2-4 kata inti), atau ejaan lain.")
+        return
+    print(f"{d['count']} tempat cocok di seluruh Shamela: {frasa}\n" + ADA)
     ada = set(punya())
     df = _meta()
     berjilid = set(df[df["has_multi_part"] == True]["shamela_id"])  # turath menulis «ج1» juga untuk kitab satu jilid
@@ -126,12 +177,19 @@ def temukan(frasa, maks=20):
         m = json.loads(x["meta"])
         cuplikan = re.sub(r"\s+", " ", HARAKAT.sub("", html.unescape(TAGS.sub("", x["snip"]))))
         juz = m.get("vol") if x["book_id"] in berjilid else "-"
-        print(f"[{x['book_id']}] {'ADA' if x['book_id'] in ada else '-'}\tج{juz or '-'} ص{m.get('page')}\t"
+        print(f"[{x['book_id']}] {'ADA' if x['book_id'] in ada else '-'}\t{letak(juz or '-', m.get('page'))}\t"
               f"{m['book_name']} — {m['author_name']} :: {cuplikan[:160]}")
     if d["count"] > maks:
         print(f"(ditampilkan {min(maks, len(d['data']))}, paling banyak {TURATH_MAKS}; persempit frasanya untuk hasil lain)")
-    if not d["count"]:
-        print("Coba frasa lebih pendek (2-4 kata inti), atau ejaan lain.")
+
+
+def letak(juz, h):
+    """Juz dan halaman untuk dicetak: «ج2 ص15», «ج- ص15-16», «ج«المقدمة» ص3». h = halaman, atau (awal, akhir)."""
+    a, z = h if isinstance(h, tuple) else (h, h)
+    j = f"ج{juz}" if juz == "-" or str(juz).isdigit() else f"ج«{juz}»"  # juz bernama tidak menempel ke «ج»
+    if a is None:
+        return f"{j} ص? (rekaman ini tanpa nomor halaman)"
+    return f"{j} ص{a}" + (f"-{z}" if z not in (None, a) else "")
 
 
 def punya():
@@ -139,14 +197,24 @@ def punya():
     return sorted(int(d.name) for d in ROOT.glob("*") if (d / "pages.jsonl.gz").exists())
 
 
+def _folder(sid):
+    """Folder kitab sid; sid yang bukan angka ditolak dengan pesan, bukan disuruh `ambil`."""
+    if not str(sid).isdigit():
+        raise SystemExit(f"«{sid}» bukan nomor kitab. Nomornya dari `kitab`, `katalog`, atau `temukan`.")
+    return ROOT / str(int(sid))
+
+
 def info(sid):
-    f = ROOT / str(sid) / "book_metadata.json"
+    f = _folder(sid) / "book_metadata.json"
     if not f.exists():
         raise SystemExit(f"Kitab {sid} belum diunduh: python mesin/bahts.py ambil {sid}")
     return json.load(open(f, encoding="utf8"))
 
 
 def daftar():
+    if not punya():
+        print('Belum ada kitab yang diunduh. Cari nomornya dengan `katalog "<judul>"` atau `temukan "<frasa>"`, '
+              "lalu: python mesin/bahts.py ambil <nomor>")
     for sid in punya():
         m = info(sid)
         print(f"{sid}\t{m['title_ar']}\t{m['main_author_name_ar']}")
@@ -157,9 +225,29 @@ def kartu(sid):
     print(info(sid)["betaka_text"].replace("\r", "\n"))
 
 
-def ambil(sid):
+def ambil(*sid):
+    """Unduh kitab (sekali saja). Semua nomor dicoba; unduhan yang putus diulang sampai COBA kali.
+    Kembalikan nomor yang gagal (kosong = semua ada); bahts.py yang memberi kode keluar."""
+    gagal = []
+    for s in sid:
+        for coba in range(1, COBA + 1):
+            try:
+                _ambil(s)
+                break
+            except LookupError as e:  # nomornya salah: diulang pun sama
+                print(f"{s}: {e}"); gagal.append(str(s)); break
+            except GAGAL_JARINGAN as e:
+                tetap = isinstance(e, urllib.error.HTTPError) and 400 <= e.code < 500 and e.code != 429
+                if tetap or coba == COBA:
+                    print(f"{s}: GAGAL mengunduh, cek internet lalu ulangi ({e!r})"); gagal.append(str(s)); break
+                print(f"{s}: unduhan putus ({e!r}); mencoba lagi ({coba + 1}/{COBA}) ...", flush=True)
+                time.sleep(5 * coba)
+    return gagal
+
+
+def _ambil(sid):
     if not str(sid).isdigit():
-        print(sid, "bukan nomor kitab (nomornya dari `katalog` atau `temukan`)"); return
+        raise LookupError("bukan nomor kitab (nomornya dari `katalog` atau `temukan`)")
     sid = int(sid)
     dst = ROOT / str(sid)
     if (dst / "pages.jsonl.gz").exists():
@@ -167,12 +255,12 @@ def ambil(sid):
     df = _meta()
     row = df[df.shamela_id == sid]
     if row.empty:
-        print(sid, "TIDAK ADA di katalog"); return
+        raise LookupError("TIDAK ADA di katalog Shamela (nomornya dari `katalog` atau `temukan`)")
     r = row.iloc[0]
-    top = [x["path"] for x in _ls() if x["path"].startswith(f"{int(r.category_id):02d}__")][0]
-    folder = [x["path"] for x in _ls(top) if x["path"].split("/")[-1].split("__")[0] == str(r.book_id)]
+    top = [x["path"] for x in _ls() if x["path"].startswith(f"{int(r.category_id):02d}__")]
+    folder = [x["path"] for x in _ls(top[0]) if x["path"].split("/")[-1].split("__")[0] == str(r.book_id)] if top else []
     if not folder:
-        print(sid, "folder tidak ketemu"); return
+        raise LookupError("folder kitabnya tidak ketemu di dataset Shamela (mungkin belum tersedia di sana)")
     dst.mkdir(parents=True, exist_ok=True)
     # isi kitab disimpan terkompres (.gz) supaya hemat disk: teks Arab menyusut ±5x
     # pages.jsonl terakhir: dialah tanda "sudah ada", jadi kitab yang unduhannya putus diunduh ulang
@@ -190,7 +278,7 @@ PENANDA = re.compile(r"⦗([٠-٩]+)⦘")
 
 
 def _pages(sid):
-    f = ROOT / str(sid) / "pages.jsonl.gz"
+    f = _folder(sid) / "pages.jsonl.gz"
     if not f.exists():
         raise SystemExit(f"Kitab {sid} belum diunduh: python mesin/bahts.py ambil {sid}")
     with gzip.open(f, "rt", encoding="utf8") as g:
@@ -202,10 +290,11 @@ def _juz(p):
     return "-" if p.get("part") is None else p["part"]
 
 
-def _potong(p):
-    """Satu rekaman bisa memuat beberapa halaman cetak (penanda ⦗n⦘): pecah jadi [(halaman, teks)]."""
+def _potong(p, bagian="body"):
+    """Satu rekaman bisa memuat beberapa halaman cetak (penanda ⦗n⦘): pecah jadi [(halaman, teks)].
+    Teks sebelum penanda pertama milik page_num."""
     hal, out = p.get("page_num"), []
-    for k, b in enumerate(PENANDA.split(p.get("body") or "")):
+    for k, b in enumerate(PENANDA.split(p.get(bagian) or "")):
         if k % 2:
             hal = int(b)  # int() membaca angka Arab ٠-٩ juga
         else:
@@ -226,22 +315,67 @@ def _kunci(frasa):
     return q
 
 
-def tempat(p, q):
-    """Halaman cetak (awal, akhir) tempat q (sudah `padat`) berada di badan rekaman p; None kalau tidak ada.
-    Halamannya None kalau rekaman itu tidak bernomor halaman."""
-    if "_padat" not in p:  # dinormalkan sekali saja per rekaman
+def _ruas(p, bagian):
+    """Teks `padat` satu bagian rekaman dan ruas halamannya [(awal, akhir, hal_awal, hal_akhir)]; dihitung sekali per rekaman.
+    حاشية tanpa penanda ⦗n⦘ di rekaman banyak halaman: halaman tiap catatan tidak tercatat, jadi ruasnya = seluruh rekaman."""
+    kunci = "_padat_" + bagian
+    if kunci not in p:
+        potong = _potong(p, bagian)
+        if bagian != "body" and len(potong) == 1:
+            ruas = [(p.get("page_num"), _potong(p)[-1][0], potong[0][1])]
+        else:
+            ruas = [(h, h, b) for h, b in potong]
         teks, batas = "", []
-        for hal, b in _potong(p):
+        for h1, h2, b in ruas:
             n = padat(b)
-            batas.append((len(teks), len(teks) + len(n), hal))
+            batas.append((len(teks), len(teks) + len(n), h1, h2))
             teks += n
-        p["_padat"] = teks, batas
-    teks, batas = p["_padat"]
+        p[kunci] = teks, batas
+    return p[kunci]
+
+
+def _batas_kata(p, bagian):
+    """Letak awal dan akhir tiap kata di teks `padat` bagian itu. Dihitung hanya untuk rekaman yang memuat kutipan."""
+    kunci = "_kata_" + bagian
+    if kunci not in p:
+        awal, akhir, n = set(), set(), 0
+        for _, b in _potong(p, bagian):
+            for w in norm(b).split():
+                w = BUKAN_ABJAD.sub("", w)
+                if w:
+                    awal.add(n); n += len(w); akhir.add(n)
+        p[kunci] = awal, akhir
+    return p[kunci]
+
+
+def _utuh(p, bagian, j, k):
+    """Potongan teks[j:k] mulai dan berakhir di batas kata kitab. Di depannya boleh ada huruf sambung (و ف ب ل ك, paling banyak dua)."""
+    awal, akhir = _batas_kata(p, bagian)
+    if k not in akhir:
+        return False
+    teks = _ruas(p, bagian)[0]
+    return j in awal or any(j - d in awal and all(c in SAMBUNG for c in teks[j - d:j]) for d in (1, 2))
+
+
+def _cocok(p, q, bagian="body", utuh=False):
+    """Letak (awal, akhir) q di teks `padat` bagian rekaman p; None kalau tidak ada."""
+    teks = _ruas(p, bagian)[0]
     j = teks.find(q)
-    if j < 0:
+    while j >= 0 and utuh and not _utuh(p, bagian, j, j + len(q)):
+        j = teks.find(q, j + 1)
+    return None if j < 0 else (j, j + len(q))
+
+
+def tempat(p, q, bagian="body", utuh=False):
+    """Halaman cetak (awal, akhir) tempat q (sudah `padat`) berada di rekaman p; None kalau tidak ada.
+    bagian "footnotes" = حاشية, dihitung per penanda halaman seperti matan.
+    utuh=True: q harus mulai dan berakhir di batas kata kitab (kutipan yang terpotong di tengah kata tidak dihitung).
+    Halamannya None kalau rekaman itu tidak bernomor halaman."""
+    c = _cocok(p, q, bagian, utuh)
+    if c is None:
         return None
-    k = j + len(q) - 1
-    return next(h for a, z, h in batas if a <= j < z), next(h for a, z, h in batas if a <= k < z)
+    batas = _ruas(p, bagian)[1]
+    return (next(h for a, z, h, _ in batas if a <= c[0] < z), next(h for a, z, _, h in batas if a <= c[1] - 1 < z))
 
 
 def cari(sid, frasa, konteks=90, maks=15, diam=False):
@@ -254,15 +388,15 @@ def cari(sid, frasa, konteks=90, maks=15, diam=False):
     q = _kunci(frasa)
     n = 0
     for p in _pages(sid):
-        for bagian in ("body", "footnotes"):
+        for bagian, tanda in BAGIAN:
             t = norm(p.get(bagian) or "")
             j = BUKAN_ABJAD.sub("", t).find(q)
             if j >= 0:
                 peta = [k for k, c in enumerate(t) if "ء" <= c <= "ي"]  # letak tiap huruf `padat` di t
                 n += 1
                 i, akhir = peta[j], peta[j + len(q) - 1] + 1
-                hal, tanda = (tempat(p, q)[0], "") if bagian == "body" else (p.get("page_num"), " [حاشية]")
-                print(f"[{sid}] ج{_juz(p)} ص{hal}{tanda}: …{t[max(0, i - konteks): akhir + konteks]}…")
+                h = tempat(p, q, bagian) or (p.get("page_num"),) * 2  # None hanya kalau q melintasi penanda halaman
+                print(f"[{sid}] {letak(_juz(p), h)}{tanda}: …{t[max(0, i - konteks): akhir + konteks]}…")
                 if n >= maks:
                     print(f"[{sid}] (dipotong, masih ada lagi)"); return n
     if n == 0 and not diam:
@@ -270,52 +404,115 @@ def cari(sid, frasa, konteks=90, maks=15, diam=False):
     return n
 
 
+def _letak_asli(raw, q):
+    """Awal kata tempat q (sudah `padat`) mulai di teks asli raw. Dicari lewat panjang `padat` tiap awalan,
+    karena norm() mengubah panjang teks (kalimat hormat dibuang, tanda baca jadi spasi)."""
+    j = padat(raw).find(q)
+    awal = [m.start() for m in re.finditer(r"\S+", raw)]
+    if j <= 0 or not awal:
+        return 0
+    lo, hi = 0, len(awal) - 1
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        if len(padat(raw[:awal[mid]])) <= j:
+            lo = mid
+        else:
+            hi = mid - 1
+    return awal[lo]
+
+
 def teks(sid, frasa, lebar=260, maks=3):
     """Seperti `cari`, tapi menampilkan teks ASLI (huruf apa adanya, tanpa harakat) untuk disalin persis."""
     q = _kunci(frasa)
     n = 0
     for p in _pages(sid):
-        hal = (tempat(p, q) or [None])[0]
-        if hal is not None:
+        for bagian, tanda in BAGIAN:
+            h = tempat(p, q, bagian)
+            if h is None:
+                continue
             n += 1
-            raw = re.sub(r"\s+", " ", HARAKAT.sub("", TAGS.sub("", p.get("body") or "")))
-            # posisi kasar di teks asli lewat kata pertama frasa
-            kata = HARAKAT.sub("", frasa).split()[0]
-            i = max(raw.find(kata), 0)
-            for m in re.finditer(re.escape(kata), raw):
-                if q[:12] in padat(raw[m.start(): m.start() + 200]):
-                    i = m.start(); break
-            print(f"[{sid}] ج{_juz(p)} ص{hal}: {raw[max(0, i - lebar // 3): i + lebar]}")
-            if n >= maks: return
+            raw = re.sub(r"\s+", " ", HARAKAT.sub("", TAGS.sub("", p.get(bagian) or "")))
+            i = _letak_asli(raw, q)
+            print(f"[{sid}] {letak(_juz(p), h)}{tanda}: {raw[max(0, i - lebar // 3): i + lebar]}")
+            if n >= maks:
+                return
     if n == 0:
         print(f"[{sid}] TIDAK KETEMU: {frasa}")
+
+
+JUDUL = re.compile(r'data-type="?title"?\s+id="?toc-(\d+)')  # tanda judul di matan; nomornya = shamela_title_id di toc
+
+
+def _judul_calon(p, toc, c, h, bagian):
+    """Judul toc yang menaungi letak c (dari `_cocok`) di rekaman p. Satu judul = pasti; lebih = ragu.
+    Satu rekaman bisa memuat beberapa judul: letaknya dari tanda judul di matan, atau dari tulisan judulnya."""
+    sebelum, di_sini = None, []
+    for t in toc:  # toc urut page_id, lalu urutan judul
+        if t["page_id"] < p["page_id"]:
+            sebelum = t
+        elif t["page_id"] == p["page_id"]:
+            di_sini.append(t)
+        else:
+            break
+    teks, batas = _ruas(p, "body")
+    body = p.get("body") or ""
+    span = {int(m.group(1)): m.start() for m in JUDUL.finditer(body)}
+    letak_judul, mulai = [], 0  # letak judul yang tidak terbaca = None; letaknya tetap sesudah judul sebelumnya
+    for t in di_sini:
+        if t.get("shamela_title_id") in span:
+            x = len(padat(body[:span[t["shamela_title_id"]]]))
+        else:
+            x = teks.find(padat(t["title_text"]), mulai) if padat(t["title_text"]) else -1
+        letak_judul.append(x if x >= 0 else None); mulai = x + 1 if x >= 0 else mulai
+    if bagian == "body":
+        a, z = c[0], c[0] + 1
+    else:  # حاشية: ruas matan halaman yang sama
+        r = [(a, z) for a, z, h1, _ in batas if h[0] is not None and h[0] <= (h1 or 0) <= h[1]]
+        a, z = (r[0][0], r[-1][1]) if r else (0, len(teks))
+    naung, bawah, calon = sebelum, 0, []
+    for t, x in zip(di_sini, letak_judul):
+        if x is not None and x <= a:
+            naung, bawah, calon = t, x, []  # judul sebelumnya tertutup judul ini
+        elif x is None and bawah < z or x is not None and x < z:
+            calon.append(t)  # mungkin mulai sebelum akhir ruas
+        bawah = max(bawah, x or 0)
+    return [naung] + calon
 
 
 def bab(sid, frasa):
     """Tampilkan rantai judul (kitab > bab) tempat sebuah frasa berada, plus juz/halaman."""
     q = _kunci(frasa)
     info(sid)  # kitab belum diunduh -> pesan yang jelas
-    with gzip.open(ROOT / str(sid) / "toc.jsonl.gz", "rt", encoding="utf8") as f:
+    with gzip.open(_folder(sid) / "toc.jsonl.gz", "rt", encoding="utf8") as f:
         toc = [json.loads(x) for x in f]
     byid = {t["title_id"]: t for t in toc}
     toc.sort(key=lambda t: (t["page_id"], t["title_id"]))
+
+    def rantai(t):
+        r = []
+        while t:
+            r.append(HARAKAT.sub("", t["title_text"]).strip()); t = byid.get(t.get("parent_id"))
+        return " < ".join(r[:3]) or "(sebelum judul pertama)"
     for p in _pages(sid):
-        hal = (tempat(p, q) or [None])[0]
-        if hal is not None:
-            last = None
-            for t in toc:
-                if t["page_id"] <= p["page_id"]: last = t
-                else: break
-            rantai = []
-            while last:
-                rantai.append(HARAKAT.sub("", last["title_text"]).strip()); last = byid.get(last.get("parent_id"))
-            print(f"[{sid}] ج{_juz(p)} ص{hal}: " + " < ".join(rantai[:3]))
+        for bagian, tanda in BAGIAN:
+            c = _cocok(p, q, bagian)
+            if c is None:
+                continue
+            h = tempat(p, q, bagian)
+            calon = _judul_calon(p, toc, c, h, bagian)
+            kepala = f"[{sid}] {letak(_juz(p), h)}{tanda}: "
+            if len(calon) == 1:
+                print(kepala + rantai(calon[0]))
+            else:
+                print(kepala + "RAGU, judulnya salah satu dari ini (lihat sendiri dengan `halaman`):")
+                for t in calon:
+                    print("  - " + rantai(t))
             return
     print(f"[{sid}] TIDAK KETEMU: {frasa}")
 
 
 def halaman(sid, juz, hal):
-    """Isi satu halaman cetak (juz "-" untuk kitab satu jilid)."""
+    """Isi satu halaman cetak (juz "-" untuk kitab satu jilid), dengan حاشية milik halaman itu."""
     ada = False
     for p in _pages(sid):
         if str(_juz(p)) != str(juz):
@@ -324,7 +521,14 @@ def halaman(sid, juz, hal):
         if bagian:
             ada = True
             print(TAGS.sub("", "".join(bagian)))
-            if p.get("footnotes"):
-                print("ـــــ\n" + TAGS.sub("", p["footnotes"]))
+            fn = _potong(p, "footnotes")
+            if len(fn) > 1:  # حاشية bertanda halaman: cetak yang milik halaman ini saja
+                isi, catat = "".join(b for h, b in fn if str(h) == str(hal)), ""
+            else:
+                a, z = p.get("page_num"), _potong(p)[-1][0]
+                isi = fn[0][1]
+                catat = f" (حاشية rekaman ص{a}-{z}; halaman tiap catatan tidak tercatat)" if z != a else ""
+            if isi.strip():
+                print("ـــــ" + catat + "\n" + TAGS.sub("", isi))
     if not ada:
         print(f"[{sid}] TIDAK ADA halaman {juz}/{hal}")

@@ -19,6 +19,10 @@
 !/dok/
 /contoh/*
 !/contoh/naskah.txt
+# naskah jebakan: tiap baris satu kesalahan yang harus ditolak `cek` (dijalankan di .github/workflows/tes.yml)
+!/contoh/jebakan/
+/contoh/jebakan/*
+!/contoh/jebakan/naskah.txt
 # bahan antara mesin, sisa Word/Python, dan font mushaf (diunduh `siapkan`, lihat NOTICE)
 mesin/_tmp/
 mesin/*.ttf
