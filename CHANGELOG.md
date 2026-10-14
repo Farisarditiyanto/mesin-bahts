@@ -3,6 +3,10 @@
 Tiap rilis ditulis di sini: yang baru di atas. Nomor versi = `besar.kecil.tambalan`:
 besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan baru, tambalan naik kalau hanya perbaikan.
 
+## Belum dirilis
+
+- README diringkas (dari ±1450 jadi ±525 kata) dan disesuaikan dengan `cek` 1.0.0; teks gambar alur dan cara `cek` dipendekkan.
+
 ## 1.0.0 — 2026-10-15
 
 Besar naik: naskah lama yang dulu lolos bisa kini GAGAL, karena `cek` menutup celah kutipan karangan.
