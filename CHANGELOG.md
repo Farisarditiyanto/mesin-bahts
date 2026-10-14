@@ -5,7 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
-- README diringkas (dari ±1450 jadi ±525 kata) dan disesuaikan dengan `cek` 1.0.0; teks gambar alur dan cara `cek` dipendekkan.
+- README diringkas (dari ±1450 jadi ±525 kata) dan disesuaikan dengan `cek` terbaru; teks gambar alur dan cara `cek` dipendekkan.
 
 ## 1.0.0 — 2026-10-15
 

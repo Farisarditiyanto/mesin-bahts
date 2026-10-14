@@ -47,6 +47,6 @@
 <text x="810" y="645" font-size="12.5" font-family="Consolas, Menlo, monospace" fill="#b3362f" text-anchor="end">teks TIDAK di -/99; ketemu di</text>
 <rect x="40" y="680" width="920" height="84" rx="12" fill="#fdf1de" stroke="#c9831f"/>
 <text x="60" y="710" font-size="15" font-weight="700" fill="#7a4a0c">Yang TIDAK bisa dinilai cek</text>
-<text x="60" y="733" font-size="13.5" fill="#3d3c38">Benarkah yang berkata memang orang itu, benarkah nama kitabnya, derajat hadits, dan sumber di luar Shamela.</text>
-<text x="60" y="752" font-size="13.5" fill="#3d3c38">Itu tugas agent kedua (langkah 9), lalu kamu sendiri.</text>
+<text x="60" y="733" font-size="13.5" fill="#3d3c38">Benarkah yang berkata memang orang itu, benarkah nama kitabnya, derajat hadits,</text>
+<text x="60" y="752" font-size="13.5" fill="#3d3c38">kutipan tanpa catatan kaki, dan sumber di luar Shamela. Itu tugas agent kedua (langkah 9), lalu kamu.</text>
 </svg>
