@@ -13,14 +13,18 @@ jobs:
       - run: python mesin/bahts.py periksa
       - run: python mesin/bahts.py ambil 11223
       - run: python mesin/bahts.py cek contoh
-      # tiap baris contoh/jebakan/naskah.txt memuat satu kesalahan: GAGAL harus sama dengan @jebakan di naskah itu
+      # contoh/jebakan/naskah.txt: tiap baris jebakan satu kesalahan (GAGAL = @jebakan),
+      # tiap baris di bawah #S satu perhatian (perhatian = @perhatian_jebakan)
       - name: cek jebakan
         shell: pwsh
         run: |
-          $keluar = python mesin/bahts.py cek contoh/jebakan
+          $keluar = (python mesin/bahts.py cek contoh/jebakan) -join "`n"
           $keluar
-          $harus = [int][regex]::Match((Get-Content contoh/jebakan/naskah.txt -Raw -Encoding utf8), '(?m)^@jebakan:\s*(\d+)').Groups[1].Value
-          $ada = [regex]::Match(($keluar -join "`n"), 'GAGAL: (\d+)')
-          if (-not $ada.Success) { throw "cek jebakan berhenti sebelum laporan GAGAL" }
-          if ([int]$ada.Groups[1].Value -ne $harus) { throw "cek jebakan: GAGAL $($ada.Groups[1].Value), harusnya $harus" }
+          $naskah = Get-Content contoh/jebakan/naskah.txt -Raw -Encoding utf8
+          foreach ($p in @(@('jebakan', 'GAGAL: (\d+)'), @('perhatian_jebakan', 'perhatian \(lolos, tetapi lihat sendiri\): (\d+)'))) {
+            $harus = [int][regex]::Match($naskah, "(?m)^@$($p[0]):\s*(\d+)").Groups[1].Value
+            $ada = [regex]::Match($keluar, $p[1])
+            if (-not $ada.Success) { throw "cek jebakan berhenti sebelum laporan $($p[0])" }
+            if ([int]$ada.Groups[1].Value -ne $harus) { throw "cek jebakan: $($p[0]) $($ada.Groups[1].Value), harusnya $harus" }
+          }
           exit 0

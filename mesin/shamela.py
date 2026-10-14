@@ -134,6 +134,29 @@ def katalog(pola):
         print(f"{r.shamela_id}\t{ada}\t{r.title_ar}\t{r.main_author_name_ar}\t{r.category_name_ar}")
 
 
+@functools.cache
+def _judul_padat():
+    """{judul `padat`: [nomor kitab]} dari katalog lokal; kosong kalau katalog atau pandas belum ada (cek tetap jalan)."""
+    try:
+        df = _meta()
+    except SystemExit:
+        return {}
+    out = {}
+    for sid, judul in zip(df["shamela_id"], df["title_ar"].fillna("")):
+        out.setdefault(padat(judul), []).append(int(sid))
+    return out
+
+
+def nomor_judul(judul):
+    """(persis, mirip): nomor kitab Shamela yang judulnya persis `judul`, dan yang judulnya diawali `judul`
+    (judul pendek, mis. «مدارج السالكين»), ejaan disamakan. ([], []) kalau katalog belum ada."""
+    q = padat(judul)
+    if len(q) < 6:
+        return [], []
+    semua = _judul_padat()
+    return semua.get(q, []), [s for j, ss in semua.items() if j != q and j.startswith(q) for s in ss]
+
+
 TURATH = "https://api.turath.io/search"  # pencarian isi seluruh Shamela; nomor kitabnya = shamela_id (sama dengan `ambil`)
 TURATH_MAKS = 20  # turath menjawab sebanyak ini tiap pencarian
 TURATH_SABAR = 30  # detik; turath minta menunggu lebih lama dari ini = jatah pencarian habis, bukan sekadar terlalu cepat
