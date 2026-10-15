@@ -3,7 +3,9 @@
 Tiap rilis ditulis di sini: yang baru di atas. Nomor versi = `besar.kecil.tambalan`:
 besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan baru, tambalan naik kalau hanya perbaikan.
 
-## Belum dirilis
+## 3.1.0 — 2026-10-15
+
+Kecil naik dari 3.0.0: kemampuan baru `@angka`; naskah lama tetap jalan tanpa diubah, tetapi PDF-nya kini mencetak angka ٠١٢٣ (tulis `@angka: latin` untuk 0123).
 
 - Angka di PDF seragam ٠١٢٣ (bawaan): nomor halaman, nomor catatan kaki di matan dan di bawah, juz/halaman rujukan, tahun, nomor ayat, isi المصادر dan الفهارس, juga sampul. Dulu campur: «آية: ٢» tapi «ص5», «1423هـ», (1), dan nomor halaman 1. Angka di teks Latin (tautan, DOI, judul berbahasa Latin) tetap 0123. Naskah boleh diketik dengan angka mana saja. Dosen minta 0123: `@angka: latin`. Dasarnya di README bagian «Standar halaman».
 - Teks Arab PDF jauh lebih benar saat disalin atau dicari: dulu «الله» tersalin «هللا», «المقدمة» «املقدمة», «في» «يف», ligatur «نا» «نًّ», dan syaddah jadi «ن». Tampilan halaman tidak berubah. Diukur pada bahts 32 halaman (berapa kata berbeda di naskah yang muncul utuh di teks salinan), lewat mesin baca PDF masing-masing: PDFium (Chrome/Edge) 65% → 94%, pdf.js (Firefox) 68% → 97%, MuPDF (SumatraPDF) 69% → 99%; pemeriksa dengan cara hitung lain mendapat 84%, 91%, 91%. Yang masih salah: ﷺ tersalin terbalik di MuPDF (benar di PDFium dan pdf.js), harakat yang terpisah dari hurufnya, kata yang terpotong di ujung baris, dan teks ayat mushaf. Pembaca tanpa pembalik urutan (mis. pustaka pypdf) justru turun (98% → 69%); Acrobat dan pembaca PDF Apple belum dicoba. Butuh dua pustaka Python baru (`pypdf`, `fonttools`): `periksa` menyebut perintah pasangnya.
