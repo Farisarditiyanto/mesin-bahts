@@ -12,6 +12,7 @@ Hasil riset dan audit mesin (riset proyek sejenis di GitHub + uji tiap perintah)
 - Pesan `cek` menyebut barisnya («baris 15: …») dan, kalau kutipan hampir cocok, kata pertama yang berbeda: «cocok 8 dari 9 kata …, lalu naskah «والتدابير», kitab «والتدبير»».
 - `hadits`: «من غشنا» juga menemukan «ومن غشنا» (riwayat مسلم dulu terlewat); kalau البخاري/مسلم tidak muncul, dicetak «riwayat mirip, lafaznya berbeda».
 - `dirasat`: pencarian makna OpenAlex yang kehabisan waktu tidak diulang (±37 dtk → ±12 dtk) dan dijelaskan.
+- `cari`, `teks`, `bab`, dan `cek` jauh lebih cepat di kitab besar (فتح الباري: ±9 dtk → ±1 dtk): teks yang sudah dinormalisasi disimpan sekali di folder kitabnya saat `ambil` (atau saat pertama dipakai).
 - Semua permintaan ke layanan luar mencoba lagi sendiri kalau koneksi putus sesaat.
 - Pintu: jalur lengkap folder bahts diterima; `halaman` membaca «05»/«٥»; `katalog` paling banyak 30 baris; pencarian kosong keluar dengan kode 1; salah pakai mencetak bentuk perintahnya; `ambil` lebih cepat.
 - Tes otomatis jalan juga di Ubuntu, memeriksa jebakan per baris (bukan hanya jumlahnya), dan mengurai `rakit.ps1`.

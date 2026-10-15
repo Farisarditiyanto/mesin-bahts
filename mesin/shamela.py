@@ -2,7 +2,7 @@
 AuthenticIlm/Shamela4_Full_DB ke folder kitab/, lalu cari kutipan secara offline
 (tanpa kredit, tanpa internet). Hanya `temukan` yang bertanya ke luar (turath.io). Dipanggil lewat bahts.py.
 """
-import functools, gzip, html, http.client, json, os, re, shutil, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request, warnings
+import functools, gzip, hashlib, html, http.client, json, os, re, shutil, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request, warnings
 from pathlib import Path
 
 MESIN = Path(__file__).parent
@@ -351,19 +351,58 @@ def _ambil(sid):
         else:
             _unduh(url, dst / f, lambda q: open(q, "wb"))
     mb = (dst / "pages.jsonl.gz").stat().st_size / 1e6
+    _cache(sid)  # sekarang, bukan saat `cari` pertama: kitab besar makan belasan detik
     print(f"{sid} OK  {r.title_ar}  ({mb:.1f} MB)")
 
 
 PENANDA = re.compile(r"⦗([٠-٩]+)⦘")
 
 
+# cache teks `padat` tiap kitab (kitab/<id>/padat-<VERSI>.json.gz): menormalisasi seluruh kitab tiap `cari`/`teks`/`cek`
+# makan detik-an untuk kitab besar. VERSI = sidik isi berkas ini, jadi aturan norm() yang berubah membuat cache baru.
+VERSI = hashlib.sha1(Path(__file__).read_bytes()).hexdigest()[:12]
+
+
+def _rekaman(f):
+    with gzip.open(f, "rt", encoding="utf8") as g:
+        for line in g:
+            yield json.loads(line)
+
+
+def _cache(sid):
+    """Teks `padat` + ruas halaman tiap rekaman ([[body, footnotes], …]); dibuat sekali kalau belum ada.
+    Cache yang rusak atau tidak bisa ditulis tidak menghentikan apa pun: dihitung biasa."""
+    folder = _folder(sid)
+    f = folder / f"padat-{VERSI}.json.gz"
+    try:
+        with gzip.open(f, "rt", encoding="utf8") as g:
+            return json.load(g)
+    except (OSError, ValueError, EOFError):
+        pass
+    isi = [[_ruas(p, b) for b, _ in BAGIAN] for p in _rekaman(folder / "pages.jsonl.gz")]
+    try:
+        part = f.with_name(f.name + ".part")
+        with gzip.open(part, "wt", encoding="utf8", compresslevel=6) as g:
+            json.dump(isi, g, ensure_ascii=False, separators=(",", ":"))
+        part.replace(f)
+        for lama in folder.glob("padat-*.json.gz"):
+            if lama != f:
+                lama.unlink()
+    except OSError:
+        pass
+    return isi
+
+
 def _pages(sid):
     f = _folder(sid) / "pages.jsonl.gz"
     if not f.exists():
         raise SystemExit(f"Kitab {sid} belum diunduh: " + perintah(f"ambil {sid}"))
-    with gzip.open(f, "rt", encoding="utf8") as g:
-        for line in g:
-            yield json.loads(line)
+    cache = _cache(sid)
+    for i, p in enumerate(_rekaman(f)):
+        if i < len(cache):
+            for (bagian, _), (teks, batas) in zip(BAGIAN, cache[i]):
+                p["_padat_" + bagian] = teks, batas
+        yield p
 
 
 def _juz(p):
@@ -476,6 +515,8 @@ def cari(sid, frasa, konteks=90, maks=15, diam=False):
     n = 0
     for p in _pages(sid):
         for bagian, tanda in BAGIAN:
+            if q not in _ruas(p, bagian)[0]:  # saringan cepat dari cache; teks norm (untuk dicetak) hanya rekaman yang cocok
+                continue
             t = norm(p.get(bagian) or "")
             j = BUKAN_ABJAD.sub("", t).find(q)
             if j >= 0:
