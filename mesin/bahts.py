@@ -29,7 +29,7 @@ Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex dan DOAJ
                                dan menurut makna. Saringan OpenAlex, mis. language:ar,type:dissertation
   dirasat-pdf <W…> <folder>    unduh PDF penelitian (nomor OpenAlex dari `dirasat`) ke folder bahts; butuh kunci OpenAlex
 """
-import difflib, hashlib, http.client, json, math, os, re, shutil, subprocess, sys, urllib.error, urllib.request
+import difflib, hashlib, json, math, os, re, shutil, subprocess, sys, urllib.error
 from pathlib import Path
 
 import dirasat, hadits, shamela  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
@@ -43,8 +43,6 @@ FONT_SUMBER = ("https://static-cdn.tarteel.ai/qul/fonts/" + FONT,  # dicoba beru
 FONT_SHA256 = "aa68bffce289b4c0ebac68e90502eb69e42356abcd1603cb2b8e99c2c723f145"
 FONT_NAMA = "KFGQPC HAFS Uthmanic Script (TrueType)"
 FONT_PEMAKAI = Path(os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Windows\Fonts"))
-# unduhan gagal: alamat mati, ditolak, putus di tengah, atau kehabisan waktu
-GAGAL_UNDUH = (urllib.error.URLError, http.client.HTTPException, ConnectionError, TimeoutError)
 SAMPUL_SAYA = AKAR / "sampul_saya.txt"  # data sampul pemakai (@kunci: nilai); mengisi @kunci yang kosong di naskah baru
 NAMA_FOLDER = r"[A-Za-z0-9_-]+"  # nama folder bahts yang diterima `baru`
 FORMAT = json.load(open(MESIN / "format.json", encoding="utf8"))  # profil bentuk halaman; dipilih @format di naskah
@@ -98,8 +96,9 @@ def siapkan():
     if not f.exists():
         for url in FONT_SUMBER:
             try:
-                isi = urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "curl/8"}), timeout=120).read()
-            except GAGAL_UNDUH as e:
+                with shamela.buka(url, waktu=120) as r:
+                    isi = r.read()
+            except shamela.GAGAL_JARINGAN as e:
                 print(f"font mushaf: gagal dari {url} ({e!r})")
                 continue
             if hashlib.sha256(isi).hexdigest() == FONT_SHA256:
@@ -303,7 +302,7 @@ def ambil(nomor):
     for x in nomor:
         try:
             shamela.ambil(x)
-        except GAGAL_UNDUH as e:
+        except shamela.GAGAL_JARINGAN as e:
             print(f"{x} gagal mengunduh (cek internet, lalu ulangi): {e!r}")
     gagal = [x for x in nomor if not (x.isdigit() and (shamela.ROOT / str(int(x)) / "pages.jsonl.gz").exists())]
     if gagal:
@@ -359,7 +358,7 @@ if __name__ == "__main__":
         sys.exit(f"Perintah '{cmd}': layanannya menolak permintaan ini (HTTP {e.code}). Periksa kata/angka yang diketik: {a}")
     except BrokenPipeError:  # keluarannya dipotong pembaca (mis. `| head`): bukan masalah internet
         os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
-    except GAGAL_UNDUH as e:
+    except shamela.GAGAL_JARINGAN as e:
         sys.exit(f"Perintah '{cmd}' gagal mengunduh (cek internet, lalu ulangi): {e!r}")
     except (ValueError, FileNotFoundError, re.error) as e:
         sys.exit(f"Perintah '{cmd}' salah pakai: {e}\nDaftar perintah: " + perintah("").rstrip())

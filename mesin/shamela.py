@@ -13,6 +13,23 @@ UA = {"User-Agent": "curl/8"}
 # unduhan yang putus/gagal di jaringan (bukan nomor kitab yang salah)
 GAGAL_JARINGAN = (urllib.error.URLError, http.client.HTTPException, ConnectionError, TimeoutError)
 COBA = 3  # tiap kitab dicoba sebanyak ini kalau unduhannya putus
+SEMENTARA = (500, 502, 503)  # jawaban HTTP yang biasanya hilang sendiri (504 tidak: OpenAlex memakainya untuk «pencarian terlalu berat»)
+
+
+def buka(url, data=None, kepala=UA, waktu=60, coba=3):
+    """Satu pintu permintaan ke layanan luar (temukan, hadits, dirasat, font). Galat sementara (koneksi putus/direset,
+    SSL terputus, waktu habis, HTTP 500/502/503) dicoba lagi sampai `coba` kali dengan jeda 1, 2, 4 detik.
+    Penolakan lain (4xx, 429 jatah habis, 504) langsung dilempar: artinya beda per layanan, pemanggil yang menjelaskan."""
+    for i in range(coba):
+        try:
+            return urllib.request.urlopen(urllib.request.Request(url, data, kepala), timeout=waktu)
+        except urllib.error.HTTPError as e:
+            if e.code not in SEMENTARA or i == coba - 1:
+                raise
+        except GAGAL_JARINGAN:
+            if i == coba - 1:
+                raise
+        time.sleep(2 ** i)
 
 HARAKAT = re.compile(r"[\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06ed\u0640]")  # harakat, tanda mushaf, tatwil (ditulis sebagai kode: penyunting teks bisa menukar urutan harakat)
 TAGS = re.compile(r"<[^>]+>")
@@ -182,7 +199,7 @@ def temukan(frasa, maks=20):
         url = TURATH + "?" + urllib.parse.urlencode({"q": frasa, "ver": 3, "precision": 3 if ketat else 2})
         for ulang in (True, False):
             try:
-                with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60) as r:
+                with buka(url) as r:
                     return json.load(r)
             except urllib.error.HTTPError as e:
                 if e.code != 429:
