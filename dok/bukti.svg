@@ -46,23 +46,24 @@
 <text x="1116" y="242" font-size="16" font-weight="700" fill="#3a281b">Kalimatnya ada di halaman itu</text>
 <text x="1078" y="268" font-size="13" fill="#5e4835">lolos, dihitung di «bukti dicek ke Shamela lokal»</text>
 <rect x="1074" y="336" width="452" height="24" rx="5" fill="#fffaf0" stroke="#2f6650" stroke-opacity="0.4"/>
-<text x="1084" y="353" font-size="12.5" font-family="Consolas, Menlo, monospace" fill="#1c4636">GAGAL: 0</text>
+<text x="1084" y="353" font-size="12.5" font-family="Consolas, Menlo, monospace" fill="#1c4636">bukti dicek ke Shamela lokal: 1 | GAGAL: 0</text>
 <rect x="1060" y="384" width="480" height="166" rx="12" fill="#f6e0e1" stroke="#9a3040" stroke-width="1.3" filter="url(#bayang)"/>
 <circle cx="1090" cy="416" r="16" fill="#9a3040"/><text x="1090" y="423" font-size="18" font-weight="700" fill="#fff" text-anchor="middle">✗</text>
 <text x="1116" y="422" font-size="16" font-weight="700" fill="#3a281b">Kalimatnya dikarang</text>
-<text x="1078" y="448" font-size="13" fill="#5e4835">tidak ada di kitab itu sama sekali; agent harus</text>
-<text x="1078" y="466" font-size="13" fill="#5e4835">membuang kutipan itu</text>
+<text x="1078" y="448" font-size="13" fill="#5e4835">tidak ada di kitab itu: agent membuangnya. Kalau hanya</text>
+<text x="1078" y="466" font-size="13" fill="#5e4835">satu kata yang salah, mesin menyebut kata itu dan</text>
+<text x="1078" y="484" font-size="13" fill="#5e4835">kata yang tertulis di kitab</text>
 <rect x="1074" y="516" width="452" height="24" rx="5" fill="#fffaf0" stroke="#9a3040" stroke-opacity="0.4"/>
-<text x="1084" y="533" font-size="12.5" font-family="Consolas, Menlo, monospace" fill="#6e1f2c">teks TIDAK KETEMU di kitab 30148</text>
+<text x="1084" y="533" font-size="12.5" font-family="Consolas, Menlo, monospace" fill="#6e1f2c">✗ baris 8: teks TIDAK KETEMU di kitab 30148</text>
 <rect x="1060" y="564" width="480" height="166" rx="12" fill="#f6e0e1" stroke="#9a3040" stroke-width="1.3" filter="url(#bayang)"/>
 <circle cx="1090" cy="596" r="16" fill="#9a3040"/><text x="1090" y="603" font-size="18" font-weight="700" fill="#fff" text-anchor="middle">✗</text>
 <text x="1116" y="602" font-size="16" font-weight="700" fill="#3a281b">Kalimatnya ada, halamannya salah</text>
 <text x="1078" y="628" font-size="13" fill="#5e4835">ditulis halaman 99; mesin menyebut letak yang benar:</text>
 <text x="1078" y="646" font-size="13" fill="#5e4835">tanpa juz, halaman 36</text>
 <rect x="1074" y="696" width="452" height="24" rx="5" fill="#fffaf0" stroke="#9a3040" stroke-opacity="0.4"/>
-<text x="1084" y="713" font-size="12.5" font-family="Consolas, Menlo, monospace" fill="#6e1f2c">teks TIDAK di -/99; ketemu di</text>
-<text x="1310.4" y="714" font-size="14" font-family="Traditional Arabic, Amiri, Noto Naskh Arabic, Segoe UI, sans-serif" fill="#6e1f2c">ج- ص36</text>
-<text x="1368.4" y="713" font-size="12.5" font-family="Consolas, Menlo, monospace" fill="#6e1f2c">(30148)</text>
+<text x="1084" y="713" font-size="12.5" font-family="Consolas, Menlo, monospace" fill="#6e1f2c">✗ baris 10: teks TIDAK di -/99; ketemu di</text>
+<text x="1410" y="714" font-size="14" font-family="Traditional Arabic, Amiri, Noto Naskh Arabic, Segoe UI, sans-serif" fill="#6e1f2c">ج- ص36</text>
+<text x="1468" y="713" font-size="12.5" font-family="Consolas, Menlo, monospace" fill="#6e1f2c">(30148)</text>
 <rect x="60" y="614" width="960" height="126" rx="12" fill="#f8e3e6" stroke="#c0566e" stroke-width="1.3"/>
 <text x="82" y="646" font-size="17" font-weight="700" font-family="Georgia, 'Times New Roman', serif" fill="#7d2f42">Yang TIDAK bisa dinilai cek</text>
 <text x="82" y="674" font-size="14" fill="#5e4835">Benarkah yang berkata memang orang itu, benarkah nama kitabnya, derajat hadits, kutipan tanpa catatan kaki,</text>
