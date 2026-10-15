@@ -52,6 +52,7 @@ HURUF_SARAN = ("huruf ini ikut terpasang kalau Windows punya papan ketik Arab (S
                "\"Add-WindowsCapability -Online -Name Language.Fonts.Arab~~~und-ARAB~0.0.1.0\"")
 # perkiraan halaman isi tanpa Word: kata per halaman pada huruf matan 18 (ditera dari satu bahts nyata: ±5500 kata setara matan = 24 halaman isi)
 KATA_PER_HALAMAN_18 = 260
+PUSTAKA = ("pandas", "pyarrow", "pypdf", "fontTools")  # nama modul; nama pemasangannya di requirements.txt
 
 
 def huruf_ada(nama):
@@ -124,7 +125,7 @@ def periksa():
 
     baris(sys.version_info >= (3, 12), f"Python {sys.version_info.major}.{sys.version_info.minor} (butuh 3.12 ke atas)",
           "pasang Python 3.12 (Windows: winget install Python.Python.3.12), lalu ulangi dengan Python itu")
-    baris(all(importlib.util.find_spec(m) for m in ("pandas", "pyarrow")), "pustaka Python (pandas, pyarrow)",
+    baris(all(importlib.util.find_spec(m) for m in PUSTAKA), f"pustaka Python ({', '.join(PUSTAKA)})",
           f'"{sys.executable}" -m pip install -r "{AKAR / "requirements.txt"}"')
     baris((AKAR / "kitab" / shamela.KATALOG).exists(), "katalog kitab", perintah("siapkan"))
     baris(os.name == "nt", "Windows", "`rakit` hanya jalan di Windows; di sini mesin berhenti di `cek`", untuk_cek=False)
@@ -262,6 +263,11 @@ def rakit(nama):
     if r.returncode:
         sys.exit("Perakitan Word GAGAL (lihat pesan di atas). Kalau .docx/.pdf-nya sedang terbuka, tutup dulu.")
     berkas = json.load(open(build, encoding="utf8"))["meta"]["berkas"]
+    import teks_pdf
+    try:  # supaya teks Arab PDF tersalin dan tercari dengan benar; tampilannya tidak berubah
+        teks_pdf.betulkan(f / f"{berkas}.pdf")
+    except Exception as e:
+        print(f"PERINGATAN: PDF jadi, tetapi teks Arabnya belum dibetulkan (salin/cari bisa terbalik): {type(e).__name__}: {e}")
     for baris in (f / "laporan.txt").read_text(encoding="utf8").splitlines():
         if baris.startswith(("HALAMAN", "CATATAN_KAKI", "KATA")):
             print(baris)

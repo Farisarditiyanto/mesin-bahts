@@ -89,12 +89,12 @@
 <rect x="520.0" y="662" width="3" height="46" rx="1.5" fill="#b8892f" opacity="0.7"/>
 <text x="536.0" y="674" font-size="15" font-weight="700" font-family="Georgia, 'Times New Roman', serif" fill="#3a281b">Nomor halaman</text>
 <rect x="947.6" y="659" width="60.8" height="21" rx="10.5" fill="#e4e8f3" stroke="#2f4478"/><text x="978.0" y="673.6" font-size="11.5" font-weight="700" fill="#1f2f57" text-anchor="middle">Kampus</text>
-<text x="536.0" y="694" font-size="14" fill="#3a281b">tengah bawah, mulai 1 dari المقدمة</text>
+<text x="536.0" y="694" font-size="14" fill="#3a281b">tengah bawah, mulai ١ dari المقدمة</text>
 <rect x="1040.0" y="162" width="500.0" height="66" rx="8" fill="#fffaf0" fill-opacity="0.75"/>
 <rect x="1040.0" y="172" width="3" height="46" rx="1.5" fill="#b8892f" opacity="0.7"/>
 <text x="1056.0" y="184" font-size="15" font-weight="700" font-family="Georgia, 'Times New Roman', serif" fill="#3a281b">Catatan kaki</text>
 <rect x="1475.0" y="169" width="53.6" height="21" rx="10.5" fill="#f8e3e6" stroke="#c0566e"/><text x="1501.8" y="183.6" font-size="11.5" font-weight="700" fill="#7d2f42" text-anchor="middle">Dosen</text>
-<text x="1056.0" y="204" font-size="14" fill="#3a281b">nomor (1) dalam kurung, mulai 1 lagi tiap halaman</text>
+<text x="1056.0" y="204" font-size="14" fill="#3a281b">nomor (١) dalam kurung, mulai ١ lagi tiap halaman</text>
 <rect x="1040.0" y="242" width="3" height="46" rx="1.5" fill="#b8892f" opacity="0.7"/>
 <text x="1056.0" y="254" font-size="15" font-weight="700" font-family="Georgia, 'Times New Roman', serif" fill="#3a281b">Susunan</text>
 <rect x="1475.0" y="239" width="53.6" height="21" rx="10.5" fill="#f8e3e6" stroke="#c0566e"/><text x="1501.8" y="253.6" font-size="11.5" font-weight="700" fill="#7d2f42" text-anchor="middle">Dosen</text>
@@ -125,6 +125,11 @@
 <text x="1056.0" y="604" font-size="15" font-weight="700" font-family="Georgia, 'Times New Roman', serif" fill="#3a281b">Cara merujuk</text>
 <rect x="1475.0" y="589" width="53.6" height="21" rx="10.5" fill="#f8e3e6" stroke="#c0566e"/><text x="1501.8" y="603.6" font-size="11.5" font-weight="700" fill="#7d2f42" text-anchor="middle">Dosen</text>
 <text x="1056.0" y="624" font-size="14" fill="#3a281b">ayat, hadits, kitab, dan انظر untuk nukilan makna</text>
+<rect x="1040.0" y="662" width="3" height="46" rx="1.5" fill="#b8892f" opacity="0.7"/>
+<text x="1056.0" y="674" font-size="15" font-weight="700" font-family="Georgia, 'Times New Roman', serif" fill="#3a281b">Angka</text>
+<rect x="1475.0" y="659" width="53.6" height="21" rx="10.5" fill="#efe6d6" stroke="#8a7258"/><text x="1501.8" y="673.6" font-size="11.5" font-weight="700" fill="#5a4733" text-anchor="middle">Mesin</text>
+<text x="1056.0" y="694" font-size="14" fill="#3a281b">٠١٢٣ di semua tempat; @angka: latin = 0123</text>
+<text x="1056.0" y="710" font-size="11.5" fill="#8a735c">kampus tidak menyebut; contoh resmi kampus dan jurnalnya memakai ٠١٢٣</text>
 <g transform="translate(900 62) rotate(231) scale(1.23)" opacity="0.8"><path d="M0 -7C4 -7 6 -3 5 1C4 5 1 7 0 6C-1 7 -4 5 -5 1C-6 -3 -4 -7 0 -7Z" fill="#f2b8c4"/><path d="M0 -7L0 -3" stroke="#e48fa3" stroke-width="1"/></g>
 <g transform="translate(960 100) rotate(238) scale(1.03)" opacity="0.8"><path d="M0 -7C4 -7 6 -3 5 1C4 5 1 7 0 6C-1 7 -4 5 -5 1C-6 -3 -4 -7 0 -7Z" fill="#f2b8c4"/><path d="M0 -7L0 -3" stroke="#e48fa3" stroke-width="1"/></g>
 <g transform="translate(1500 72) rotate(300) scale(0.89)" opacity="0.8"><path d="M0 -7C4 -7 6 -3 5 1C4 5 1 7 0 6C-1 7 -4 5 -5 1C-6 -3 -4 -7 0 -7Z" fill="#f2b8c4"/><path d="M0 -7L0 -3" stroke="#e48fa3" stroke-width="1"/></g>
