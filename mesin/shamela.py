@@ -23,8 +23,13 @@ HORMAT = re.compile(
 # ligatur kalimat hormat tanpa pecahan NFKC (﵀-﵏ dari Unicode 14, ﷾ ﷿): dibuang, bentuk panjangnya dibuang HORMAT
 LIGATUR_HORMAT = re.compile(r"[﵀-﵏﷾﷿]")
 # bentuk huruf yang disamakan; huruf Persia (ی ک ە ھ) sering terbawa dari PDF/situs
-SAMA = (("إ", "ا"), ("أ", "ا"), ("آ", "ا"), ("ٱ", "ا"), ("ى", "ي"), ("ة", "ه"), ("ؤ", "و"), ("ئ", "ي"),
-        ("ی", "ي"), ("ک", "ك"), ("ە", "ه"), ("ھ", "ه"), ("ۀ", "ه"))
+# hamzah: kursinya beda menurut cetakan (مسئول/مسؤول، رءوس/رؤوس), jadi ؤ dan ئ disamakan dengan ء
+SAMA = (("إ", "ا"), ("أ", "ا"), ("آ", "ا"), ("ٱ", "ا"), ("ٲ", "ا"), ("ٳ", "ا"), ("ى", "ي"), ("ة", "ه"), ("ؤ", "ء"), ("ئ", "ء"),
+        ("ی", "ي"), ("ے", "ي"), ("ۓ", "ي"), ("ک", "ك"), ("ڪ", "ك"), ("ە", "ه"), ("ھ", "ه"), ("ۀ", "ه"), ("ہ", "ه"), ("ۃ", "ه"),
+        ("ں", "ن"), ("ٮ", "ب"))
+# ejaan kata yang sama-sama sah dan dipakai bergantian, bahkan dalam satu kitab; hanya pasangan yang tidak mungkin
+# menyatukan dua kata berbeda makna («مائة/مئة» tidak: «مائه» juga «airnya»). Dicocokkan sesudah SAMA
+EJAAN = (("سماوات", "سموات"), ("اسحاق", "اسحق"), ("داوود", "داود"), ("طاووس", "طاوس"))
 
 
 BUKAN_HURUF = re.compile(r"[^ء-ي0-9]+")
@@ -49,6 +54,9 @@ def norm(s):
         s = SYAI.sub("شيء", s)
     for dari, ke in SAMA:
         s = s.replace(dari, ke)  # str.replace jauh lebih cepat daripada regex untuk ganti satu huruf
+    for dari, ke in EJAAN:
+        if dari in s:
+            s = s.replace(dari, ke)
     if "ابن" in s:  # «محمد ابن يحيى» = «محمد بن يحيى»: alif «ابن» ditulis atau tidak menurut penyunting
         s = IBNU.sub("بن", s)
     return BUKAN_HURUF.sub(" ", s).strip()
