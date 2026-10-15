@@ -224,9 +224,9 @@ def cek(sid, juz, hal, pot, perhatian, kutipan=False):
     if p2 < p1:
         return f"rentang halaman terbalik: {hal}"
     if pot.startswith("#") and not kutipan:
-        nomor = pot[1:].translate(AD)
+        nomor = pot[1:].translate(ANGKA_LATIN)
         for r in rekaman(sid, juz, p1, p2):
-            if re.search(rf"(?<![٠-٩]){nomor}(?![٠-٩])", r.get("body") or ""):
+            if re.search(rf"(?<!\d){re.escape(nomor)}(?!\d)", angka_kitab(r.get("body") or "")):
                 return ""
         return f"nomor {pot[1:]} tidak ada di {sid} {juz}/{hal}"
     bagian = [b for b in ELIPSIS.split(pot) if shamela.padat(b)]
@@ -274,15 +274,22 @@ def berurutan(rr, sisi, bagian):
     return terbaik
 
 
+def angka_kitab(t):
+    """Teks kitab dengan angka 0-9 yang memang bagian kalimat: penanda halaman ⦗n⦘, nomor catatan kaki yang menempel
+    kata («الجدال١») atau bertanda «(¬n)», dan angka di dalam tag HTML dibuang; «(٨٥)» (nomor hadits) tetap."""
+    t = shamela.PENANDA.sub(" ", shamela.TAGS.sub(" ", t))
+    t = re.sub(r"(?<=[ء-ي])[٠-٩۰-۹]+|\(¬\s*[٠-٩۰-۹0-9]+\s*\)|^\s*\([٠-٩۰-۹0-9]+\)", " ", t, flags=re.M)
+    return t.translate(ANGKA_LATIN)
+
+
 def ragu_kutipan(rr, awal, pot):
     """Yang tidak diperiksa pencocokan huruf: angka di kutipan, dan kata nafi tepat sebelum kutipan di matan kitab."""
     ragu = []
     angka = set(re.findall(r"\d+", pot.translate(ANGKA_LATIN)))
     if angka:
         ada = set()
-        for r in rr:  # nomor catatan kaki «(١)» dan penanda halaman ⦗١⦘ di teks kitab bukan bagian kalimat
-            t = re.sub(r"[(⦗]\s*\d{1,2}\s*[)⦘]", " ", (r.get("body") or "") + " " + (r.get("footnotes") or ""))
-            ada |= set(re.findall(r"\d+", t.translate(ANGKA_LATIN)))
+        for r in rr:
+            ada |= set(re.findall(r"\d+", angka_kitab(r.get("body") or "") + " " + angka_kitab(r.get("footnotes") or "")))
         if angka - ada:
             ragu.append(f"angka {'، '.join(sorted(angka - ada))} di kutipan tidak terbaca di halaman itu: cocokkan sendiri")
     q = shamela.padat(awal)
