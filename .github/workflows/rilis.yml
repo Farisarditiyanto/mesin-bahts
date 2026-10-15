@@ -1,0 +1,21 @@
+name: rilis
+# push tag v<versi> (mis. v3.0.0) -> rilis GitHub berisi bagian «## <versi>» dari CHANGELOG.md
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  rilis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: buat rilis dari CHANGELOG
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          versi="${TAG#v}"
+          awk -v v="$versi" '/^## /{ if (ada) exit; ada = index($0, "## " v " ") == 1; next } ada' CHANGELOG.md > catatan.md
+          if [ ! -s catatan.md ]; then echo "CHANGELOG.md tidak punya bagian «## $versi —»"; exit 1; fi
+          gh release create "$TAG" --title "$versi" --notes-file catatan.md --verify-tag
