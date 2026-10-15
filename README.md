@@ -1,5 +1,7 @@
 # Mesin Bahts
 
+<img src="dok/banner.jpg" width="100%" alt="Mahasiswi berjilbab di perpustakaan, kitab-kitab beterbangan di sekitarnya">
+
 [![tes](https://github.com/Farisarditiyanto/mesin-bahts/actions/workflows/tes.yml/badge.svg)](https://github.com/Farisarditiyanto/mesin-bahts/actions/workflows/tes.yml)
 [![rilis](https://img.shields.io/github/v/release/Farisarditiyanto/mesin-bahts?label=rilis)](https://github.com/Farisarditiyanto/mesin-bahts/releases)
 [![lisensi](https://img.shields.io/badge/lisensi-MIT-blue)](LICENSE)
@@ -13,7 +15,7 @@ Agent AI pandai menulis, tetapi bisa mengarang kutipan. Di mesin ini:
 - Mesin membuka alamat itu. Kutipan yang tidak ada di sana, atau tanpa alamat, ditolak.
 - Ayat ditulis dari mushaf مجمع الملك فهد. Word dan PDF dirakit lengkap: sampul, catatan kaki, المصادر والمراجع, dan الفهارس.
 
-![Sampul, halaman isi dengan catatan kaki, dan daftar isi hasil mesin](dok/hasil.png)
+<img src="dok/hasil.png" width="100%" alt="Sampul, halaman isi dengan catatan kaki, dan daftar isi hasil mesin">
 
 ## Mulai
 
@@ -30,9 +32,9 @@ Catatan untuk agent AI: lanjutkan dari [`AGENTS.md`](AGENTS.md), bagian «Pemaka
 
 ## Cara kerjanya
 
-![Sepuluh langkah: kamu meminta, agent menyiapkan komputer dan menulis naskah, mesin mengecek kutipan dan merakit, agent kedua memeriksa ulang, kamu mengumpulkan](dok/alur.svg)
+<img src="dok/alur.svg" width="100%" alt="Sepuluh langkah: kamu meminta, agent menyiapkan komputer dan menulis naskah, mesin mengecek kutipan dan merakit, agent kedua memeriksa ulang, kamu mengumpulkan">
 
-![Cara cek bekerja: alamat di catatan kaki menunjuk kitab, juz, dan halaman; hasilnya lolos, tidak ketemu, atau ketemu di halaman lain](dok/bukti.svg)
+<img src="dok/bukti.svg" width="100%" alt="Cara cek bekerja: alamat di catatan kaki menunjuk kitab, juz, dan halaman; hasilnya lolos, tidak ketemu, atau ketemu di halaman lain">
 
 ## Batasnya
 
@@ -74,7 +76,7 @@ Daftar perintah: `python mesin/bahts.py`. Daftar tanda naskah: `python mesin/bah
 
 ## Standar halaman
 
-![Asal tiap aturan bentuk halaman: aturan kampus, catatan dosen, atau pilihan mesin](dok/standar.svg)
+<img src="dok/standar.svg" width="100%" alt="Asal tiap aturan bentuk halaman: aturan kampus, catatan dosen, atau pilihan mesin">
 
 Dasarnya «[القواعد المنظمة لتسجيل الرسالة العلمية وكتابتها وطباعتها وتقديمها](https://units.imamu.edu.sa/colleges/cmc/AcademicDepts/SiteAssets/Pages/d_j_e_p/%D8%A7%D9%84%D9%82%D9%88%D8%A7%D8%B9%D8%AF%20%D8%A7%D9%84%D9%85%D9%86%D8%B8%D9%85%D8%A9%20%D9%84%D8%AA%D8%B3%D8%AC%D9%8A%D9%84%20%D8%A7%D9%84%D8%B1%D8%B3%D8%A7%D9%84%D8%A9%20%D8%A7%D9%84%D8%B9%D9%84%D9%85%D9%8A%D8%A9.pdf)» (جامعة الإمام, 1442 H) dan catatan dosen bahts kelas معهد العلوم الإسلامية والعربية في جاكرتا. Kampus atau dosen lain: ganti `mesin/sampul.doc` dan tambah profil di `mesin/format.json`.
 
