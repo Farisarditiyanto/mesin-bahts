@@ -32,6 +32,7 @@ PRESENTASI = re.compile(r"[\u0675-\u0678\ufb50-\ufdfc\ufe70-\ufefc]")  # bentuk 
 SYAI = re.compile(r"شئ(?![ء-ي])")
 IBNU = re.compile(r"(?<![ء-ي])ابن(?![ء-ي])")
 SAMBUNG = "وفبلك"  # huruf sambung di depan kata: kutipan boleh mulai sesudahnya («و"الإحياء"» = «والإحياء»)
+NAFI_SAMBUNG = {"ما", "لا", "لم", "لن", "ليس"}  # kutipan tidak boleh mulai dengan kata ini kalau di kitab ia didahului ب/ل/ك
 BAGIAN = (("body", ""), ("footnotes", " [حاشية]"))  # bagian rekaman kitab, dan tandanya di keluaran
 
 
@@ -376,8 +377,15 @@ def _utuh(p, bagian, j, k):
     awal, akhir = _batas_kata(p, bagian)
     if k not in akhir:
         return False
+    if j in awal:
+        return True
     teks = _ruas(p, bagian)[0]
-    return j in awal or any(j - d in awal and all(c in SAMBUNG for c in teks[j - d:j]) for d in (1, 2))
+    for d in (1, 2):
+        if j - d in awal and all(c in SAMBUNG for c in teks[j - d:j]):
+            # ب ل ك mengubah kata nafi jadi kata lain (كما «seperti», لما «ketika», بلا «tanpa»): «ما» darinya bukan nafi
+            sisa = teks[j:min(a for a in akhir if a > j)]
+            return not (set(teks[j - d:j]) - set("وف") and sisa in NAFI_SAMBUNG)
+    return False
 
 
 def _cocok(p, q, bagian="body", utuh=False):
