@@ -17,7 +17,8 @@ COBA = 3  # tiap kitab dicoba sebanyak ini kalau unduhannya putus
 HARAKAT = re.compile(r"[\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06ed\u0640]")  # harakat, tanda mushaf, tatwil (ditulis sebagai kode: penyunting teks bisa menukar urutan harakat)
 TAGS = re.compile(r"<[^>]+>")
 HORMAT = re.compile(
-    r"صل[يى] الله عليه وسلم|رض[يى] الله عنه(?:ما|م|ا|ن)?|علي(?:هما|هم|ه) السلام|رحمه(?:ما|م|ا)? الله|عز وجل|جل جلاله"
+    r"صل[يى] الله عليه(?: وعل[يى] آله| وآله)?(?: وصحبه)? وسلم|رض[يى] الله(?: تعال[يى])? عنه(?:ما|م|ا|ن)?"
+    r"|علي(?:هما|هم|ه) (?:الصلاة و)?السلام|رحمه(?:ما|م|ا)? الله(?: تعال[يى])?|عز وجل|جل جلاله"
     r"|سبحانه وتعالى|تبارك وتعالى|صلعم|قدس الله روحه")
 # ligatur kalimat hormat tanpa pecahan NFKC (﵀-﵏ dari Unicode 14, ﷾ ﷿): dibuang, bentuk panjangnya dibuang HORMAT
 LIGATUR_HORMAT = re.compile(r"[﵀-﵏﷾﷿]")
