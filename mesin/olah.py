@@ -72,6 +72,7 @@ def urut_juz(j):
 
 # kalimat di kartu kitab Shamela yang berarti nomor halamannya bukan nomor cetakan
 OTOMATIS = re.compile("مرقمة? آليا|بترقيم الشاملة")
+NASKAH_TULISAN = re.compile("(?:الكتاب|البحث) (?:مخطوط|غير مطبوع)")  # nomornya nomor lembar naskah tulisan/ketikan
 KUTIPAN_MIN = 6  # huruf (bentuk `padat`) paling sedikit tiap bagian kutipan yang dicek
 POTONGAN_MIN = 7  # huruf paling sedikit potongan sendiri <<sid|juz|hal|potongan>> (potongan sah terpendek di bahts nyata: 7)
 AYAT_DI_KUTIPAN = "﴿﴾"  # pengganti {Q:} di tengah kutipan: kutipannya dicek per bagian seperti dipotong ...
@@ -218,6 +219,11 @@ def cek(sid, juz, hal, pot, perhatian, kutipan=False):
         pesan = (f"kitab {sid}: nomor halamannya buatan Shamela (مرقم آليا), bukan nomor cetakan — "
                  "pakai edisi yang «موافق للمطبوع», atau cocokkan ke cetakannya")
         if not any(p.endswith(pesan) for p in perhatian):  # sekali per kitab, walau tiap baris diberi awalan
+            perhatian.append(pesan)
+    elif NASKAH_TULISAN.search(shamela.info(sid)["betaka_text"]):
+        pesan = (f"kitab {sid}: belum dicetak (مخطوط/غير مطبوع), nomor halamannya nomor lembar naskah — sebut lembarnya "
+                 "(مخطوط، ل n) atau pakai edisi cetak kalau ada")
+        if not any(p.endswith(pesan) for p in perhatian):
             perhatian.append(pesan)
     p1, _, p2 = hal.partition("-")
     p1 = int(p1); p2 = int(p2) if p2 else p1
@@ -438,8 +444,9 @@ def judul_shamela(isi):
         for n in range(len(kata), 0, -1):
             judul = " ".join(kata[:n])
             persis, mirip = shamela.nomor_judul(judul)
-            # judul satu kata (السعادة، الخلافة) terlalu umum: buku luar bisa berjudul sama
-            utuh = i == 0 and n >= 2 and (n == len(kata) or PENGARANG_SESUDAH.match(kata[n]))
+            # judul satu kata (السعادة، الخلافة) terlalu umum: buku luar bisa berjudul sama. Di bagian sesudah yang pertama
+            # (mis. «ابن عثيمين، رسالة في القضاء والقدر») hanya judul kitab yang sudah diunduh: yang itu pasti bisa dicek
+            utuh = n >= 2 and (n == len(kata) or PENGARANG_SESUDAH.match(kata[n])) and (i == 0 or set(persis) & set(shamela.punya()))
             if persis and utuh and not judul.startswith(MAJALAH):
                 return judul, persis, []
             if (persis or mirip) and not mirip_awal[0]:
