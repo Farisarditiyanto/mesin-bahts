@@ -175,7 +175,7 @@ def cek(sid, juz, hal, pot, perhatian, kutipan=False):
     if OTOMATIS.search(shamela.info(sid)["betaka_text"]):
         pesan = (f"kitab {sid}: nomor halamannya buatan Shamela (مرقم آليا), bukan nomor cetakan — "
                  "pakai edisi yang «موافق للمطبوع», atau cocokkan ke cetakannya")
-        if pesan not in perhatian:
+        if not any(p.endswith(pesan) for p in perhatian):  # sekali per kitab, walau tiap baris diberi awalan
             perhatian.append(pesan)
     p1, _, p2 = hal.partition("-")
     p1 = int(p1); p2 = int(p2) if p2 else p1
@@ -568,11 +568,14 @@ def utama(folder):
                          "simpan, lalu ulangi `cek`.") from None
     blok, catatan, ayat_idx, hadits_idx, galat, perhatian, pustaka = [], [], [], [], [], [], []
     meta = {"berkas": folder.name}
+    di_baris = {}  # @kunci dan #R -> nomor barisnya, untuk galat yang baru ketahuan sesudah semua baris dibaca
     mode_r = False
     for n, b in baris:
+        g0, p0 = len(galat), len(perhatian)
         if b.startswith("@"):
             k, _, v = b[1:].partition(":")
             meta[k.strip()] = v.strip()
+            di_baris["@" + k.strip()] = n
         elif b.startswith("#"):
             k, _, t = b[1:].partition(" ")
             if k not in ("K", "F", "B", "M", "S", "R") or not t.strip():
@@ -581,6 +584,8 @@ def utama(folder):
                 galat.append(f"baris {n}: judul tidak boleh memuat catatan kaki [^, bukti <<, tanda {{Q:/{{H: atau **: "
                              f"pindahkan ke paragraf sesudahnya :: {b[:40]}"); continue
             mode_r = k == "R"
+            if mode_r:
+                di_baris["#R"] = n
             blok.append({"k": k, "runs": [{"t": t, "b": True}], "judul": t})
         elif mode_r:
             pustaka.append(b.strip())
@@ -589,18 +594,24 @@ def utama(folder):
                 blok.append({"k": "P", "runs": urai(b, catatan, ayat_idx, hadits_idx, galat, perhatian)})
             except (ValueError, KeyError, IndexError) as e:
                 galat.append(f"baris {n}: tanda rusak — {e}")
+        # tiap galat dan perhatian menyebut barisnya: pemakai langsung tahu tempatnya, tes jebakan mencocokkan per baris
+        galat[g0:] = [g if g.startswith("baris ") else f"baris {n}: {g}" for g in galat[g0:]]
+        perhatian[p0:] = [p if p.startswith("baris ") else f"baris {n}: {p}" for p in perhatian[p0:]]
+
+    def di(kunci):
+        return f"baris {di_baris[kunci]}: " if kunci in di_baris else ""
     tanpa = [t for t in re.split(r"[,، ]+", meta.get("tanpa", "")) if t]
     if "pustaka" in tanpa:  # sumber cukup di catatan kaki (rujukan pertama tiap kitab berdata lengkap)
         if mode_r:
-            galat.append("@tanpa: pustaka, tetapi ada #R: hapus #R beserta daftarnya, atau hapus «pustaka» dari @tanpa")
+            galat.append(di("#R") + "@tanpa: pustaka, tetapi ada #R: hapus #R beserta daftarnya, atau hapus «pustaka» dari @tanpa")
     elif not mode_r:
         galat.append("tidak ada #R (المصادر والمراجع) di akhir naskah")
     elif not pustaka:
-        galat.append("المصادر والمراجع masih kosong: tulis satu kitab per baris sesudah #R")
+        galat.append(di("#R") + "المصادر والمراجع masih kosong: tulis satu kitab per baris sesudah #R")
     if not meta["berkas"]:
         meta["berkas"] = folder.name
     elif re.search(r'[<>:"/\\|?*]', meta["berkas"]):
-        galat.append(f"@berkas: «{meta['berkas']}»: nama berkas tidak boleh memuat : / \\ ? * < > | \"")
+        galat.append(di("@berkas") + f"@berkas: «{meta['berkas']}»: nama berkas tidak boleh memuat : / \\ ? * < > | \"")
 
     def kunci_urut(s):
         s = HARAKAT.sub("", s)
@@ -618,15 +629,15 @@ def utama(folder):
     def kata(runs): return sum(len(re.findall(r"[؀-ۿ]+", r.get("t", ""))) for r in runs)
     n_matan = sum(kata(b["runs"]) for b in blok)
     n_fn = sum(kata(c["runs"]) for c in catatan)
-    galat += [f"data sampul belum diisi: @{k}" for k in WAJIB if not meta.get(k)]
+    galat += [di("@" + k) + f"data sampul belum diisi: @{k}" for k in WAJIB if not meta.get(k)]
     asing = [t for t in tanpa if t not in TANPA]
     if asing:
-        galat.append(f"@tanpa: «{'، '.join(asing)}» tidak dikenal (yang ada: {', '.join(TANPA)})")
+        galat.append(di("@tanpa") + f"@tanpa: «{'، '.join(asing)}» tidak dikenal (yang ada: {', '.join(TANPA)})")
     if meta.get("thalibah", "ya") != "ya":
-        galat.append(f"@thalibah: «{meta['thalibah']}» tidak dikenal: tulis «ya», atau hapus barisnya")
+        galat.append(di("@thalibah") + f"@thalibah: «{meta['thalibah']}» tidak dikenal: tulis «ya», atau hapus barisnya")
     fmt = meta.get("format", "imam")
     if fmt not in FORMAT:
-        galat.append(f"@format: «{fmt}» tidak ada di mesin/format.json (yang ada: {'، '.join(FORMAT)})")
+        galat.append(di("@format") + f"@format: «{fmt}» tidak ada di mesin/format.json (yang ada: {'، '.join(FORMAT)})")
     (HERE / "_tmp").mkdir(exist_ok=True)
     json.dump({"meta": meta, "format": FORMAT.get(fmt), "blok": blok, "catatan": catatan, "ayat": ayat_idx, "hadits": hadits_idx, "pustaka": pustaka,
                "quran": bool(quran)},
