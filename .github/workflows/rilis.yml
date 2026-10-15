@@ -1,8 +1,14 @@
 name: rilis
-# push tag v<versi> (mis. v3.0.0) -> rilis GitHub berisi bagian «## <versi>» dari CHANGELOG.md
+# rilis GitHub berisi bagian «## <versi>» dari CHANGELOG.md. Dua jalan:
+# push tag v<versi> (mis. v3.0.0), atau jalankan workflow ini dengan isian versi (tag-nya dibuat di main)
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      versi:
+        description: "Versi tanpa v, mis. 3.0.0 (harus ada bagian «## 3.0.0 —» di CHANGELOG.md)"
+        required: true
 permissions:
   contents: write
 jobs:
@@ -13,9 +19,10 @@ jobs:
       - name: buat rilis dari CHANGELOG
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSI: ${{ inputs.versi }}
           TAG: ${{ github.ref_name }}
         run: |
-          versi="${TAG#v}"
+          versi="${VERSI:-${TAG#v}}"
           awk -v v="$versi" '/^## /{ if (ada) exit; ada = index($0, "## " v " ") == 1; next } ada' CHANGELOG.md > catatan.md
           if [ ! -s catatan.md ]; then echo "CHANGELOG.md tidak punya bagian «## $versi —»"; exit 1; fi
-          gh release create "$TAG" --title "$versi" --notes-file catatan.md --verify-tag
+          gh release create "v$versi" --title "$versi" --notes-file catatan.md --target "$GITHUB_SHA"
