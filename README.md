@@ -17,7 +17,7 @@ Agent AI pandai menulis, tetapi bisa mengarang kutipan. Di mesin ini:
 
 ## Mulai
 
-1. Buka agent yang membaca `AGENTS.md`: [Claude Code](https://claude.com/claude-code) (butuh akun Claude berbayar), Codex, Hermes, dll.
+1. Buka agent yang membaca `AGENTS.md`: [Claude Code](https://claude.com/claude-code), Codex, Hermes, dll.
 2. Tempel kalimat ini, ganti judulnya:
 
    > Pakai https://github.com/Farisarditiyanto/mesin-bahts untuk membuatkan saya bahts tentang الإخلاص وأثره في قبول العمل. Susunannya: مقدمة, satu فصل berisi dua مبحث, خاتمة. Kira-kira 6 halaman.
