@@ -118,7 +118,22 @@ def _di(sid, juz, p1, p2, q, utuh):
             else:
                 lain = lain or (h[0], h[1], tanda)
             break
+    if not hasyiah and len(rekaman(sid, juz, p1, p2)) > 1:  # kutipan yang menyambung dari satu rekaman ke berikutnya
+        h = shamela.tempat(gabung(sid, juz, p1, p2), q, "body", utuh)
+        if h and p1 <= (h[0] or 0) and (h[1] or 0) <= p2:
+            return "matan", None
     return (hasyiah, None) if hasyiah else (None, lain)
+
+
+@functools.cache
+def gabung(sid, juz, p1, p2):
+    """Matan rekaman-rekaman yang menyentuh halaman p1..p2 sebagai satu rekaman: awal tiap rekaman diberi penanda
+    halaman ⦗n⦘, jadi kutipan yang menyambung lintas rekaman tetap dicek per kata dan halamannya tetap tercatat."""
+    rr = rekaman(sid, juz, p1, p2)
+    body = rr[0].get("body") or ""
+    for r in rr[1:]:
+        body += f" ⦗{str(r.get('page_num') or 0).translate(AD)}⦘ " + (r.get("body") or "")
+    return {"body": body, "page_num": rr[0].get("page_num")}
 
 
 def _petunjuk(sid, juz, q):
