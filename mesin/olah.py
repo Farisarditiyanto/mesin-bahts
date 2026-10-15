@@ -46,7 +46,7 @@ TANPA = ("ayat", "hadits", "maudhuat", "pustaka")  # فهرس dan المصادر
 
 HARAKAT = shamela.HARAKAT
 AD = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
-LATIN = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
+ANGKA_LATIN = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "0123456789" * 2)  # angka Arab dan Persia -> 0-9
 
 
 @functools.cache
@@ -235,12 +235,12 @@ def berurutan(rr, sisi, bagian):
 def ragu_kutipan(rr, awal, pot):
     """Yang tidak diperiksa pencocokan huruf: angka di kutipan, dan kata nafi tepat sebelum kutipan di matan kitab."""
     ragu = []
-    angka = set(re.findall(r"\d+", pot.translate(LATIN)))
+    angka = set(re.findall(r"\d+", pot.translate(ANGKA_LATIN)))
     if angka:
         ada = set()
         for r in rr:  # nomor catatan kaki «(١)» dan penanda halaman ⦗١⦘ di teks kitab bukan bagian kalimat
             t = re.sub(r"[(⦗]\s*\d{1,2}\s*[)⦘]", " ", (r.get("body") or "") + " " + (r.get("footnotes") or ""))
-            ada |= set(re.findall(r"\d+", t.translate(LATIN)))
+            ada |= set(re.findall(r"\d+", t.translate(ANGKA_LATIN)))
         if angka - ada:
             ragu.append(f"angka {'، '.join(sorted(angka - ada))} di kutipan tidak terbaca di halaman itu: cocokkan sendiri")
     q = shamela.padat(awal)
@@ -257,8 +257,8 @@ def ragu_kutipan(rr, awal, pot):
 
 def tercetak(isi, juz):
     """Rentang halaman yang tercetak di catatan kaki untuk juz ini: [(awal, akhir)]. Angka ٠-٩ dibaca seperti 0-9."""
-    isi = isi.translate(LATIN)
-    pola = r"ص\s*(\d+)(?:-(\d+))?" if juz == "-" else rf"(?<![\d/]){re.escape(juz)}/(\d+)(?:-(\d+))?"
+    isi = isi.translate(ANGKA_LATIN)
+    pola = r"ص\s*(\d+)(?:\s*-\s*(\d+))?" if juz == "-" else rf"(?<![\d/]){re.escape(juz)}\s*/\s*(\d+)(?:\s*-\s*(\d+))?"
     return [(int(a), int(b or a)) for a, b in re.findall(pola, isi)]
 
 
@@ -308,11 +308,11 @@ def ayat(spec):
 
 # tanda petik miring dari Word/HP dan bentuk jarang dibaca seperti " « » ‘
 PETIK = str.maketrans("“”„＂‹›﹁﹂「」‚‛", '""""«»«»«»‘‘')
-LATIN = "A-Za-zÀ-ɏḀ-ỿ"  # huruf Latin, juga transliterasi (ā ī ū ḥ)
+HURUF_LATIN = "A-Za-zÀ-ɏḀ-ỿ"  # huruf Latin, juga transliterasi (ā ī ū ḥ)
 # petik tunggal ‘…’ ’…‘ '…' yang isinya huruf Arab dibaca seperti «…». Apostrof transliterasi (Qur'an, 'Uthaymin,
 # ‘Abduh) bukan tanda petik: petik yang menempel huruf Latin di sisi mana pun tidak dihitung
-TUNGGAL = re.compile(rf"(?<![{LATIN}])[‘’'](?![{LATIN}])([^‘’'\n«»\"]*[ء-ي][^‘’'\n«»\"]*)(?<![{LATIN}])[‘’'](?![{LATIN}])")
-SISA_PETIK = re.compile(rf"[\"«»]|(?<![{LATIN}])[‘’'](?![{LATIN}])")  # tanda petik yang tidak berpasangan
+TUNGGAL = re.compile(rf"(?<![{HURUF_LATIN}])[‘’'](?![{HURUF_LATIN}])([^‘’'\n«»\"]*[ء-ي][^‘’'\n«»\"]*)(?<![{HURUF_LATIN}])[‘’'](?![{HURUF_LATIN}])")
+SISA_PETIK = re.compile(rf"[\"«»]|(?<![{HURUF_LATIN}])[‘’'](?![{HURUF_LATIN}])")  # tanda petik yang tidak berpasangan
 
 
 def seragam(teks):
@@ -474,7 +474,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             if isi.startswith("سورة") and q_akhir:
                 s, a = q_akhir
                 nama = re.split(r"[،,:(]|\sآي", isi[4:])[0]  # «سورة الفاتحة، آية: 2.» -> «الفاتحة»
-                angka = isi.translate(LATIN)
+                angka = isi.translate(ANGKA_LATIN)
                 if shamela.padat(nama) != shamela.padat(SURAH[s - 1]) or not all(re.search(rf"(?<!\d){x}(?!\d)", angka) for x in a.split("-")):
                     galat.append(f"catatan kaki ayat tidak cocok dengan {{Q:{s}:{a}}} (سورة {SURAH[s - 1]}) || fn: {isi[:45]}")
             # kutipan terakhir tepat sebelum catatan kaki; kutipan lain sejak catatan kaki sebelumnya tidak punya catatan kaki sendiri
