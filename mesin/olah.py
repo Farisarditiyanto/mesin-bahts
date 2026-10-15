@@ -202,8 +202,15 @@ def _menyimpang(sid, juz, p1, p2, teks):
     if lo < 2 or len(awalan) < KUTIPAN_MIN:
         return ""
     akhir = kitab_padat.find(awalan) + len(awalan)
-    sesudah = [m.start() for m in re.finditer(r"\S+", raw) if len(shamela.padat(raw[:m.start()])) >= akhir]
-    di_kitab = raw[sesudah[0]:].split()[0].strip(".,،؛:!؟\"«»()") if sesudah else "(akhir halaman)"
+    awal_kata = [m.start() for m in re.finditer(r"\S+", raw)]
+    a, z = 0, len(awal_kata)  # kata pertama yang mulai sesudah awalan; panjang `padat` awalan teks naik bersama letaknya
+    while a < z:
+        mid = (a + z) // 2
+        if len(shamela.padat(raw[:awal_kata[mid]])) >= akhir:
+            z = mid
+        else:
+            a = mid + 1
+    di_kitab = raw[awal_kata[a]:].split()[0].strip(".,،؛:!؟\"«»()") if a < len(awal_kata) else "(akhir halaman)"
     return f"cocok {lo} dari {len(kata)} kata sampai «…{' '.join(kata[max(0, lo - 3):lo])}», lalu naskah «{kata[lo]}», kitab «{di_kitab}»"
 
 
@@ -648,8 +655,11 @@ def utama(folder):
         else:
             try:
                 blok.append({"k": "P", "runs": urai(b, catatan, ayat_idx, hadits_idx, galat, perhatian)})
-            except (ValueError, KeyError, IndexError) as e:
+            except ValueError as e:
                 galat.append(f"baris {n}: tanda rusak — {e}")
+            except (KeyError, IndexError) as e:  # bukan salah tulis naskah: mesinnya yang keliru di baris ini
+                galat.append(f"baris {n}: GALAT MESIN ({type(e).__name__}: {e}) — bukan salah naskah; laporkan barisnya ke "
+                             "pengurus mesin bahts")
         # tiap galat dan perhatian menyebut barisnya: pemakai langsung tahu tempatnya, tes jebakan mencocokkan per baris
         galat[g0:] = [g if g.startswith("baris ") else f"baris {n}: {g}" for g in galat[g0:]]
         perhatian[p0:] = [p if p.startswith("baris ") else f"baris {n}: {p}" for p in perhatian[p0:]]

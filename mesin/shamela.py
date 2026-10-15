@@ -53,19 +53,22 @@ def buka(url, data=None, kepala=UA, waktu=60, coba=3):
 HARAKAT = re.compile(r"[\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06ed\u0640]")  # harakat, tanda mushaf, tatwil (ditulis sebagai kode: penyunting teks bisa menukar urutan harakat)
 TAGS = re.compile(r"<[^>]+>")
 HORMAT = re.compile(
-    r"صل[يى] الله عليه(?: وعل[يى] آله| وآله)?(?: وصحبه)? وسلم|رض[يى] الله(?: تعال[يى])? عنه(?:ما|م|ا|ن)?"
-    r"|علي(?:هما|هم|ه) (?:الصلاة و)?السلام|رحمه(?:ما|م|ا)? الله(?: تعال[يى])?|عز وجل|جل جلاله"
+    r"صل[يى] الله عليه(?: وعل[يى] [آا]له| و[آا]له)?(?: وصحبه)? وسلم|رض[يى] الله(?: تعال[يى])? عنه(?:ما|م|ا|ن)?"
+    r"|علي(?:هما|هم|ه) (?:الصلا[ةه] و)?السلام|رحمه(?:ما|م|ا)? الله(?: تعال[يى])?|عز وجل|جل جلاله"
     r"|سبحانه وتعالى|تبارك وتعالى|صلعم|قدس الله روحه")
 # ligatur kalimat hormat tanpa pecahan NFKC (﵀-﵏ dari Unicode 14, ﷾ ﷿): dibuang, bentuk panjangnya dibuang HORMAT
 LIGATUR_HORMAT = re.compile(r"[﵀-﵏﷾﷿]")
 # bentuk huruf yang disamakan; huruf Persia (ی ک ە ھ) sering terbawa dari PDF/situs
-# hamzah: kursinya beda menurut cetakan (مسئول/مسؤول، رءوس/رؤوس), jadi ؤ dan ئ disamakan dengan ء
-SAMA = (("إ", "ا"), ("أ", "ا"), ("آ", "ا"), ("ٱ", "ا"), ("ٲ", "ا"), ("ٳ", "ا"), ("ى", "ي"), ("ة", "ه"), ("ؤ", "ء"), ("ئ", "ء"),
+# ؤ/ئ tidak disamakan dengan ء: بئس («seburuk-buruk») ≠ بؤس («kesengsaraan»); kursi hamzah yang beda menurut cetakan
+# disamakan per kata di EJAAN
+SAMA = (("إ", "ا"), ("أ", "ا"), ("آ", "ا"), ("ٱ", "ا"), ("ٲ", "ا"), ("ٳ", "ا"), ("ى", "ي"), ("ة", "ه"), ("ؤ", "و"), ("ئ", "ي"),
         ("ی", "ي"), ("ے", "ي"), ("ۓ", "ي"), ("ک", "ك"), ("ڪ", "ك"), ("ە", "ه"), ("ھ", "ه"), ("ۀ", "ه"), ("ہ", "ه"), ("ۃ", "ه"),
         ("ں", "ن"), ("ٮ", "ب"))
 # ejaan kata yang sama-sama sah dan dipakai bergantian, bahkan dalam satu kitab; hanya pasangan yang tidak mungkin
 # menyatukan dua kata berbeda makna («مائة/مئة» tidak: «مائه» juga «airnya»). Dicocokkan sesudah SAMA
-EJAAN = (("سماوات", "سموات"), ("اسحاق", "اسحق"), ("داوود", "داود"), ("طاووس", "طاوس"))
+# Kursi hamzah ditulis sesudah SAMA (ؤ->و, ئ->ي): مسئول/مسؤول، شئون/شؤون، رءوس/رؤوس، تساءل/تساؤل
+EJAAN = (("سماوات", "سموات"), ("اسحاق", "اسحق"), ("داوود", "داود"), ("طاووس", "طاوس"),
+         ("مسيول", "مسوول"), ("شيون", "شوون"), ("رءوس", "رووس"), ("تساءل", "تساول"))
 
 
 BUKAN_HURUF = re.compile(r"[^ء-ي0-9]+")

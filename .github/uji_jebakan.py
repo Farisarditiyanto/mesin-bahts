@@ -19,6 +19,8 @@ ada = {"✗": collections.Counter(), "!": collections.Counter()}
 salah = []
 for tanda, isi in re.findall(r"^  ([✗!]) (.*)$", keluar, re.M):
     m = re.match(r"baris (\d+): ", isi)
+    if "GALAT MESIN" in isi:  # pengecualian di dalam mesin yang tertangkap sebagai galat: tetap merah walau jumlahnya pas
+        salah.append(isi[:120])
     if not m:
         salah.append(f"{tanda} tanpa nomor baris: {isi[:80]}")
     else:
