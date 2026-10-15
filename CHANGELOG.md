@@ -3,6 +3,19 @@
 Tiap rilis ditulis di sini: yang baru di atas. Nomor versi = `besar.kecil.tambalan`:
 besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan baru, tambalan naik kalau hanya perbaikan.
 
+## Belum dirilis
+
+Hasil riset dan audit mesin (riset proyek sejenis di GitHub + uji tiap perintah). Naskah lama yang dulu lolos bisa kini GAGAL di dua celah yang ditutup (كما/لما/بلا dikutip sebagai «ما/لا», dan `<<luar>>` untuk kitab yang sudah diunduh); sebaliknya beberapa GAGAL palsu hilang.
+
+- `cek` tidak lagi GAGAL palsu untuk: angka Arab di catatan kaki («آية: ٢», «٢/١٥», «2/ 100»); kalimat hormat bentuk panjang («رضي الله تعالى عنه», «رحمه الله تعالى», «صلى الله عليه وعلى آله وسلم», «عليه الصلاة والسلام»); kursi hamzah (مسئول/مسؤول، التساءلات/التساؤلات) dan ejaan ganda (السماوات/السموات، إسحاق/إسحق، داوود/داود); huruf Urdu/Persia dari PDF; kutipan yang menyambung dari satu halaman/rekaman ke berikutnya (`<<…|5-6>>`).
+- `cek` menutup celah: kutipan «ما …» dari «كما …»/«لما …» (makna terbalik); bukti `#nomor` yang cocok dengan nomor catatan kaki; `<<luar>>` padahal kitabnya sudah diunduh. Kitab مخطوط/غير مطبوع jadi `perhatian` (nomornya nomor lembar).
+- Pesan `cek` menyebut barisnya («baris 15: …») dan, kalau kutipan hampir cocok, kata pertama yang berbeda: «cocok 8 dari 9 kata …, lalu naskah «والتدابير», kitab «والتدبير»».
+- `hadits`: «من غشنا» juga menemukan «ومن غشنا» (riwayat مسلم dulu terlewat); kalau البخاري/مسلم tidak muncul, dicetak «riwayat mirip, lafaznya berbeda».
+- `dirasat`: pencarian makna OpenAlex yang kehabisan waktu tidak diulang (±37 dtk → ±12 dtk) dan dijelaskan.
+- Semua permintaan ke layanan luar mencoba lagi sendiri kalau koneksi putus sesaat.
+- Pintu: jalur lengkap folder bahts diterima; `halaman` membaca «05»/«٥»; `katalog` paling banyak 30 baris; pencarian kosong keluar dengan kode 1; salah pakai mencetak bentuk perintahnya; `ambil` lebih cepat.
+- Tes otomatis jalan juga di Ubuntu, memeriksa jebakan per baris (bukan hanya jumlahnya), dan mengurai `rakit.ps1`.
+
 ## 2.1.0 — 2026-10-15
 
 Besar naik dari 0.2.4: naskah lama yang dulu lolos bisa kini GAGAL, karena `cek` menutup celah kutipan karangan.
