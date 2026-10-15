@@ -19,7 +19,7 @@
 !/dok/
 /contoh/*
 !/contoh/naskah.txt
-# naskah jebakan: tiap baris satu kesalahan yang harus ditolak `cek` (dijalankan di .github/workflows/tes.yml)
+# naskah jebakan: tiap baris di bawah #S menghasilkan persis yang disebut judulnya (diperiksa .github/uji_jebakan.py)
 !/contoh/jebakan/
 /contoh/jebakan/*
 !/contoh/jebakan/naskah.txt

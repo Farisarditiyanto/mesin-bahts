@@ -3,6 +3,25 @@
 Tiap rilis ditulis di sini: yang baru di atas. Nomor versi = `besar.kecil.tambalan`:
 besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan baru, tambalan naik kalau hanya perbaikan.
 
+## 3.0.0 — 2026-10-15
+
+Besar naik dari 2.1.0: naskah lama yang dulu lolos bisa kini GAGAL di dua celah yang ditutup (kutipan «ما/لا» yang di kitab tertulis «كما/لما/بلا», dan `<<luar>>` untuk kitab yang sudah diunduh). Sebaliknya, beberapa GAGAL palsu hilang. Isinya hasil riset proyek sejenis di GitHub dan audit tiap perintah.
+
+- `cek` tidak lagi GAGAL palsu untuk:
+  - angka Arab di catatan kaki («آية: ٢», «٢/١٥», «2/ 100»);
+  - kalimat hormat bentuk panjang («رضي الله تعالى عنه», «رحمه الله تعالى», «صلى الله عليه وعلى آله وسلم», «عليه الصلاة والسلام»);
+  - kursi hamzah (مسئول/مسؤول، رءوس/رؤوس، التساءلات/التساؤلات) dan ejaan ganda (السماوات/السموات، إسحاق/إسحق، داوود/داود);
+  - huruf Urdu/Persia yang terbawa dari PDF;
+  - kutipan yang menyambung ke halaman berikutnya (`<<…|5-6>>`).
+- `cek` menutup celah: «ما …» yang dikutip dari «كما …»/«لما …» (maknanya terbalik); bukti `#nomor` yang cocok dengan nomor catatan kaki; `<<luar>>` untuk kitab yang sudah diunduh. Kitab مخطوط/غير مطبوع jadi `perhatian`: nomornya nomor lembar, bukan halaman cetak.
+- Pesan `cek` menyebut barisnya («baris 15: …»). Kutipan yang hampir cocok ditunjuk kata pertama yang berbeda: «cocok 8 dari 9 kata …, lalu naskah «والتدابير», kitab «والتدبير»».
+- `cari`, `teks`, `bab`, dan `cek` jauh lebih cepat di kitab besar (فتح الباري: ±9 dtk → ±1 dtk). Teks yang sudah dinormalisasi disimpan sekali di folder kitabnya saat `ambil`.
+- `hadits`: «من غشنا» juga menemukan «ومن غشنا» (riwayat مسلم dulu terlewat). Kalau البخاري/مسلم tidak muncul, dicetak «riwayat mirip, lafaznya berbeda».
+- `dirasat`: pencarian makna OpenAlex yang kehabisan waktu tidak diulang lagi (±37 dtk → ±12 dtk), dan alasannya dicetak.
+- Permintaan ke layanan luar dicoba lagi sendiri kalau koneksi putus sesaat.
+- Perintah: jalur lengkap folder bahts diterima; `halaman` membaca «05»/«٥»; `katalog` paling banyak 30 baris; pencarian yang kosong keluar dengan kode 1; salah pakai mencetak bentuk perintahnya; `ambil` lebih cepat.
+- Tes otomatis jalan di Windows dan Ubuntu, memeriksa naskah jebakan per baris (bukan hanya jumlahnya), dan mengurai `rakit.ps1`. Gambar «cara cek bekerja» di README memakai keluaran `cek` yang baru.
+
 ## 2.1.0 — 2026-10-15
 
 Besar naik dari 0.2.4: naskah lama yang dulu lolos bisa kini GAGAL, karena `cek` menutup celah kutipan karangan.

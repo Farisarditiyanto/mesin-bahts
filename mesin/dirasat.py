@@ -9,8 +9,10 @@ di kunci_openalex.txt, di samping folder mesin/; berkas itu tidak ada → dibaca
 (untuk komputer yang tidak menyimpan berkas, mis. cloud). Tanpa kunci: jatah sehari sekitar 50 kali `dirasat`, dan `dirasat-pdf`
 tidak jalan. Dengan kunci: sekitar 300 kali `dirasat` atau 100 PDF sehari; jatah kembali penuh tiap 00.00 UTC.
 """
-import json, os, re, time, urllib.error, urllib.parse, urllib.request
+import json, os, re, time, urllib.error, urllib.parse
 from pathlib import Path
+
+from shamela import buka, perintah
 
 KUNCI = Path(__file__).parent.parent / "kunci_openalex.txt"
 KUNCI_ENV = "OPENALEX_API_KEY"
@@ -47,17 +49,20 @@ def _buka(url, waktu=WAKTU_CARI):
     openalex = urllib.parse.urlsplit(url).hostname.endswith(".openalex.org")
     if openalex and _kunci():
         kepala["Authorization"] = "Bearer " + _kunci()
-    for sisa_coba in (2, 1, 0):
+    for sisa_coba in (1, 0):
         try:
-            return urllib.request.urlopen(urllib.request.Request(url, headers=kepala), timeout=waktu)
+            return buka(url, kepala=kepala, waktu=waktu)  # galat sementara dicoba lagi di sana
         except urllib.error.HTTPError as e:
             pesan = e.read().decode("utf8", "replace")
-            # mesin pencari makna OpenAlex kadang kewalahan (dijawabnya sebagai 400), begitu juga 5xx: tunggu, coba lagi
-            if sisa_coba and (e.code >= 500 or "Failed to embed" in pesan):
+            # mesin pencari makna OpenAlex kadang kewalahan dan menjawabnya sebagai 400: tunggu, coba lagi
+            if sisa_coba and "Failed to embed" in pesan:
                 time.sleep(3)
                 continue
             if not openalex:
                 raise
+            if e.code == 504 and "query_timeout" in pesan:  # diulang pun sama; tidak memotong jatah
+                raise Ditolak("pencarian ini kehabisan waktu di OpenAlex (tidak memotong jatah); hasil sumber lain tetap berlaku. "
+                              "Kalau ini pencarian makna: tulis masalahnya sebagai kalimat yang lebih khusus")
             if e.code == 401:
                 raise Ditolak(f"kunci di {KUNCI.name} (atau {KUNCI_ENV}) ditolak atau belum ada; {CARA_KUNCI}")
             if e.code == 429:
@@ -176,7 +181,7 @@ def cari(kata, maks=10, saringan="", lebar=400):
             print(f"    {w['tautan'] or '-'}" + (f" | PDF: {w['pdf']}" if w["pdf"] else ""))
             if w.get("nomor"):
                 perlu_kunci |= w["tersimpan"] and not _kunci()
-                unduh = (f": python mesin/bahts.py dirasat-pdf {w['nomor']} <folder>" if _kunci() else
+                unduh = (": " + perintah(f"dirasat-pdf {w['nomor']} <folder>") if _kunci() else
                          " (mengunduhnya butuh kunci OpenAlex, caranya di bawah)")
                 print(f"    OpenAlex {w['nomor']}" + (f" | PDF tersimpan{unduh}" if w["tersimpan"] else ""))
             if ringkas := ARAH.sub("", re.sub(r"\s+", " ", w["ringkasan"]))[:lebar]:

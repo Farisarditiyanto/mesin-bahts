@@ -32,7 +32,7 @@ Catatan untuk agent AI: lanjutkan dari [`AGENTS.md`](AGENTS.md), bagian «Pemaka
 
 <img src="dok/alur.svg" width="100%" alt="Sepuluh langkah: kamu meminta, agent menyiapkan komputer dan menulis naskah, mesin mengecek kutipan dan merakit, agent kedua memeriksa ulang, kamu mengumpulkan">
 
-<img src="dok/bukti.svg" width="100%" alt="Cara cek bekerja: alamat di catatan kaki menunjuk kitab, juz, dan halaman; hasilnya lolos, tidak ketemu, atau ketemu di halaman lain">
+<img src="dok/bukti.svg" width="100%" alt="Cara cek bekerja: alamat di catatan kaki menunjuk kitab, juz, dan halaman; hasilnya lolos, tidak ketemu (dengan kata yang berbeda bila hampir cocok), atau ketemu di halaman lain">
 
 ## Batasnya
 
