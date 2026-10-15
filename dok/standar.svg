@@ -18,21 +18,19 @@
 <rect x="260" y="174" width="216" height="94" rx="6" fill="#fffaf0" stroke="#2f4478" stroke-opacity="0.45"/>
 <text x="466" y="212" font-size="14.5" font-weight="700" font-family="Traditional Arabic, Amiri, Noto Naskh Arabic, Segoe UI, sans-serif" direction="rtl" text-anchor="start" fill="#1f2f57">القواعد المنظمة لتسجيل الرسالة</text>
 <text x="466" y="242" font-size="14.5" font-weight="700" font-family="Traditional Arabic, Amiri, Noto Naskh Arabic, Segoe UI, sans-serif" direction="rtl" text-anchor="start" fill="#1f2f57">العلمية وكتابتها وطباعتها وتقديمها</text>
-<text x="78" y="222" font-size="12.5" fill="#5e4835">Jāmiʿat al-Imām,</text>
-<text x="78" y="239" font-size="12.5" fill="#5e4835">disahkan tahun 1442 H.</text>
-<text x="78" y="256" font-size="12.5" fill="#5e4835">Untuk tesis; dipakai</text>
-<text x="78" y="273" font-size="12.5" fill="#5e4835">juga di bahts kelas.</text>
+<text x="78" y="222" font-size="12.5" fill="#5e4835">Jāmiʿat al-Imām, disahkan</text>
+<text x="78" y="239" font-size="12.5" fill="#5e4835">tahun 1442 H. Untuk tesis;</text>
+<text x="78" y="256" font-size="12.5" fill="#5e4835">dipakai juga di bahts kelas.</text>
 <rect x="60" y="294" width="430" height="132" rx="12" fill="#fbf5e8" stroke="#c0566e" stroke-width="1.4" filter="url(#bayang)"/>
 <path d="M60 306Q60 294 72 294H478Q490 294 490 306Z" fill="#c0566e"/>
 <circle cx="86" cy="336" r="8" fill="#c0566e"/><text x="102" y="342" font-size="18" font-weight="700" font-family="Georgia, 'Times New Roman', serif" fill="#3a281b">Catatan dosen</text>
 <rect x="260" y="318" width="216" height="94" rx="6" fill="#fffaf0" stroke="#c0566e" stroke-opacity="0.45"/>
 <text x="466" y="356" font-size="14.5" font-weight="700" font-family="Traditional Arabic, Amiri, Noto Naskh Arabic, Segoe UI, sans-serif" direction="rtl" text-anchor="start" fill="#7d2f42">تنبيهات مهمة في البحوث الصفية</text>
 <text x="466" y="386" font-size="14.5" font-weight="700" font-family="Traditional Arabic, Amiri, Noto Naskh Arabic, Segoe UI, sans-serif" direction="rtl" text-anchor="start" fill="#7d2f42">الملاحظات التي ينبغي مراعاتها</text>
-<text x="78" y="366" font-size="12.5" fill="#5e4835">Dosen bahts kelas di</text>
-<text x="78" y="383" font-size="12.5" fill="#5e4835">Ma'had Jakarta, tahun</text>
-<text x="78" y="400" font-size="12.5" fill="#5e4835">ajaran 1447 H.</text>
-<text x="78" y="417" font-size="12.5" fill="#5e4835">Merujuk ke aturan kampus</text>
-<text x="78" y="434" font-size="12.5" fill="#5e4835">di atas.</text>
+<text x="78" y="366" font-size="12.5" fill="#5e4835">Dosen bahts kelas di Ma'had</text>
+<text x="78" y="383" font-size="12.5" fill="#5e4835">Jakarta, tahun ajaran</text>
+<text x="78" y="400" font-size="12.5" fill="#5e4835">1447 H. Merujuk ke aturan</text>
+<text x="78" y="417" font-size="12.5" fill="#5e4835">kampus di atas.</text>
 <rect x="60" y="438" width="430" height="116" rx="12" fill="#fbf5e8" stroke="#8a7258" stroke-width="1.4" filter="url(#bayang)"/>
 <path d="M60 450Q60 438 72 438H478Q490 438 490 450Z" fill="#8a7258"/>
 <circle cx="86" cy="480" r="8" fill="#8a7258"/><text x="102" y="486" font-size="18" font-weight="700" font-family="Georgia, 'Times New Roman', serif" fill="#3a281b">Pilihan mesin</text>
