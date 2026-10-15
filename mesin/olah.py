@@ -176,7 +176,34 @@ def _cek_bagian(sid, juz, hal, p1, p2, teks, utuh, perhatian):
     ada = _petunjuk(sid, juz, q)
     if ada:
         return f"teks TIDAK di {juz}/{hal}; ketemu di {ada} ({sid}) :: {teks[:40]}"
+    beda = _menyimpang(sid, juz, p1, p2, teks)
+    if beda:
+        return f"teks berbeda dengan kitab {sid} {juz}/{hal}: {beda} :: {teks[:40]}"
     return f"teks TIDAK KETEMU di kitab {sid} :: {teks[:60]}"
+
+
+def _menyimpang(sid, juz, p1, p2, teks):
+    """Kata pertama kutipan yang berbeda dengan matan halaman itu: awalan terpanjang kutipan yang ada di matan,
+    lalu kata sesudahnya di naskah dan di kitab. '' kalau awalannya terlalu pendek untuk ditunjuk."""
+    if not rekaman(sid, juz, p1, p2):
+        return ""
+    raw = re.sub(r"\s+", " ", shamela.HARAKAT.sub("", shamela.TAGS.sub("", gabung(sid, juz, p1, p2)["body"])))
+    raw = shamela.PENANDA.sub(" ", raw)
+    kitab_padat, kata = shamela.padat(raw), teks.split()
+    lo, hi = 0, len(kata) - 1  # awalan sepanjang kata[:lo] ada di matan; kata[:hi+1] tidak (kutipan utuhnya tidak ketemu)
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        if shamela.padat(" ".join(kata[:mid])) in kitab_padat:
+            lo = mid
+        else:
+            hi = mid - 1
+    awalan = shamela.padat(" ".join(kata[:lo]))
+    if lo < 2 or len(awalan) < KUTIPAN_MIN:
+        return ""
+    akhir = kitab_padat.find(awalan) + len(awalan)
+    sesudah = [m.start() for m in re.finditer(r"\S+", raw) if len(shamela.padat(raw[:m.start()])) >= akhir]
+    di_kitab = raw[sesudah[0]:].split()[0].strip(".,،؛:!؟\"«»()") if sesudah else "(akhir halaman)"
+    return f"cocok {lo} dari {len(kata)} kata sampai «…{' '.join(kata[max(0, lo - 3):lo])}», lalu naskah «{kata[lo]}», kitab «{di_kitab}»"
 
 
 def cek(sid, juz, hal, pot, perhatian, kutipan=False):
