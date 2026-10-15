@@ -5,6 +5,8 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   @kunci: nilai       data sampul, di awal naskah. Wajib: judul, jenis, nama, nim, fasl.
                       Opsional: musyrif, jabatan (kosong atau "-" = tidak tercetak), thalibah (ya = sampul mencetak «اسم الطالبة»),
                       berkas (nama file hasil), format (profil di format.json; bawaan imam),
+                      angka (hindi = ٠١٢٣، bawaan; latin = 0123): angka yang tercetak di seluruh PDF,
+                      termasuk nomor halaman, nomor catatan kaki, dan فهرس. Naskah boleh ditulis dengan angka mana saja
                       tanpa (yang tidak dicetak: فهرس ayat, hadits, maudhuat, dan pustaka = المصادر والمراجع
                       bila dosen minta sumber cukup di catatan kaki; mis. «@tanpa: ayat, hadits»).
                       فهرس الآيات dan فهرس الأحاديث yang kosong tidak dicetak dengan sendirinya
@@ -43,8 +45,22 @@ SURAH = json.load(open(HERE / "nama_surah.json", encoding="utf8"))
 FORMAT = json.load(open(HERE / "format.json", encoding="utf8"))  # huruf & ukuran tiap pedoman; dipilih dengan @format
 WAJIB = ("judul", "jenis", "nama", "nim", "fasl")
 TANPA = ("ayat", "hadits", "maudhuat", "pustaka")  # فهرس dan المصادر yang boleh dibuang lewat @tanpa; perakitnya di rakit.ps1
+# @angka: yang pertama = bawaan. Pedoman Jāmiʿat al-Imām tidak menyebut jenis angka; contoh resminya (pedoman 1443هـ,
+# مجلة العلوم الشرعية) memakai hindi di nomor halaman, catatan kaki, rujukan, tahun, ayat, dan فهرس
+ANGKA = ("hindi", "latin")
 
 HARAKAT = shamela.HARAKAT
+KUAT = re.compile(r"[^\W\d_]|[،؛؟]")  # huruf, atau tanda baca Arab (tanda teks Arab)
+
+
+def hindi(s):
+    """Angka 0-9 -> ٠-٩, kecuali angka yang huruf atau tanda baca Arab terdekat sebelumnya (atau sesudahnya, kalau tidak
+    ada) huruf Latin: tautan, DOI, dan judul berbahasa Latin tetap 0-9; «مجلة X، 2020» tetap ٢٠٢٠."""
+    def ganti(m):
+        kiri = KUAT.findall(s[:m.start()])
+        c = kiri[-1] if kiri else next(iter(KUAT.findall(s[m.end():])), "")
+        return m.group() if re.match(f"[{HURUF_LATIN}]", c) else m.group().translate(AD)
+    return re.sub(r"[0-9]+", ganti, s)
 AD = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
 ANGKA_LATIN = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "0123456789" * 2)  # angka Arab dan Persia -> 0-9
 
@@ -704,6 +720,23 @@ def utama(folder):
     fmt = meta.get("format", "imam")
     if fmt not in FORMAT:
         galat.append(di("@format") + f"@format: «{fmt}» tidak ada di mesin/format.json (yang ada: {'، '.join(FORMAT)})")
+    angka = meta.setdefault("angka", ANGKA[0])
+    if angka not in ANGKA:
+        galat.append(di("@angka") + f"@angka: «{angka}» tidak dikenal (yang ada: {'، '.join(ANGKA)})")
+    else:  # yang dihitung Word (nomor halaman, catatan kaki, فهرس) diubah di rakit.ps1; ayat (q) tetap apa adanya
+        ubah = hindi if angka == "hindi" else (lambda s: s.translate(ANGKA_LATIN))
+        for k in ("judul", "jenis", "nama", "nim", "fasl", "musyrif", "jabatan"):
+            if k in meta:
+                meta[k] = ubah(meta[k])
+        for r in [r for b in blok + catatan for r in b["runs"]] + hadits_idx:
+            if "t" in r and not r.get("q"):
+                r["t"] = ubah(r["t"])
+        for b in blok:
+            if "judul" in b:
+                b["judul"] = ubah(b["judul"])
+        for h in hadits_idx:
+            h["r"] = ubah(h["r"])
+        pustaka = [ubah(p) for p in pustaka]
     (HERE / "_tmp").mkdir(exist_ok=True)
     json.dump({"meta": meta, "format": FORMAT.get(fmt), "blok": blok, "catatan": catatan, "ayat": ayat_idx, "hadits": hadits_idx, "pustaka": pustaka,
                "quran": bool(quran)},

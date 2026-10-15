@@ -11,6 +11,14 @@ $TA = [string]$FMT.huruf; $QF = 'KFGQPC HAFS Uthmanic Script'
 $uMatan = [single]$FMT.matan; $uCatatan = [single]$FMT.catatan; $uJudul = [single]$FMT.judul   # ukuran huruf (Word minta angka pecahan)
 $uAyat = if ($FMT.ayat) { [single]$FMT.ayat } else { $uMatan }   # ukuran ayat di matan dan فهرس الآيات; profil tanpa "ayat" = sama dengan matan
 $ULANG = if ($FMT.catatan_ulang_tiap_halaman) { 2 } else { 0 }   # nomor catatan kaki: 2 = mulai ulang tiap halaman, 0 = bersambung
+# @angka hindi: teks naskah sudah diubah olah.py; nomor yang dihitung di sini (فهرس, المصادر, {P:}) diubah Angka;
+# nomor halaman dicetak Word menurut Options.ArabicNumeral (gaya nomor Word «Hindi» = angka India २, bukan ٢)
+$HINDI = $M.angka -eq 'hindi'
+function Angka($s) {
+    $s = [string]$s
+    if (-not $HINDI) { return $s }
+    return -join ($s.ToCharArray() | ForEach-Object { if ($_ -ge [char]'0' -and $_ -le [char]'9') { [char](0x0660 + [int]$_ - 48) } else { $_ } })
+}
 $JUDUL = $M.judul; $NAMA = $M.nama; $NIM = $M.nim
 $MUSYRIF = if ($M.musyrif -and $M.musyrif -ne '-') { [string]$M.musyrif } else { '' }
 $JABATAN = if ($MUSYRIF -and $M.jabatan -and $M.jabatan -ne '-') { [string]$M.jabatan } else { '' }
@@ -31,6 +39,10 @@ $wordLain = @(Get-Process WINWORD -ErrorAction SilentlyContinue | ForEach-Object
 $word = New-Object -ComObject Word.Application
 $wordIni = @(Get-Process WINWORD -ErrorAction SilentlyContinue | Where-Object { $_.Id -notin $wordLain } | ForEach-Object { $_.Id })
 $word.Visible = $false; $word.ScreenUpdating = $false; $word.DisplayAlerts = 0
+# pengaturan Word pemakai (berlaku untuk semua dokumennya): dipinjam selama rakit, dikembalikan di finally.
+# 2 = angka di teks Arab dicetak ٠-٩, di teks Latin 0-9; 0 = selalu 0-9
+$numeralLama = $word.Options.ArabicNumeral
+$word.Options.ArabicNumeral = if ($HINDI) { 2 } else { 0 }
 $tmp = "$dir\_tmp\_kerja.docx"
 try {
     # huruf profil yang tidak terpasang diganti Word diam-diam: berhenti di sini saja
@@ -123,11 +135,21 @@ try {
         $sel.Collapse(0)
     }
     function TeksRuns($runs) { $s = ''; foreach ($r in $runs) { if ($null -ne $r.t) { $s += $r.t } elseif ($r.pg) { $s += '⟦' + $r.pg + '⟧' } }; return $s }
+    # nomor catatan kaki = tanda buatan sendiri, bukan nomor otomatis Word: nomor otomatis Word selalu 0-9
+    # (Options.ArabicNumeral tidak berlaku untuknya). Nomornya dibetulkan NomorCatatan sesudah halaman tersusun.
     function Catatan($idx) {
-        $c = $DATA.catatan[$idx]
+        $awal = $sel.Start
         Tulis '(' $TA $uMatan 0 1
-        $fn = $doc.Footnotes.Add($sel.Range, [Type]::Missing, (' ' + (TeksRuns $c.runs)))
-        $fr = $fn.Range
+        $fn = @(BuatCatatan $sel.Range $idx (Angka ($doc.Footnotes.Count + 1)))[-1]
+        $doc.Range($fn.Reference.End, $fn.Reference.End).Select()
+        Tulis ')' $TA $uMatan 0 1
+        # «(١)» kanan-ke-kiri: tanpa itu kurungnya terbalik di sekitar angka ٠-٩
+        $doc.Range($awal, $sel.Start).Select(); $word.Selection.RtlRun(); $sel.Collapse(0)
+    }
+    function BuatCatatan($rg, $idx, $nomor) {
+        $c = $DATA.catatan[$idx]
+        $fn = $doc.Footnotes.Add($rg, $nomor, (' ' + (TeksRuns $c.runs)))
+        $fr = $fn.Range                                  # mulai dari spasi di depan teks; tanda + spasi Word di depannya
         $fr.Font.Name = $TA; $fr.Font.NameBi = $TA; $fr.Font.Size = $uCatatan; $fr.Font.SizeBi = $uCatatan; $fr.Font.Bold = 0; $fr.Font.BoldBi = 0; $fr.Font.Superscript = 0
         $fp = $fr.Paragraphs(1); $fp.ReadingOrder = 0; $fp.Alignment = 3
         $fr.Select(); $word.Selection.RtlRun()
@@ -141,15 +163,37 @@ try {
         }
         # nomor di catatan kaki: (1) ukuran normal, bukan superskrip
         $pr = $fr.Paragraphs(1).Range
-        $m = $fn.Range; $m.SetRange($pr.Start, $pr.Start + 1)
+        $m = $fn.Range; $m.SetRange($pr.Start, $pr.Start + $nomor.Length)
         $m.Font.Superscript = 0; $m.Font.Size = $uCatatan; $m.Font.SizeBi = $uCatatan; $m.Font.Name = $TA; $m.Font.NameBi = $TA
         $m.InsertBefore('('); $m.InsertAfter(')')
         $m.Font.Superscript = 0
-        # nomor di matan: (1) superskrip
+        # nomor di matan: (1) superskrip; kurungnya ditulis Catatan
         $ref = $fn.Reference
         $ref.Font.Superscript = 1; $ref.Font.Size = $uMatan; $ref.Font.SizeBi = $uMatan; $ref.Font.Name = $TA; $ref.Font.NameBi = $TA
-        $doc.Range($ref.End, $ref.End).Select()
-        Tulis ')' $TA $uMatan 0 1
+        $ref.Select(); $word.Selection.RtlRun()
+        return $fn
+    }
+    # nomor tercetak: mulai 1 lagi tiap halaman (ULANG 2) atau bersambung. Catatan kaki yang nomornya salah dibuat ulang
+    # di tempat yang sama (tanda buatan sendiri tidak bisa diganti); itu bisa menggeser halaman, jadi diulang sampai tetap.
+    function NomorCatatan {
+        for ($putaran = 1; $putaran -le 5; $putaran++) {
+            $doc.Repaginate()
+            $salah = @(); $hal = -1; $n = 0; $i = 0
+            foreach ($fn in $doc.Footnotes) {
+                $i++; $p = $fn.Reference.Information(3)
+                if ($ULANG -eq 2 -and $p -ne $hal) { $n = 0; $hal = $p }
+                $n++
+                if ($fn.Reference.Text -ne (Angka $n)) { $salah += , @($i, (Angka $n)) }
+            }
+            if (-not $salah.Count) { return }
+            [array]::Reverse($salah)
+            foreach ($s in $salah) {
+                # objek catatan kaki Word menunjuk nomor urut: hapus dulu, baru buat di tempatnya
+                $lama = $doc.Footnotes.Item($s[0]); $pos = $lama.Reference.Start; $lama.Delete()
+                [void](BuatCatatan $doc.Range($pos, $pos) ($s[0] - 1) $s[1])
+            }
+        }
+        throw "Nomor catatan kaki belum tetap sesudah 5 putaran penyusunan halaman."
     }
     function Runs($runs, $size, $paksaTebal) {
         foreach ($r in $runs) {
@@ -229,7 +273,7 @@ try {
     $geser = if ($adaQuran) { 1 } else { 0 }
     $tb = Tabel $n @(1.3, 13.7) 0
     for ($r = 1; $r -le $n; $r++) {
-        $no = if ($adaQuran -and $r -eq 1) { '-' } else { ($r - $geser).ToString() + '.' }
+        $no = if ($adaQuran -and $r -eq 1) { '-' } else { (Angka ($r - $geser)) + '.' }
         Sel $tb $r 1 $no 1 0
         Sel $tb $r 2 $DATA.pustaka[$r - 1] 3 0
     }
@@ -258,7 +302,7 @@ try {
         # huruf mushaf hanya untuk kata-kata ayat; titik-titik « ...» tetap huruf matan (huruf mushaf tidak punya titik)
         $nq = if ($pot.EndsWith(' ...')) { $pot.Length - 4 } else { $pot.Length }
         $q = $tAy.Cell($r, 1).Range; $q.SetRange($rg.Start + 1, $rg.Start + 1 + $nq); $q.Font.Name = $QF; $q.Font.NameBi = $QF; $q.Font.Size = $uAyat; $q.Font.SizeBi = $uAyat
-        Sel $tAy $r 2 $a.surah 1 0; Sel $tAy $r 3 $a.a 1 0; Sel $tAy $r 4 '00' 1 0
+        Sel $tAy $r 2 $a.surah 1 0; Sel $tAy $r 3 (Angka $a.a) 1 0; Sel $tAy $r 4 '00' 1 0
     }
     Sel-Akhir
     }
@@ -284,23 +328,27 @@ try {
     foreach ($sc in $doc.Sections) { $sc.Range.FootnoteOptions.NumberingRule = $ULANG; $sc.Range.FootnoteOptions.StartingNumber = 1 }
     $doc.Range().FootnoteOptions.NumberingRule = $ULANG
 
+    NomorCatatan
+
     # ---------- 5. Isi nomor halaman ----------
     $doc.Repaginate()
     function Hal($bm) { return $doc.Bookmarks.Item($bm).Range.Information(1) }   # 1 = nomor halaman seperti yang tercetak
-    if ($adaAy) { $r = 1; foreach ($key in $urut) { $r++; $pg = ($ay[$key].bm | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '; Sel $tAy $r 4 $pg 1 0 } }
-    if ($adaHd) { $r = 1; foreach ($h in $DATA.hadits) { $r++; $ks = @($h.k); if ($h.lagi) { $ks += $h.lagi }; $pg = ($ks | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '; Sel $tHd $r 3 $pg 1 0 } }
-    if ($adaTo) { $r = 1; foreach ($e in $toc) { $r++; Sel $tTo $r 2 ([string](Hal $e.bm)) 1 0 } }
+    if ($adaAy) { $r = 1; foreach ($key in $urut) { $r++; $pg = ($ay[$key].bm | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '; Sel $tAy $r 4 (Angka $pg) 1 0 } }
+    if ($adaHd) { $r = 1; foreach ($h in $DATA.hadits) { $r++; $ks = @($h.k); if ($h.lagi) { $ks += $h.lagi }; $pg = ($ks | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '; Sel $tHd $r 3 (Angka $pg) 1 0 } }
+    if ($adaTo) { $r = 1; foreach ($e in $toc) { $r++; Sel $tTo $r 2 (Angka (Hal $e.bm)) 1 0 } }
     # {P:kunci} di catatan kaki: tiap ⟦h_…⟧ diganti nomor halaman hadits itu (satu catatan kaki bisa memuat beberapa)
     foreach ($fn in $doc.Footnotes) {
         foreach ($k in @([regex]::Matches($fn.Range.Text, '⟦(h_[^⟧]+)⟧') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)) {
             $rg = $fn.Range; $f = $rg.Find; $f.ClearFormatting(); $f.Replacement.ClearFormatting()
-            [void]$f.Execute(('⟦' + $k + '⟧'), $true, $false, $false, $false, $false, $true, 0, $false, ([string](Hal $k)), 2)
+            [void]$f.Execute(('⟦' + $k + '⟧'), $true, $false, $false, $false, $false, $true, 0, $false, (Angka (Hal $k)), 2)
         }
     }
     foreach ($fn in $doc.Footnotes) { if ($fn.Range.Text.Contains('⟦')) { throw "Nomor halaman {P:...} gagal diisi di catatan kaki: $($fn.Range.Text.Trim())" } }
     $doc.Repaginate()
 
     # ---------- 6. Simpan ----------
+    # nomor halaman = teks kanan-ke-kiri, supaya ArabicNumeral 2 mencetaknya ٠-٩ (di akhir: memindah Selection ke kaki halaman)
+    $ft.Range.Select(); $word.Selection.RtlRun()
     $pages = $doc.ComputeStatistics(2)
     # halaman isi = المقدمة s.d. الخاتمة (nomor halaman dihitung mulai dari المقدمة); tanpa المصادر dan فهرس = halaman terakhir
     if ($doc.Bookmarks.Exists($bmSesudahIsi)) { $isi = (Hal $bmSesudahIsi) - 1 }
@@ -316,6 +364,7 @@ try {
 }
 finally {
     try { foreach ($d in @($word.Documents)) { $d.Close($false) } } catch {}
+    try { $word.Options.ArabicNumeral = $numeralLama } catch {}
     try { $word.Quit([ref]0) } catch {}                   # Quit menerima argumen ref; Quit(0) selalu gagal
     [void][Runtime.InteropServices.Marshal]::ReleaseComObject($word)
     # cadangan: Word buatan skrip ini yang belum mati sesudah Quit dimatikan (yang itu saja)

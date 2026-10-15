@@ -19,6 +19,8 @@ jobs:
       - run: python mesin/bahts.py cek contoh
       # contoh/jebakan/naskah.txt: tiap baris di bawah #S menghasilkan persis yang disebut judulnya
       - run: python .github/uji_jebakan.py
+      # tanpa @angka, angka di teks Arab bahan rakit ٠-٩ (dulu PDF mencetak «آية: ٢» di samping «ص5»)
+      - run: python .github/uji_angka.py
       # rakit.ps1 tidak bisa dijalankan tanpa Word; minimal harus terurai oleh Windows PowerShell 5.1 milik pemakai
       - name: urai rakit.ps1
         if: runner.os == 'Windows'
