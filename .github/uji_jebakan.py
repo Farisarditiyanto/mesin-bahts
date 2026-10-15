@@ -11,6 +11,7 @@ HARUS = {"GAGAL": (1, 0), "perhatian": (0, 1), "lolos": (0, 0)}  # (galat, perha
 
 keluar = subprocess.run([sys.executable, str(AKAR / "mesin" / "bahts.py"), "cek", "contoh/jebakan"], cwd=AKAR,
                         capture_output=True, text=True, encoding="utf-8").stdout
+sys.stdout.reconfigure(encoding="utf-8")  # konsol Windows (cp1252) tidak bisa mencetak ✗ dan huruf Arab
 print(keluar)
 if not re.search(r"^perhatian \(lolos", keluar, re.M):
     sys.exit("cek jebakan berhenti sebelum laporan selesai")
