@@ -15,8 +15,6 @@ Agent AI pandai menulis, tetapi bisa mengarang kutipan. Di mesin ini:
 - Mesin membuka alamat itu. Kutipan yang tidak ada di sana, atau tanpa alamat, ditolak.
 - Ayat ditulis dari mushaf مجمع الملك فهد. Word dan PDF dirakit lengkap: sampul, catatan kaki, المصادر والمراجع, dan الفهارس.
 
-<img src="dok/hasil.png" width="100%" alt="Sampul, halaman isi dengan catatan kaki, dan daftar isi hasil mesin">
-
 ## Mulai
 
 1. Buka agent yang membaca `AGENTS.md`: [Claude Code](https://claude.com/claude-code) (butuh akun Claude berbayar), Codex, Hermes, dll.
