@@ -12,7 +12,7 @@ tidak jalan. Dengan kunci: sekitar 300 kali `dirasat` atau 100 PDF sehari; jatah
 import json, os, re, time, urllib.error, urllib.parse
 from pathlib import Path
 
-from shamela import buka
+from shamela import buka, perintah
 
 KUNCI = Path(__file__).parent.parent / "kunci_openalex.txt"
 KUNCI_ENV = "OPENALEX_API_KEY"
@@ -181,7 +181,7 @@ def cari(kata, maks=10, saringan="", lebar=400):
             print(f"    {w['tautan'] or '-'}" + (f" | PDF: {w['pdf']}" if w["pdf"] else ""))
             if w.get("nomor"):
                 perlu_kunci |= w["tersimpan"] and not _kunci()
-                unduh = (f": python mesin/bahts.py dirasat-pdf {w['nomor']} <folder>" if _kunci() else
+                unduh = (": " + perintah(f"dirasat-pdf {w['nomor']} <folder>") if _kunci() else
                          " (mengunduhnya butuh kunci OpenAlex, caranya di bawah)")
                 print(f"    OpenAlex {w['nomor']}" + (f" | PDF tersimpan{unduh}" if w["tersimpan"] else ""))
             if ringkas := ARAH.sub("", re.sub(r"\s+", " ", w["ringkasan"]))[:lebar]:

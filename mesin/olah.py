@@ -86,7 +86,7 @@ NAFI = {"لا", "فلا", "ولا", "ما", "فما", "وما", "ليس"}  # kat
 def salah_juz(sid, juz, hal):
     """'' kalau kitab sid sudah diunduh dan punya juz itu; selain itu pesan kesalahannya."""
     if not (shamela.ROOT / str(sid) / "pages.jsonl.gz").exists():
-        return f"kitab {sid} belum diunduh (python mesin/bahts.py ambil {sid})"
+        return f"kitab {sid} belum diunduh ({shamela.perintah(f'ambil {sid}')})"
     juz_ada = set(kitab(sid))
     # kitab satu jilid = satu nilai juz saja, atau bagiannya hanya bernama (mis. المقدمة + الكتاب) tanpa juz berangka
     if juz == "-" and len(juz_ada) > 1 and any(str(j).isdigit() for j in juz_ada):

@@ -33,6 +33,7 @@ import difflib, hashlib, json, math, os, re, shutil, subprocess, sys, urllib.err
 from pathlib import Path
 
 import dirasat, hadits, shamela  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
+from shamela import perintah
 
 MESIN = Path(__file__).parent
 AKAR = MESIN.parent
@@ -51,23 +52,6 @@ HURUF_SARAN = ("huruf ini ikut terpasang kalau Windows punya papan ketik Arab (S
                "\"Add-WindowsCapability -Online -Name Language.Fonts.Arab~~~und-ARAB~0.0.1.0\"")
 # perkiraan halaman isi tanpa Word: kata per halaman pada huruf matan 18 (ditera dari satu bahts nyata: ±5500 kata setara matan = 24 halaman isi)
 KATA_PER_HALAMAN_18 = 260
-
-
-def perintah(argumen):
-    """Perintah mesin yang bisa ditempel apa adanya: jalur lengkap kalau dijalankan dari folder lain, Python yang sedang dipakai."""
-    py = "python"
-    w = shutil.which("python")
-    try:
-        if not (w and os.path.samefile(w, sys.executable)):
-            py = f'"{sys.executable}"'
-    except OSError:
-        py = f'"{sys.executable}"'
-    try:
-        disini = Path.cwd().resolve() == AKAR.resolve()
-    except OSError:
-        disini = False
-    skrip = "mesin/bahts.py" if disini else f'"{MESIN / "bahts.py"}"'
-    return f"{py} {skrip} {argumen}"
 
 
 def huruf_ada(nama):
@@ -167,9 +151,11 @@ def periksa():
 
 
 def folder_bahts(nama):
-    f = AKAR / nama.strip("/\\")
+    f = (AKAR / nama).resolve()  # jalur lengkap («C:\\…\\mesin-bahts\\ikhlas») juga diterima
     if f.name.lower() == "naskah.txt":  # yang disebut berkas naskahnya, bukan foldernya
         f = f.parent
+    if not f.is_relative_to(AKAR.resolve()):
+        sys.exit(f"Bahts «{nama}» di luar folder mesin ({AKAR}): tiap bahts tinggal di dalam folder itu.")
     if (f / "naskah.txt").exists():
         return f
     ada = sorted(d.name for d in AKAR.iterdir() if (d / "naskah.txt").exists())
@@ -179,16 +165,21 @@ def folder_bahts(nama):
         pesan.append(f"Maksudnya «{mirip[0]}»?")
     pesan.append("Bahts yang ada: " + (", ".join(ada) if ada else "belum ada"))
     usul = re.sub(r"[^A-Za-z0-9_-]", "", f.name) or "<nama-latin>"
-    pesan.append("Kalau memang bahts baru: " + perintah(f'baru {usul} "<judul>"'))
+    if not (AKAR / usul).exists():  # folder yang sudah ada (mis. tanpa naskah.txt) tidak bisa dibuat `baru`
+        pesan.append("Kalau memang bahts baru: " + perintah(f'baru {usul} "<judul>"'))
     sys.exit("\n".join(pesan))
 
 
 def baru(nama, judul):
+    nama = nama.removeprefix("./").removeprefix(".\\")
     if not re.fullmatch(NAMA_FOLDER, nama.strip("/\\")):
         sys.exit(f"Nama folder «{nama}»: pakai huruf Latin, angka, - atau _ saja, tanpa spasi (mis. ikhlas).")
+    if not judul.strip():
+        sys.exit('Judul bahts masih kosong: ' + perintah(f'baru {nama.strip("/.")} "<judul>"'))
     f = AKAR / nama.strip("/\\")
-    if f.exists():
-        sys.exit(f"Folder {f.name} sudah ada.")
+    kembar = [d.name for d in AKAR.iterdir() if d.name.lower() == f.name.lower()]
+    if kembar:  # di Windows «Ikhlas» dan «ikhlas» satu folder
+        sys.exit(f"Folder {kembar[0]} sudah ada.")
     isi = (MESIN / "naskah_baru.txt").read_text(encoding="utf8").replace("{judul}", judul).replace("{folder}", f.name)
     if SAMPUL_SAYA.exists():
         try:
@@ -299,14 +290,15 @@ def pola(teks):
 
 def ambil(nomor):
     """Unduh tiap kitab; satu yang gagal tidak membatalkan yang lain. Keluar dengan kode 1 kalau ada yang belum terunduh."""
-    for x in nomor:
-        try:
-            shamela.ambil(x)
-        except shamela.GAGAL_JARINGAN as e:
-            print(f"{x} gagal mengunduh (cek internet, lalu ulangi): {e!r}")
-    gagal = [x for x in nomor if not (x.isdigit() and (shamela.ROOT / str(int(x)) / "pages.jsonl.gz").exists())]
+    gagal = shamela.ambil(*nomor)
     if gagal:
         sys.exit(f"Belum terunduh: {', '.join(gagal)} (lihat pesan di atas).")
+
+
+def ketemu(n):
+    """Pencarian yang kosong keluar dengan kode 1, supaya skrip/agent tahu tanpa membaca pesannya."""
+    if not n:
+        sys.exit(1)
 
 
 PERINTAH = {  # nama: (jumlah argumen minimal, pemanggil)
@@ -317,14 +309,14 @@ PERINTAH = {  # nama: (jumlah argumen minimal, pemanggil)
     "rakit": (1, lambda a: rakit(a[0])),
     "tanda": (0, lambda a: print(tanda())),
     "kitab": (0, lambda a: shamela.daftar()),
-    "katalog": (1, lambda a: shamela.katalog(pola(a[0]))),
+    "katalog": (1, lambda a: ketemu(shamela.katalog(pola(a[0])))),
     "temukan": (1, lambda a: shamela.temukan(a[0], *(angka(x, "maks") for x in a[1:2]))),
     "ambil": (1, lambda a: ambil(a)),
     "kartu": (1, lambda a: shamela.kartu(a[0])),
-    "cari": (2, lambda a: shamela.cari(a[0], a[1])),
-    "teks": (2, lambda a: shamela.teks(a[0], a[1], *(angka(x, apa) for x, apa in zip(a[2:4], ("lebar", "maks"))))),
-    "bab": (2, lambda a: shamela.bab(a[0], a[1])),
-    "halaman": (3, lambda a: shamela.halaman(*a[:3])),
+    "cari": (2, lambda a: ketemu(shamela.cari(a[0], a[1]))),
+    "teks": (2, lambda a: ketemu(shamela.teks(a[0], a[1], *(angka(x, apa) for x, apa in zip(a[2:4], ("lebar", "maks")))))),
+    "bab": (2, lambda a: ketemu(shamela.bab(a[0], a[1]))),
+    "halaman": (3, lambda a: ketemu(shamela.halaman(*a[:3]))),
     "hadits": (1, lambda a: hadits.cari(a[0], *(angka(x, "maks") for x in a[1:2]))),
     "dirasat": (1, lambda a: dirasat.cari(a[0], *(angka(x, "maks") for x in a[1:2]), *a[2:3])),
     "dirasat-pdf": (2, lambda a: dirasat.pdf(a[0], folder_bahts(a[1]))),
@@ -345,11 +337,12 @@ if __name__ == "__main__":
     if cmd not in PERINTAH:
         mirip = difflib.get_close_matches(cmd, PERINTAH, n=1)
         sys.exit(f"Perintah «{cmd}» tidak dikenal." + (f" Maksudnya «{mirip[0]}»?" if mirip else "")
-                 + "\nDaftar perintah: " + perintah("").rstrip())
+                 + "\nDaftar perintah: " + perintah(""))
+    # cukup baris bantuan perintah itu, berikut baris lanjutannya yang menjorok
+    bantu = re.search(rf"^  {re.escape(cmd)}\s.*(?:\n {{20,}}\S.*)*", __doc__, re.M)
+    bentuk = bantu.group(0) if bantu else cmd
     if len(a) < PERINTAH[cmd][0]:
-        # cukup baris bantuan perintah itu, berikut baris lanjutannya yang menjorok
-        bantu = re.search(rf"^  {re.escape(cmd)}\s.*(?:\n {{20,}}\S.*)*", __doc__, re.M)
-        sys.exit(f"Perintah «{cmd}» kurang argumen. Bentuknya:\n{bantu.group(0) if bantu else cmd}")
+        sys.exit(f"Perintah «{cmd}» kurang argumen. Bentuknya:\n{bentuk}")
     try:
         PERINTAH[cmd][1](a)
     except urllib.error.HTTPError as e:
@@ -361,4 +354,4 @@ if __name__ == "__main__":
     except shamela.GAGAL_JARINGAN as e:
         sys.exit(f"Perintah '{cmd}' gagal mengunduh (cek internet, lalu ulangi): {e!r}")
     except (ValueError, FileNotFoundError, re.error) as e:
-        sys.exit(f"Perintah '{cmd}' salah pakai: {e}\nDaftar perintah: " + perintah("").rstrip())
+        sys.exit(f"Perintah '{cmd}' salah pakai: {e}\nBentuknya:\n{bentuk}")
