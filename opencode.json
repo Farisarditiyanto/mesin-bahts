@@ -1,0 +1,28 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "shamela": {
+      "type": "remote",
+      "url": "https://shamela.link/mcp",
+      "oauth": {
+        "clientId": "nQdugxEIvOoIvVpBDTmTDKyFOAjjUKCn"
+      }
+    },
+    "turath": {
+      "type": "remote",
+      "url": "https://mcp.turath.io/mcp/"
+    },
+    "hadithunlocked": {
+      "type": "remote",
+      "url": "https://hadithunlocked.com/mcp"
+    },
+    "tafsir": {
+      "type": "remote",
+      "url": "https://mcp.tafsir.net/mcp"
+    },
+    "quran": {
+      "type": "remote",
+      "url": "https://mcp.quran.ai"
+    }
+  }
+}

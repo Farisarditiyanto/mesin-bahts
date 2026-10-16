@@ -7,6 +7,7 @@
 !/.gitattributes
 !/.github/
 !/.mcp.json
+!/opencode.json
 !/AGENTS.md
 !/CLAUDE.md
 !/README.md
