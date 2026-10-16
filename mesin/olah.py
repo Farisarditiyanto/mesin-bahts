@@ -14,6 +14,8 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       kepala tiap halaman), #R tidak wajib, hanya #K mulai halaman baru. Bawaan: bahts
   @rumuz: sid=ض، sid=ف  rumuz sumber: catatan kaki yang buktinya dari kitab sid itu dicetak dengan rumuznya ض (huruf kecil terangkat) tepat sebelum
                       nomor catatan kakinya. Rumuz diambil dari bukti, jadi tidak bisa berbeda dengan sumbernya
+  @warna: sid=biru    paragraf yang buktinya [^<<sid|..>>] saja (sid juga di @rumuz) dicetak dengan warna itu, mis. ziyadah
+                      syarah kedua di dalam syarah pertama; lafaz matn ((…)) tetap merah. Warna yang ada: biru
   #K #F #B #M teks    judul tengah + masuk فهرس الموضوعات: K = مقدمة/خاتمة, F = فصل (keduanya mulai halaman baru), B = مبحث, M = مطلب.
                       Bahts pendek tanpa فصل: #F untuk مبحث, #B untuk مطلب
   #S teks             sub-judul kanan (tidak masuk فهرس)
@@ -57,6 +59,8 @@ TANPA = ("ayat", "hadits", "maudhuat", "pustaka")  # فهرس dan المصادر
 # @angka: yang pertama = bawaan. Pedoman Jāmiʿat al-Imām tidak menyebut jenis angka; contoh resminya (pedoman 1443هـ,
 # مجلة العلوم الشرعية) memakai hindi di nomor halaman, catatan kaki, rujukan, tahun, ayat, dan فهرس
 ANGKA = ("hindi", "latin")
+# @warna: nama -> RGB. Biru tua: tetap nyaman dibaca untuk paragraf panjang dan jelas beda dari hitam serta merah lafaz matn
+WARNA = {"biru": (20, 60, 150)}
 # lambang hormat Unicode 14 (﵀-﵏ ﷾ ﷿) tidak ada di huruf cetak (Traditional Arabic, Sakkal Majalla): kotak kosong di PDF.
 # Dicetak dengan kalimatnya; `cek` sudah membuang keduanya (shamela.LIGATUR_HORMAT, HORMAT)
 HORMAT_CETAK = str.maketrans({
@@ -500,12 +504,14 @@ TOKEN = re.compile(r"(\*\*|\(\(|\)\)|\{(?:Q|H2|H|P):[^}]*\}|\[\^|\])")
 KUNCI = re.compile(r"[a-z]+")
 
 
-def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False, rumuz=None):
-    """Pecah satu baris jadi 'runs'. Catatan kaki ([^...]) diurai rekursif. rumuz = {sid: huruf} dari @rumuz."""
+def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False, rumuz=None, warna=None):
+    """Pecah satu baris jadi 'runs'. Catatan kaki ([^...]) diurai rekursif. rumuz = {sid: huruf} dari @rumuz;
+    warna = {sid: warna Word (BGR)} dari @warna."""
     runs, tebal, merah, i = [], False, False, 0
     q_akhir = None  # ayat terakhir di baris ini (untuk mencocokkan catatan kaki «سورة …»)
     polos = ""  # teks polos berjalan (untuk mencari kutipan sebelum catatan kaki)
     seg = 0  # awal teks polos sesudah catatan kaki terakhir
+    seg_run = 0  # awal runs sesudah catatan kaki terakhir
     while i < len(teks):
         m = TOKEN.search(teks, i)
         if not m:
@@ -595,6 +601,11 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 perhatian.append(f"kutipan disambung ... di luar tanda petik: baca yang dilompati di kitab, pastikan makna dan "
                                  f"pembicaranya tetap  || fn: {isi[:45]}")
             seg = len(polos)
+            ww = {(warna or {}).get(x) for x in sid_bukti}
+            if diam and len(ww) == 1 and None not in ww:  # paragraf salinan satu kitab berwarna: lafaz matn ((…)) tetap merah
+                for r in runs[seg_run:]:
+                    if "t" in r and not r.get("m"):
+                        r["w"] = next(iter(ww))
             luar = LUAR in bukti
             bukti = [b for b in bukti if b != LUAR]
             terbukti = []  # (sid, juz, p1, p2) tiap bukti, untuk dicocokkan dengan yang tercetak
@@ -658,6 +669,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             catatan.append({"runs": sub, "bukti": len(bukti), "luar": luar})
             if not diam:
                 runs.append({"fn": len(catatan) - 1})
+            seg_run = len(runs)
         else:  # "]" nyasar
             runs.append({"t": "]", "b": tebal}); polos += "]"
     if tebal:
@@ -684,6 +696,7 @@ def utama(folder):
     di_baris = {}  # @kunci dan #R -> nomor barisnya, untuk galat yang baru ketahuan sesudah semua baris dibaca
     mode_r = False
     rumuz = {}  # @rumuz: sid -> huruf
+    warna = {}  # @warna: sid -> warna Word (BGR)
     for n, b in baris:
         g0, p0 = len(galat), len(perhatian)
         if b.startswith("@"):
@@ -697,13 +710,21 @@ def utama(folder):
                         galat.append(f"@rumuz: «{pasang.strip()}»: bentuknya sid=huruf (atau sid=- tanpa rumuz), "
                                      f"mis. «@rumuz: 12010=-، 900002=ف»"); continue
                     rumuz[sid.strip()] = z.strip()
+            if k.strip() == "warna":
+                for pasang in re.split(r"[,،]", v):
+                    sid, _, w = pasang.partition("=")
+                    if not re.fullmatch(r"\d+", sid.strip()) or w.strip() not in WARNA:
+                        galat.append(f"@warna: «{pasang.strip()}»: bentuknya sid=warna (warna yang ada: {'، '.join(WARNA)}), "
+                                     f"mis. «@warna: 900002=biru»"); continue
+                    rr, gg, bb = WARNA[w.strip()]
+                    warna[sid.strip()] = rr + gg * 256 + bb * 65536
         elif b.startswith("#"):
             k, _, t = b[1:].partition(" ")
             if k not in ("K", "F", "B", "M", "S", "R", "T") or not t.strip():
                 galat.append(f"baris {n}: judul harus «#K/#F/#B/#M/#S/#R/#T teks» :: {b[:40]}"); continue
             if k == "T":  # kotak matn: paragraf biasa (boleh bercatatan kaki), dicetak merah dalam bingkai
                 try:
-                    blok.append({"k": "T", "runs": urai(t, catatan, ayat_idx, hadits_idx, galat, perhatian, rumuz=rumuz)})
+                    blok.append({"k": "T", "runs": urai(t, catatan, ayat_idx, hadits_idx, galat, perhatian, rumuz=rumuz, warna=warna)})
                 except ValueError as e:
                     galat.append(f"baris {n}: tanda rusak — {e}")
                 continue
@@ -718,7 +739,7 @@ def utama(folder):
             pustaka.append(b.strip())
         else:
             try:
-                blok.append({"k": "P", "runs": urai(b, catatan, ayat_idx, hadits_idx, galat, perhatian, rumuz=rumuz)})
+                blok.append({"k": "P", "runs": urai(b, catatan, ayat_idx, hadits_idx, galat, perhatian, rumuz=rumuz, warna=warna)})
             except ValueError as e:
                 galat.append(f"baris {n}: tanda rusak — {e}")
             except (KeyError, IndexError) as e:  # bukan salah tulis naskah: mesinnya yang keliru di baris ini
