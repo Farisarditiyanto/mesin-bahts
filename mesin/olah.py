@@ -727,14 +727,14 @@ def utama(folder):
                     blok.append({"k": "T", "runs": urai(t, catatan, ayat_idx, hadits_idx, galat, perhatian, rumuz=rumuz, warna=warna)})
                 except ValueError as e:
                     galat.append(f"baris {n}: tanda rusak — {e}")
-                continue
-            if re.search(r"\[\^|<<|\{|\*\*", t):  # judul tercetak apa adanya (juga di فهرس الموضوعات): tanda ini ikut tercetak
+            elif re.search(r"\[\^|<<|\{|\*\*", t):  # judul tercetak apa adanya (juga di فهرس الموضوعات): tanda ini ikut tercetak
                 galat.append(f"baris {n}: judul tidak boleh memuat catatan kaki [^, bukti <<, tanda {{Q:/{{H: atau **: "
-                             f"pindahkan ke paragraf sesudahnya :: {b[:40]}"); continue
-            mode_r = k == "R"
-            if mode_r:
-                di_baris["#R"] = n
-            blok.append({"k": k, "runs": [{"t": t, "b": True}], "judul": t})
+                             f"pindahkan ke paragraf sesudahnya :: {b[:40]}")
+            else:
+                mode_r = k == "R"
+                if mode_r:
+                    di_baris["#R"] = n
+                blok.append({"k": k, "runs": [{"t": t, "b": True}], "judul": t})
         elif mode_r:
             pustaka.append(b.strip())
         else:
