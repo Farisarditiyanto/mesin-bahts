@@ -22,12 +22,15 @@ SAMPUL_ATAS = ["المملكة العربية السعودية", "وزارة ا�
                "معهد العلوم الإسلامية والعربية في جاكرتا", "كلية الشريعة"]
 SURAH = json.load(open(HERE / "nama_surah.json", encoding="utf8"))  # salinan terpaksa mesin/nama_surah.json
 MERAH = "C00000"
+polos_surah = lambda s: re.sub("[أإآءئؤ]", "ا", HARAKAT.sub("", s.strip()))
+LATIN = re.compile(r"[A-Za-zÀ-ɏḀ-ỿ][A-Za-zÀ-ɏḀ-ỿ0-9 .,:;/_\-?=&%#@+()]*[A-Za-zÀ-ɏḀ-ỿ0-9/]|[A-Za-zÀ-ɏḀ-ỿ]")
 
 KUAT = re.compile(r"[^\W\d_]|[،؛؟]")
 HURUF_LATIN = "A-Za-zÀ-ɏḀ-ỿ"
 AD = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
 ANGKA_LATIN = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "0123456789" * 2)
 HARAKAT = re.compile(r"[ؐ-ًؚ-ٰٟۖ-ۭـ]")
+SURAH_POLOS = {polos_surah(n): n for n in SURAH}
 
 
 def hindi(s):
@@ -67,7 +70,9 @@ def baca(teks):
         if not b:
             continue
         m = re.match(r"@(\w+):\s*(.*)$", b)
-        if m and not blok:
+        if m and blok:
+            raise Galat(f"baris {n}: @{m.group(1)} harus di awal naskah, sebelum judul pertama.")
+        if m:
             if m.group(1) not in KUNCI:
                 raise Galat(f"baris {n}: @{m.group(1)} tidak dikenali di versi Gemini (yang ada: {', '.join(sorted(KUNCI))}).")
             meta[m.group(1)] = m.group(2).strip()
@@ -133,7 +138,7 @@ def runs(s, baris):
         isi = x[1] if x[0] in ("t", "fn") else ""
         if "{P:" in isi:
             raise Galat(f"baris {baris}: {{P:..}} tidak bisa di versi Gemini (Word tidak mengisi nomor halaman di catatan kaki): tulis «سبق تخريجه.» saja.")
-        sisa = SISA.search(isi)
+        sisa = SISA.search(re.sub(r"\*\*.+?\*\*|\(\(.+?\)\)", "", isi) if x[0] == "fn" else isi)
         if sisa:
             raise Galat(f"baris {baris}: tanda «{sisa.group()}» salah tulis atau bersarang (catatan kaki di dalam ** atau di dalam catatan kaki, "
                         f"kunci hadits bukan huruf kecil a-z, kurung tanpa pasangan): «{isi[:60]}».")
@@ -156,11 +161,23 @@ class Docx:
         return hindi(s) if self.hindi else s.translate(ANGKA_LATIN)
 
     def r(self, teks, size, bold=False, merah=False, sup=False, font=None):
+        teks = self.angka(teks)
+        if LATIN.search(teks):
+            xml, i = "", 0
+            for m in LATIN.finditer(teks):
+                xml += self.r1(teks[i:m.start()], size, bold, merah, sup, font) + self.r1(m.group(), size, bold, merah, sup, font, latin=True)
+                i = m.end()
+            return xml + self.r1(teks[i:], size, bold, merah, sup, font)
+        return self.r1(teks, size, bold, merah, sup, font)
+
+    def r1(self, teks, size, bold=False, merah=False, sup=False, font=None, latin=False):
+        if not teks:
+            return ""
         f = font or FORMAT["huruf"]
         pr = (f'<w:rFonts w:ascii="{f}" w:hAnsi="{f}" w:cs="{f}"/>' + ("<w:b/><w:bCs/>" if bold else "")
               + (f'<w:color w:val="{MERAH}"/>' if merah else "") + f'<w:sz w:val="{size * 2}"/><w:szCs w:val="{size * 2}"/>'
-              + ('<w:vertAlign w:val="superscript"/>' if sup else "") + '<w:rtl/><w:lang w:bidi="ar-SA"/>')
-        return f'<w:r><w:rPr>{pr}</w:rPr><w:t xml:space="preserve">{escape(self.angka(teks))}</w:t></w:r>'
+              + ('<w:vertAlign w:val="superscript"/>' if sup else "") + ('<w:lang w:val="en-US"/>' if latin else '<w:rtl/><w:lang w:bidi="ar-SA"/>'))
+        return f'<w:r><w:rPr>{pr}</w:rPr><w:t xml:space="preserve">{escape(teks)}</w:t></w:r>'
 
     def p(self, isi, jc="both", before=0, indent=0, pb=False, keep=False, kotak=False, after=0):
         pr = ("<w:keepNext/>" if keep else "") + ("<w:pageBreakBefore/>" if pb else "")
@@ -183,7 +200,14 @@ class Docx:
     def catatan(self, isi, baris):
         no = len(self.fn) + 1
         sz = FORMAT["catatan"]
-        xml = self.r(isi, sz)
+        xml = ""
+        for t in re.split(r"(\*\*.+?\*\*|\(\(.+?\)\))", isi):
+            if t.startswith("**"):
+                xml += self.r(t[2:-2], sz, bold=True)
+            elif t.startswith("(("):
+                xml += self.r("(" + t[2:-2] + ")", sz, bold=True, merah=True)
+            elif t:
+                xml += self.r(t, sz)
         rp = f'<w:rPr><w:rStyle w:val="FootnoteReference"/><w:rFonts w:cs="{FORMAT["huruf"]}"/><w:sz w:val="{sz * 2}"/><w:szCs w:val="{sz * 2}"/><w:vertAlign w:val="baseline"/><w:rtl/></w:rPr>'
         tanda = f'{self.r("(", sz)}<w:r>{rp}<w:footnoteRef/></w:r>{self.r(") ", sz)}'
         self.fn.append(f'<w:footnote w:id="{no}"><w:p><w:pPr><w:pStyle w:val="FootnoteText"/><w:bidi/><w:jc w:val="both"/></w:pPr>{tanda}{xml}</w:p></w:footnote>')
@@ -201,10 +225,11 @@ class Docx:
                 m = re.match(r"سورة\s+(.+?)\s*،\s*(?:الآية|آية)\s*:?\s*([0-9٠-٩\-–]+)", nxt[1]) if nxt and nxt[0] == "fn" else None
                 if not m:
                     raise Galat(f"baris {baris}: ayat ﴿…﴾ harus langsung diikuti catatan kaki «سورة …، آية: n.».")
-                if m.group(1).strip() not in SURAH:
+                surah = SURAH_POLOS.get(polos_surah(m.group(1)))
+                if not surah:
                     raise Galat(f"baris {baris}: «سورة {m.group(1).strip()}» tidak ada di daftar nama surah (nama_surah.json); salin namanya dari sana.")
                 nama = f"a_{len(self.ayat) + 1}"
-                self.ayat.append((m.group(1).strip(), m.group(2).translate(ANGKA_LATIN), x[1], nama))
+                self.ayat.append((surah, m.group(2).translate(ANGKA_LATIN), x[1], nama))
                 xml += self.bookmark(nama) + self.r("﴿" + x[1] + "﴾", FORMAT["ayat"], merah=merah)
             elif x[0] == "fn":
                 xml += self.catatan(x[1], baris)

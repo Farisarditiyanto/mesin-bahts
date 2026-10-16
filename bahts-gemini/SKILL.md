@@ -76,7 +76,8 @@ Naskah = teks biasa. Tanda di bawah ini sebagian dari tanda mesin bahts. Bedanya
 ```
 
 - **Setiap** `﴿…﴾`, juga potongan ayat di tengah kalimat atau di الخاتمة, harus langsung diikuti catatan kaki «سورة …، آية: n.». Tanpa itu rakit berhenti dengan `GAGAL`.
-- Hadits yang disebut lagi: `{H2:kunci}` di tempat itu, catatan kakinya `[^سبق تخريجه.]`.
+- Hadits yang disebut lagi: `{H2:kunci}` di tempat itu, catatan kakinya `[^سبق تخريجه.]`. Pakai `{H2:}` hanya kalau tempatnya di مبحث lain; di مبحث yang sama (kemungkinan halaman yang sama) cukup tanpa `{H2:}`, supaya فهرس tidak mencetak halaman dobel. Ayat yang sama juga cukup ditulis sekali per مبحث.
+- Di dalam catatan kaki boleh `**…**` dan `((…))`; catatan kaki di dalam catatan kaki tidak boleh.
 - Nama surah di catatan kaki ayat harus persis seperti di `nama_surah.json` (mis. «الفاتحة», bukan «الفاتحه»).
 
 Contoh lengkap: `contoh.txt` di skill ini.
@@ -100,7 +101,7 @@ Cara membuka yang dikatakan ke pemakai:
 1. Buka `bahts.docx` dengan Microsoft Word di Windows (huruf Traditional Arabic ada di sana).
 2. Supaya angka tercetak ٠١٢٣: Word → File → Options → Advanced → Show document content → Numeral: **Context**. Angka di dekat huruf Latin (tautan, ISBN) tetap 0123. Nomor catatan kaki tetap 1، 2، 3.
 3. Simpan sebagai PDF: File → Save As → PDF. Nomor halaman فهارس terisi waktu PDF disimpan; di layar Word bisa masih «؟».
-4. Hadits atau ayat yang muncul dua kali di halaman yang sama tercetak «٢، ٢» di فهرس: hapus yang dobel di Word sebelum menyimpan PDF.
+4. Batas: hadits atau ayat yang muncul dua kali di halaman yang sama tercetak «٢، ٢» di فهرس. Nomornya baru terlihat di PDF, jadi tidak bisa dirapikan di Word.
 5. Google Docs (unggah ke Google Drive → Open with Google Docs): belum dicoba. Huruf Traditional Arabic tidak ada di sana, dan nomor halaman فهارس kemungkinan tetap «؟».
 
 ## 8. Laporan akhir
