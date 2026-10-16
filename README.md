@@ -72,12 +72,12 @@ Connector `shamela` belum bisa masuk di Command Code: shamela.link menolak cara 
 
 ### Gemini
 
-Versi tanpa memasang apa pun, gratis di gemini.google.com atau aplikasi Gemini (umur 18+, Keep Activity menyala). Hasilnya Word (.docx), dirakit skrip Python di dalam skill. Skill ini belum dicoba di aplikasi Gemini sendiri; isinya dicoba di komputer dengan connector yang sama.
+Versi tanpa memasang apa pun, gratis di gemini.google.com atau aplikasi Gemini (umur 18+, Keep Activity menyala). Hasilnya Word (.docx), dirakit skrip Python di dalam skill. Skripnya hanya jalan di mode Task (ikon spark); di obrolan biasa Gemini menolak skill yang berisi skrip. Dicoba di aplikasi Gemini Windows, mode Task: `contoh.txt` jadi .docx yang sama persis dengan hasil di komputer. Alur bahts penuh dengan connector baru dicoba di komputer, belum di Gemini.
 
 1. Unduh https://github.com/Farisarditiyanto/mesin-bahts/archive/refs/heads/main.zip, lalu ekstrak.
 2. Di Gemini buka Skills → Upload, lalu pilih folder `bahts-gemini` di dalam folder hasil ekstrak.
 3. Tambah connector di bagian Custom apps (isi «MCP Server URL»): `https://shamela.link/mcp` (akun shamela.link), `https://mcp.turath.io/mcp/`, `https://mcp.tafsir.net/mcp`, `https://mcp.quran.ai`.
-4. Tempel kalimat di «Mulai», lalu jawab pertanyaannya.
+4. Pilih mode Task (ikon spark), tempel kalimat di «Mulai», lalu jawab pertanyaannya.
 5. Buka `bahts.docx` di Microsoft Word, lalu simpan sebagai PDF (nomor halaman فهارس terisi waktu itu). Supaya angka ٠١٢٣: File → Options → Advanced → Numeral: Context (`@angka: latin`: Numeral: Arabic).
 
 Bedanya dengan mesin: kutipan diperiksa lewat connector, bukan lewat `cek`; nomor catatan kaki tetap 1، 2، 3; ayat memakai huruf Traditional Arabic, bukan huruf mushaf; halaman yang sama di فهرس bisa tercetak dua kali; Word di komputer lain bisa sedikit menggeser halaman. `hadithunlocked` belum bisa dipasang di Gemini. Naskahnya (`naskah.txt`) memakai tanda yang sama, jadi bisa di-`cek` mesin nanti.

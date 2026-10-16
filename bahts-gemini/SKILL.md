@@ -11,6 +11,7 @@ Janji skill ini: **tidak ada kutipan, nomor halaman, penisbatan, atau derajat ha
 
 ## 1. Sebelum mulai
 
+0. Python tidak bisa dijalankan di percakapan ini (obrolan biasa) → minta pemakai membuka percakapan baru di mode Task (ikon spark), lalu mengirim permintaannya lagi di sana. Di mode itu `rakit_docx.py` jalan.
 1. Lihat alat yang tersedia. Yang dipakai skill ini:
    - `shamela` (alat `shamela_*`, butuh akun shamela.link): mencari dan **memeriksa kutipan** (`shamela_verify_quote`). Paling penting.
    - `turath` (alat `search_turath`, `get_page`, `get_book`, tanpa akun): isi semua kitab Shamela dan kartu kitab (penerbit, cetakan).
@@ -94,7 +95,7 @@ Contoh lengkap: `contoh.txt` di skill ini.
 1. Simpan naskah sebagai `naskah.txt` (UTF-8).
 2. Jalankan `rakit_docx.py` dari skill ini: `python rakit_docx.py naskah.txt bahts.docx`. `logo.png` dan `nama_surah.json` harus ada di folder yang sama dengan `rakit_docx.py`. Tanpa internet, tanpa pustaka tambahan.
 3. `GAGAL: …` → perbaiki naskah sesuai pesannya, jalankan lagi. `JADI: …` → berikan `bahts.docx` untuk diunduh, beserta `naskah.txt`.
-4. Python tidak bisa dijalankan → buat dokumen di Canvas dengan urutan sampul, isi, المصادر والمراجع, فهرس الآيات, فهرس الأحاديث, فهرس الموضوعات (nomor halaman فهارس dikosongkan), lalu tawarkan «Export to Docs». Berikan juga `naskah.txt`. Katakan terus terang: bentuk halaman, catatan kaki, dan nomor فهارس tidak dikunci di jalan ini; pemakai merapikannya sendiri.
+4. Python tetap tidak bisa dijalankan di mode Task → buat dokumen di Canvas dengan urutan sampul, isi, المصادر والمراجع, فهرس الآيات, فهرس الأحاديث, فهرس الموضوعات (nomor halaman فهارس dikosongkan), lalu tawarkan «Export to Docs». Berikan juga `naskah.txt`. Katakan terus terang: bentuk halaman, catatan kaki, dan nomor فهارس tidak dikunci di jalan ini; pemakai merapikannya sendiri.
 
 Cara membuka yang dikatakan ke pemakai:
 
