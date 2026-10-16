@@ -216,8 +216,8 @@ try {
     function Runs($runs, $size, $paksaTebal, $paksaMerah) {
         foreach ($r in $runs) {
             if ($null -ne $r.fn) { Catatan $r.fn }
-            elseif ($r.z) {                               # rumuz sumber [ض], menempel sebelum nomor catatan kaki
-                $awal = $sel.Start; Tulis ('[' + $r.z + ']') $TA ($size - 4) 1 0 $COKLAT
+            elseif ($r.z) {                               # rumuz sumber: huruf kecil cokelat terangkat tanpa kurung, menempel sebelum nomor catatan kaki
+                $awal = $sel.Start; Tulis (' ' + $r.z) $TA $size 1 1 $COKLAT
                 $doc.Range($awal, $sel.Start).Select(); $word.Selection.RtlRun(); $sel.Collapse(0)
             }
             elseif ($r.bm) { [void]$doc.Bookmarks.Add($r.bm, $sel.Range) }
