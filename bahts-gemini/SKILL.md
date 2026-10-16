@@ -97,7 +97,7 @@ Contoh lengkap: `contoh.txt` di skill ini.
 1. Simpan naskah sebagai `naskah.txt` (UTF-8).
 2. Jalankan `rakit_docx.py` dari skill ini: `python rakit_docx.py naskah.txt bahts.docx`. `logo.png` dan `nama_surah.json` harus ada di folder yang sama dengan `rakit_docx.py`. Tanpa internet, tanpa pustaka tambahan.
 3. `GAGAL: …` → perbaiki naskah sesuai pesannya, jalankan lagi.
-4. `JADI: …` → baca baris «perkiraan halaman isi ±n». Kalau n berbeda lebih dari 1 dengan jumlah halaman isi yang diminta, pendekkan atau panjangkan naskah, lalu rakit lagi. Jangan menghitung halaman dengan LibreOffice: di uji, Gemini menghitung lewat LibreOffice dan menyatakan isinya sudah ±6 halaman, padahal di Word 17.
+4. `JADI: …` → baca baris «perkiraan halaman isi … kira-kira n». Kalau n berbeda lebih dari 1 dengan jumlah halaman isi yang diminta, pendekkan atau panjangkan naskah, lalu rakit lagi. Jangan menghitung halaman dengan LibreOffice: di uji, Gemini menghitung lewat LibreOffice dan menyatakan isinya sudah ±6 halaman, padahal di Word 17.
 5. Berikan `bahts.docx` dan `naskah.txt` sebagai berkas unduhan, bukan lewat Canvas. `naskah.txt` = berkas yang persis sama dengan masukan `rakit_docx.py` terakhir. Jangan menulis ulang naskah dari ingatan. Pemakai minta isi naskah ditempel di chat → baca berkasnya, lalu tempel isinya apa adanya.
 6. Python tetap tidak bisa dijalankan di mode Task → buat dokumen di Canvas dengan urutan sampul, isi, المصادر والمراجع, فهرس الآيات, فهرس الأحاديث, فهرس الموضوعات (nomor halaman فهارس dikosongkan), lalu tawarkan «Export to Docs». Berikan juga `naskah.txt`. Katakan terus terang: bentuk halaman, catatan kaki, dan nomor فهارس tidak dikunci di jalan ini; pemakai merapikannya sendiri.
 

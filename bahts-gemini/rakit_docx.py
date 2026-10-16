@@ -431,7 +431,7 @@ def utama(argv):
     except Galat as e:
         print(f"GAGAL: {e}"); return 1
     print(f"JADI: {keluar} (catatan kaki {len(d.fn)}, ayat {len(d.ayat)}, hadits {len(d.hadits)}, judul {len(d.toc)})")
-    print(f"perkiraan halaman isi (المقدمة s.d. الخاتمة): ±{int(perkiraan_halaman(blok))} (kasar, dari jumlah kata; angka pasti dari Word)")
+    print(f"perkiraan halaman isi (muqaddimah s.d. khatimah): kira-kira {int(perkiraan_halaman(blok))} (kasar, dari jumlah kata; angka pasti dari Word)")  # huruf Latin saja: konsol Windows cp1252
     return 0
 
 
