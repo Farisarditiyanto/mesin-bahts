@@ -17,7 +17,7 @@ Agent AI pandai menulis, tetapi bisa mengarang kutipan. Di mesin ini:
 
 ## Mulai
 
-1. Buka agent AI yang membaca `AGENTS.md`. Tidak harus berbayar: [OpenCode](https://opencode.ai) dan [Hermes Agent](https://hermes-agent.nousresearch.com) bisa dipakai gratis, [Command Code](https://commandcode.ai) mulai $1/bulan (lihat «[Agent AI](#agent-ai)»).
+1. Buka agent AI yang membaca `AGENTS.md`. Tidak harus berbayar: [OpenCode](https://opencode.ai) dan [Hermes Agent](https://hermes-agent.nousresearch.com) bisa dipakai gratis, [Command Code](https://commandcode.ai) mulai $1/bulan (lihat «[Agent AI](#agent-ai)»). Tidak mau memasang apa pun: «[Gemini](#gemini)».
 2. Tempel kalimat ini, ganti judulnya:
 
    > Pakai https://github.com/Farisarditiyanto/mesin-bahts untuk membuatkan saya bahts tentang الإخلاص وأثره في قبول العمل. Susunannya: مقدمة, satu فصل berisi dua مبحث, خاتمة. Kira-kira 6 halaman.
@@ -69,6 +69,18 @@ Sebagian model gratis memakai isi obrolan untuk melatih modelnya. Baca keteranga
 Connector = sambungan MCP: dua nama untuk barang yang sama. Aplikasi Claude: tab Code adalah Claude Code, jadi `.mcp.json` terbaca di sana, begitu juga connector yang kamu tambahkan di menu Connectors aplikasi Claude. Aplikasi Codex memakai pengaturan connector yang sama dengan Codex di terminal. OpenCode dan Command Code juga punya aplikasi desktop; belum dicoba. Mode obrolan biasa (Claude chat, ChatGPT) tidak bisa menjalankan mesin: pilih mode yang membuka folder dan menjalankan perintah.
 
 Connector `shamela` belum bisa masuk di Command Code: shamela.link menolak cara daftarnya, dan repo ini belum menyiapkan jalan lain. Connector lain tetap jalan.
+
+### Gemini
+
+Versi tanpa memasang apa pun, gratis di gemini.google.com atau aplikasi Gemini (umur 18+, Keep Activity menyala). Hasilnya Word (.docx).
+
+1. Unduh https://github.com/Farisarditiyanto/mesin-bahts/archive/refs/heads/main.zip, lalu ekstrak.
+2. Di Gemini buka Skills → Upload, lalu pilih folder `skill-gemini` di dalam folder hasil ekstrak.
+3. Tambah connector di bagian Custom apps (isi «MCP Server URL»): `https://shamela.link/mcp` (akun shamela.link), `https://mcp.turath.io/mcp/`, `https://mcp.tafsir.net/mcp`, `https://mcp.quran.ai`.
+4. Tempel kalimat di «Mulai», lalu jawab pertanyaannya.
+5. Buka `bahts.docx` di Microsoft Word, pilih Yes saat diminta memperbarui field, lalu simpan sebagai PDF. Supaya angka ٠١٢٣: File → Options → Advanced → Numeral: Hindi.
+
+Bedanya dengan mesin: kutipan diperiksa lewat connector, bukan lewat `cek`; nomor catatan kaki tetap 1، 2، 3; bentuk halaman tidak dikunci. `hadithunlocked` belum bisa dipasang di Gemini. Naskahnya (`naskah.txt`) memakai tanda yang sama, jadi bisa di-`cek` mesin nanti.
 
 ## Pilihan
 
