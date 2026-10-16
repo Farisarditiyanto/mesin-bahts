@@ -21,6 +21,9 @@ jobs:
       - run: python .github/uji_jebakan.py
       # tanpa @angka, angka di teks Arab bahan rakit ٠-٩ (dulu PDF mencetak «آية: ٢» di samping «ص5»)
       - run: python .github/uji_angka.py
+      # opencode.json = salinan terpaksa .mcp.json (OpenCode tidak membaca .mcp.json): daftar connector harus sama
+      - name: connector opencode.json sama dengan .mcp.json
+        run: python -c "import json; a={k:v['url'] for k,v in json.load(open('.mcp.json'))['mcpServers'].items()}; b={k:v['url'] for k,v in json.load(open('opencode.json'))['mcp'].items()}; assert a==b, (a,b)"
       # rakit.ps1 tidak bisa dijalankan tanpa Word; minimal harus terurai oleh Windows PowerShell 5.1 milik pemakai
       - name: urai rakit.ps1
         if: runner.os == 'Windows'

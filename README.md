@@ -17,7 +17,7 @@ Agent AI pandai menulis, tetapi bisa mengarang kutipan. Di mesin ini:
 
 ## Mulai
 
-1. Buka agent yang membaca `AGENTS.md`: [Claude Code](https://claude.com/claude-code), Codex, Hermes, dll.
+1. Buka agent AI yang membaca `AGENTS.md`. Tidak harus berbayar: [OpenCode](https://opencode.ai), [Command Code](https://commandcode.ai), dan [Hermes Agent](https://hermes-agent.nousresearch.com) bisa dipakai gratis (lihat «[Agent AI](#agent-ai)»).
 2. Tempel kalimat ini, ganti judulnya:
 
    > Pakai https://github.com/Farisarditiyanto/mesin-bahts untuk membuatkan saya bahts tentang الإخلاص وأثره في قبول العمل. Susunannya: مقدمة, satu فصل berisi dua مبحث, خاتمة. Kira-kira 6 halaman.
@@ -38,6 +38,7 @@ Catatan untuk agent AI: lanjutkan dari [`AGENTS.md`](AGENTS.md), bagian «Pemaka
 
 - `cek` hanya membuktikan bahwa teksnya ada di halaman itu. Ia tidak menilai siapa yang berkata, derajat hadits, kutipan tanpa catatan kaki, atau sumber di luar Shamela. Itu diperiksa agent kedua (tanpa subagent: buka sesi agent baru), lalu kamu. **Periksa sendiri kutipan utamamu.**
 - Teks kitab adalah ketikan Shamela, jadi bisa salah ketik.
+- Model AI gratis lebih sering salah langkah. `cek` tetap menolak kutipan tanpa bukti, tetapi pemeriksaan agent kedua dan pemeriksaanmu makin penting.
 - Nama di sampul namamu: isinya tanggung jawabmu. Tanyakan ke dosen apakah bantuan AI dibolehkan.
 - Proyek ini tidak mewakili kampus mana pun.
 
@@ -45,15 +46,33 @@ Catatan untuk agent AI: lanjutkan dari [`AGENTS.md`](AGENTS.md), bagian «Pemaka
 
 | Untuk | Butuh |
 |---|---|
+| Menulis bahts | Satu agent AI yang membaca `AGENTS.md` (ada yang gratis, lihat di bawah) |
 | Semua perintah | Python 3.12 ke atas, internet saat mengunduh kitab |
 | Word dan PDF (`rakit`) | Windows dan Microsoft Word desktop |
 
 Mac/Linux bisa menulis dan `cek`, tanpa Word dan PDF. `python mesin/bahts.py periksa` menyebut apa yang kurang dan cara membereskannya.
 
+### Agent AI
+
+Semua agent di bawah membaca `AGENTS.md`, jadi caranya sama: tempel kalimat di «Mulai», lalu jawab pertanyaannya.
+
+| Agent | Biaya | Connector |
+|---|---|---|
+| [OpenCode](https://opencode.ai) | Gratis. Punya model gratis; daftarnya berganti-ganti (`/models`) | Terbaca sendiri dari `opencode.json` |
+| [Command Code](https://commandcode.ai) | Paket gratis. Punya model gratis; daftarnya berganti-ganti | Terbaca sendiri dari `.mcp.json` |
+| [Hermes Agent](https://hermes-agent.nousresearch.com) | Gratis, sumber terbuka. Modelnya kamu sambungkan sendiri | Agent mendaftarkannya sesudah minta izinmu |
+| [Claude Code](https://claude.com/claude-code) | Berbayar | Terbaca sendiri dari `.mcp.json` |
+| Codex | Akun ChatGPT | Agent mendaftarkannya sesudah minta izinmu |
+
+Sebagian model gratis memakai isi obrolan untuk melatih modelnya. Baca keterangan modelnya sebelum memilih.
+
+Connector = sambungan MCP: dua nama untuk barang yang sama. Aplikasi desktop agent ini (Claude: tab Code; Codex; OpenCode; Command Code) memakai connector yang sama dengan versi terminalnya. Mode obrolan biasa (Claude chat, ChatGPT) tidak bisa menjalankan mesin: pilih mode yang membuka folder dan menjalankan perintah.
+
+Connector `shamela` belum bisa dipakai di Command Code: shamela.link menolak cara masuknya. Connector lain tetap jalan.
+
 ## Pilihan
 
-- **Connector `shamela`** (sangat disarankan): agent bisa mencari kitab yang belum diunduh. Sudah terdaftar di `.mcp.json`; masuk dengan akun shamela.link sendiri. Connector lain tanpa akun: `turath`, `hadithunlocked`, `tafsir`, `quran`. Semuanya layanan orang lain; tanpa itu mesin tetap jalan.
-- **Agent selain Claude Code**: daftarkan connector sendiri (mis. `codex mcp add shamela --url https://shamela.link/mcp`, lalu `codex mcp login shamela`).
+- **Connector `shamela`** (sangat disarankan): agent bisa mencari kitab yang belum diunduh. Sudah terdaftar di repo (lihat «[Agent AI](#agent-ai)»); masuk dengan akun shamela.link sendiri. Connector lain tanpa akun: `turath`, `hadithunlocked`, `tafsir`, `quran`. Semuanya layanan orang lain; tanpa itu mesin tetap jalan.
 - **Kunci OpenAlex** untuk `dirasat` (penelitian terdahulu): tanpa kunci jatahnya kecil dan `dirasat-pdf` tertutup. Daftar di https://openalex.org, salin dari Settings > API key, simpan di `kunci_openalex.txt` (atau variabel `OPENALEX_API_KEY`).
 
 ## Tanpa agent
