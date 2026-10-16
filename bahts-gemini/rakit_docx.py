@@ -53,7 +53,12 @@ class Galat(Exception):
 
 # ---------- membaca naskah ----------
 
+KUNCI = {"judul", "jenis", "nama", "nim", "fasl", "musyrif", "jabatan", "thalibah", "angka", "tanpa", "berkas"}
+SISA = re.compile(r"\[\^|\*\*|\{H2?:|\{P:|<<|>>|\(\(|\)\)")  # tanda yang tertinggal = salah tulis
+
+
 def baca(teks):
+    teks = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ufeff]", "", teks)  # karakter kontrol membuat .docx tidak terbuka
     if "{Q:" in teks:
         raise Galat("{Q:..} tidak dikenali di sini: tulis ayat sebagai ﴿نص الآية﴾ dari connector quran, lalu catatan kaki «سورة …، آية: n.».")
     meta, blok, pustaka, di_r = {}, [], [], False
@@ -63,9 +68,15 @@ def baca(teks):
             continue
         m = re.match(r"@(\w+):\s*(.*)$", b)
         if m and not blok:
+            if m.group(1) not in KUNCI:
+                raise Galat(f"baris {n}: @{m.group(1)} tidak dikenali di versi Gemini (yang ada: {', '.join(sorted(KUNCI))}).")
             meta[m.group(1)] = m.group(2).strip()
             continue
+        if re.fullmatch(r"#[KFBMSTR]", b):
+            raise Galat(f"baris {n}: {b} tanpa judul.")
         m = re.match(r"#([KFBMSTR])\s+(.*)$", b)
+        if m and m.group(1) != "T" and SISA.search(m.group(2)):
+            raise Galat(f"baris {n}: judul tidak boleh memuat catatan kaki [^, bukti <<, tanda {{H: atau **: pindahkan ke paragraf sesudahnya.")
         if m and m.group(1) == "R":
             blok.append(("R", m.group(2).strip(), n)); di_r = True
         elif m and m.group(1) == "T":
@@ -81,6 +92,8 @@ def baca(teks):
             raise Galat(f"@{k} belum diisi di awal naskah.")
     if not any(k == "R" for k, _, _ in blok) and "pustaka" not in tanpa(meta):
         raise Galat("#R المصادر والمراجع belum ada (atau tulis «@tanpa: pustaka»).")
+    if any(k == "R" for k, _, _ in blok) and not pustaka:
+        raise Galat("المصادر والمراجع masih kosong: tulis satu kitab per baris sesudah #R.")
     return meta, blok, pustaka
 
 
@@ -116,6 +129,14 @@ def runs(s, baris):
         i = m.end()
     if i < len(s):
         out.append(("t", s[i:], False, False))
+    for x in out:
+        isi = x[1] if x[0] in ("t", "fn") else ""
+        if "{P:" in isi:
+            raise Galat(f"baris {baris}: {{P:..}} tidak bisa di versi Gemini (Word tidak mengisi nomor halaman di catatan kaki): tulis «سبق تخريجه.» saja.")
+        sisa = SISA.search(isi)
+        if sisa:
+            raise Galat(f"baris {baris}: tanda «{sisa.group()}» salah tulis atau bersarang (catatan kaki di dalam ** atau di dalam catatan kaki, "
+                        f"kunci hadits bukan huruf kecil a-z, kurung tanpa pasangan): «{isi[:60]}».")
     return out
 
 
@@ -162,15 +183,7 @@ class Docx:
     def catatan(self, isi, baris):
         no = len(self.fn) + 1
         sz = FORMAT["catatan"]
-        xml = ""
-        for t in re.split(r"(\{P:[a-z]+\})", isi):
-            m = re.fullmatch(r"\{P:([a-z]+)\}", t)
-            if m:
-                if m.group(1) not in self.hadits:
-                    raise Galat(f"baris {baris}: {{P:{m.group(1)}}} belum didaftarkan dengan {{H:…|{m.group(1)}}} sebelumnya.")
-                xml += self.pageref(f"h_{m.group(1)}_1", sz)
-            elif t:
-                xml += self.r(t, sz)
+        xml = self.r(isi, sz)
         rp = f'<w:rPr><w:rStyle w:val="FootnoteReference"/><w:rFonts w:cs="{FORMAT["huruf"]}"/><w:sz w:val="{sz * 2}"/><w:szCs w:val="{sz * 2}"/><w:vertAlign w:val="baseline"/><w:rtl/></w:rPr>'
         tanda = f'{self.r("(", sz)}<w:r>{rp}<w:footnoteRef/></w:r>{self.r(") ", sz)}'
         self.fn.append(f'<w:footnote w:id="{no}"><w:p><w:pPr><w:pStyle w:val="FootnoteText"/><w:bidi/><w:jc w:val="both"/></w:pPr>{tanda}{xml}</w:p></w:footnote>')
@@ -188,6 +201,8 @@ class Docx:
                 m = re.match(r"سورة\s+(.+?)\s*،\s*(?:الآية|آية)\s*:?\s*([0-9٠-٩\-–]+)", nxt[1]) if nxt and nxt[0] == "fn" else None
                 if not m:
                     raise Galat(f"baris {baris}: ayat ﴿…﴾ harus langsung diikuti catatan kaki «سورة …، آية: n.».")
+                if m.group(1).strip() not in SURAH:
+                    raise Galat(f"baris {baris}: «سورة {m.group(1).strip()}» tidak ada di daftar nama surah (nama_surah.json); salin namanya dari sana.")
                 nama = f"a_{len(self.ayat) + 1}"
                 self.ayat.append((m.group(1).strip(), m.group(2).translate(ANGKA_LATIN), x[1], nama))
                 xml += self.bookmark(nama) + self.r("﴿" + x[1] + "﴾", FORMAT["ayat"], merah=merah)
@@ -334,8 +349,9 @@ def tulis(meta, blok, pustaka, keluar):
             f'<w:style w:type="paragraph" w:styleId="FootnoteText"><w:name w:val="footnote text"/><w:basedOn w:val="Normal"/><w:pPr><w:bidi/><w:jc w:val="both"/></w:pPr><w:rPr><w:sz w:val="{c * 2}"/><w:szCs w:val="{c * 2}"/></w:rPr></w:style>'
             '<w:style w:type="character" w:styleId="FootnoteReference"><w:name w:val="footnote reference"/><w:rPr><w:vertAlign w:val="superscript"/></w:rPr></w:style>'
             '</w:styles>')
-    setelan = (f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:settings {NS}><w:updateFields w:val="true"/>'
-               '<w:footnotePr><w:numRestart w:val="eachPage"/><w:footnote w:id="-1"/><w:footnote w:id="0"/></w:footnotePr></w:settings>')
+    setelan = (f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:settings {NS}>'
+               '<w:footnotePr><w:numRestart w:val="eachPage"/><w:footnote w:id="-1"/><w:footnote w:id="0"/></w:footnotePr>'
+               '<w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/></w:compat></w:settings>')
     rel = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
            '<Relationship Id="rStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
            '<Relationship Id="rSet" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>'
