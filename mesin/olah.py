@@ -10,12 +10,18 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       tanpa (yang tidak dicetak: فهرس ayat, hadits, maudhuat, dan pustaka = المصادر والمراجع
                       bila dosen minta sumber cukup di catatan kaki; mis. «@tanpa: ayat, hadits»).
                       فهرس الآيات dan فهرس الأحاديث yang kosong tidak dicetak dengan sendirinya
+  @bentuk: kitab      bukan bahts (mis. muqarrar gabungan dua syarah): tanpa sampul bahts, wajib hanya @judul (tercetak di
+                      kepala tiap halaman), #R tidak wajib, hanya #K mulai halaman baru. Bawaan: bahts
+  @rumuz: sid=ض، sid=ف  rumuz sumber: catatan kaki yang buktinya dari kitab sid itu dicetak dengan rumuznya ض (huruf kecil terangkat) tepat sebelum
+                      nomor catatan kakinya. Rumuz diambil dari bukti, jadi tidak bisa berbeda dengan sumbernya
   #K #F #B #M teks    judul tengah + masuk فهرس الموضوعات: K = مقدمة/خاتمة, F = فصل (keduanya mulai halaman baru), B = مبحث, M = مطلب.
                       Bahts pendek tanpa فصل: #F untuk مبحث, #B untuk مطلب
   #S teks             sub-judul kanan (tidak masuk فهرس)
+  #T teks             kotak matn: paragraf dalam bingkai, seluruhnya merah (boleh memuat catatan kaki)
   #R teks             awal المصادر والمراجع; sesudahnya satu kitab per baris (diurutkan abjad otomatis, القرآن الكريم paling atas).
                       Wajib, kecuali «@tanpa: pustaka»
   **...**             tebal
+  ((...))             lafaz matn yang disyarah: dicetak merah di dalam kurung, «((ليس بحجة))» -> (ليس بحجة)
   {Q:s:a} {Q:s:a-b} {Q:s:a:i-j}   ayat surat s ayat a (atau a-b; atau kata ke-i s.d. j): teks resmi rasm Utsmani + masuk فهرس الآيات
   {H:طرف|راوٍ|kunci}   daftarkan hadits/atsar ke فهرس الأحاديث; taruh tepat sebelum «matan». Kunci: huruf kecil a-z, satu kunci satu hadits
   {H2:kunci}          halaman tambahan untuk hadits yang sama
@@ -27,6 +33,9 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   <<sid|juz|hal|potongan>>   bukti dengan potongan teks sendiri (untuk nukilan makna «انظر», tanpa tanda petik); #123 = nomor hadits.
                       Kutipan bertanda petik sebelum catatan kaki tetap dicek ke halaman bukti itu
                       juz "-" = kitab satu jilid; hal boleh rentang 12-14
+  [^<<sid|juz|hal>>]  catatan kaki berisi bukti saja, semua sid-nya ada di @rumuz: tidak dicetak; yang tercetak hanya
+                      rumuznya ض (sid=- di @rumuz: tanpa rumuz, mis. kitab matn). Seluruh teks sejak catatan kaki
+                      sebelumnya dicek sebagai nukilan utuh dari halaman itu (tanda ((…)) dan ** tidak ikut dicek)
   <<luar>>            kutipan dari sumber yang tidak ada di Shamela (jurnal, PDF penelitian): lolos, tetapi masuk
                       perhatian; lafaz dan halamannya dicocokkan sendiri ke sumbernya. Judul kitab Shamela = GAGAL
   Tanda petik yang dikenali: "…" «…» “…” ‘…’ '…'. Perhatian: kutipan yang dipotong ... di tengahnya atau disambung ...
@@ -43,11 +52,19 @@ HERE = Path(__file__).parent
 QURAN = json.load(open(HERE / "quran_hafs_v22.json", encoding="utf8"))
 SURAH = json.load(open(HERE / "nama_surah.json", encoding="utf8"))
 FORMAT = json.load(open(HERE / "format.json", encoding="utf8"))  # huruf & ukuran tiap pedoman; dipilih dengan @format
-WAJIB = ("judul", "jenis", "nama", "nim", "fasl")
+WAJIB = {"bahts": ("judul", "jenis", "nama", "nim", "fasl"), "kitab": ("judul",)}  # @bentuk: yang pertama = bawaan
 TANPA = ("ayat", "hadits", "maudhuat", "pustaka")  # فهرس dan المصادر yang boleh dibuang lewat @tanpa; perakitnya di rakit.ps1
 # @angka: yang pertama = bawaan. Pedoman Jāmiʿat al-Imām tidak menyebut jenis angka; contoh resminya (pedoman 1443هـ,
 # مجلة العلوم الشرعية) memakai hindi di nomor halaman, catatan kaki, rujukan, tahun, ayat, dan فهرس
 ANGKA = ("hindi", "latin")
+# lambang hormat Unicode 14 (﵀-﵏ ﷾ ﷿) tidak ada di huruf cetak (Traditional Arabic, Sakkal Majalla): kotak kosong di PDF.
+# Dicetak dengan kalimatnya; `cek` sudah membuang keduanya (shamela.LIGATUR_HORMAT, HORMAT)
+HORMAT_CETAK = str.maketrans({
+    "﵀": "رحمه الله", "﵁": "رضي الله عنه", "﵂": "رضي الله عنها", "﵃": "رضي الله عنهم",
+    "﵄": "رضي الله عنهما", "﵅": "رضي الله عنهن", "﵆": "صلى الله عليه وآله", "﵇": "عليه السلام",
+    "﵈": "عليهم السلام", "﵉": "عليهما السلام", "﵊": "عليه الصلاة والسلام", "﵋": "قدس سره",
+    "﵌": "صلى الله عليه وآله وسلم", "﵍": "عليها السلام", "﵎": "تبارك وتعالى", "﵏": "رحمهم الله",
+    "﷾": "سبحانه وتعالى", "﷿": "عز وجل"})
 
 HARAKAT = shamela.HARAKAT
 KUAT = re.compile(r"[^\W\d_]|[،؛؟]")  # huruf, atau tanda baca Arab (tanda teks Arab)
@@ -477,28 +494,33 @@ def judul_shamela(isi):
     return mirip_awal
 
 
-TOKEN = re.compile(r"(\*\*|\{(?:Q|H2|H|P):[^}]*\}|\[\^|\])")
+TOKEN = re.compile(r"(\*\*|\(\(|\)\)|\{(?:Q|H2|H|P):[^}]*\}|\[\^|\])")
 
 
 KUNCI = re.compile(r"[a-z]+")
 
 
-def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False):
-    """Pecah satu baris jadi 'runs'. Catatan kaki ([^...]) diurai rekursif."""
-    runs, tebal, i = [], False, 0
+def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False, rumuz=None):
+    """Pecah satu baris jadi 'runs'. Catatan kaki ([^...]) diurai rekursif. rumuz = {sid: huruf} dari @rumuz."""
+    runs, tebal, merah, i = [], False, False, 0
     q_akhir = None  # ayat terakhir di baris ini (untuk mencocokkan catatan kaki «سورة …»)
     polos = ""  # teks polos berjalan (untuk mencari kutipan sebelum catatan kaki)
     seg = 0  # awal teks polos sesudah catatan kaki terakhir
     while i < len(teks):
         m = TOKEN.search(teks, i)
         if not m:
-            runs.append({"t": teks[i:], "b": tebal}); polos += teks[i:]; break
+            runs.append({"t": teks[i:], "b": tebal, "m": merah}); polos += teks[i:]; break
         if m.start() > i:
-            runs.append({"t": teks[i:m.start()], "b": tebal}); polos += teks[i:m.start()]
+            runs.append({"t": teks[i:m.start()], "b": tebal, "m": merah}); polos += teks[i:m.start()]
         tok = m.group(1)
         i = m.end()
         if tok == "**":
             tebal = not tebal
+        elif tok in ("((", "))"):
+            if merah == (tok == "(("):
+                raise ValueError(f"tanda {tok} tidak berpasangan: lafaz matn ditulis ((…))")
+            merah = tok == "(("
+            runs.append({"t": tok[0], "b": tebal, "m": True}); polos += tok[0]  # kurung lafaz matn ikut tercetak merah dan dicek
         elif tok.startswith("{Q:"):
             t, s, a = ayat(tok[3:-1])
             q_akhir = (s, a)
@@ -550,6 +572,12 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             isi = re.sub(r"\s*<<[^>]*>>", "", isi).strip()
             if "<<" in isi or ">>" in isi:
                 raise ValueError("bukti <<...>> tidak tertutup rapi (tidak boleh ada > di dalam potongan)")
+            # bukti saja + semua sumbernya di @rumuz: tidak dicetak, dan seluruh teks sejak catatan kaki sebelumnya = nukilan
+            # utuh dari halaman bukti (kitab tanpa catatan kaki: paragraf syarah yang disalin dari kitabnya)
+            sid_bukti = [b.split("|")[0] for b in bukti if b != LUAR]
+            diam = not isi and rumuz is not None and bool(sid_bukti) and all(x in rumuz for x in sid_bukti)
+            zz = [z for z in dict.fromkeys((rumuz or {}).get(x) for x in sid_bukti) if z and z != "-"]
+            penggal = polos[seg:]
             if isi.startswith("سورة") and q_akhir:
                 s, a = q_akhir
                 nama = re.split(r"[،,:(]|\sآي", isi[4:])[0]  # «سورة الفاتحة، آية: 2.» -> «الفاتحة»
@@ -560,7 +588,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             mk = kutipan_akhir(polos)
             lain = kutipan_semua(polos[seg:])[:-1 if mk is not None else None]
             sisa = luar_petik(polos[seg:])  # teks sejak catatan kaki sebelumnya, kutipan-kutipannya dibuang
-            if mk is None and bukti and SISA_PETIK.search(sisa):
+            if mk is None and bukti and not diam and SISA_PETIK.search(sisa):  # nukilan utuh: tanda petiknya tidak menentukan apa pun
                 perhatian.append(f"tanda petik tanpa pasangan sebelum catatan kaki: kutipannya tidak dikenali dan tidak dicek; "
                                  f"pakai \"…\" atau «…»  || fn: {isi[:45]}")
             if lain and DIPOTONG.search(sisa):  # «"…" ... "…"»: dua kutipan disambung elipsis di luar petik
@@ -581,9 +609,10 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                     galat.append(e + f"  || fn: {isi[:45]}"); continue
                 terbukti.append((f[0], f[1], *map(int, (f[2] + "-" + f[2]).split("-")[:2])))
                 if len(f) == 3:
-                    if mk is None:
+                    nukilan = penggal if diam else mk
+                    if nukilan is None:
                         galat.append(f"[tanpa kutipan] {isi[:50]}"); continue
-                    e = cek(int(f[0]), f[1], f[2], mk, perhatian, kutipan=True)
+                    e = cek(int(f[0]), f[1], f[2], nukilan, perhatian, kutipan=True)
                 else:
                     e = cek(int(f[0]), f[1], f[2], f[3], perhatian)
                     if not e and mk is not None and not tiga:
@@ -622,14 +651,19 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 else:
                     galat.append(f"kutipan «{mk[:30]}» tanpa bukti: tambahkan <<sid|juz|hal>> di catatan kakinya; "
                                  f"sumber yang tidak ada di Shamela (jurnal, PDF penelitian): tulis <<{LUAR}>>  || fn: {isi[:45]}")
-            galat += cocok_halaman(isi, terbukti)
+            if not diam:
+                galat += cocok_halaman(isi, terbukti)
             sub = urai(isi, None, ayat_idx, hadits_idx, galat, perhatian, di_catatan=True)
+            runs += [{"z": z} for z in zz]
             catatan.append({"runs": sub, "bukti": len(bukti), "luar": luar})
-            runs.append({"fn": len(catatan) - 1})
+            if not diam:
+                runs.append({"fn": len(catatan) - 1})
         else:  # "]" nyasar
             runs.append({"t": "]", "b": tebal}); polos += "]"
     if tebal:
         raise ValueError("tanda ** tidak berpasangan")
+    if merah:
+        raise ValueError("tanda (( tidak ditutup dengan ))")
     if re.search(rf"<<(?:\d+\||{LUAR}>>)", polos):
         raise ValueError("bukti <<...>> hanya boleh di dalam catatan kaki [^...]; di luar itu ia ikut tercetak")
     if re.search(r"\{(?:Q|H2|H|P):", polos):
@@ -649,16 +683,30 @@ def utama(folder):
     meta = {"berkas": folder.name}
     di_baris = {}  # @kunci dan #R -> nomor barisnya, untuk galat yang baru ketahuan sesudah semua baris dibaca
     mode_r = False
+    rumuz = {}  # @rumuz: sid -> huruf
     for n, b in baris:
         g0, p0 = len(galat), len(perhatian)
         if b.startswith("@"):
             k, _, v = b[1:].partition(":")
             meta[k.strip()] = v.strip()
             di_baris["@" + k.strip()] = n
+            if k.strip() == "rumuz":
+                for pasang in re.split(r"[,،]", v):
+                    sid, _, z = pasang.partition("=")
+                    if not re.fullmatch(r"\d+", sid.strip()) or not z.strip():
+                        galat.append(f"@rumuz: «{pasang.strip()}»: bentuknya sid=huruf (atau sid=- tanpa rumuz), "
+                                     f"mis. «@rumuz: 12010=-، 900002=ف»"); continue
+                    rumuz[sid.strip()] = z.strip()
         elif b.startswith("#"):
             k, _, t = b[1:].partition(" ")
-            if k not in ("K", "F", "B", "M", "S", "R") or not t.strip():
-                galat.append(f"baris {n}: judul harus «#K/#F/#B/#M/#S/#R teks» :: {b[:40]}"); continue
+            if k not in ("K", "F", "B", "M", "S", "R", "T") or not t.strip():
+                galat.append(f"baris {n}: judul harus «#K/#F/#B/#M/#S/#R/#T teks» :: {b[:40]}"); continue
+            if k == "T":  # kotak matn: paragraf biasa (boleh bercatatan kaki), dicetak merah dalam bingkai
+                try:
+                    blok.append({"k": "T", "runs": urai(t, catatan, ayat_idx, hadits_idx, galat, perhatian, rumuz=rumuz)})
+                except ValueError as e:
+                    galat.append(f"baris {n}: tanda rusak — {e}")
+                continue
             if re.search(r"\[\^|<<|\{|\*\*", t):  # judul tercetak apa adanya (juga di فهرس الموضوعات): tanda ini ikut tercetak
                 galat.append(f"baris {n}: judul tidak boleh memuat catatan kaki [^, bukti <<, tanda {{Q:/{{H: atau **: "
                              f"pindahkan ke paragraf sesudahnya :: {b[:40]}"); continue
@@ -670,7 +718,7 @@ def utama(folder):
             pustaka.append(b.strip())
         else:
             try:
-                blok.append({"k": "P", "runs": urai(b, catatan, ayat_idx, hadits_idx, galat, perhatian)})
+                blok.append({"k": "P", "runs": urai(b, catatan, ayat_idx, hadits_idx, galat, perhatian, rumuz=rumuz)})
             except ValueError as e:
                 galat.append(f"baris {n}: tanda rusak — {e}")
             except (KeyError, IndexError) as e:  # bukan salah tulis naskah: mesinnya yang keliru di baris ini
@@ -683,12 +731,16 @@ def utama(folder):
     def di(kunci):
         return f"baris {di_baris[kunci]}: " if kunci in di_baris else ""
     tanpa = [t for t in re.split(r"[,، ]+", meta.get("tanpa", "")) if t]
+    bentuk = meta.setdefault("bentuk", next(iter(WAJIB)))
+    if bentuk not in WAJIB:
+        galat.append(di("@bentuk") + f"@bentuk: «{bentuk}» tidak dikenal (yang ada: {'، '.join(WAJIB)})")
+        bentuk = next(iter(WAJIB))
     if "pustaka" in tanpa:  # sumber cukup di catatan kaki (rujukan pertama tiap kitab berdata lengkap)
         if mode_r:
             galat.append(di("#R") + "@tanpa: pustaka, tetapi ada #R: hapus #R beserta daftarnya, atau hapus «pustaka» dari @tanpa")
-    elif not mode_r:
+    elif not mode_r and bentuk != "kitab":
         galat.append("tidak ada #R (المصادر والمراجع) di akhir naskah")
-    elif not pustaka:
+    elif mode_r and not pustaka:
         galat.append(di("#R") + "المصادر والمراجع masih kosong: tulis satu kitab per baris sesudah #R")
     if not meta["berkas"]:
         meta["berkas"] = folder.name
@@ -711,7 +763,7 @@ def utama(folder):
     def kata(runs): return sum(len(re.findall(r"[؀-ۿ]+", r.get("t", ""))) for r in runs)
     n_matan = sum(kata(b["runs"]) for b in blok)
     n_fn = sum(kata(c["runs"]) for c in catatan)
-    galat += [di("@" + k) + f"data sampul belum diisi: @{k}" for k in WAJIB if not meta.get(k)]
+    galat += [di("@" + k) + f"data sampul belum diisi: @{k}" for k in WAJIB[bentuk] if not meta.get(k)]
     asing = [t for t in tanpa if t not in TANPA]
     if asing:
         galat.append(di("@tanpa") + f"@tanpa: «{'، '.join(asing)}» tidak dikenal (yang ada: {', '.join(TANPA)})")
@@ -730,7 +782,7 @@ def utama(folder):
                 meta[k] = ubah(meta[k])
         for r in [r for b in blok + catatan for r in b["runs"]] + hadits_idx:
             if "t" in r and not r.get("q"):
-                r["t"] = ubah(r["t"])
+                r["t"] = ubah(r["t"]).translate(HORMAT_CETAK)
         for b in blok:
             if "judul" in b:
                 b["judul"] = ubah(b["judul"])
