@@ -18,6 +18,7 @@ FORMAT = {"huruf": "Traditional Arabic", "matan": 18, "ayat": 16, "catatan": 14,
 # salinan terpaksa bentuk halaman mesin/rakit.ps1: A4, batas atas/bawah/kiri 2,5 cm, kanan 3,5 cm
 CM = 567  # twip per cm
 BATAS = {"top": 2.5, "bottom": 2.5, "left": 2.5, "right": 3.5, "header": 1.25, "footer": 1.25}
+KATA_PER_HALAMAN_18 = 260  # salinan terpaksa mesin/bahts.py: kata per halaman isi pada huruf matan 18
 SAMPUL_ATAS = ["المملكة العربية السعودية", "وزارة التعليم", "جامعة الإمام محمد بن سعود الإسلامية",
                "معهد العلوم الإسلامية والعربية في جاكرتا", "كلية الشريعة"]
 SURAH = json.load(open(HERE / "nama_surah.json", encoding="utf8"))  # salinan terpaksa mesin/nama_surah.json
@@ -341,6 +342,24 @@ def susun(meta, blok, pustaka):
     return d, body
 
 
+def perkiraan_halaman(blok):
+    """Perkiraan kasar halaman isi (المقدمة s.d. الخاتمة) dari jumlah kata: salinan terpaksa perkiraan_halaman di mesin/bahts.py.
+    Tiap #K/#F mulai halaman baru; kata catatan kaki dihitung menurut perbandingan luas hurufnya.
+    Pengganti hitungan halaman LibreOffice: di uji Gemini, LibreOffice dinyatakan ±6 halaman isi, Word 17."""
+    per_hal = KATA_PER_HALAMAN_18 * (18 / FORMAT["matan"]) ** 2
+    kata = lambda s: len(re.findall(r"[؀-ۿ]+", s))
+    bagian = []
+    for k, teks, baris in blok:
+        if k == "R":
+            break
+        if k in ("K", "F") or not bagian:
+            bagian.append(0.0)
+        rs = runs(teks, baris)
+        bagian[-1] += sum(kata(x[1]) for x in rs if x[0] in ("t", "ay"))
+        bagian[-1] += sum(kata(x[1]) for x in rs if x[0] == "fn") * (FORMAT["catatan"] / FORMAT["matan"]) ** 2
+    return sum(max(1, -(-x // per_hal)) for x in bagian)
+
+
 NS = ('xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
       'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" '
       'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"')
@@ -412,6 +431,7 @@ def utama(argv):
     except Galat as e:
         print(f"GAGAL: {e}"); return 1
     print(f"JADI: {keluar} (catatan kaki {len(d.fn)}, ayat {len(d.ayat)}, hadits {len(d.hadits)}, judul {len(d.toc)})")
+    print(f"perkiraan halaman isi (muqaddimah s.d. khatimah): kira-kira {int(perkiraan_halaman(blok))} (kasar, dari jumlah kata; angka pasti dari Word)")  # huruf Latin saja: konsol Windows cp1252
     return 0
 
 

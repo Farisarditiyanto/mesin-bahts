@@ -72,7 +72,7 @@ Connector `shamela` belum bisa masuk di Command Code: shamela.link menolak cara 
 
 ### Gemini
 
-Versi tanpa memasang apa pun, gratis di gemini.google.com atau aplikasi Gemini (umur 18+, Keep Activity menyala). Hasilnya Word (.docx), dirakit skrip Python di dalam skill. Skripnya hanya jalan di mode Task (ikon spark); di obrolan biasa Gemini menolak skill yang berisi skrip. Dicoba di Gemini (aplikasi Windows dan web), mode Task: .docx-nya sama persis dengan hasil skrip di komputer. Uji bahts penuh tanpa tag connector (Gemini memakai Google Search ke shamela.ws): 13 halaman, 20 dari 22 bukti lolos `cek` mesin. Uji dengan tag connector berhenti karena jatah Task habis.
+Versi tanpa memasang apa pun, gratis di gemini.google.com atau aplikasi Gemini (umur 18+, Keep Activity menyala). Hasilnya Word (.docx), dirakit skrip Python di dalam skill. Skripnya hanya jalan di mode Task (ikon spark); di obrolan biasa Gemini menolak skill yang berisi skrip. Dicoba di Gemini (aplikasi Windows dan web), mode Task: .docx-nya sama persis dengan hasil skrip di komputer. Uji bahts penuh tanpa tag connector (Gemini memakai Google Search ke shamela.ws): 13 halaman, 20 dari 22 bukti lolos `cek` mesin. Uji dengan tag connector: Shamela, Turath, dan Tafsir MCP dipakai (Quran Ai menolak `fetch_quran`); 41 dari 45 bukti lolos `cek` mesin, 4 halamannya meleset satu; isinya 17 halaman di Word padahal diminta ±6 (Gemini menghitung lewat LibreOffice dan menyatakan sudah cocok). Kini `rakit_docx.py` mencetak perkiraan halaman isi dari jumlah kata, sama dengan `cek` mesin.
 
 1. Unduh https://github.com/Farisarditiyanto/mesin-bahts/archive/refs/heads/main.zip, lalu ekstrak.
 2. Di Gemini buka Skills → Upload, lalu pilih folder `bahts-gemini` di dalam folder hasil ekstrak.

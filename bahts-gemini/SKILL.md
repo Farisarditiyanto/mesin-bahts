@@ -42,7 +42,7 @@ Beri tahu sekali: sampul mencetak جامعة الإمام محمد بن سعود
 5. Ambil data kitab untuk rujukan pertama dari kartu kitab: `get_book` turath (bagian `info`: المؤلف، المحقق، الناشر، الطبعة). Data yang tidak ada di kartu → tidak ditulis.
 6. Tulis naskah dengan tanda di bagian 5. Setiap kutipan dan penisbatan diberi catatan kaki berisi bukti `<<nomor|juz|halaman>>`. Nukilan makna (`انظر:`, tanpa tanda petik) memakai bukti berpotongan `<<nomor|juz|halaman|potongan>>`: potongan = frasa minimal 7 huruf yang disalin persis dari halaman itu. Tanpa potongan, `cek` mesin menolaknya.
 7. Periksa (bagian 4), perbaiki, ulangi sampai semua lolos.
-8. Rakit jadi Word (bagian 6).
+8. Rakit jadi Word (bagian 7).
 
 ## 4. Pemeriksaan sebelum merakit
 
@@ -50,7 +50,8 @@ Untuk **setiap** kutipan bertanda petik:
 
 1. `shamela` ada → `shamela_verify_quote` dengan `quote` = lafaz di naskah dan `book_id`. Lolos hanya kalau `status` = `verbatim` atau `differs` (perbedaan harakat/hamzah saja) **dan**:
    - `field` = `body`. `foot` = kalimat muhaqqiq: jangan dinisbatkan ke pengarang kitab.
-   - `printed_page` sama dengan halaman di bukti. Beda → ganti halamannya.
+   - `printed_page` sama dengan halaman di bukti. Beda → buka halamannya sendiri (butir berikut) dan pakai halaman tempat lafaznya tertulis.
+   - Halaman bukti = halaman tempat lafaz kutipan itu tertulis. Buka sendiri halaman itu (`shamela_get_page`) dan pastikan lafaznya ada di teksnya. Jangan memakai halaman hasil pencarian, halaman awal bab, atau halaman nomor hadits. Kutipan yang menyeberang ke halaman berikutnya → tulis rentangnya di catatan kaki (ص931-932) dan di bukti (`<<42|-|931-932>>`). Di uji Gemini, 4 kutipan lolos `shamela_verify_quote` padahal halamannya meleset satu.
    - `auto_numbered` = false. True = nomor halaman bukan nomor cetakan: cari edisi lain kitab itu yang «موافق للمطبوع».
 2. Tanpa `shamela` → `search_turath` dengan lafaz kutipan dan `book_id`; lafaz harus muncul utuh di `text` halaman itu, `page` dan `vol` sama dengan bukti. Di `text` turath, yang sesudah garis «_________» adalah حاشية (kalimat muhaqqiq): kutipan dari situ tidak boleh dinisbatkan ke pengarang. Tanda baca di `text` turath dibuang; salin tanda bacanya dari `get_page`.
 3. Periksa juga: kata nafi (لا/ما/ليس) tepat sebelum kutipan di kitab tidak membalik makna; kutipan yang dipotong `...` tetap sama makna dan pembicaranya; yang berkata memang orang itu, bukan matan yang disyarah, nukilan pihak lain, atau hujah lawan.
@@ -95,8 +96,10 @@ Contoh lengkap: `contoh.txt` di skill ini.
 
 1. Simpan naskah sebagai `naskah.txt` (UTF-8).
 2. Jalankan `rakit_docx.py` dari skill ini: `python rakit_docx.py naskah.txt bahts.docx`. `logo.png` dan `nama_surah.json` harus ada di folder yang sama dengan `rakit_docx.py`. Tanpa internet, tanpa pustaka tambahan.
-3. `GAGAL: …` → perbaiki naskah sesuai pesannya, jalankan lagi. `JADI: …` → berikan `bahts.docx` untuk diunduh, beserta `naskah.txt`.
-4. Python tetap tidak bisa dijalankan di mode Task → buat dokumen di Canvas dengan urutan sampul, isi, المصادر والمراجع, فهرس الآيات, فهرس الأحاديث, فهرس الموضوعات (nomor halaman فهارس dikosongkan), lalu tawarkan «Export to Docs». Berikan juga `naskah.txt`. Katakan terus terang: bentuk halaman, catatan kaki, dan nomor فهارس tidak dikunci di jalan ini; pemakai merapikannya sendiri.
+3. `GAGAL: …` → perbaiki naskah sesuai pesannya, jalankan lagi.
+4. `JADI: …` → baca baris «perkiraan halaman isi … kira-kira n». Kalau n berbeda lebih dari 1 dengan jumlah halaman isi yang diminta, pendekkan atau panjangkan naskah, lalu rakit lagi. Jangan menghitung halaman dengan LibreOffice: di uji, Gemini menghitung lewat LibreOffice dan menyatakan isinya sudah ±6 halaman, padahal di Word 17.
+5. Berikan `bahts.docx` dan `naskah.txt` sebagai berkas unduhan, bukan lewat Canvas. `naskah.txt` = berkas yang persis sama dengan masukan `rakit_docx.py` terakhir. Jangan menulis ulang naskah dari ingatan. Pemakai minta isi naskah ditempel di chat → baca berkasnya, lalu tempel isinya apa adanya.
+6. Python tetap tidak bisa dijalankan di mode Task → buat dokumen di Canvas dengan urutan sampul, isi, المصادر والمراجع, فهرس الآيات, فهرس الأحاديث, فهرس الموضوعات (nomor halaman فهارس dikosongkan), lalu tawarkan «Export to Docs». Berikan juga `naskah.txt`. Katakan terus terang: bentuk halaman, catatan kaki, dan nomor فهارس tidak dikunci di jalan ini; pemakai merapikannya sendiri.
 
 Cara membuka yang dikatakan ke pemakai:
 
@@ -109,6 +112,7 @@ Cara membuka yang dikatakan ke pemakai:
 ## 8. Laporan akhir
 
 - Letak berkas: `bahts.docx` dan `naskah.txt`.
+- Perkiraan halaman isi dari `rakit_docx.py`, dan bahwa angka pastinya terlihat di Word.
 - Alat pencari yang dipakai dan yang tidak.
 - Tabel pemeriksaan kutipan (bagian 4), plus yang «belum dicek».
 - Batasnya, apa adanya: versi Gemini memeriksa kutipan lewat connector, bukan lewat `cek` mesin bahts. Untuk pemeriksaan penuh dan PDF yang dikunci bentuknya: pakai mesin bahts di agent komputer (README repo, bagian «Mulai»), lalu `cek` naskah yang sama.

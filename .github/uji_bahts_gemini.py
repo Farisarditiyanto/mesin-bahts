@@ -1,5 +1,5 @@
 """Tes skill Gemini lewat pintu pemakainya (`python bahts-gemini/rakit_docx.py naskah.txt hasil.docx`):
-salinan terpaksa (huruf/ukuran, batas halaman, daftar surah) sama dengan mesin, dan contoh.txt jadi .docx yang terbaca XML-nya
+salinan terpaksa (huruf/ukuran, batas halaman, kata per halaman, daftar surah) sama dengan mesin, dan contoh.txt jadi .docx yang terbaca XML-nya
 dengan catatan kaki dan فهرس yang lengkap."""
 import json, re, subprocess, sys, tempfile, zipfile
 import xml.etree.ElementTree as ET
@@ -22,6 +22,9 @@ ps1 = (AKAR / "mesin" / "rakit.ps1").read_text(encoding="utf-8")
 asli = {k: float(v) for k, v in re.findall(r"\$ps\.(Top|Bottom|Left|Right|Header|Footer)(?:Margin|Distance) = \$word\.CentimetersToPoints\(([\d.]+)\)", ps1)}
 if {k.capitalize(): v for k, v in batas.items()} != asli:
     sys.exit(f"BATAS di rakit_docx.py {batas} beda dengan batas halaman mesin/rakit.ps1 {asli}")
+kph = lambda teks: re.search(r"^KATA_PER_HALAMAN_18 = (\d+)", teks, re.M).group(1)
+if kph(kode) != kph((AKAR / "mesin" / "bahts.py").read_text(encoding="utf-8")):
+    sys.exit("KATA_PER_HALAMAN_18 di rakit_docx.py beda dengan mesin/bahts.py")
 
 with tempfile.TemporaryDirectory() as tmp:
     hasil = Path(tmp) / "contoh.docx"
