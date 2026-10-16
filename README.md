@@ -17,7 +17,7 @@ Agent AI pandai menulis, tetapi bisa mengarang kutipan. Di mesin ini:
 
 ## Mulai
 
-1. Buka agent AI yang membaca `AGENTS.md`. Tidak harus berbayar: [OpenCode](https://opencode.ai), [Command Code](https://commandcode.ai), dan [Hermes Agent](https://hermes-agent.nousresearch.com) bisa dipakai gratis (lihat «[Agent AI](#agent-ai)»).
+1. Buka agent AI yang membaca `AGENTS.md`. Tidak harus berbayar: [OpenCode](https://opencode.ai) dan [Hermes Agent](https://hermes-agent.nousresearch.com) bisa dipakai gratis, [Command Code](https://commandcode.ai) mulai $1/bulan (lihat «[Agent AI](#agent-ai)»).
 2. Tempel kalimat ini, ganti judulnya:
 
    > Pakai https://github.com/Farisarditiyanto/mesin-bahts untuk membuatkan saya bahts tentang الإخلاص وأثره في قبول العمل. Susunannya: مقدمة, satu فصل berisi dua مبحث, خاتمة. Kira-kira 6 halaman.
@@ -59,16 +59,16 @@ Semua agent di bawah membaca `AGENTS.md`, jadi caranya sama: tempel kalimat di �
 | Agent | Biaya | Connector |
 |---|---|---|
 | [OpenCode](https://opencode.ai) | Gratis. Punya model gratis; daftarnya berganti-ganti (`/models`) | Terbaca sendiri dari `opencode.json` |
-| [Command Code](https://commandcode.ai) | Paket gratis. Punya model gratis; daftarnya berganti-ganti | Terbaca sendiri dari `.mcp.json` |
+| [Command Code](https://commandcode.ai) | Mulai $1/bulan (paket Go), sudah termasuk model gratis; daftarnya berganti-ganti | Terbaca sendiri dari `.mcp.json` |
 | [Hermes Agent](https://hermes-agent.nousresearch.com) | Gratis, sumber terbuka. Modelnya kamu sambungkan sendiri | Agent mendaftarkannya sesudah minta izinmu |
 | [Claude Code](https://claude.com/claude-code) | Berbayar | Terbaca sendiri dari `.mcp.json` |
 | Codex | Akun ChatGPT | Agent mendaftarkannya sesudah minta izinmu |
 
 Sebagian model gratis memakai isi obrolan untuk melatih modelnya. Baca keterangan modelnya sebelum memilih.
 
-Connector = sambungan MCP: dua nama untuk barang yang sama. Aplikasi desktop agent ini (Claude: tab Code; Codex; OpenCode; Command Code) memakai connector yang sama dengan versi terminalnya. Mode obrolan biasa (Claude chat, ChatGPT) tidak bisa menjalankan mesin: pilih mode yang membuka folder dan menjalankan perintah.
+Connector = sambungan MCP: dua nama untuk barang yang sama. Aplikasi Claude: tab Code adalah Claude Code, jadi `.mcp.json` terbaca di sana, begitu juga connector yang kamu tambahkan di menu Connectors aplikasi Claude. Aplikasi Codex memakai pengaturan connector yang sama dengan Codex di terminal. OpenCode dan Command Code juga punya aplikasi desktop; belum dicoba. Mode obrolan biasa (Claude chat, ChatGPT) tidak bisa menjalankan mesin: pilih mode yang membuka folder dan menjalankan perintah.
 
-Connector `shamela` belum bisa dipakai di Command Code: shamela.link menolak cara masuknya. Connector lain tetap jalan.
+Connector `shamela` belum bisa masuk di Command Code: shamela.link menolak cara daftarnya, dan repo ini belum menyiapkan jalan lain. Connector lain tetap jalan.
 
 ## Pilihan
 
