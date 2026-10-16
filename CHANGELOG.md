@@ -5,7 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
-- Versi Gemini (`bahts-gemini/`): diunggah sebagai skill di aplikasi Gemini. Kutipan diperiksa lewat connector `shamela`/`turath`, lalu naskah dirakit jadi Word (.docx) berbentuk pedoman جامعة الإمام: sampul, catatan kaki, المصادر والمراجع, dan الفهارس. Tanpa `cek` mesin dan tanpa PDF yang dikunci bentuknya.
+- Versi Gemini (`bahts-gemini/`): diunggah sebagai skill di aplikasi Gemini. Kutipan diperiksa lewat connector `shamela`/`turath`, lalu naskah dirakit jadi Word (.docx) berbentuk pedoman جامعة الإمام: sampul, catatan kaki, المصادر والمراجع, dan الفهارس. Tanpa `cek` mesin dan tanpa PDF yang dikunci bentuknya. Skripnya hanya jalan di mode Task (ikon spark) Gemini.
 - Agent gratis: OpenCode membaca daftar connector dari `opencode.json` baru (termasuk masuk `shamela`), Command Code membaca `.mcp.json`, Hermes mendaftarkannya dengan `hermes mcp add`. README menyebut agent mana yang gratis dan bahwa aplikasi desktopnya memakai connector yang sama.
 - Bentuk baru `@bentuk: kitab` untuk karya yang bukan bahts (mis. muqarrar gabungan dua syarah): tanpa sampul bahts, wajib hanya `@judul`, `#R` tidak wajib, dan hanya `#K` mulai halaman baru. Kepala halaman bergaris bawah seperti cetakan kitab: halaman genap mencetak `@judul`, halaman ganjil judul bab (`#K` atau فهرس) yang sedang berjalan.
 - `#T teks` = kotak matn: paragraf dalam bingkai merah tipis, teksnya merah.
