@@ -16,7 +16,7 @@ Janji skill ini: **tidak ada kutipan, nomor halaman, penisbatan, atau derajat ha
    - `shamela` (alat `shamela_*`, butuh akun shamela.link): mencari dan **memeriksa kutipan** (`shamela_verify_quote`). Paling penting.
    - `turath` (alat `search_turath`, `get_page`, `get_book`, tanpa akun): isi semua kitab Shamela dan kartu kitab (penerbit, cetakan).
    - `tafsir` dan `quran` (tanpa akun): tafsir per ayat dan teks ayat. `quran` minta `fetch_grounding_rules` dulu; nonce-nya diteruskan ke panggilan berikutnya.
-2. `shamela` dan `turath` dua-duanya tidak ada → berhenti dan beri tahu pemakai: tanpa connector, kutipan tidak bisa dibuktikan. Cara menambah: pengaturan Gemini → Apps → Custom apps → tambah, isi «MCP Server URL»:
+2. `shamela` dan `turath` dua-duanya tidak ada → connector-nya belum di-tag. Gemini hanya memakai connector yang dipilih pemakai di kotak pesan. Minta pemakai mengirim ulang permintaannya: ketik `@`, lalu pilih Shamela, Turath, Quran Ai, dan Tafsir MCP dari menu (keempatnya harus jadi tulisan tebal). Jangan diam-diam pindah ke Google Search. Pemakai belum memasang connector-nya → cara menambah: pengaturan Gemini → Apps → Custom apps → tambah, isi «MCP Server URL»:
    - `https://shamela.link/mcp` (masuk dengan akun shamela.link sendiri)
    - `https://mcp.turath.io/mcp/`
    - `https://mcp.tafsir.net/mcp`
@@ -40,7 +40,7 @@ Beri tahu sekali: sampul mencetak جامعة الإمام محمد بن سعود
 3. Buka halamannya (`shamela_get_page` atau `get_page` turath) dan baca konteksnya. Salin lafaz **persis** dari teks halaman itu, jangan dari ingatan.
 4. Catat untuk tiap kutipan: nomor kitab (`book_id`; sama dengan nomor Shamela), juz, dan **nomor halaman cetak**, bukan `page_id`. Shamela: `printed_page` «1/ 3» = juz 1 halaman 3 (juz juga di `part`). Turath: `vol` dan `page`. Kitab satu jilid (kartu kitab tanpa «عدد الأجزاء», atau 1): juz `-`, walaupun turath menulis `vol` «1».
 5. Ambil data kitab untuk rujukan pertama dari kartu kitab: `get_book` turath (bagian `info`: المؤلف، المحقق، الناشر، الطبعة). Data yang tidak ada di kartu → tidak ditulis.
-6. Tulis naskah dengan tanda di bagian 5. Setiap kutipan dan penisbatan diberi catatan kaki berisi bukti `<<nomor|juz|halaman>>`.
+6. Tulis naskah dengan tanda di bagian 5. Setiap kutipan dan penisbatan diberi catatan kaki berisi bukti `<<nomor|juz|halaman>>`. Nukilan makna (`انظر:`, tanpa tanda petik) memakai bukti berpotongan `<<nomor|juz|halaman|potongan>>`: potongan = frasa minimal 7 huruf yang disalin persis dari halaman itu. Tanpa potongan, `cek` mesin menolaknya.
 7. Periksa (bagian 4), perbaiki, ulangi sampai semua lolos.
 8. Rakit jadi Word (bagian 6).
 
@@ -71,6 +71,7 @@ Naskah = teks biasa. Tanda di bawah ini sebagian dari tanda mesin bahts. Bedanya
 **…**            tebal          ((…))   lafaz matn yang disyarah (merah, dalam kurung)
 [^ … ]           catatan kaki
 <<nomor|juz|hal>>  bukti di dalam catatan kaki (tidak tercetak)
+<<nomor|juz|hal|potongan>>   bukti nukilan makna «انظر:»: potongan = frasa ≥7 huruf persis dari halaman itu
 ﴿نص الآية﴾[^سورة البقرة، آية: 255.]   ayat: teks dari connector quran, langsung diikuti catatan kakinya (masuk فهرس الآيات)
 {H:طرف|الراوي|kunci}   daftarkan hadits ke فهرس الأحاديث, tepat sebelum tanda petik pembuka matannya; kunci huruf kecil a-z
 {H2:kunci}       tempat lain hadits yang sama (masuk فهرس الأحاديث)
