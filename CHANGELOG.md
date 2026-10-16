@@ -5,7 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
-- Bentuk baru `@bentuk: kitab` untuk karya yang bukan bahts (mis. muqarrar gabungan dua syarah): tanpa sampul bahts, wajib hanya `@judul` (tercetak di kepala tiap halaman bergaris bawah), `#R` tidak wajib, dan hanya `#K` mulai halaman baru.
+- Bentuk baru `@bentuk: kitab` untuk karya yang bukan bahts (mis. muqarrar gabungan dua syarah): tanpa sampul bahts, wajib hanya `@judul`, `#R` tidak wajib, dan hanya `#K` mulai halaman baru. Kepala halaman bergaris bawah seperti cetakan kitab: halaman genap mencetak `@judul`, halaman ganjil judul bab (`#K` atau فهرس) yang sedang berjalan.
 - `#T teks` = kotak matn: paragraf dalam bingkai merah tipis, teksnya merah.
 - `((…))` = lafaz matn di dalam syarah: tercetak merah tebal di dalam kurung, seperti cetakan syarah.
 - `@rumuz: sid=ض، sid=ف`: catatan kaki yang buktinya dari kitab itu dicetak dengan rumuznya [ض]. Catatan kaki berisi bukti saja (`[^<<sid|juz|hal>>]`, semua sid-nya di `@rumuz`) tidak dicetak; yang tercetak hanya rumuznya, dan `cek` mencocokkan SELURUH paragraf sebelumnya kata per kata ke halaman itu (paragraf syarah yang disalin dari kitabnya). `sid=-` = dicek tanpa rumuz (mis. kitab matn).

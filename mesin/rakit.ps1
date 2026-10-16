@@ -113,11 +113,19 @@ try {
     # pedoman: nomor halaman di tengah bawah, huruf dan ukuran sama dengan matan, dihitung mulai dari المقدمة
     $ft.Range.Font.Name = $TA; $ft.Range.Font.NameBi = $TA; $ft.Range.Font.Size = $uMatan; $ft.Range.Font.SizeBi = $uMatan
     $ft.PageNumbers.RestartNumberingAtSection = $true; $ft.PageNumbers.StartingNumber = 1
-    if ($KITAB) {                                        # kepala halaman berjalan: judul + garis bawah, gaya cetakan kitab
-        $hd = $sec.Headers(1).Range; $hd.Text = $JUDUL
-        $hd.Font.Name = $TA; $hd.Font.NameBi = $TA; $hd.Font.Size = $uCatatan; $hd.Font.SizeBi = $uCatatan; $hd.Font.Bold = 1; $hd.Font.BoldBi = 1
-        $hd.ParagraphFormat.ReadingOrder = 0; $hd.ParagraphFormat.Alignment = 1
-        $b = $hd.Paragraphs(1).Borders.Item(-3); $b.LineStyle = 1; $b.LineWidth = 12
+    # kepala halaman berjalan gaya cetakan kitab, bergaris bawah: halaman genap = judul kitab, halaman ganjil = judul bab
+    # (#K / فهرس; tiap judul itu mulai bagian Word baru, lihat Judul). Nomor halaman bersambung di kaki semua halaman
+    function KepalaHalaman($h, $teks) {
+        $r = $h.Range; $r.Text = $teks
+        $r.Font.Name = $TA; $r.Font.NameBi = $TA; $r.Font.Size = $uCatatan; $r.Font.SizeBi = $uCatatan; $r.Font.Bold = 1; $r.Font.BoldBi = 1
+        $r.ParagraphFormat.ReadingOrder = 0; $r.ParagraphFormat.Alignment = 1
+        $b = $r.Paragraphs(1).Borders.Item(-3); $b.LineStyle = 1; $b.LineWidth = 12
+    }
+    if ($KITAB) {
+        $doc.PageSetup.OddAndEvenPagesHeaderFooter = -1
+        KepalaHalaman $sec.Headers(1) $JUDUL; KepalaHalaman $sec.Headers(3) $JUDUL
+        $fg = $sec.Footers(3); $fg.Range.Text = ''; [void]$fg.Range.Fields.Add($fg.Range, 33); $fg.Range.ParagraphFormat.Alignment = 1
+        $fg.Range.Font.Name = $TA; $fg.Range.Font.NameBi = $TA; $fg.Range.Font.Size = $uMatan; $fg.Range.Font.SizeBi = $uMatan
     }
 
     $st = $doc.Styles.Item(-30)                          # Footnote Text
@@ -222,6 +230,13 @@ try {
         }
     }
     function Judul($teks, $bm, $pb) {
+        if ($pb -and $KITAB) {                           # bentuk kitab: judul halaman baru = bagian Word baru, judulnya jadi kepala halaman ganjil
+            $sel.InsertBreak(2)
+            $s = $doc.Sections($doc.Sections.Count)
+            $h = $s.Headers(1); $h.LinkToPrevious = $false; KepalaHalaman $h $teks
+            $s.Footers(1).PageNumbers.RestartNumberingAtSection = $false
+            $pb = $false
+        }
         Para 1 6 0
         $sel.ParagraphFormat.KeepWithNext = -1
         if ($pb) { $sel.ParagraphFormat.PageBreakBefore = -1; $sel.ParagraphFormat.SpaceBefore = 0 }
@@ -382,6 +397,7 @@ try {
     # ---------- 6. Simpan ----------
     # nomor halaman = teks kanan-ke-kiri, supaya ArabicNumeral 2 mencetaknya ٠-٩ (di akhir: memindah Selection ke kaki halaman)
     $ft.Range.Select(); $word.Selection.RtlRun()
+    if ($KITAB) { $fg.Range.Select(); $word.Selection.RtlRun() }
     $pages = $doc.ComputeStatistics(2)
     # halaman isi = المقدمة s.d. الخاتمة (nomor halaman dihitung mulai dari المقدمة); tanpa المصادر dan فهرس = halaman terakhir
     if ($doc.Bookmarks.Exists($bmSesudahIsi)) { $isi = (Hal $bmSesudahIsi) - 1 }
