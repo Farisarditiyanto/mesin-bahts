@@ -221,10 +221,10 @@ try {
                 $doc.Range($awal, $sel.Start).Select(); $word.Selection.RtlRun(); $sel.Collapse(0)
             }
             elseif ($r.bm) { [void]$doc.Bookmarks.Add($r.bm, $sel.Range) }
-            elseif ($r.q) { $u = $size; if ($size -eq $uMatan) { $u = $uAyat }; Tulis $r.t $QF $u 0 0 }
+            elseif ($r.q) { $u = $size; if ($size -eq $uMatan) { $u = $uAyat }; $w = -16777216; if ($r.w) { $w = $r.w }; Tulis $r.t $QF $u 0 0 $w }
             elseif ($null -ne $r.t) {
                 $tb = 0; if ($r.b -or $r.m -or $paksaTebal) { $tb = 1 }   # lafaz matn di syarah: tebal + merah (cetakan Saudi: tebal dalam kurung)
-                $w = -16777216; if ($r.m -or $paksaMerah) { $w = $MERAH }
+                $w = -16777216; if ($r.m -or $paksaMerah) { $w = $MERAH } elseif ($r.w) { $w = $r.w }   # w = @warna sumber paragraf
                 Tulis $r.t $TA $size $tb 0 $w
             }
         }
