@@ -17,7 +17,7 @@ Agent AI pandai menulis, tetapi bisa mengarang kutipan. Di mesin ini:
 
 ## Mulai
 
-1. Buka agent AI yang membaca `AGENTS.md`. Tidak harus berbayar: [OpenCode](https://opencode.ai) dan [Hermes Agent](https://hermes-agent.nousresearch.com) bisa dipakai gratis, [Command Code](https://commandcode.ai) mulai $1/bulan (lihat «[Agent AI](#agent-ai)»). Tidak mau memasang apa pun: «[Gemini](#gemini)».
+1. Buka agent AI yang membaca `AGENTS.md`. Tidak harus berbayar: [OpenCode](https://opencode.ai) dan [Hermes Agent](https://hermes-agent.nousresearch.com) bisa dipakai gratis, [Command Code](https://commandcode.ai) mulai $1/bulan (lihat «[Agent AI](#agent-ai)»).
 2. Tempel kalimat ini, ganti judulnya:
 
    > Pakai https://github.com/Farisarditiyanto/mesin-bahts untuk membuatkan saya bahts tentang الإخلاص وأثره في قبول العمل. Susunannya: مقدمة, satu فصل berisi dua مبحث, خاتمة. Kira-kira 6 halaman.
@@ -69,18 +69,6 @@ Sebagian model gratis memakai isi obrolan untuk melatih modelnya. Baca keteranga
 Connector = sambungan MCP: dua nama untuk barang yang sama. Aplikasi Claude: tab Code adalah Claude Code, jadi `.mcp.json` terbaca di sana, begitu juga connector yang kamu tambahkan di menu Connectors aplikasi Claude. Aplikasi Codex memakai pengaturan connector yang sama dengan Codex di terminal. OpenCode dan Command Code juga punya aplikasi desktop; belum dicoba. Mode obrolan biasa (Claude chat, ChatGPT) tidak bisa menjalankan mesin: pilih mode yang membuka folder dan menjalankan perintah.
 
 Connector `shamela` belum bisa masuk di Command Code: shamela.link menolak cara daftarnya, dan repo ini belum menyiapkan jalan lain. Connector lain tetap jalan.
-
-### Gemini
-
-Versi tanpa memasang apa pun, gratis di gemini.google.com atau aplikasi Gemini (umur 18+, Keep Activity menyala). Hasilnya Word (.docx), dirakit skrip Python di dalam skill. Skripnya hanya jalan di mode Task (ikon spark); di obrolan biasa Gemini menolak skill yang berisi skrip. Dicoba di Gemini (aplikasi Windows dan web), mode Task: .docx-nya sama persis dengan hasil skrip di komputer. Uji bahts penuh tanpa tag connector (Gemini memakai Google Search ke shamela.ws): 13 halaman, 20 dari 22 bukti lolos `cek` mesin. Uji dengan tag connector: Shamela, Turath, dan Tafsir MCP dipakai (Quran Ai menolak `fetch_quran`); 41 dari 45 bukti lolos `cek` mesin, 4 halamannya meleset satu; isinya 17 halaman di Word padahal diminta ±6 (Gemini menghitung lewat LibreOffice dan menyatakan sudah cocok). Kini `rakit_docx.py` mencetak perkiraan halaman isi dari jumlah kata, sama dengan `cek` mesin.
-
-1. Unduh https://github.com/Farisarditiyanto/mesin-bahts/archive/refs/heads/main.zip, lalu ekstrak.
-2. Di Gemini buka Skills → Upload, lalu pilih folder `bahts-gemini` di dalam folder hasil ekstrak.
-3. Tambah connector di bagian Custom apps (isi «MCP Server URL»): `https://shamela.link/mcp` (akun shamela.link), `https://mcp.turath.io/mcp/`, `https://mcp.tafsir.net/mcp`, `https://mcp.quran.ai`.
-4. Pilih mode Task (ikon spark). Di kotak pesan ketik `@`, lalu pilih bahts-gemini, Shamela, Turath, Quran Ai, dan Tafsir MCP dari menu: tanpa itu Gemini tidak memakai connector-nya. Sesudah itu tempel kalimat di «Mulai» dan jawab pertanyaannya. Jatah mode Task akun gratis kecil: satu bahts bisa menghabiskannya, lalu Gemini menyuruh menunggu beberapa jam.
-5. Buka `bahts.docx` di Microsoft Word, lalu simpan sebagai PDF (nomor halaman فهارس terisi waktu itu). Supaya angka ٠١٢٣: File → Options → Advanced → Numeral: Context (`@angka: latin`: Numeral: Arabic).
-
-Bedanya dengan mesin: kutipan diperiksa lewat connector, bukan lewat `cek`; nomor catatan kaki tetap 1، 2، 3; ayat memakai huruf Traditional Arabic, bukan huruf mushaf; halaman yang sama di فهرس bisa tercetak dua kali; Word di komputer lain bisa sedikit menggeser halaman. `hadithunlocked` belum bisa dipasang di Gemini. Naskahnya (`naskah.txt`) memakai tanda yang sama, jadi bisa di-`cek` mesin nanti.
 
 ## Pilihan
 

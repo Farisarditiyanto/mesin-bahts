@@ -51,7 +51,7 @@ HURUF_SARAN = ("huruf ini ikut terpasang kalau Windows punya papan ketik Arab (S
                "          Atau lewat PowerShell admin (pemakai cukup klik Yes): Start-Process powershell -Verb RunAs -Wait -ArgumentList "
                "\"Add-WindowsCapability -Online -Name Language.Fonts.Arab~~~und-ARAB~0.0.1.0\"")
 # perkiraan halaman isi tanpa Word: kata per halaman pada huruf matan 18 (ditera dari satu bahts nyata: ±5500 kata setara matan = 24 halaman isi)
-KATA_PER_HALAMAN_18 = 260  # disalin bahts-gemini/rakit_docx.py beserta rumus perkiraan_halaman (lihat AGENTS.md)
+KATA_PER_HALAMAN_18 = 260
 PUSTAKA = ("pandas", "pyarrow", "pypdf", "fontTools")  # nama modul; nama pemasangannya di requirements.txt
 
 

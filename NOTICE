@@ -1,5 +1,5 @@
 The MIT license in LICENSE covers the scripts in mesin/ (.py, .ps1, format.json,
-nama_surah.json, naskah_baru.txt), contoh/, bahts-gemini/ (except logo.png), and the documentation of this repository.
+nama_surah.json, naskah_baru.txt), contoh/, and the documentation of this repository.
 
 It does NOT cover the following. Their rights stay with their owners.
 
@@ -21,8 +21,7 @@ It does NOT cover the following. Their rights stay with their owners.
    معهد العلوم الإسلامية والعربية في جاكرتا. The name and the logo of
    جامعة الإمام محمد بن سعود الإسلامية belong to the university (logo file: the university's
    visual identity page, https://imamu.edu.sa/Visualidentity/Pages/default.aspx,
-   approved logo as published in April 2025; bahts-gemini/logo.png is the same image
-   taken out of mesin/sampul.doc). This project is
+   approved logo as published in April 2025). This project is
    not affiliated with, or endorsed by, the university or the institute.
 
 4. Book texts are NOT part of this repository. `ambil` downloads them to the
