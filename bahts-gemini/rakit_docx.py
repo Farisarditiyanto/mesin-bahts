@@ -138,7 +138,7 @@ def runs(s, baris):
         isi = x[1] if x[0] in ("t", "fn") else ""
         if "{P:" in isi:
             raise Galat(f"baris {baris}: {{P:..}} tidak bisa di versi Gemini (Word tidak mengisi nomor halaman di catatan kaki): tulis «سبق تخريجه.» saja.")
-        sisa = SISA.search(re.sub(r"\*\*.+?\*\*|\(\(.+?\)\)", "", isi) if x[0] == "fn" else isi)
+        sisa = SISA.search(re.sub(r"\*\*(.+?)\*\*|\(\((.+?)\)\)", r"\1\2", isi) if x[0] == "fn" else isi)
         if sisa:
             raise Galat(f"baris {baris}: tanda «{sisa.group()}» salah tulis atau bersarang (catatan kaki di dalam ** atau di dalam catatan kaki, "
                         f"kunci hadits bukan huruf kecil a-z, kurung tanpa pasangan): «{isi[:60]}».")

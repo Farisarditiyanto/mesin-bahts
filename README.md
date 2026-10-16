@@ -78,7 +78,7 @@ Versi tanpa memasang apa pun, gratis di gemini.google.com atau aplikasi Gemini (
 2. Di Gemini buka Skills → Upload, lalu pilih folder `bahts-gemini` di dalam folder hasil ekstrak.
 3. Tambah connector di bagian Custom apps (isi «MCP Server URL»): `https://shamela.link/mcp` (akun shamela.link), `https://mcp.turath.io/mcp/`, `https://mcp.tafsir.net/mcp`, `https://mcp.quran.ai`.
 4. Tempel kalimat di «Mulai», lalu jawab pertanyaannya.
-5. Buka `bahts.docx` di Microsoft Word, lalu simpan sebagai PDF (nomor halaman فهارس terisi waktu itu). Supaya angka ٠١٢٣: File → Options → Advanced → Numeral: Context.
+5. Buka `bahts.docx` di Microsoft Word, lalu simpan sebagai PDF (nomor halaman فهارس terisi waktu itu). Supaya angka ٠١٢٣: File → Options → Advanced → Numeral: Context (`@angka: latin`: Numeral: Arabic).
 
 Bedanya dengan mesin: kutipan diperiksa lewat connector, bukan lewat `cek`; nomor catatan kaki tetap 1، 2، 3; ayat memakai huruf Traditional Arabic, bukan huruf mushaf; halaman yang sama di فهرس bisa tercetak dua kali; Word di komputer lain bisa sedikit menggeser halaman. `hadithunlocked` belum bisa dipasang di Gemini. Naskahnya (`naskah.txt`) memakai tanda yang sama, jadi bisa di-`cek` mesin nanti.
 

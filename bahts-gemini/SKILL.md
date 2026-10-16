@@ -99,7 +99,7 @@ Contoh lengkap: `contoh.txt` di skill ini.
 Cara membuka yang dikatakan ke pemakai:
 
 1. Buka `bahts.docx` dengan Microsoft Word di Windows (huruf Traditional Arabic ada di sana).
-2. Supaya angka tercetak ٠١٢٣: Word → File → Options → Advanced → Show document content → Numeral: **Context**. Angka di dekat huruf Latin (tautan, ISBN) tetap 0123. Nomor catatan kaki tetap 1، 2، 3.
+2. Supaya angka tercetak ٠١٢٣: Word → File → Options → Advanced → Show document content → Numeral: **Context**. Angka di dekat huruf Latin (tautan, ISBN) tetap 0123. Nomor catatan kaki tetap 1، 2، 3. Naskah `@angka: latin` → Numeral: **Arabic**.
 3. Simpan sebagai PDF: File → Save As → PDF. Nomor halaman فهارس terisi waktu PDF disimpan; di layar Word bisa masih «؟».
 4. Batas: hadits atau ayat yang muncul dua kali di halaman yang sama tercetak «٢، ٢» di فهرس. Nomornya baru terlihat di PDF, jadi tidak bisa dirapikan di Word.
 5. Google Docs (unggah ke Google Drive → Open with Google Docs): belum dicoba. Huruf Traditional Arabic tidak ada di sana, dan nomor halaman فهارس kemungkinan tetap «؟».
