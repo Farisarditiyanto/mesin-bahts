@@ -247,6 +247,7 @@ try {
 
     $toc = New-Object System.Collections.ArrayList
     $nKotak = 0
+    $garis = New-Object System.Collections.ArrayList   # paragraf @warna: garis tegak di sisi awal (tetap terlihat di fotokopi hitam putih)
     $nT = 0; $pertama = $true; $iR = -1
     for ($i = 0; $i -lt $DATA.blok.Count; $i++) {
         $blk = $DATA.blok[$i]
@@ -274,7 +275,14 @@ try {
         }
         else {
             Para 3 0 ($word.CentimetersToPoints(0.8))
+            $awal = $sel.Start
             Runs $blk.runs $uMatan $false
+            $teks = @($blk.runs | Where-Object { $_.t -and $_.t.Trim() })
+            $biasa = @($teks | Where-Object { -not $_.m })    # lafaz matn ((…)) tetap merah: tidak dihitung
+            $w = @($biasa | Where-Object { $_.w } | ForEach-Object { $_.w } | Select-Object -Unique)
+            if ($biasa.Count -and $w.Count -eq 1 -and @($biasa | Where-Object { -not $_.w }).Count -eq 0) {
+                [void]$doc.Bookmarks.Add("garis_$($garis.Count + 1)", $doc.Range($awal, $sel.Start)); [void]$garis.Add($w[0])
+            }
             $sel.TypeParagraph()
         }
     }
@@ -375,6 +383,11 @@ try {
         foreach ($sisi in -1, -2, -3, -4) { $b = $pf.Borders.Item($sisi); $b.LineStyle = 1; $b.LineWidth = 4; $b.Color = $MERAH }
         $pf.Borders.DistanceFromLeft = 4; $pf.Borders.DistanceFromRight = 4; $pf.Borders.DistanceFromTop = 2; $pf.Borders.DistanceFromBottom = 2
         $pf.SpaceAfter = 6
+    }
+    for ($k = 1; $k -le $garis.Count; $k++) {
+        $pf = $doc.Bookmarks.Item("garis_$k").Range.ParagraphFormat
+        $b = $pf.Borders.Item(-4); $b.LineStyle = 1; $b.LineWidth = 12; $b.Color = $garis[$k - 1]
+        $pf.Borders.DistanceFromRight = 4
     }
     NomorCatatan
 
