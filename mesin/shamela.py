@@ -714,7 +714,11 @@ def scan(sid, juz, hal):
     if not pdf.get("files"):
         print(f"[{sid}] {meta.get('name', '')}: turath.io tidak punya scan cetakan kitab ini.")
         return False
-    jilid = (ix.get("volumes") or ["1"])[0] if str(juz).strip() in ("-", "") else angka(juz)
+    jilid_ada = ix.get("volumes") or ["1"]
+    if str(juz).strip() in ("-", "") and len(jilid_ada) > 1:  # «-» hanya untuk kitab satu jilid, seperti `halaman`
+        print(f"[{sid}] kitab ini berjilid; sebut juznya. Yang ada: " + "، ".join(f"juz {j}" for j in jilid_ada))
+        return False
+    jilid = jilid_ada[0] if str(juz).strip() in ("-", "") else angka(juz)
     logis = (ix.get("print_pg_to_pg") or {}).get(f"{jilid},{angka(hal)}")
     if not logis:
         batas = ix.get("volume_bounds") or {}
@@ -724,8 +728,11 @@ def scan(sid, juz, hal):
     jilid_pdf, fisik = (str((ix.get("page_map") or [])[logis - 1] if logis <= len(ix.get("page_map") or []) else ",")
                         .split(",") + [""])[:2]
     berkas = _turath_berkas(pdf["files"], jilid_pdf or jilid)
-    if not berkas or not fisik.isdigit():
+    if not fisik.isdigit():
         print(f"[{sid}] scan ada, tetapi halaman {juz}/{hal} tidak tercatat di daftar halamannya.")
+        return False
+    if not berkas:  # mis. nama berkas bertanda «|#n» yang tidak menyebut jilid; situs turath sendiri juga buntu di sini
+        print(f"[{sid}] scan ada ({len(pdf['files'])} berkas), tetapi berkas untuk juz {jilid_pdf or jilid} tidak bisa ditentukan.")
         return False
     jalur = berkas.split("|")[0]
     if pdf.get("root"):
