@@ -287,6 +287,7 @@ def _folder(sid):
     return ROOT / str(int(sid))
 
 
+@functools.cache  # `cek` membacanya untuk tiap bukti
 def info(sid):
     f = _folder(sid) / "book_metadata.json"
     if not f.exists():
