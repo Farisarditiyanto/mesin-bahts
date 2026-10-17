@@ -408,6 +408,54 @@ def _pages(sid):
         yield p
 
 
+INDEKS = "indeks.json"  # di folder tiap kitab
+INDEKS_VERSI = 1  # naikkan kalau isi indeks (lihat `indeks`) berubah cara hitungnya
+
+
+@functools.cache
+def _isi(sid):
+    """Isi pages.jsonl.gz yang sudah dibuka (satu rekaman per baris), sekali per perintah."""
+    with gzip.open(_folder(sid) / "pages.jsonl.gz") as g:
+        return g.read()
+
+
+@functools.cache
+def rekaman_ke(sid, i):
+    """Rekaman ke-i kitab sid (urutan berkas), tanpa cache `padat`: dihitung `_ruas` hanya untuk rekaman yang disentuh."""
+    ix = indeks(sid)
+    return json.loads(_isi(sid)[ix[i][3]:ix[i + 1][3] if i + 1 < len(ix) else None])
+
+
+@functools.cache
+def indeks(sid):
+    """[(juz, page_num, halaman cetak terakhir, letak byte barisnya)] tiap rekaman, urut berkas: `cek` mengurai hanya
+    rekaman halaman yang dirujuk, bukan seluruh kitab (bahts 32 kitab: ±8 detik -> ±2). Disimpan di kitab/<id>/indeks.json;
+    tidak bergantung pada norm(), jadi tidak dibuat ulang saat mesin berubah. Yang rusak atau tidak cocok dengan berkasnya
+    dibuat ulang."""
+    folder = _folder(sid)
+    f, ukuran = folder / INDEKS, (folder / "pages.jsonl.gz").stat().st_size
+    try:
+        d = json.loads(f.read_text(encoding="utf8"))
+        if d["versi"] == INDEKS_VERSI and d["ukuran"] == ukuran:
+            return [tuple(x) for x in d["rekaman"]]
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+    isi, letak = [], 0
+    for baris in _isi(sid).splitlines(keepends=True):
+        if baris.strip():
+            r = json.loads(baris)
+            isi.append((r.get("part"), r.get("page_num"),
+                        max([r.get("page_num") or 0] + [int(n) for n in PENANDA.findall(r.get("body") or "")]), letak))
+        letak += len(baris)
+    try:
+        part = f.with_name(f.name + ".part")
+        part.write_text(json.dumps({"versi": INDEKS_VERSI, "ukuran": ukuran, "rekaman": isi}, ensure_ascii=False), encoding="utf8")
+        part.replace(f)
+    except OSError:
+        pass
+    return isi
+
+
 def _juz(p):
     return "-" if p.get("part") is None else p["part"]
 

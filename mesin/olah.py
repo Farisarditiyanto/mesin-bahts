@@ -88,18 +88,27 @@ ANGKA_LATIN = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "0123456
 
 @functools.cache
 def kitab(sid):
-    """Rekaman kitab per juz ({part: [rekaman]}); tiap rekaman diberi «_akhir», halaman cetak terakhirnya."""
+    """Nomor rekaman kitab per juz ({part: [i]}, urut berkas; juz urut kemunculan pertamanya), dari shamela.indeks."""
     juz = {}
-    for r in shamela._pages(sid):
-        r["_akhir"] = max([r.get("page_num") or 0] + [int(n) for n in shamela.PENANDA.findall(r.get("body") or "")])
-        juz.setdefault(r.get("part"), []).append(r)
+    for i, x in enumerate(shamela.indeks(sid)):
+        juz.setdefault(x[0], []).append(i)
     return juz
 
 
 def rekaman(sid, juz, p1=0, p2=float("inf")):
-    """Rekaman juz itu (juz "-" = semua) yang menyentuh halaman p1..p2."""
-    semua = [r for rr in kitab(sid).values() for r in rr] if juz == "-" else kitab(sid)[juz]
-    return [r for r in semua if r["_akhir"] >= p1 and (r.get("page_num") or 0) <= p2]
+    """Rekaman juz itu (juz "-" = semua) yang menyentuh halaman p1..p2. Hanya rekaman itu yang diurai."""
+    ix = shamela.indeks(sid)
+    semua = [i for ii in kitab(sid).values() for i in ii] if juz == "-" else kitab(sid)[juz]
+    return [shamela.rekaman_ke(sid, i) for i in semua if ix[i][2] >= p1 and (ix[i][1] or 0) <= p2]
+
+
+@functools.cache
+def seluruh(sid):
+    """Semua rekaman kitab sid berurutan seperti rekaman(sid, "-"), dengan cache `padat` (untuk mencari di seluruh kitab)."""
+    juz = {}
+    for r in shamela._pages(sid):
+        juz.setdefault(r.get("part"), []).append(r)
+    return [r for rr in juz.values() for r in rr]
 
 
 def urut_juz(j):
@@ -175,7 +184,7 @@ def gabung(sid, juz, p1, p2):
 def _petunjuk(sid, juz, q):
     """Tempat q di seluruh kitab untuk pesan kesalahan: matan dulu (juz yang ditulis didahulukan), baru حاشية."""
     tempat, hasyiah = [], None
-    for r in rekaman(sid, "-"):
+    for r in seluruh(sid):
         h = shamela.tempat(r, q)
         if h:
             t = (shamela._juz(r) != juz, shamela.letak(shamela._juz(r), h))
