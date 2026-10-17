@@ -107,8 +107,6 @@ def urut_juz(j):
     return (not str(j).isdigit(), str(j).zfill(4))
 
 
-# kalimat di kartu kitab Shamela yang berarti nomor halamannya bukan nomor cetakan
-OTOMATIS = re.compile("مرقمة? آليا|بترقيم الشاملة")
 NASKAH_TULISAN = re.compile("(?:الكتاب|البحث) (?:مخطوط|غير مطبوع)")  # nomornya nomor lembar naskah tulisan/ketikan
 KUTIPAN_MIN = 6  # huruf (bentuk `padat`) paling sedikit tiap bagian kutipan yang dicek
 POTONGAN_MIN = 7  # huruf paling sedikit potongan sendiri <<sid|juz|hal|potongan>> (potongan sah terpendek di bahts nyata: 7)
@@ -259,7 +257,7 @@ def cek(sid, juz, hal, pot, perhatian, kutipan=False):
     e = salah_juz(sid, juz, hal)
     if e:
         return e
-    if OTOMATIS.search(shamela.info(sid)["betaka_text"]):
+    if shamela.OTOMATIS.search(shamela.info(sid)["betaka_text"]):
         pesan = (f"kitab {sid}: nomor halamannya buatan Shamela (مرقم آليا), bukan nomor cetakan — "
                  "pakai edisi yang «موافق للمطبوع», atau cocokkan ke cetakannya")
         if not any(p.endswith(pesan) for p in perhatian):  # sekali per kitab, walau tiap baris diberi awalan

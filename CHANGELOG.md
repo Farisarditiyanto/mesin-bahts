@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- Perintah baru `scan <id> <juz> <hal>`: alamat scan cetakan (PDF di turath.io) untuk halaman itu, dengan nomor halaman PDF-nya, untuk mencocokkan bacaan Shamela yang meragukan. Butuh internet; tidak semua kitab punya scan. Kitab bernomor halaman buatan Shamela diberi peringatan bahwa halaman scan bisa meleset.
 - Agent gratis: OpenCode membaca daftar connector dari `opencode.json` baru (termasuk masuk `shamela`), Command Code membaca `.mcp.json`, Hermes mendaftarkannya dengan `hermes mcp add`. README menyebut agent mana yang gratis dan bahwa aplikasi desktopnya memakai connector yang sama.
 - Bentuk baru `@bentuk: kitab` untuk karya yang bukan bahts (mis. muqarrar gabungan dua syarah): tanpa sampul bahts, wajib hanya `@judul`, `#R` tidak wajib, dan hanya `#K` mulai halaman baru. Kepala halaman bergaris bawah seperti cetakan kitab: halaman genap mencetak `@judul`, halaman ganjil judul bab (`#K` atau فهرس) yang sedang berjalan.
 - `#T teks` = kotak matn: paragraf dalam bingkai merah tipis, teksnya merah.
