@@ -20,6 +20,7 @@ Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
   teks <id> "<frasa>" [lebar] [maks]   teks asli di sekitar frasa, untuk disalin persis
   bab <id> "<frasa>"           rantai judul kitab/bab tempat frasa berada
   halaman <id> <juz> <hal>     isi satu halaman (juz "-" untuk kitab satu jilid)
+  scan <id> <juz> <hal>        alamat scan cetakan halaman itu (PDF di turath.io, butuh internet), untuk bacaan yang meragukan
 
 Takhrij (penunjuk jalan, «المنصة الحديثية», butuh internet):
   hadits "<طرف>" [maks]        tempat hadits di 12 kitab hadits + hukum ulama; tetap dibaca di kitabnya sendiri
@@ -323,6 +324,7 @@ PERINTAH = {  # nama: (jumlah argumen minimal, pemanggil)
     "teks": (2, lambda a: ketemu(shamela.teks(a[0], a[1], *(angka(x, apa) for x, apa in zip(a[2:4], ("lebar", "maks")))))),
     "bab": (2, lambda a: ketemu(shamela.bab(a[0], a[1]))),
     "halaman": (3, lambda a: ketemu(shamela.halaman(*a[:3]))),
+    "scan": (3, lambda a: ketemu(shamela.scan(*a[:3]))),
     "hadits": (1, lambda a: hadits.cari(a[0], *(angka(x, "maks") for x in a[1:2]))),
     "dirasat": (1, lambda a: dirasat.cari(a[0], *(angka(x, "maks") for x in a[1:2]), *a[2:3])),
     "dirasat-pdf": (2, lambda a: dirasat.pdf(a[0], folder_bahts(a[1]))),

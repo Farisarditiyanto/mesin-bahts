@@ -644,6 +644,109 @@ def bab(sid, frasa):
     return False
 
 
+# kalimat di kartu kitab Shamela yang berarti nomor halamannya bukan nomor cetakan (dipakai `cek` di olah.py dan `scan`)
+OTOMATIS = re.compile("مرقمة? آليا|بترقيم الشاملة")
+
+# Scan cetakan di turath.io: berkas data tiap kitab dan PDF-nya. Dibaca dari kode situs app.turath.io (17 Okt 2026), tidak
+# terdokumentasi, jadi bisa berubah tanpa kabar: hanya penunjuk jalan, `cek` dan `rakit` tidak memakainya.
+TURATH_FILES = "https://files.turath.io"
+# Kunci berkas books-v3 dipadatkan jadi satu huruf (U+064B + urutan nama di daftar ini); berkas yang punya `source`
+# menyisipkannya sesudah `version`. Urutan = `hm` di kode situsnya.
+TURATH_KUNCI = ("meta id name type printed pdf_links info info_long version author_id cat_id date_built "
+                "author_page_start indexes volumes headings print_pg_to_pg volume_bounds page_map page_headings non_author").split()
+TURATH_KUNCI_SUMBER = TURATH_KUNCI[:9] + ["source"] + TURATH_KUNCI[9:]
+
+
+def _turath_buku(sid):
+    """Data satu kitab di turath.io dengan nama kunci asli, atau None kalau turath tidak punya kitab itu."""
+    try:
+        with buka(f"{TURATH_FILES}/books-v3/{int(sid)}.json", waktu=30) as r:
+            mentah = r.read()
+            if r.headers.get("Content-Encoding") == "gzip" or mentah[:2] == b"\x1f\x8b":
+                mentah = gzip.decompress(mentah)
+    except urllib.error.HTTPError as e:
+        if e.code in (403, 404):
+            return None
+        raise
+    data = json.loads(mentah)
+    kunci = TURATH_KUNCI_SUMBER if chr(0x64B + TURATH_KUNCI_SUMBER.index("indexes")) in data else TURATH_KUNCI
+
+    def urai(o):
+        if isinstance(o, dict):
+            return {(kunci[ord(k) - 0x64B] if len(k) == 1 and 0 <= ord(k) - 0x64B < len(kunci) else k): urai(v)
+                    for k, v in o.items()}
+        return [urai(x) for x in o] if isinstance(o, list) else o
+    return urai(data)
+
+
+def _turath_berkas(berkas, jilid):
+    """Berkas PDF untuk satu jilid: tiruan `_re` di kode situsnya (nomor di nama berkas, atau penanda «|n»)."""
+    if len(berkas) == 1:
+        return berkas[0]
+    per_jilid, tanpa_nomor, cadangan = {}, [], ""
+    for b in berkas:
+        if "|" in b:
+            n = next((x for x in b.split("|")[1:] if x), "")
+            if n == "0":
+                cadangan = cadangan or b
+                continue
+        else:
+            m = re.search(r"0*(\d+)", b)
+            if not m:
+                tanpa_nomor.append(b)
+                continue
+            n = m.group(1)
+        if n:
+            per_jilid[n] = b
+    return per_jilid.get(str(jilid)) or cadangan or (tanpa_nomor[0] if len(tanpa_nomor) == 1 else "")
+
+
+def scan(sid, juz, hal):
+    """Alamat scan cetakan (PDF di turath.io) untuk satu halaman cetak, untuk mencocokkan bacaan yang meragukan.
+    Juz "-" = kitab satu jilid. Penunjuk jalan saja: hasilnya dibuka dan dibaca orang."""
+    angka = lambda x: str(int(x)) if str(x).isdigit() else str(x)  # «05» dan «٥» = 5
+    buku = _turath_buku(sid)
+    if buku is None:
+        print(f"[{sid}] turath.io tidak punya kitab ini.")
+        return False
+    meta, ix = buku.get("meta") or {}, buku.get("indexes") or {}
+    pdf = meta.get("pdf_links") or {}
+    if not pdf.get("files"):
+        print(f"[{sid}] {meta.get('name', '')}: turath.io tidak punya scan cetakan kitab ini.")
+        return False
+    jilid_ada = ix.get("volumes") or ["1"]
+    if str(juz).strip() in ("-", "") and len(jilid_ada) > 1:  # «-» hanya untuk kitab satu jilid, seperti `halaman`
+        print(f"[{sid}] kitab ini berjilid; sebut juznya. Yang ada: " + "، ".join(f"juz {j}" for j in jilid_ada))
+        return False
+    jilid = jilid_ada[0] if str(juz).strip() in ("-", "") else angka(juz)
+    logis = (ix.get("print_pg_to_pg") or {}).get(f"{jilid},{angka(hal)}")
+    if not logis:
+        batas = ix.get("volume_bounds") or {}
+        print(f"[{sid}] TIDAK ADA halaman {juz}/{hal} di turath. Yang ada: "
+              + "، ".join(f"juz {j} ص{a}-{z}" for j, (a, z) in batas.items()) + " (juz \"-\" = kitab satu jilid)")
+        return False
+    jilid_pdf, fisik = (str((ix.get("page_map") or [])[logis - 1] if logis <= len(ix.get("page_map") or []) else ",")
+                        .split(",") + [""])[:2]
+    berkas = _turath_berkas(pdf["files"], jilid_pdf or jilid)
+    if not fisik.isdigit():
+        print(f"[{sid}] scan ada, tetapi halaman {juz}/{hal} tidak tercatat di daftar halamannya.")
+        return False
+    if not berkas:  # mis. nama berkas bertanda «|#n» yang tidak menyebut jilid; situs turath sendiri juga buntu di sini
+        print(f"[{sid}] scan ada ({len(pdf['files'])} berkas), tetapi berkas untuk juz {jilid_pdf or jilid} tidak bisa ditentukan.")
+        return False
+    jalur = berkas.split("|")[0]
+    if pdf.get("root"):
+        jalur = pdf["root"].rstrip("/") + "/" + jalur
+    if "archive.org" in jalur:
+        jalur = "archive/" + jalur.replace("https://archive.org/download/", "").replace("/", "_=_", 1)
+    print(f"[{sid}] {meta.get('name', '')} — juz {jilid_pdf or jilid}، ص{angka(hal)} = halaman PDF ke-{fisik}")
+    print(f"{TURATH_FILES}/pdf/{urllib.parse.quote(jalur)}#page={fisik}")
+    if OTOMATIS.search(str(meta.get("info", ""))):
+        print("perhatian: nomor halaman kitab ini buatan Shamela (مرقم آليا), jadi halaman scan bisa meleset; "
+              "cari bacaannya di halaman sekitar.")
+    return True
+
+
 def halaman(sid, juz, hal):
     """Isi satu halaman cetak (juz "-" untuk kitab satu jilid), dengan حاشية milik halaman itu. «05» dan «٥» = 5."""
     ada, rentang = False, {}  # juz -> [halaman terkecil, terbesar], untuk pesan kalau halamannya tidak ada

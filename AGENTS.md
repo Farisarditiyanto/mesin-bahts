@@ -54,7 +54,7 @@ Anggap pemakai baru pertama kali memakai agent, tidak membaca README, dan hanya 
 - Bentuk halaman dan huruf dikunci mesin menurut pedoman Jāmiʿat al-Imām («القواعد المنظمة لتسجيل الرسالة العلمية وكتابتها وطباعتها وتقديمها»، 1442هـ). Dosen minta lain → profil baru di `mesin/format.json`, pilih dengan `@format:`; jangan ubah `imam`. Bahts baru memakai `imam_ayat16` (lewat `mesin/naskah_baru.txt`): sama dengan `imam`, ayat 16 supaya tidak tampak lebih besar daripada matan; naskah tanpa `@format` tetap `imam`.
 - Sampul = `mesin/sampul.doc`, sampul معهد العلوم الإسلامية والعربية في جاكرتا. Pembimbing tercetak hanya kalau `@musyrif` diisi; `@jabatan` kosong = baris jabatan tidak tercetak.
 - `rakit` butuh Windows + Microsoft Word. `rakit` satu-satu, jangan dua sekaligus (memakai Word yang sama).
-- Teks kitab = ketikan Shamela, jadi bisa salah ketik. Bacaan yang meragukan: `ambil` edisi lain kitab yang sama lalu bandingkan; kalau masih ragu, cocokkan ke scan cetakan (mis. archive.org).
+- Teks kitab = ketikan Shamela, jadi bisa salah ketik. Bacaan yang meragukan: `ambil` edisi lain kitab yang sama lalu bandingkan; kalau masih ragu, cocokkan ke scan cetakan: `scan <id> <juz> <hal>` memberi alamat PDF cetakan halaman itu di turath.io (penunjuk jalan; tidak semua kitab punya scan), atau cari di archive.org.
 - Yang dibaca dan dikumpulkan = PDF. `.docx` hanya untuk Word (di Google Docs tampilannya pasti beda). Perubahan isi selalu lewat `naskah.txt`, bukan lewat .docx.
 
 ## Untuk yang mengubah mesin
