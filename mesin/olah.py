@@ -201,8 +201,9 @@ def _petunjuk(sid, juz, q):
     return hasyiah
 
 
-def _cek_bagian(sid, juz, hal, p1, p2, teks, utuh, perhatian):
-    """Cek satu teks (kutipan, satu bagian kutipan berelipsis, atau potongan) di juz/hal; '' kalau cocok."""
+def _cek_bagian(sid, juz, hal, p1, p2, teks, utuh, perhatian, rinci=True):
+    """Cek satu teks (kutipan, satu bagian kutipan berelipsis, atau potongan) di juz/hal; '' kalau cocok.
+    rinci=False: pesan kesalahannya tidak disusun (mencari di seluruh kitab), untuk pemanggil yang hanya butuh cocok/tidak."""
     q = shamela.padat(teks)
     jenis, lain = _di(sid, juz, p1, p2, q, utuh)
     if jenis == "hasyiah":
@@ -213,6 +214,8 @@ def _cek_bagian(sid, juz, hal, p1, p2, teks, utuh, perhatian):
                          f"pastikan halamannya dengan `halaman`; itu kalimat muhaqqiq, bukan pengarang :: {teks[:40]}")
     if jenis:
         return ""
+    if not rinci:
+        return "tidak cocok"
     if utuh and _di(sid, juz, p1, p2, q, False)[0]:
         return (f"kutipan mulai atau berakhir di tengah kata (kitab {sid} {juz}/{hal}): salin kata pertama dan terakhirnya utuh, "
                 f"lihat `teks {sid} \"…\"` :: {teks[:40]}")
@@ -258,7 +261,7 @@ def _menyimpang(sid, juz, p1, p2, teks):
     return f"cocok {lo} dari {len(kata)} kata sampai «…{' '.join(kata[max(0, lo - 3):lo])}», lalu naskah «{kata[lo]}», kitab «{di_kitab}»"
 
 
-def cek(sid, juz, hal, pot, perhatian, kutipan=False):
+def cek(sid, juz, hal, pot, perhatian, kutipan=False, rinci=True):
     """Kembalikan '' kalau pot ada di kitab sid juz/hal, atau pesan kesalahan.
     kutipan=True: pot = kutipan bertanda petik di naskah. Ia harus mulai dan berakhir di batas kata kitab, boleh dipotong
     dengan ... (tiap bagian dicek, harus berurutan); angka dan kata nafi sebelumnya diperiksa sebagai perhatian.
@@ -296,7 +299,7 @@ def cek(sid, juz, hal, pot, perhatian, kutipan=False):
                 return f"bagian kutipan terlalu pendek untuk dicek (paling sedikit {minimal} huruf; jangan dipotong ... di situ) :: {b}"
             return f"potongan terlalu pendek (paling sedikit {minimal} huruf; yang pendek cocok di sembarang tempat): {pot}"
     for b in bagian:
-        e = _cek_bagian(sid, juz, hal, p1, p2, b, kutipan, perhatian)
+        e = _cek_bagian(sid, juz, hal, p1, p2, b, kutipan, perhatian, rinci)
         if e:
             return e
     rr = rekaman(sid, juz, p1, p2)
@@ -649,7 +652,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             for k in lain:
                 if len(k.split()) < 4 or shamela.padat(k) in shamela.padat(isi):
                     continue
-                if any(not cek(int(s), z, f"{a}-{b}", k, [], kutipan=True) for s, z, a, b in terbukti):
+                if any(not cek(int(s), z, f"{a}-{b}", k, [], kutipan=True, rinci=False) for s, z, a, b in terbukti):
                     continue
                 perhatian.append(f"kutipan tanpa catatan kaki sendiri (hanya kutipan tepat sebelum [^ yang dicek): «{k[:40]}» || fn: {isi[:45]}")
             # pengecualian: rujukan ayat «سورة …» sesudah {Q:}, dan «سبق تخريجه، ص{P:…}» (buktinya di catatan kaki pertama)
