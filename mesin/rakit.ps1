@@ -330,10 +330,8 @@ try {
     if ($adaPu) {
     $nT++; Judul 'المصادر والمراجع' "t_$nT" $true; [void]$toc.Add(@{ t = 'المصادر والمراجع'; bm = "t_$nT"; lvl = 0 })
     $n = $DATA.pustaka.Count
-    # baris القرآن الكريم (selalu paling atas kalau ada) bertanda «-», kitab lain bernomor 1, 2, ...
-    # penandanya dari olah.py (kunci "quran"); olah.py tanpa kunci itu: dilihat dari baris pertama, harakat (= shamela.HARAKAT) dibuang
-    if ($DATA.PSObject.Properties.Name -contains 'quran') { $adaQuran = [bool]$DATA.quran }
-    else { $adaQuran = $n -gt 0 -and ([string]$DATA.pustaka[0] -replace '[ؐ-ًؚ-ٰٟۖ-ۭـ]', '').StartsWith('القرآن') }
+    # baris القرآن الكريم (selalu paling atas kalau ada) bertanda «-», kitab lain bernomor 1, 2, ...; penandanya dari olah.py
+    $adaQuran = [bool]$DATA.quran
     $geser = if ($adaQuran) { 1 } else { 0 }
     $tb = Tabel $n @(1.3, 13.7) 0
     for ($r = 1; $r -le $n; $r++) {

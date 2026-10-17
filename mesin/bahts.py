@@ -30,7 +30,7 @@ Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex dan DOAJ
                                dan menurut makna. Saringan OpenAlex, mis. language:ar,type:dissertation
   dirasat-pdf <W…> <folder>    unduh PDF penelitian (nomor OpenAlex dari `dirasat`) ke folder bahts; butuh kunci OpenAlex
 """
-import difflib, hashlib, json, math, os, re, shutil, subprocess, sys, urllib.error
+import difflib, hashlib, json, math, os, re, subprocess, sys, urllib.error
 from pathlib import Path
 
 import dirasat, hadits, shamela  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
