@@ -5,6 +5,10 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+## 4.0.0 — 2026-10-17
+
+Besar naik dari 3.1.0: `((` dan `))` kini tanda lafaz matn. Naskah lama yang memakai `((` tanpa `))` dulu lolos, kini GAGAL («tanda (( tidak ditutup dengan ))»); `((…))` yang berpasangan kini tercetak merah. Kalau maksudnya kurung biasa, tulis satu kurung `(…)` atau «…».
+
 - Perintah baru `scan <id> <juz> <hal>`: alamat scan cetakan (PDF di turath.io) untuk halaman itu, dengan nomor halaman PDF-nya, untuk mencocokkan bacaan Shamela yang meragukan. Butuh internet; tidak semua kitab punya scan. Kitab bernomor halaman buatan Shamela diberi peringatan bahwa halaman scan bisa meleset.
 - Agent gratis: OpenCode membaca daftar connector dari `opencode.json` baru (termasuk masuk `shamela`), Command Code membaca `.mcp.json`, Hermes mendaftarkannya dengan `hermes mcp add`. README menyebut agent mana yang gratis dan bahwa aplikasi desktopnya memakai connector yang sama.
 - Bentuk baru `@bentuk: kitab` untuk karya yang bukan bahts (mis. muqarrar gabungan dua syarah): tanpa sampul bahts, wajib hanya `@judul`, `#R` tidak wajib, dan hanya `#K` mulai halaman baru. Kepala halaman bergaris bawah seperti cetakan kitab: halaman genap mencetak `@judul`, halaman ganjil judul bab (`#K` atau فهرس) yang sedang berjalan.
