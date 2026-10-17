@@ -62,7 +62,7 @@ ANGKA = ("hindi", "latin")
 # @warna: nama -> RGB. Biru tua: tetap nyaman dibaca untuk paragraf panjang dan jelas beda dari hitam serta merah lafaz matn
 WARNA = {"biru": (20, 60, 150)}
 # lambang hormat Unicode 14 (﵀-﵏ ﷾ ﷿) tidak ada di huruf cetak (Traditional Arabic, Sakkal Majalla): kotak kosong di PDF.
-# Dicetak dengan kalimatnya; `cek` sudah membuang keduanya (shamela.LIGATUR_HORMAT, HORMAT)
+# Dicetak dengan kalimatnya; `cek` sudah membuang keduanya (norma.LIGATUR_HORMAT, HORMAT)
 HORMAT_CETAK = str.maketrans({
     "﵀": "رحمه الله", "﵁": "رضي الله عنه", "﵂": "رضي الله عنها", "﵃": "رضي الله عنهم",
     "﵄": "رضي الله عنهما", "﵅": "رضي الله عنهن", "﵆": "صلى الله عليه وآله", "﵇": "عليه السلام",
