@@ -52,9 +52,10 @@ try {
     # ---------- 1. Sampul: berangkat dari template sampul (bentuk kitab: dokumen kosong) ----------
     if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force }
     # Tampilan Draft selama menyusun: di Print Layout (bawaan kebanyakan pemakai) tiap Select menyusun ulang halaman sampai
-    # titik itu (bahts 63 catatan kaki: rakit ±110 detik, Draft ±40). Tampilan pemakai dikembalikan sebelum .docx disimpan
-    # dan sebelum dokumen ditutup: Word mengingat tampilan dokumen terakhir sebagai tampilan bawaannya
-    function Draft { $script:viewLama = $doc.ActiveWindow.View.Type; $doc.ActiveWindow.View.Type = 1 }
+    # titik itu (bahts 63 catatan kaki: rakit ±110 detik, Draft ±40). Sebelum .docx disimpan dan sebelum dokumen ditutup
+    # kembali ke Print Layout (3): .docx menyimpan tampilannya dan dibuka pemakai dalam tampilan itu, dan Word mengingat
+    # tampilan dokumen terakhir sebagai bawaannya. Tampilan awal Word tanpa jendela (Web Layout) bukan tampilan pemakai
+    function Draft { $script:draft = $true; $doc.ActiveWindow.View.Type = 1 }
     if ($KITAB) { $doc = $word.Documents.Add(); $doc.SaveAs2($tmp, 16); Draft } else {
     $doc = $word.Documents.Open("$dir\sampul.doc", $false, $true)
     $doc.SaveAs2($tmp, 16)
@@ -450,14 +451,14 @@ try {
     [IO.File]::AppendAllLines($Laporan, [string[]]$lap)
     if (Test-Path -LiteralPath "$Out.docx") { Remove-Item -LiteralPath "$Out.docx" -Force }
     $doc.EmbedTrueTypeFonts = $true; $doc.SaveSubsetFonts = $false; $doc.DoNotEmbedSystemFonts = $false
-    $doc.ActiveWindow.View.Type = $viewLama
+    $doc.ActiveWindow.View.Type = 3
     $doc.SaveAs2("$Out.docx", 16)
     $word.ScreenUpdating = $true                         # tanpa ini garis bingkai/kepala halaman tidak ikut ke PDF
     $doc.ExportAsFixedFormat("$Out.pdf", 17)
     $doc.Close($false)
 }
 finally {
-    try { if ($viewLama) { $doc.ActiveWindow.View.Type = $viewLama } } catch {}
+    try { if ($draft) { $doc.ActiveWindow.View.Type = 3 } } catch {}
     try { foreach ($d in @($word.Documents)) { $d.Close($false) } } catch {}
     try { $word.Options.ArabicNumeral = $numeralLama } catch {}
     try { $word.Quit([ref]0) } catch {}                   # Quit menerima argumen ref; Quit(0) selalu gagal
