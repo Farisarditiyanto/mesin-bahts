@@ -62,7 +62,7 @@ ANGKA = ("hindi", "latin")
 # @warna: nama -> RGB. Biru tua: tetap nyaman dibaca untuk paragraf panjang dan jelas beda dari hitam serta merah lafaz matn
 WARNA = {"biru": (20, 60, 150)}
 # lambang hormat Unicode 14 (﵀-﵏ ﷾ ﷿) tidak ada di huruf cetak (Traditional Arabic, Sakkal Majalla): kotak kosong di PDF.
-# Dicetak dengan kalimatnya; `cek` sudah membuang keduanya (shamela.LIGATUR_HORMAT, HORMAT)
+# Dicetak dengan kalimatnya; `cek` sudah membuang keduanya (norma.LIGATUR_HORMAT, HORMAT)
 HORMAT_CETAK = str.maketrans({
     "﵀": "رحمه الله", "﵁": "رضي الله عنه", "﵂": "رضي الله عنها", "﵃": "رضي الله عنهم",
     "﵄": "رضي الله عنهما", "﵅": "رضي الله عنهن", "﵆": "صلى الله عليه وآله", "﵇": "عليه السلام",
@@ -72,6 +72,15 @@ HORMAT_CETAK = str.maketrans({
 
 HARAKAT = shamela.HARAKAT
 KUAT = re.compile(r"[^\W\d_]|[،؛؟]")  # huruf, atau tanda baca Arab (tanda teks Arab)
+
+
+class TandaRusak(ValueError):
+    """Tanda naskah yang salah tulis; pesannya untuk pemakai. ValueError lain dari dalam mesin = GALAT MESIN: tanpa
+    pembeda ini, galat mesin di baris jebakan «#S GAGAL» terhitung sebagai galat yang diharapkan dan tidak ketahuan."""
+
+
+def galat_mesin(n, e):
+    return f"baris {n}: GALAT MESIN ({type(e).__name__}: {e}) — bukan salah naskah; laporkan barisnya ke pengurus mesin bahts"
 
 
 def hindi(s):
@@ -88,18 +97,27 @@ ANGKA_LATIN = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "0123456
 
 @functools.cache
 def kitab(sid):
-    """Rekaman kitab per juz ({part: [rekaman]}); tiap rekaman diberi «_akhir», halaman cetak terakhirnya."""
+    """Nomor rekaman kitab per juz ({part: [i]}, urut berkas; juz urut kemunculan pertamanya), dari shamela.indeks."""
     juz = {}
-    for r in shamela._pages(sid):
-        r["_akhir"] = max([r.get("page_num") or 0] + [int(n) for n in shamela.PENANDA.findall(r.get("body") or "")])
-        juz.setdefault(r.get("part"), []).append(r)
+    for i, x in enumerate(shamela.indeks(sid)):
+        juz.setdefault(x[0], []).append(i)
     return juz
 
 
 def rekaman(sid, juz, p1=0, p2=float("inf")):
-    """Rekaman juz itu (juz "-" = semua) yang menyentuh halaman p1..p2."""
-    semua = [r for rr in kitab(sid).values() for r in rr] if juz == "-" else kitab(sid)[juz]
-    return [r for r in semua if r["_akhir"] >= p1 and (r.get("page_num") or 0) <= p2]
+    """Rekaman juz itu (juz "-" = semua) yang menyentuh halaman p1..p2. Hanya rekaman itu yang diurai."""
+    ix = shamela.indeks(sid)
+    semua = [i for ii in kitab(sid).values() for i in ii] if juz == "-" else kitab(sid)[juz]
+    return [shamela.rekaman_ke(sid, i) for i in semua if ix[i][2] >= p1 and (ix[i][1] or 0) <= p2]
+
+
+@functools.cache
+def seluruh(sid):
+    """Semua rekaman kitab sid berurutan seperti rekaman(sid, "-"), dengan cache `padat` (untuk mencari di seluruh kitab)."""
+    juz = {}
+    for r in shamela._pages(sid):
+        juz.setdefault(r.get("part"), []).append(r)
+    return [r for rr in juz.values() for r in rr]
 
 
 def urut_juz(j):
@@ -175,7 +193,7 @@ def gabung(sid, juz, p1, p2):
 def _petunjuk(sid, juz, q):
     """Tempat q di seluruh kitab untuk pesan kesalahan: matan dulu (juz yang ditulis didahulukan), baru حاشية."""
     tempat, hasyiah = [], None
-    for r in rekaman(sid, "-"):
+    for r in seluruh(sid):
         h = shamela.tempat(r, q)
         if h:
             t = (shamela._juz(r) != juz, shamela.letak(shamela._juz(r), h))
@@ -192,8 +210,9 @@ def _petunjuk(sid, juz, q):
     return hasyiah
 
 
-def _cek_bagian(sid, juz, hal, p1, p2, teks, utuh, perhatian):
-    """Cek satu teks (kutipan, satu bagian kutipan berelipsis, atau potongan) di juz/hal; '' kalau cocok."""
+def _cek_bagian(sid, juz, hal, p1, p2, teks, utuh, perhatian, rinci=True):
+    """Cek satu teks (kutipan, satu bagian kutipan berelipsis, atau potongan) di juz/hal; '' kalau cocok.
+    rinci=False: pesan kesalahannya tidak disusun (mencari di seluruh kitab), untuk pemanggil yang hanya butuh cocok/tidak."""
     q = shamela.padat(teks)
     jenis, lain = _di(sid, juz, p1, p2, q, utuh)
     if jenis == "hasyiah":
@@ -204,6 +223,8 @@ def _cek_bagian(sid, juz, hal, p1, p2, teks, utuh, perhatian):
                          f"pastikan halamannya dengan `halaman`; itu kalimat muhaqqiq, bukan pengarang :: {teks[:40]}")
     if jenis:
         return ""
+    if not rinci:
+        return "tidak cocok"
     if utuh and _di(sid, juz, p1, p2, q, False)[0]:
         return (f"kutipan mulai atau berakhir di tengah kata (kitab {sid} {juz}/{hal}): salin kata pertama dan terakhirnya utuh, "
                 f"lihat `teks {sid} \"…\"` :: {teks[:40]}")
@@ -249,7 +270,7 @@ def _menyimpang(sid, juz, p1, p2, teks):
     return f"cocok {lo} dari {len(kata)} kata sampai «…{' '.join(kata[max(0, lo - 3):lo])}», lalu naskah «{kata[lo]}», kitab «{di_kitab}»"
 
 
-def cek(sid, juz, hal, pot, perhatian, kutipan=False):
+def cek(sid, juz, hal, pot, perhatian, kutipan=False, rinci=True):
     """Kembalikan '' kalau pot ada di kitab sid juz/hal, atau pesan kesalahan.
     kutipan=True: pot = kutipan bertanda petik di naskah. Ia harus mulai dan berakhir di batas kata kitab, boleh dipotong
     dengan ... (tiap bagian dicek, harus berurutan); angka dan kata nafi sebelumnya diperiksa sebagai perhatian.
@@ -287,7 +308,7 @@ def cek(sid, juz, hal, pot, perhatian, kutipan=False):
                 return f"bagian kutipan terlalu pendek untuk dicek (paling sedikit {minimal} huruf; jangan dipotong ... di situ) :: {b}"
             return f"potongan terlalu pendek (paling sedikit {minimal} huruf; yang pendek cocok di sembarang tempat): {pot}"
     for b in bagian:
-        e = _cek_bagian(sid, juz, hal, p1, p2, b, kutipan, perhatian)
+        e = _cek_bagian(sid, juz, hal, p1, p2, b, kutipan, perhatian, rinci)
         if e:
             return e
     rr = rekaman(sid, juz, p1, p2)
@@ -379,14 +400,14 @@ def ayat(spec):
     """'s:a' | 's:a-b' | 's:a:i-j' -> (teks_utsmani, surah, 'a' atau 'a-b')."""
     p = spec.split(":")
     if len(p) not in (2, 3) or not all(re.fullmatch(r"\d+(-\d+)?", x) for x in p):
-        raise ValueError(f"{{Q:{spec}}}: bentuknya {{Q:surat:ayat}}, {{Q:surat:a-b}}, atau {{Q:surat:ayat:i-j}}")
+        raise TandaRusak(f"{{Q:{spec}}}: bentuknya {{Q:surat:ayat}}, {{Q:surat:a-b}}, atau {{Q:surat:ayat:i-j}}")
     s = int(p[0])
     if any(f"{s}:{n}" not in QURAN for n in map(int, p[1].split("-"))):
-        raise ValueError(f"{{Q:{spec}}}: surat/ayat itu tidak ada")
+        raise TandaRusak(f"{{Q:{spec}}}: surat/ayat itu tidak ada")
     if "-" in p[1]:
         a, b = map(int, p[1].split("-"))
         if a > b:
-            raise ValueError(f"{{Q:{spec}}}: rentang ayat harus dari kecil ke besar")
+            raise TandaRusak(f"{{Q:{spec}}}: rentang ayat harus dari kecil ke besar")
         bagian = []
         for n in range(a, b + 1):
             bagian.append(QURAN[f"{s}:{n}"])
@@ -398,7 +419,7 @@ def ayat(spec):
         i, _, j = p[2].partition("-")
         i = int(i); j = int(j or i)
         if not 1 <= i <= j <= len(t.split()):
-            raise ValueError(f"{{Q:{spec}}}: ayat itu hanya {len(t.split())} kata")
+            raise TandaRusak(f"{{Q:{spec}}}: ayat itu hanya {len(t.split())} kata")
         t = " ".join(t.split()[i - 1: j])
     return t, s, p[1]
 
@@ -522,7 +543,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             tebal = not tebal
         elif tok in ("((", "))"):
             if merah == (tok == "(("):
-                raise ValueError(f"tanda {tok} tidak berpasangan: lafaz matn ditulis ((…))")
+                raise TandaRusak(f"tanda {tok} tidak berpasangan: lafaz matn ditulis ((…))")
             merah = tok == "(("
             runs.append({"t": tok[0], "b": tebal, "m": True}); polos += tok[0]  # kurung lafaz matn ikut tercetak merah dan dicek
         elif tok.startswith("{Q:"):
@@ -538,44 +559,44 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             kunci = "h_" + tok[4:-1]
             induk = next((r for r in hadits_idx if r["k"] == kunci), None)
             if not induk:
-                raise ValueError(f"{tok}: belum ada {{H:...|{tok[4:-1]}}} sebelumnya")
+                raise TandaRusak(f"{tok}: belum ada {{H:...|{tok[4:-1]}}} sebelumnya")
             n = 1 + len(induk.setdefault("lagi", []))
             induk["lagi"].append(f"{kunci}_{n}")
             runs.append({"bm": f"{kunci}_{n}"})
         elif tok.startswith("{H:"):
             if tok.count("|") != 2:
-                raise ValueError(f"{tok}: bentuknya {{H:طرف|راوٍ|kunci}}")
+                raise TandaRusak(f"{tok}: bentuknya {{H:طرف|راوٍ|kunci}}")
             taraf, rawi, kunci = tok[3:-1].split("|")
             if not KUNCI.fullmatch(kunci):
-                raise ValueError(f"{tok}: kunci hanya boleh huruf a-z")
+                raise TandaRusak(f"{tok}: kunci hanya boleh huruf a-z")
             if any(r["k"] == "h_" + kunci for r in hadits_idx):
-                raise ValueError(f"{tok}: kunci «{kunci}» sudah dipakai (pakai {{H2:{kunci}}})")
+                raise TandaRusak(f"{tok}: kunci «{kunci}» sudah dipakai (pakai {{H2:{kunci}}})")
             hadits_idx.append({"k": "h_" + kunci, "t": taraf, "r": rawi})
             runs.append({"bm": "h_" + kunci})
         elif tok.startswith("{P:"):
             if not di_catatan:
-                raise ValueError(f"{tok}: hanya boleh di dalam catatan kaki")
+                raise TandaRusak(f"{tok}: hanya boleh di dalam catatan kaki")
             if not any(r["k"] == "h_" + tok[3:-1] for r in hadits_idx):
-                raise ValueError(f"{tok}: belum ada {{H:...|{tok[3:-1]}}} sebelumnya")
+                raise TandaRusak(f"{tok}: belum ada {{H:...|{tok[3:-1]}}} sebelumnya")
             runs.append({"pg": "h_" + tok[3:-1]})
         elif tok == "[^":
             if di_catatan:
-                raise ValueError("catatan kaki tidak boleh di dalam catatan kaki: tutup yang pertama dengan ] dulu")
+                raise TandaRusak("catatan kaki tidak boleh di dalam catatan kaki: tutup yang pertama dengan ] dulu")
             # cari penutup ]; isi bukti <<...>> dilewati (potongannya boleh memuat ])
             j = i
             while j < len(teks) and teks[j] != "]":
                 if teks.startswith("[^", j):
-                    raise ValueError("catatan kaki tidak boleh di dalam catatan kaki: tutup yang pertama dengan ] dulu")
+                    raise TandaRusak("catatan kaki tidak boleh di dalam catatan kaki: tutup yang pertama dengan ] dulu")
                 tutup = teks.find(">>", j + 2) if teks.startswith("<<", j) else -1
                 j = tutup + 2 if tutup >= 0 else j + 1
             if j >= len(teks):
-                raise ValueError("catatan kaki [^ tidak ditutup dengan ]")
+                raise TandaRusak("catatan kaki [^ tidak ditutup dengan ]")
             isi = teks[i:j]
             i = j + 1
             bukti = re.findall(r"<<([^>]*)>>", isi)
             isi = re.sub(r"\s*<<[^>]*>>", "", isi).strip()
             if "<<" in isi or ">>" in isi:
-                raise ValueError("bukti <<...>> tidak tertutup rapi (tidak boleh ada > di dalam potongan)")
+                raise TandaRusak("bukti <<...>> tidak tertutup rapi (tidak boleh ada > di dalam potongan)")
             # bukti saja + semua sumbernya di @rumuz: tidak dicetak, dan seluruh teks sejak catatan kaki sebelumnya = nukilan
             # utuh dari halaman bukti (kitab tanpa catatan kaki: paragraf syarah yang disalin dari kitabnya)
             sid_bukti = [b.split("|")[0] for b in bukti if b != LUAR]
@@ -612,7 +633,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             for b in bukti:
                 f = b.split("|")
                 if len(f) not in (3, 4) or not re.fullmatch(r"\d+", f[0]) or not re.fullmatch(r"\d+(-\d+)?", f[2]):
-                    raise ValueError(f"<<{b}>>: bentuknya <<sid|juz|hal>> atau <<sid|juz|hal|potongan>>")
+                    raise TandaRusak(f"<<{b}>>: bentuknya <<sid|juz|hal>> atau <<sid|juz|hal|potongan>>")
                 e = salah_juz(int(f[0]), f[1], f[2])
                 if e:  # juz/halamannya belum bisa dibandingkan dengan yang tercetak: satu galat saja
                     galat.append(e + f"  || fn: {isi[:45]}"); continue
@@ -640,7 +661,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             for k in lain:
                 if len(k.split()) < 4 or shamela.padat(k) in shamela.padat(isi):
                     continue
-                if any(not cek(int(s), z, f"{a}-{b}", k, [], kutipan=True) for s, z, a, b in terbukti):
+                if any(not cek(int(s), z, f"{a}-{b}", k, [], kutipan=True, rinci=False) for s, z, a, b in terbukti):
                     continue
                 perhatian.append(f"kutipan tanpa catatan kaki sendiri (hanya kutipan tepat sebelum [^ yang dicek): «{k[:40]}» || fn: {isi[:45]}")
             # pengecualian: rujukan ayat «سورة …» sesudah {Q:}, dan «سبق تخريجه، ص{P:…}» (buktinya di catatan kaki pertama)
@@ -671,13 +692,13 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
         else:  # "]" nyasar
             runs.append({"t": "]", "b": tebal}); polos += "]"
     if tebal:
-        raise ValueError("tanda ** tidak berpasangan")
+        raise TandaRusak("tanda ** tidak berpasangan")
     if merah:
-        raise ValueError("tanda (( tidak ditutup dengan ))")
+        raise TandaRusak("tanda (( tidak ditutup dengan ))")
     if re.search(rf"<<(?:\d+\||{LUAR}>>)", polos):
-        raise ValueError("bukti <<...>> hanya boleh di dalam catatan kaki [^...]; di luar itu ia ikut tercetak")
+        raise TandaRusak("bukti <<...>> hanya boleh di dalam catatan kaki [^...]; di luar itu ia ikut tercetak")
     if re.search(r"\{(?:Q|H2|H|P):", polos):
-        raise ValueError("tanda {Q:/{H:/{H2:/{P: tidak ditutup dengan }")
+        raise TandaRusak("tanda {Q:/{H:/{H2:/{P: tidak ditutup dengan }")
     return [r for r in runs if r.get("t", "x") != ""]
 
 
@@ -723,8 +744,10 @@ def utama(folder):
             if k == "T":  # kotak matn: paragraf biasa (boleh bercatatan kaki), dicetak merah dalam bingkai
                 try:
                     blok.append({"k": "T", "runs": urai(t, catatan, ayat_idx, hadits_idx, galat, perhatian, rumuz=rumuz, warna=warna)})
-                except ValueError as e:
+                except TandaRusak as e:
                     galat.append(f"baris {n}: tanda rusak — {e}")
+                except (KeyError, IndexError, ValueError) as e:  # bukan salah tulis naskah: mesinnya yang keliru di baris ini
+                    galat.append(galat_mesin(n, e))
             elif re.search(r"\[\^|<<|\{|\*\*", t):  # judul tercetak apa adanya (juga di فهرس الموضوعات): tanda ini ikut tercetak
                 galat.append(f"baris {n}: judul tidak boleh memuat catatan kaki [^, bukti <<, tanda {{Q:/{{H: atau **: "
                              f"pindahkan ke paragraf sesudahnya :: {b[:40]}")
@@ -738,11 +761,10 @@ def utama(folder):
         else:
             try:
                 blok.append({"k": "P", "runs": urai(b, catatan, ayat_idx, hadits_idx, galat, perhatian, rumuz=rumuz, warna=warna)})
-            except ValueError as e:
+            except TandaRusak as e:
                 galat.append(f"baris {n}: tanda rusak — {e}")
-            except (KeyError, IndexError) as e:  # bukan salah tulis naskah: mesinnya yang keliru di baris ini
-                galat.append(f"baris {n}: GALAT MESIN ({type(e).__name__}: {e}) — bukan salah naskah; laporkan barisnya ke "
-                             "pengurus mesin bahts")
+            except (KeyError, IndexError, ValueError) as e:  # bukan salah tulis naskah: mesinnya yang keliru di baris ini
+                galat.append(galat_mesin(n, e))
         # tiap galat dan perhatian menyebut barisnya: pemakai langsung tahu tempatnya, tes jebakan mencocokkan per baris
         galat[g0:] = [g if g.startswith("baris ") else f"baris {n}: {g}" for g in galat[g0:]]
         perhatian[p0:] = [p if p.startswith("baris ") else f"baris {n}: {p}" for p in perhatian[p0:]]

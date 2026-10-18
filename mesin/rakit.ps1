@@ -51,10 +51,16 @@ try {
     if (@($word.FontNames) -notcontains $TA) { throw "Huruf [$TA] belum terpasang di Windows. Jalankan: python mesin/bahts.py periksa" }
     # ---------- 1. Sampul: berangkat dari template sampul (bentuk kitab: dokumen kosong) ----------
     if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force }
-    if ($KITAB) { $doc = $word.Documents.Add(); $doc.SaveAs2($tmp, 16) } else {
+    # Tampilan Draft selama menyusun: di Print Layout (bawaan kebanyakan pemakai) tiap Select menyusun ulang halaman sampai
+    # titik itu (bahts 63 catatan kaki: rakit ±110 detik, Draft ±40). Sebelum .docx disimpan dan sebelum dokumen ditutup
+    # kembali ke Print Layout (3): .docx menyimpan tampilannya dan dibuka pemakai dalam tampilan itu, dan Word mengingat
+    # tampilan dokumen terakhir sebagai bawaannya. Tampilan awal Word tanpa jendela (Web Layout) bukan tampilan pemakai
+    function Draft { $script:draft = $true; $doc.ActiveWindow.View.Type = 1 }
+    if ($KITAB) { $doc = $word.Documents.Add(); $doc.SaveAs2($tmp, 16); Draft } else {
     $doc = $word.Documents.Open("$dir\sampul.doc", $false, $true)
     $doc.SaveAs2($tmp, 16)
     $doc.Convert()
+    Draft
     foreach ($h in 1..3) { try { $doc.Sections(1).Headers($h).Range.Text = '' } catch {} ; try { $doc.Sections(1).Footers($h).Range.Text = '' } catch {} }
     foreach ($s in $doc.Shapes) {
         if ($s.Type -eq 17) {
@@ -152,6 +158,16 @@ try {
         $f.Bold = [int]$bold; $f.BoldBi = [int]$bold; $f.Italic = 0; $f.ItalicBi = 0; $f.Superscript = [int]$sup; $f.Color = [int]$warna
         $sel.Collapse(0)
     }
+    # Halaman fisik sebuah posisi (seperti Information(3)) dari awal tiap halaman: GoTo sekali per halaman. Information per
+    # catatan kaki menyusun halaman dari awal dokumen tiap dipanggil, makin belakang makin lambat (bahts 63 catatan kaki:
+    # ±10 detik per putaran NomorCatatan; dengan GoTo ±0,2 detik). Untuk penanda فهرس (Hal) Information(1) tetap lebih
+    # cepat: bentuk kitab 187 halaman 7 detik, peta GoTo 9,5
+    function AwalHalaman { $n = $doc.ComputeStatistics(2); return , @(for ($k = 1; $k -le $n; $k++) { $doc.GoTo(1, 1, $k).Start }) }
+    function HalamanDi($awal, $pos) {
+        $lo = 0; $hi = $awal.Count - 1
+        while ($lo -lt $hi) { $mid = [int][Math]::Floor(($lo + $hi + 1) / 2); if ($awal[$mid] -le $pos) { $lo = $mid } else { $hi = $mid - 1 } }
+        return $lo + 1
+    }
     function TeksRuns($runs) { $s = ''; foreach ($r in $runs) { if ($null -ne $r.t) { $s += $r.t } elseif ($r.pg) { $s += '⟦' + $r.pg + '⟧' } }; return $s }
     # nomor catatan kaki = tanda buatan sendiri, bukan nomor otomatis Word: nomor otomatis Word selalu 0-9
     # (Options.ArabicNumeral tidak berlaku untuknya). Nomornya dibetulkan NomorCatatan sesudah halaman tersusun.
@@ -196,10 +212,14 @@ try {
     function NomorCatatan {
         for ($putaran = 1; $putaran -le 5; $putaran++) {
             $doc.Repaginate()
+            # halaman hanya dibaca untuk nomor yang mulai ulang tiap halaman, dan hanya kalau ada catatan kaki: AwalHalaman
+            # membaca awal tiap halaman (bentuk kitab 187 halaman tanpa catatan kaki: ±6 detik untuk apa-apa)
+            $ulangHal = $ULANG -eq 2 -and $doc.Footnotes.Count -gt 0
+            if ($ulangHal) { $awal = AwalHalaman }
             $salah = @(); $hal = -1; $n = 0; $i = 0
             foreach ($fn in $doc.Footnotes) {
-                $i++; $p = $fn.Reference.Information(3)
-                if ($ULANG -eq 2 -and $p -ne $hal) { $n = 0; $hal = $p }
+                $i++
+                if ($ulangHal) { $p = HalamanDi $awal $fn.Reference.Start; if ($p -ne $hal) { $n = 0; $hal = $p } }
                 $n++
                 if ($fn.Reference.Text -ne (Angka $n)) { $salah += , @($i, (Angka $n)) }
             }
@@ -315,10 +335,8 @@ try {
     if ($adaPu) {
     $nT++; Judul 'المصادر والمراجع' "t_$nT" $true; [void]$toc.Add(@{ t = 'المصادر والمراجع'; bm = "t_$nT"; lvl = 0 })
     $n = $DATA.pustaka.Count
-    # baris القرآن الكريم (selalu paling atas kalau ada) bertanda «-», kitab lain bernomor 1, 2, ...
-    # penandanya dari olah.py (kunci "quran"); olah.py tanpa kunci itu: dilihat dari baris pertama, harakat (= shamela.HARAKAT) dibuang
-    if ($DATA.PSObject.Properties.Name -contains 'quran') { $adaQuran = [bool]$DATA.quran }
-    else { $adaQuran = $n -gt 0 -and ([string]$DATA.pustaka[0] -replace '[ؐ-ًؚ-ٰٟۖ-ۭـ]', '').StartsWith('القرآن') }
+    # baris القرآن الكريم (selalu paling atas kalau ada) bertanda «-», kitab lain bernomor 1, 2, ...; penandanya dari olah.py
+    $adaQuran = [bool]$DATA.quran
     $geser = if ($adaQuran) { 1 } else { 0 }
     $tb = Tabel $n @(1.3, 13.7) 0
     for ($r = 1; $r -le $n; $r++) {
@@ -420,12 +438,14 @@ try {
     [IO.File]::AppendAllLines($Laporan, [string[]]$lap)
     if (Test-Path -LiteralPath "$Out.docx") { Remove-Item -LiteralPath "$Out.docx" -Force }
     $doc.EmbedTrueTypeFonts = $true; $doc.SaveSubsetFonts = $false; $doc.DoNotEmbedSystemFonts = $false
+    $doc.ActiveWindow.View.Type = 3
     $doc.SaveAs2("$Out.docx", 16)
     $word.ScreenUpdating = $true                         # tanpa ini garis bingkai/kepala halaman tidak ikut ke PDF
     $doc.ExportAsFixedFormat("$Out.pdf", 17)
     $doc.Close($false)
 }
 finally {
+    try { if ($draft) { $doc.ActiveWindow.View.Type = 3 } } catch {}
     try { foreach ($d in @($word.Documents)) { $d.Close($false) } } catch {}
     try { $word.Options.ArabicNumeral = $numeralLama } catch {}
     try { $word.Quit([ref]0) } catch {}                   # Quit menerima argumen ref; Quit(0) selalu gagal
