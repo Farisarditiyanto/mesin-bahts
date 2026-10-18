@@ -11,6 +11,8 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 - Angka di kutipan kini dicocokkan dengan angka kitab di tempat kutipan itu, bukan di mana saja di halaman: angka yang diganti angka lain GAGAL, angka yang dibuang atau ditambah jadi perhatian. «و٢٦٧» di kitab tidak lagi dibuang sebagai nomor catatan kaki.
 - Perhatian kata nafi kini juga untuk لم/ولم/فلم, لن/ولن/فلن, وليس/فليس, ليست, dan untuk kata nafi di akhir halaman sebelumnya.
 - «…» milik kitab sendiri yang ikut disalin tidak lagi membuat kutipan GAGAL «terlalu pendek» kalau kutipan utuhnya bersambung di kitab.
+- Celah tanda naskah yang ditutup (kini GAGAL): kutipan bertanda petik (empat kata atau lebih, selain judul kitab) di dalam catatan kaki berbukti kini dicek ke halaman bukti catatan kaki itu; catatan kaki bukti saja `[^<<sid|juz|hal|potongan>>]` kini mengecek seluruh paragraf, bukan hanya potongannya; «سورة …» hanya membebaskan kutipan yang memuat ayat itu, bukan kutipan lain yang ditulis sesudah `{Q:}`; «سبق تخريجه، ص{P:kunci}» hanya membebaskan kutipan yang sama dengan (atau bagian dari) kutipan `{H:…|kunci}` di catatan kaki pertamanya; bukti nomor kosong `<<…|#>>`; `{Q:s:a-b:i-j}` (kata ke-i s.d. j hanya untuk satu ayat).
+- GAGAL palsu yang diperbaiki: kutipan yang dibungkus lafaz matn `(("…"))`, dan tanda arah tak terlihat (RLM, ZWNJ, dan sejenisnya) di antara tanda petik penutup dan `[^`, tidak lagi membuat kutipan tak dikenali («[tanpa kutipan]»); `{Q:1:٢}` dan `{Q:1:02}` dibaca ayat 2, bukan GALAT MESIN.
 
 ## 4.0.1 — 2026-10-18
 

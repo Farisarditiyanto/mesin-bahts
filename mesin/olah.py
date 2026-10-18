@@ -313,6 +313,8 @@ def cek(sid, juz, hal, pot, perhatian, kutipan=False, rinci=True):
         return f"rentang halaman terbalik: {hal}"
     if pot.startswith("#") and not kutipan:
         nomor = pot[1:].translate(ANGKA_LATIN)
+        if not re.fullmatch(r"\d+", nomor.strip()):  # «#» kosong cocok di halaman mana saja
+            return f"nomor hadits kosong/bukan angka: <<…|{pot}>>"
         for r in rekaman(sid, juz, p1, p2):
             if re.search(rf"(?<!\d){re.escape(nomor)}(?!\d)", angka_kitab(r.get("body") or "")):
                 return ""
@@ -561,6 +563,9 @@ def ayat(spec):
     p = spec.split(":")
     if len(p) not in (2, 3) or not all(re.fullmatch(r"\d+(-\d+)?", x) for x in p):
         raise TandaRusak(f"{{Q:{spec}}}: bentuknya {{Q:surat:ayat}}, {{Q:surat:a-b}}, atau {{Q:surat:ayat:i-j}}")
+    if len(p) == 3 and "-" in p[1]:
+        raise TandaRusak(f"{{Q:{spec}}}: kata ke-i s.d. j hanya untuk satu ayat ({{Q:surat:ayat:i-j}})")
+    p[1] = "-".join(str(int(x)) for x in p[1].split("-"))  # «٢» dan «02» = ayat 2
     s = int(p[0])
     if any(f"{s}:{n}" not in QURAN for n in map(int, p[1].split("-"))):
         raise TandaRusak(f"{{Q:{spec}}}: surat/ayat itu tidak ada")
@@ -627,10 +632,14 @@ def kutipan_semua(teks):
     return out
 
 
+TAK_TERLIHAT = "\u200b\u200c\u200d\u200e\u200f\u061c\u2066\u2067\u2068\u2069"
+
+
 def kutipan_akhir(teks):
     """Isi kutipan "..." atau «...» yang menutup teks (tanda baca sesudahnya boleh), termasuk kutipan di dalamnya:
     «قال: "…" ثم سكت» -> seluruh isi «…». None kalau teks tidak berakhir dengan kutipan."""
-    teks = AKHIR_NUKILAN.sub("", seragam(teks)).rstrip(" \t.،؛!؟")
+    # kurung lafaz matn «((…))» dan tanda arah tak terlihat (RLM, ZWNJ, …) sesudah tanda petik ikut dibuang
+    teks = AKHIR_NUKILAN.sub("", seragam(teks).rstrip(TAK_TERLIHAT)).rstrip(" \t.،؛!؟)" + TAK_TERLIHAT)
     tunggu = []  # tanda pembuka yang dicari, dari belakang
     for i in range(len(teks) - 1, -1, -1):
         c = teks[i]
@@ -691,6 +700,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
     polos = ""  # teks polos berjalan (untuk mencari kutipan sebelum catatan kaki)
     seg = 0  # awal teks polos sesudah catatan kaki terakhir
     seg_run = 0  # awal runs sesudah catatan kaki terakhir
+    seg_h = len(hadits_idx)  # {H:} pertama sesudah catatan kaki terakhir
     while i < len(teks):
         m = TOKEN.search(teks, i)
         if not m:
@@ -790,6 +800,8 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             terbukti = []  # (sid, juz, p1, p2) tiap bukti, untuk dicocokkan dengan yang tercetak
             kutipan_4 = []  # hasil cek kutipan ke tiap bukti berpotongan sendiri: (pesan, perhatian)
             tiga = any(b.count("|") == 2 for b in bukti)
+            # kutipan bertanda petik di dalam catatan kaki itu sendiri (selain judul kitab; tiga kata atau kurang = istilah)
+            kc = [k for k in kutipan_semua(isi) if len(k.split()) >= 4 and not any(shamela.nomor_judul(k.strip()))]
             for b in bukti:
                 f = b.split("|")
                 if len(f) not in (3, 4) or not re.fullmatch(r"\d+", f[0]) or not re.fullmatch(r"\d+(-\d+)?", f[2]):
@@ -798,9 +810,11 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 if e:  # juz/halamannya belum bisa dibandingkan dengan yang tercetak: satu galat saja
                     galat.append(e + f"  || fn: {isi[:45]}"); continue
                 terbukti.append((f[0], f[1], *map(int, (f[2] + "-" + f[2]).split("-")[:2])))
-                if len(f) == 3:
+                if len(f) == 3 or diam:  # bukti saja: seluruh paragraf dicek, potongannya tidak cukup
                     nukilan = penggal if diam else mk
                     if nukilan is None:
+                        if kc:  # yang dicek kutipan di dalam catatan kaki (di bawah)
+                            continue
                         galat.append(f"[tanpa kutipan] {isi[:50]}"); continue
                     e = cek(int(f[0]), f[1], f[2], nukilan, perhatian, kutipan=True)
                 else:
@@ -816,6 +830,9 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                              f"membuktikan potongannya; nukilan makna tanpa tanda petik, diawali انظر): {kutipan_4[0][0]}  || fn: {isi[:45]}")
             else:
                 perhatian += next((p for e, p in kutipan_4 if not e), [])
+            for k in kc if terbukti else ():
+                if all(cek(int(s), z, f"{a}-{b}", k, [], kutipan=True, rinci=False) for s, z, a, b in terbukti):
+                    galat.append(f"kutipan di dalam catatan kaki tidak ada di halaman buktinya: «{k[:40]}»  || fn: {isi[:45]}")
             # kutipan lain sejak catatan kaki sebelumnya: perhatian, kecuali yang terbaca di halaman bukti catatan kaki ini
             # atau yang memang judul yang disebut di catatan kaki itu; tiga kata atau kurang biasanya istilah
             for k in lain:
@@ -825,7 +842,20 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                     continue
                 perhatian.append(f"kutipan tanpa catatan kaki sendiri (hanya kutipan tepat sebelum [^ yang dicek): «{k[:40]}» || fn: {isi[:45]}")
             # pengecualian: rujukan ayat «سورة …» sesudah {Q:}, dan «سبق تخريجه، ص{P:…}» (buktinya di catatan kaki pertama)
-            dikecualikan = (isi.startswith("سورة") and q_akhir) or (isi.startswith("سبق تخريجه") and "{P:" in isi)
+            # «سورة …» hanya untuk kutipan yang memuat ayat itu; «سبق تخريجه، ص{P:k}» hanya untuk kutipan yang sama
+            # dengan kutipan {H:…|k} di catatan kaki pertamanya
+            for h in hadits_idx[seg_h:]:
+                h.setdefault("kutipan", mk)
+            seg_h = len(hadits_idx)
+            p_kunci = re.findall(r"\{P:([a-z]+)\}", isi)
+            dulu_h = [h.get("kutipan") for h in hadits_idx if h["k"] in {"h_" + k for k in p_kunci}]
+            dikecualikan = ((isi.startswith("سورة") and q_akhir and "﴿" in (mk or ""))
+                            or (isi.startswith("سبق تخريجه") and p_kunci
+                                and any(d and shamela.padat(mk or "") in shamela.padat(d) for d in dulu_h)))
+            if not bukti and mk is not None and isi.startswith("سبق تخريجه") and p_kunci and not dikecualikan:
+                galat.append(f"kutipan «{mk[:30]}» berbeda dari yang ditakhrij di {{H:…|{p_kunci[0]}}}: beri bukti <<sid|juz|hal>>"
+                             f"  || fn: {isi[:45]}")
+                mk = None  # sudah dilaporkan
             if not bukti and mk is not None and not dikecualikan:
                 if luar:
                     # <<luar>> hanya untuk sumber yang memang tidak ada di Shamela: judul kitab Shamela = GAGAL
@@ -844,6 +874,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             if not diam:
                 galat += cocok_halaman(isi, terbukti)
             sub = urai(isi, None, ayat_idx, hadits_idx, galat, perhatian, di_catatan=True)
+            seg_h = len(hadits_idx)  # {H:} di dalam catatan kaki tidak ikut kutipan matn berikutnya
             runs += [{"z": z} for z in zz]
             catatan.append({"runs": sub, "bukti": len(bukti), "luar": luar})
             if not diam:
