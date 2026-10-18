@@ -7,6 +7,10 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 - `cek` lebih ketat mencocokkan kata: kutipan yang mengambil potongan kata kitab kini GAGAL. «أن القدر» tidak lagi lolos dari «فلو كان القدر» (huruf ب ل ك di depan kata hanya dianggap huruf sambung kalau sesudahnya «ال», mis. «بالله» → «الله»; و ف tetap seperti dulu), dan «بل أشك» tidak lagi lolos dari «بلا شك» (pembagian kata yang bergeser dari kitab; kata yang disambung atau dipisah di satu pihak saja, mis. «عبد الله»/«عبدالله», tetap lolos).
 - GAGAL palsu yang diperbaiki: frasa yang muncul dua kali dalam satu rekaman banyak halaman kini dicari di halaman yang dirujuk, bukan hanya kemunculan pertamanya; «عليها السلام» disamakan dengan lambang ﵍; basmalah ﷽ di kitab dibaca «بسم الله الرحمن الرحيم»; «الرحمن» = «الرحمان»; «شيء» = ketikan «شي» tanpa hamzah. Cache teks kitab dibuat ulang sekali.
+- `{Q:}` di tengah kutipan kini dicocokkan ke kitab: di tempat itu kitab harus memang mengutip ayat (bertanda ﴿﴾, atau teks ayatnya). Kalau tidak ada ayat (ayat sisipan, atau kata kitab seperti «ليس» yang diganti ayat), atau rujukan [سورة: n] di kitab menyebut ayat lain, `cek` GAGAL. Kalau selain ayat ada lebih dari 20 huruf kitab yang dilompati: perhatian. Bagian pendek yang menempel ayat (mis. «{Q:22:70} [الحج:٧٠]») tidak lagi GAGAL «terlalu pendek».
+- Angka di kutipan kini dicocokkan dengan angka kitab di tempat kutipan itu, bukan di mana saja di halaman: angka yang diganti angka lain GAGAL, angka yang dibuang atau ditambah jadi perhatian. «و٢٦٧» di kitab tidak lagi dibuang sebagai nomor catatan kaki.
+- Perhatian kata nafi kini juga untuk لم/ولم/فلم, لن/ولن/فلن, وليس/فليس, ليست, dan untuk kata nafi di akhir halaman sebelumnya.
+- «…» milik kitab sendiri yang ikut disalin tidak lagi membuat kutipan GAGAL «terlalu pendek» kalau kutipan utuhnya bersambung di kitab.
 
 ## 4.0.1 — 2026-10-18
 
