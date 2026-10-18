@@ -452,7 +452,8 @@ def _mirip_ayat(spec, teks):
 
 def _ayat_sama(spec, antara, rujukan):
     """Ayat kitab di celah {Q:} bisa ayat {Q:spec}: nama surat di rujukan [سورة: n] sama, atau teks salah satu ayat
-    bertanda ﴿﴾ (atau seluruh celah) memuat sepotong ayat itu. False hanya kalau keduanya ada dan tidak ada yang sama."""
+    bertanda ﴿﴾ (atau seluruh celah) memuat sepotong ayat itu. False kalau keduanya ada dan tidak ada yang sama, atau
+    kalau ayat bertanda di kitab lebih mirip dengan potongan ayat lain. Teks = lolos dengan perhatian itu."""
     surat = {shamela.padat(SURAH[int(x.split(":")[0]) - 1]) for x in spec}
     nama = [shamela.padat(re.sub(r"سورة|الآية|الآيات|آية", " ", x)) for x in rujukan]
     if any(n and any(n in t or t in n for t in surat) for n in nama):
@@ -460,48 +461,131 @@ def _ayat_sama(spec, antara, rujukan):
     sama = lambda a, b, n: b and len(b) <= 3000 and difflib.SequenceMatcher(None, a, b, autojunk=False).find_longest_match(
         0, len(a), 0, len(b)).size >= min(n, len(a), len(b))
     tanda = [m.group()[1:-1] for m in AYAT_KITAB.finditer(antara)]
-    for teks in tanda + [antara]:
+    kalah = False
+    for teks in tanda:
         b = shamela.padat(teks)
         for x in spec:
             a = shamela.padat(ayat(x)[0])
+            if b in a:
+                return True
             # ayat bertanda ﴿﴾ ditulis kitab dengan ejaan imla'i («الصراط»/«الصرط», «الصلاة»/«الصلوة»): dibandingkan
             # juga tanpa huruf alif, waw, ya, dan hamzah
-            if sama(a, b, 10) or teks in tanda and _kerangka_sama(a, b):
+            imlai = KERANGKA.sub("", b) in KERANGKA.sub("", a)
+            if imlai and not any(b in q for q in _quran_padat()):  # tidak ada ayat lain yang memuatnya persis
                 return True
-    if any(_salah_ketik(shamela.padat(ayat(x)[0]), shamela.padat(t)) for t in tanda for x in spec):
-        return SALAH_KETIK
-    return False
+            cocok = imlai or sama(a, b, 10) or _kerangka_sama(a, b)
+            ketik = not cocok and _salah_ketik(a, b)
+            if not (cocok or ketik):
+                continue
+            # yang tidak termuat persis ditandingkan dengan ayat lain; kitab yang mengutip jauh lebih panjang dari {Q:}
+            # (seluruh ayat untuk {Q:s:a:i-j}) tidak: ayat utuhnya pasti lebih mirip daripada potongan {Q:}
+            hasil, saingan = _tanding(x, b) if 8 <= len(b) <= len(a) + 3 else ("menang", None)
+            if hasil == "kalah":  # «وإنا على آثارهم مهتدون» (43:22) bukan {Q:43:23} «…مقتدون»
+                kalah = True
+                continue
+            if hasil == "seri":
+                return (f"ayat di kitab sama miripnya dengan {{Q:{x}}} dan {{Q:{saingan}}}: pastikan sendiri ayatnya "
+                        "(`scan`), lalu nomornya ke mushaf")
+            return SALAH_KETIK.format(x) if ketik else True
+    if kalah:
+        return False
+    # ayat tanpa tanda ﴿﴾ di kitab: sepotong ayat itu ada di celah
+    b = shamela.padat(antara)
+    return any(sama(shamela.padat(ayat(x)[0]), b, 10) for x in spec)
 
 
-SALAH_KETIK = ("ayat di kitab tidak sama dengan ayat mushaf mana pun (salah ketik?), {{Q:{0}}} salah satu yang paling mirip: "
+SALAH_KETIK = ("ayat di kitab tidak sama dengan ayat mushaf mana pun (salah ketik?), paling mirip dengan {{Q:{0}}}: "
                "pastikan sendiri ayatnya (`scan`), lalu nomornya ke mushaf")
 
 
 def _salah_ketik(a, b):
     """Ayat bertanda ﴿﴾ yang pendek salah ketik di kitab («﴿وَءَاثُوا الزَّكَاةَ﴾» untuk «وءاتوا الزكوة», «﴿فِيهِدْنَهُمْ
     أَقْتَدَةً﴾» untuk «فبهداهم اقتده»): satu-dua huruf beda sudah memutus 10 huruf berturut-turut. Paling sedikit 8
-    huruf `padat`, tidak termuat di ayat mana pun, 4/5 hurufnya sama dengan sepotong ayat {Q:} sepanjang itu, dan tidak
-    ada potongan ayat lain yang lebih mirip («العزيز القحيم» lebih mirip «العزيز الرحيم» daripada «العزيز الحكيم»)."""
+    huruf `padat`, tidak termuat di ayat mana pun, dan 4/5 hurufnya sama dengan sepotong ayat {Q:} sepanjang itu."""
     if len(b) < 8 or _di_quran(b):  # teks kitab yang memang ayat lain («مهتدون» 43:22 untuk «مقتدون» 43:23) bukan salah ketik
         return False
-    mirip = max(_kemiripan(a, b), default=0)
-    if mirip < 0.8:
-        return False
-    return all(m <= mirip for x in _quran_padat() for m in _kemiripan(x, b, mirip))
+    return max((m for m, _ in _potongan(a, b)), default=0) >= 0.8
 
 
-def _kemiripan(a, b, lebih=0.0):
-    """Kemiripan b dengan tiap potongan a sepanjang b; hanya yang mungkin lebih dari `lebih` yang dihitung penuh."""
+def _potongan(a, b, lebih=-1.0):
+    """(kemiripan, potongan) tiap potongan a sepanjang b; hanya yang mungkin paling sedikit `lebih` yang dihitung penuh."""
     sm = difflib.SequenceMatcher(None, "", b, autojunk=False)
     for i in range(max(1, len(a) - len(b) + 1)):
         sm.set_seq1(a[i:i + len(b)])
-        if sm.real_quick_ratio() > lebih and sm.quick_ratio() > lebih:
-            yield sm.ratio()
+        if sm.real_quick_ratio() >= lebih and sm.quick_ratio() >= lebih:
+            yield sm.ratio(), a[i:i + len(b)]
+
+
+def _jarak(a, b, batas=None):
+    """Jumlah huruf yang diganti, dibuang, atau ditambah dari a ke b (Levenshtein). Dengan batas: berhenti begitu
+    pasti lebih dari batas, dan mengembalikan batas + 1."""
+    baris = list(range(len(b) + 1))
+    for i, x in enumerate(a, 1):
+        lalu, baris[0] = baris[0], i
+        for j, y in enumerate(b, 1):
+            lalu, baris[j] = baris[j], min(baris[j] + 1, baris[j - 1] + 1, lalu + (x != y))
+        if batas is not None and min(baris) > batas:
+            return batas + 1
+    return baris[-1]
+
+
+def _calon(x, b, beda):
+    """Potongan ayat x sepanjang b yang mungkin berbeda paling banyak `beda` huruf dari b: b dibagi beda+1 bagian, dan
+    tiap potongan seperti itu pasti memuat salah satu bagiannya persis (satu huruf beda merusak paling banyak satu
+    bagian). Dicari dengan str.find, bukan dengan membandingkan semua potongan."""
+    if len(x) <= len(b):
+        return [x]
+    ukuran = len(b) // (beda + 1)
+    if ukuran < 2:
+        return [x[i:i + len(b)] for i in range(len(x) - len(b) + 1)]
+    awal = set()
+    for i in range(beda + 1):
+        bagian, letak = b[i * ukuran:(i + 1) * ukuran], i * ukuran
+        j = x.find(bagian)
+        while j >= 0:
+            awal |= set(range(max(0, j - letak - beda), min(len(x) - len(b), j - letak + beda) + 1))
+            j = x.find(bagian, j + 1)
+    return [x[s:s + len(b)] for s in sorted(awal)]
+
+
+def _tanding(spec, b):
+    """Ayat bertanda di kitab b (`padat`) dibandingkan dengan potongan ayat {Q:spec} dan potongan semua ayat mushaf
+    sepanjang b: jumlah huruf yang beda («القحيم» satu huruf dari «الرحيم», dua dari «الحكيم»), lalu kemiripan.
+    ("kalah", nomor) kalau ada ayat lain yang lebih mirip, ("seri", nomor) kalau sama miripnya, ("menang", None) kalau
+    tidak ada. Potongan {Q:} diambil dari ayat utuhnya (kitab yang menambah satu huruf di depan potongan {Q:} yang
+    pendek tidak boleh menang hanya karena potongannya pendek). Ayat {Q:} sendiri dan potongan yang hurufnya sama
+    dengan potongan {Q:} (ayat yang berulang) bukan saingan."""
+    nomor = ":".join(spec.split(":")[:2])
+    a = shamela.padat(ayat(nomor)[0])
+    s, _, ayat_ = nomor.partition(":")
+    x1, _, x2 = ayat_.partition("-")
+    sendiri = {f"{s}:{n}" for n in range(int(x1), int(x2 or x1) + 1)}
+    nilai = lambda w, batas=None: (-_jarak(w, b, batas), difflib.SequenceMatcher(None, w, b, autojunk=False).ratio())
+    milik = None
+    for _, w in _potongan(a, b):
+        n = nilai(w, -milik[0] if milik else None) + (w,)
+        milik = max(milik, n) if milik else n
+    skor, saingan = milik[:2], None
+    for k, x in _quran_padat_nomor():
+        for w in _calon(x, b, -skor[0]) if k not in sendiri else ():
+            if w == milik[2]:
+                continue
+            n = nilai(w, -skor[0])
+            if n > skor:
+                return "kalah", k
+            if n == skor and saingan is None:
+                saingan = k
+    return ("seri", saingan) if saingan else ("menang", None)
+
+
+@functools.cache
+def _quran_padat_nomor():
+    return [(k, shamela.padat(v)) for k, v in QURAN.items()]
 
 
 @functools.cache
 def _quran_padat():
-    return [shamela.padat(x) for x in QURAN.values()]
+    return [x for _, x in _quran_padat_nomor()]
 
 
 def _di_quran(b):
@@ -612,8 +696,8 @@ def _nilai_susunan(raw, angka, letak, bagian, celah, ujung, mulai, akhir):
         if spec and not sama:
             return (f"ayat yang dikutip kitab di tempat {{Q:{spec[0]}}} adalah surat lain "
                     f"({'، '.join(rujukan) or AYAT_KITAB.search(antara).group()[:40]}): salin ayat yang benar", catat)
-        if sama == SALAH_KETIK:
-            catat.append(SALAH_KETIK.format(spec[0]))
+        if isinstance(sama, str):
+            catat.append(sama)
         if dipotong:  # yang dilompati sudah jadi perhatian «dipotong ...»
             continue
         sisa_celah[i] = len(shamela.padat(RUJUKAN_AYAT.sub(" ", AYAT_KITAB.sub(" ", antara))))
@@ -648,8 +732,8 @@ def _nilai_susunan(raw, angka, letak, bagian, celah, ujung, mulai, akhir):
         if not sama:
             return (f"ayat yang dikutip kitab di tempat {{Q:{spec[0]}}} adalah surat lain "
                     f"({'، '.join(rujukan) or ayat_.group()[:40]}): salin ayat yang benar", catat)
-        if sama == SALAH_KETIK:
-            catat.append(SALAH_KETIK.format(spec[0]))
+        if isinstance(sama, str):
+            catat.append(sama)
     for i, ((j, k), b) in enumerate(zip(letak, bagian)):
         # bagian pendek di samping {Q:} (lihat cek): harus kata utuh di kitab, tepat menempel ayatnya
         if len(shamela.padat(b)) < KUTIPAN_MIN:
@@ -812,6 +896,15 @@ def _bagian_kitab(isi, bukti):
     return [(isi[batas[i]:batas[i + 1]], [b for b in bukti if b[0] == s]) for i, s in enumerate(urut)]
 
 
+def _rentang(hal):
+    """[36, 37, 38, 41] -> «36-38، 41»."""
+    potong, awal = [], hal[0]
+    for x, y in zip(hal, hal[1:] + [None]):
+        if y != x + 1:
+            potong.append(f"{awal}-{x}" if x != awal else str(x)); awal = y
+    return "، ".join(potong)
+
+
 def cocok_halaman(isi, bukti, perhatian=None):
     """Bandingkan juz/halaman yang tercetak dengan bukti [(sid, juz, p1, p2)]; kembalikan daftar galat.
     Tiap halaman tercetak harus di dalam rentang bukti kitabnya, dan tiap bukti harus tercetak.
@@ -833,8 +926,14 @@ def cocok_halaman(isi, bukti, perhatian=None):
         lain = {j for j in JUZ_TERCETAK.findall(teks)} | {"-"}
         for juz in juz_bukti | (lain - juz_bukti):
             ada = {n for _, z, p1, p2 in bb if z == juz for n in range(p1, p2 + 1)}
-            galat += [f"halaman tercetak {juz}/{a}{'-' + str(b) if b != a else ''} tidak punya bukti{kitabnya}"
-                      for a, b in tercetak(teks, juz) if b - a > RENTANG_MAKS or not set(range(a, b + 1)) <= ada]
+            for a, b in tercetak(teks, juz):
+                kurang = sorted(set(range(a, b + 1)) - ada)
+                if b - a > RENTANG_MAKS or not kurang:
+                    galat += [f"halaman tercetak {juz}/{a}-{b} tidak punya bukti{kitabnya}"] if b - a > RENTANG_MAKS else []
+                elif len(kurang) == b - a + 1:
+                    galat.append(f"halaman tercetak {juz}/{a}{'-' + str(b) if b != a else ''} tidak punya bukti{kitabnya}")
+                else:  # «1/36-37» dengan bukti 36 saja: lebarkan buktinya (<<…|1|36-37>>) atau cetak halaman buktinya saja
+                    galat.append(f"halaman tercetak {juz}/{a}-{b}: bukti belum mencakup {_rentang(kurang)}{kitabnya}")
         for s, z, p1, p2 in dict.fromkeys(bb) if "سبق تخريجه" not in isi else ():
             # gabungan halaman yang tercetak: «1/102، 103» untuk bukti 102-103
             if not any(set(range(p1, p2 + 1)) <= {n for a, b in t if b - a <= RENTANG_MAKS for n in range(a, b + 1)}
