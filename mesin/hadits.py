@@ -7,7 +7,7 @@ yang terbaca di kitab lokal (`ambil`, `halaman`) dan lolos `cek`. Isinya 12 kita
 """
 import json
 
-from shamela import HARAKAT, buka
+from shamela import HARAKAT, _kunci, buka
 
 ALMINASA = "https://alminasa.ai/api/reactivesearchproxy/es-prod-euw1-hadith-12-read/_search"
 KOLOM = ["book_name", "number", "editions", "chapter", "sub_chapter", "matn", "rulings"]
@@ -52,6 +52,7 @@ def cari(taraf, maks=10, lebar=110):
     t = HARAKAT.sub("", taraf).strip()
     if not t or maks < 1:
         raise ValueError('bentuknya: hadits "<طرف>" [maks, angka 1 ke atas]')
+    _kunci(t)  # طرف tanpa huruf Arab ditolak di sini, tanpa memakai jatah layanan
     # frasa persis, tetapi «من غشنا» juga menemukan «ومن غشنا»/«فمن غشنا» (Elasticsearch membedakannya), dan sebaliknya
     varian = {t, "و" + t, "ف" + t} | ({t[1:]} if t[0] in "وف" and len(t.split()[0]) > 2 else set())
     d = _tanya({"bool": {"should": [{"match_phrase": {"hadith": v}} for v in sorted(varian)], "minimum_should_match": 1}}, maks)
@@ -78,3 +79,4 @@ def cari(taraf, maks=10, lebar=110):
         print("\nPenunjuk saja, datanya bisa salah: baca di kitabnya sendiri (`ambil`, `halaman`) sebelum menulis.")
     else:  # pencariannya frasa persis: kosong di sini bukan bukti haditsnya tidak ada
         print("Coba طرف yang lebih pendek (3-5 kata berurutan dari matan), atau `temukan`.")
+    return total or len(mirip)

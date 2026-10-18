@@ -10,7 +10,7 @@ HARAKAT = re.compile(r"[\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06ed\u0640]")  
 TAGS = re.compile(r"<[^>]+>")
 HORMAT = re.compile(
     r"صل[يى] الله عليه(?: وعل[يى] [آا]له| و[آا]له)?(?: وصحبه)? وسلم|رض[يى] الله(?: تعال[يى])? عنه(?:ما|م|ا|ن)?"
-    r"|علي(?:هما|هم|ه) (?:الصلا[ةه] و)?السلام|رحمه(?:ما|م|ا)? الله(?: تعال[يى])?|عز وجل|جل جلاله"
+    r"|علي(?:هما|هم|ها|ه) (?:الصلا[ةه] و)?السلام|رحمه(?:ما|م|ا)? الله(?: تعال[يى])?|عز وجل|جل جلاله"
     r"|سبحانه وتعالى|تبارك وتعالى|صلعم|قدس الله روحه")
 # ligatur kalimat hormat tanpa pecahan NFKC (﵀-﵏ dari Unicode 14, ﷾ ﷿): dibuang, bentuk panjangnya dibuang HORMAT
 LIGATUR_HORMAT = re.compile(r"[﵀-﵏﷾﷿]")
@@ -24,13 +24,14 @@ SAMA = (("إ", "ا"), ("أ", "ا"), ("آ", "ا"), ("ٱ", "ا"), ("ٲ", "ا"), ("
 # menyatukan dua kata berbeda makna («مائة/مئة» tidak: «مائه» juga «airnya»). Dicocokkan sesudah SAMA
 # Kursi hamzah ditulis sesudah SAMA (ؤ->و, ئ->ي): مسئول/مسؤول، شئون/شؤون، رءوس/رؤوس، تساءل/تساؤل
 EJAAN = (("سماوات", "سموات"), ("اسحاق", "اسحق"), ("داوود", "داود"), ("طاووس", "طاوس"),
-         ("مسيول", "مسوول"), ("شيون", "شوون"), ("رءوس", "رووس"), ("تساءل", "تساول"))
+         ("مسيول", "مسوول"), ("شيون", "شوون"), ("رءوس", "رووس"), ("تساءل", "تساول"), ("رحمان", "رحمن"))
 
 
 BUKAN_HURUF = re.compile(r"[^ء-ي0-9]+")
 BUKAN_ABJAD = re.compile(r"[^ء-ي]+")
 PRESENTASI = re.compile(r"[\u0675-\u0678\ufb50-\ufdfc\ufe70-\ufefc]")  # bentuk presentasi yang dipecah NFKC (﷽ ﷾ ﷿ tidak)
 SYAI = re.compile(r"شئ(?![ء-ي])")
+SYAI_TANPA_HAMZAH = re.compile(r"(?<![ء-ي])([وفبلك]{0,2}(?:ال)?)شي(?![ء-ي])")  # «شي» = «شيء»; «يمشي», «شيئا» tidak
 IBNU = re.compile(r"(?<![ء-ي])ابن(?![ء-ي])")
 BAGIAN = (("body", ""), ("footnotes", " [حاشية]"))  # bagian rekaman kitab, dan tandanya di keluaran
 PENANDA = re.compile(r"⦗([٠-٩]+)⦘")  # awal halaman cetak berikutnya di dalam satu rekaman
@@ -41,11 +42,15 @@ def norm(s):
     # NFKC paling awal: memecah ﻻ dan bentuk presentasi lain (ﷺ/ﷻ jadi kalimat hormat, yang lalu dibuang HORMAT).
     # ﷺ dan ﷻ (ada di hampir tiap halaman kitab hadits) langsung dibuang: hasilnya sama, NFKC-nya tidak perlu.
     s = LIGATUR_HORMAT.sub(" ", s.replace("ﷺ", " ").replace("ﷻ", " "))
+    if "﷽" in s:  # ligatur basmalah: dijabarkan, bukan dibuang (NFKC tidak memecahnya)
+        s = s.replace("﷽", " بسم الله الرحمن الرحيم ")
     if PRESENTASI.search(s):
         s = unicodedata.normalize("NFKC", s)
     s = HORMAT.sub(" ", HARAKAT.sub("", TAGS.sub("", s)))
     if "شئ" in s:  # ejaan lama «شئ» = «شيء»; «شئت» (kehendak) tidak ikut
         s = SYAI.sub("شيء", s)
+    if "شي" in s:  # ketikan Shamela tanpa hamzah: «كل شي» = «كل شيء»
+        s = SYAI_TANPA_HAMZAH.sub(r"\1شيء", s)
     for dari, ke in SAMA:
         s = s.replace(dari, ke)  # str.replace jauh lebih cepat daripada regex untuk ganti satu huruf
     for dari, ke in EJAAN:

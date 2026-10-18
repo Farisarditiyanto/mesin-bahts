@@ -54,7 +54,7 @@ def buka(url, data=None, kepala=UA, waktu=60, coba=3):
         time.sleep(2 ** i)
 
 SAMBUNG = "وفبلك"  # huruf sambung di depan kata: kutipan boleh mulai sesudahnya («و"الإحياء"» = «والإحياء»)
-NAFI_SAMBUNG = {"ما", "لا", "لم", "لن", "ليس"}  # kutipan tidak boleh mulai dengan kata ini kalau di kitab ia didahului ب/ل/ك
+NAFI_SAMBUNG = {"ما", "لا", "لم", "لن", "ليس"}  # kutipan tidak boleh mulai dengan kata ini kalau di kitab ia didahului ب/ل
 
 
 @functools.cache  # daftar folder dataset tidak berubah selama satu perintah
@@ -101,7 +101,7 @@ def _meta():
     try:
         import pandas as pd
     except ImportError:
-        raise SystemExit("Pustaka Python belum terpasang: pip install -r requirements.txt")
+        raise SystemExit("Pustaka Python belum terpasang; cara memasangnya disebut oleh: " + perintah("periksa"))
     return pd.read_parquet(ROOT / KATALOG)
 
 
@@ -206,7 +206,7 @@ def temukan(frasa, maks=20):
     if not d["count"]:
         print(f"TIDAK KETEMU di seluruh Shamela, berurutan maupun longgar: {frasa}\n"
               "Coba frasa lebih pendek (2-4 kata inti), atau ejaan lain.")
-        return
+        return 0
     print(f"{d['count']} tempat cocok di seluruh Shamela: {frasa}\n" + ada_keterangan())
     ada = set(punya())
     df = _meta()
@@ -219,6 +219,7 @@ def temukan(frasa, maks=20):
               f"{m['book_name']} — {m['author_name']} :: {cuplikan[:160]}")
     if d["count"] > maks:
         print(f"(ditampilkan {min(maks, len(d['data']))}, paling banyak {TURATH_MAKS}; persempit frasanya untuk hasil lain)")
+    return d["count"]
 
 
 def letak(juz, h):
@@ -403,41 +404,83 @@ def _batas_kata(p, bagian):
     return p[kunci]
 
 
-def _utuh(p, bagian, j, k):
-    """Potongan teks[j:k] mulai dan berakhir di batas kata kitab. Di depannya boleh ada huruf sambung (و ف ب ل ك, paling banyak dua)."""
+def kata_dalam(teks):
+    """Letak awal tiap kata kutipan (selain kata pertama) di teks `padat`-nya, dihitung seperti `_batas_kata`."""
+    out, n = set(), 0
+    for w in norm(teks).split():
+        w = BUKAN_ABJAD.sub("", w)
+        if w:
+            if n:
+                out.add(n)
+            n += len(w)
+    return frozenset(out)
+
+
+def _utuh(p, bagian, j, k, kata=()):
+    """Potongan teks[j:k] mulai dan berakhir di batas kata kitab. Di depannya boleh ada huruf sambung (و ف ب ل ك, paling banyak dua).
+    kata = letak awal kata di dalam kutipan (`kata_dalam`): batas kata yang bergeser dari batas kitab tidak dihitung."""
     awal, akhir = _batas_kata(p, bagian)
-    if k not in akhir:
+    if k not in akhir or not _sebatas(awal, j, k, kata):
         return False
     if j in awal:
         return True
     teks = _ruas(p, bagian)[0]
     for d in (1, 2):
         if j - d in awal and all(c in SAMBUNG for c in teks[j - d:j]):
-            # ب ل ك mengubah kata nafi jadi kata lain (كما «seperti», لما «ketika», بلا «tanpa»): «ما» darinya bukan nafi
-            sisa = teks[j:min(a for a in akhir if a > j)]
-            return not (set(teks[j - d:j]) - set("وف") and sisa in NAFI_SAMBUNG)
+            # ك hanya awalan kalau sesudahnya «ال» («كالله»); selain itu hurufnya milik kata («كان», «كأنه»). ب/ل (huruf jar:
+            # «لأن»/«بأن» → «أن») bukan awalan di «لكن», «لله» (→ «له»), dan di depan kata nafi («لما», «بلا» → «ما», «لا»)
+            awalan, sisa = teks[j - d:j], teks[j:min(a for a in akhir if a > j)]
+            if "ك" in awalan:
+                return teks.startswith("ال", j)
+            if set(awalan) - set("وف") and sisa in NAFI_SAMBUNG:
+                return False
+            return not ("ل" in awalan and teks.startswith(("ل", "كن"), j))
     return False
 
 
-def _cocok(p, q, bagian="body", utuh=False):
-    """Letak (awal, akhir) q di teks `padat` bagian rekaman p; None kalau tidak ada."""
+def _sebatas(awal, j, k, kata):
+    """Batas kata kutipan dan kitab tidak bergeser di antara dua batas yang sama-sama ada: «بل أشك» ≠ «بلا شك».
+    Kata yang disambung atau dipisah di satu pihak saja boleh («عبد الله»/«عبدالله», «و الإحياء»)."""
+    naskah = kitab = False
+    for x in range(j + 1, k):
+        di_naskah, di_kitab = x - j in kata, x in awal
+        if di_naskah and di_kitab:
+            naskah = kitab = False
+        else:
+            naskah, kitab = naskah or di_naskah, kitab or di_kitab
+            if naskah and kitab:
+                return False
+    return True
+
+
+def _letak(p, q, bagian="body", utuh=False, kata=()):
+    """Tiap letak (awal, akhir) q di teks `padat` bagian rekaman p, berurutan."""
     teks = _ruas(p, bagian)[0]
     j = teks.find(q)
-    while j >= 0 and utuh and not _utuh(p, bagian, j, j + len(q)):
+    while j >= 0:
+        if not utuh or _utuh(p, bagian, j, j + len(q), kata):
+            yield j, j + len(q)
         j = teks.find(q, j + 1)
-    return None if j < 0 else (j, j + len(q))
 
 
-def tempat(p, q, bagian="body", utuh=False):
+def _cocok(p, q, bagian="body", utuh=False, kata=()):
+    """Letak (awal, akhir) pertama q di teks `padat` bagian rekaman p; None kalau tidak ada."""
+    return next(_letak(p, q, bagian, utuh, kata), None)
+
+
+def tempat(p, q, bagian="body", utuh=False, kata=(), dalam=None):
     """Halaman cetak (awal, akhir) tempat q (sudah `padat`) berada di rekaman p; None kalau tidak ada.
     bagian "footnotes" = حاشية, dihitung per penanda halaman seperti matan.
     utuh=True: q harus mulai dan berakhir di batas kata kitab (kutipan yang terpotong di tengah kata tidak dihitung).
+    dalam=(p1, p2): q yang muncul lebih dari sekali di rekaman ini: yang di halaman p1..p2 didahulukan.
     Halamannya None kalau rekaman itu tidak bernomor halaman."""
-    c = _cocok(p, q, bagian, utuh)
-    if c is None:
-        return None
-    batas = _ruas(p, bagian)[1]
-    return (next(h for a, z, h, _ in batas if a <= c[0] < z), next(h for a, z, _, h in batas if a <= c[1] - 1 < z))
+    batas, pertama = _ruas(p, bagian)[1], None
+    for c in _letak(p, q, bagian, utuh, kata):
+        h = (next(h for a, z, h, _ in batas if a <= c[0] < z), next(h for a, z, _, h in batas if a <= c[1] - 1 < z))
+        if dalam is None or dalam[0] <= (h[0] or 0) and (h[1] or 0) <= dalam[1]:
+            return h
+        pertama = pertama or h
+    return pertama
 
 
 def cari(sid, frasa, konteks=90, maks=15, diam=False):
@@ -638,6 +681,7 @@ def scan(sid, juz, hal):
     """Alamat scan cetakan (PDF di turath.io) untuk satu halaman cetak, untuk mencocokkan bacaan yang meragukan.
     Juz "-" = kitab satu jilid. Penunjuk jalan saja: hasilnya dibuka dan dibaca orang."""
     angka = lambda x: str(int(x)) if str(x).isdigit() else str(x)  # «05» dan «٥» = 5
+    _folder(sid)  # nomor yang bukan angka ditolak dengan pesan yang sama dengan perintah kitab lain
     buku = _turath_buku(sid)
     if buku is None:
         print(f"[{sid}] turath.io tidak punya kitab ini.")
