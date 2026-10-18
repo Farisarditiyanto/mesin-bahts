@@ -473,7 +473,7 @@ def _ayat_sama(spec, antara, rujukan):
     return False
 
 
-SALAH_KETIK = ("ayat di kitab tidak sama dengan ayat mushaf mana pun (salah ketik?), paling mirip dengan {{Q:{0}}}: "
+SALAH_KETIK = ("ayat di kitab tidak sama dengan ayat mushaf mana pun (salah ketik?), {{Q:{0}}} salah satu yang paling mirip: "
                "pastikan sendiri ayatnya (`scan`), lalu nomornya ke mushaf")
 
 
