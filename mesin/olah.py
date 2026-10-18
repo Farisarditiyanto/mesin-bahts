@@ -466,19 +466,37 @@ def _ayat_sama(spec, antara, rujukan):
             a = shamela.padat(ayat(x)[0])
             # ayat bertanda ﴿﴾ ditulis kitab dengan ejaan imla'i («الصراط»/«الصرط», «الصلاة»/«الصلوة»): dibandingkan
             # juga tanpa huruf alif, waw, ya, dan hamzah
-            if sama(a, b, 10) or teks in tanda and (_kerangka_sama(a, b) or _salah_ketik(a, b)):
+            if sama(a, b, 10) or teks in tanda and _kerangka_sama(a, b):
                 return True
+    if any(_salah_ketik(shamela.padat(ayat(x)[0]), shamela.padat(t)) for t in tanda for x in spec):
+        return SALAH_KETIK
     return False
+
+
+SALAH_KETIK = ("ayat di kitab tidak sama dengan ayat mushaf mana pun (salah ketik?), paling mirip dengan {{Q:{0}}}: "
+               "pastikan sendiri ayatnya (`scan`), lalu nomornya ke mushaf")
 
 
 def _salah_ketik(a, b):
     """Ayat bertanda ﴿﴾ yang pendek salah ketik di kitab («﴿وَءَاثُوا الزَّكَاةَ﴾» untuk «وءاتوا الزكوة», «﴿فِيهِدْنَهُمْ
     أَقْتَدَةً﴾» untuk «فبهداهم اقتده»): satu-dua huruf beda sudah memutus 10 huruf berturut-turut. Paling sedikit 8
-    huruf `padat`, tidak termuat di ayat mana pun, dan 4/5 hurufnya sama dengan sepotong ayat {Q:} sepanjang itu."""
+    huruf `padat`, tidak termuat di ayat mana pun, 4/5 hurufnya sama dengan sepotong ayat {Q:} sepanjang itu, dan tidak
+    ada potongan ayat lain yang lebih mirip («العزيز القحيم» lebih mirip «العزيز الرحيم» daripada «العزيز الحكيم»)."""
     if len(b) < 8 or _di_quran(b):  # teks kitab yang memang ayat lain («مهتدون» 43:22 untuk «مقتدون» 43:23) bukan salah ketik
         return False
-    return any(difflib.SequenceMatcher(None, a[i:i + len(b)], b, autojunk=False).ratio() >= 0.8
-               for i in range(max(1, len(a) - len(b) + 1)))
+    mirip = max(_kemiripan(a, b), default=0)
+    if mirip < 0.8:
+        return False
+    return all(m <= mirip for x in _quran_padat() for m in _kemiripan(x, b, mirip))
+
+
+def _kemiripan(a, b, lebih=0.0):
+    """Kemiripan b dengan tiap potongan a sepanjang b; hanya yang mungkin lebih dari `lebih` yang dihitung penuh."""
+    sm = difflib.SequenceMatcher(None, "", b, autojunk=False)
+    for i in range(max(1, len(a) - len(b) + 1)):
+        sm.set_seq1(a[i:i + len(b)])
+        if sm.real_quick_ratio() > lebih and sm.quick_ratio() > lebih:
+            yield sm.ratio()
 
 
 @functools.cache
@@ -590,9 +608,12 @@ def _nilai_susunan(raw, angka, letak, bagian, celah, ujung, mulai, akhir):
             if not any(_ayat_persis(spec, m.group()[1:-1]) for m in AYAT_KITAB.finditer(antara)):
                 return f"ayat yang dikutip kitab di tempat {{Q:{spec[0]}}} adalah {'، '.join(rujukan)}: salin ayat yang benar", catat
             catat.append(NOMOR_KITAB_LAIN.format(spec[0], '، '.join(rujukan)))
-        if spec and not _ayat_sama(spec, antara, rujukan):
+        sama = spec and _ayat_sama(spec, antara, rujukan)
+        if spec and not sama:
             return (f"ayat yang dikutip kitab di tempat {{Q:{spec[0]}}} adalah surat lain "
                     f"({'، '.join(rujukan) or AYAT_KITAB.search(antara).group()[:40]}): salin ayat yang benar", catat)
+        if sama == SALAH_KETIK:
+            catat.append(SALAH_KETIK.format(spec[0]))
         if dipotong:  # yang dilompati sudah jadi perhatian «dipotong ...»
             continue
         sisa_celah[i] = len(shamela.padat(RUJUKAN_AYAT.sub(" ", AYAT_KITAB.sub(" ", antara))))
@@ -623,9 +644,12 @@ def _nilai_susunan(raw, angka, letak, bagian, celah, ujung, mulai, akhir):
             if not _ayat_persis(spec, ayat_.group()[1:-1]):
                 return f"ayat yang dikutip kitab di tempat {{Q:{spec[0]}}} adalah {'، '.join(rujukan)}: salin ayat yang benar", catat
             catat.append(NOMOR_KITAB_LAIN.format(spec[0], '، '.join(rujukan)))
-        if not _ayat_sama(spec, ayat_.group(), rujukan):
+        sama = _ayat_sama(spec, ayat_.group(), rujukan)
+        if not sama:
             return (f"ayat yang dikutip kitab di tempat {{Q:{spec[0]}}} adalah surat lain "
                     f"({'، '.join(rujukan) or ayat_.group()[:40]}): salin ayat yang benar", catat)
+        if sama == SALAH_KETIK:
+            catat.append(SALAH_KETIK.format(spec[0]))
     for i, ((j, k), b) in enumerate(zip(letak, bagian)):
         # bagian pendek di samping {Q:} (lihat cek): harus kata utuh di kitab, tepat menempel ayatnya
         if len(shamela.padat(b)) < KUTIPAN_MIN:
