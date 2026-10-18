@@ -470,16 +470,15 @@ def _ayat_sama(spec, antara, rujukan):
                 return True
             # ayat bertanda ﴿﴾ ditulis kitab dengan ejaan imla'i («الصراط»/«الصرط», «الصلاة»/«الصلوة»): dibandingkan
             # juga tanpa huruf alif, waw, ya, dan hamzah
-            imlai = KERANGKA.sub("", b) in KERANGKA.sub("", a)
-            if imlai and not any(b in q for q in _quran_padat()):  # tidak ada ayat lain yang memuatnya persis
-                return True
-            cocok = imlai or sama(a, b, 10) or _kerangka_sama(a, b)
+            # kerangka 3-4 huruf («نهل» dari «إن هؤلاء») termuat di banyak ayat: paling sedikit 5 huruf, lalu ditandingkan
+            kb = KERANGKA.sub("", b)
+            cocok = len(kb) >= 5 and kb in KERANGKA.sub("", a) or sama(a, b, 10) or _kerangka_sama(a, b)
             ketik = not cocok and _salah_ketik(a, b)
             if not (cocok or ketik):
                 continue
             # yang tidak termuat persis ditandingkan dengan ayat lain; kitab yang mengutip jauh lebih panjang dari {Q:}
             # (seluruh ayat untuk {Q:s:a:i-j}) tidak: ayat utuhnya pasti lebih mirip daripada potongan {Q:}
-            hasil, saingan = _tanding(x, b) if 8 <= len(b) <= len(a) + 3 else ("menang", None)
+            hasil, saingan = _tanding(x, b) if len(b) <= len(a) + 3 else ("menang", None)
             if hasil == "kalah":  # «وإنا على آثارهم مهتدون» (43:22) bukan {Q:43:23} «…مقتدون»
                 kalah = True
                 continue
@@ -549,33 +548,64 @@ def _calon(x, b, beda):
 
 
 def _tanding(spec, b):
-    """Ayat bertanda di kitab b (`padat`) dibandingkan dengan potongan ayat {Q:spec} dan potongan semua ayat mushaf
-    sepanjang b: jumlah huruf yang beda («القحيم» satu huruf dari «الرحيم», dua dari «الحكيم»), lalu kemiripan.
-    ("kalah", nomor) kalau ada ayat lain yang lebih mirip, ("seri", nomor) kalau sama miripnya, ("menang", None) kalau
-    tidak ada. Potongan {Q:} diambil dari ayat utuhnya (kitab yang menambah satu huruf di depan potongan {Q:} yang
-    pendek tidak boleh menang hanya karena potongannya pendek). Ayat {Q:} sendiri dan potongan yang hurufnya sama
-    dengan potongan {Q:} (ayat yang berulang) bukan saingan."""
+    """Ayat bertanda di kitab b (`padat`) dibandingkan dengan ayat {Q:spec} dan semua ayat mushaf. Ayat lain yang
+    memuat b persis menang. Selain itu dibandingkan kerangkanya (tanpa alif, waw, ya, dan hamzah: ejaan imla'i dan
+    utsmani tidak dihitung beda) sepanjang kerangka b: jumlah huruf yang beda («القحيم» satu huruf dari «الرحيم», dua
+    dari «الحكيم»). ("kalah", nomor) kalau ada ayat lain yang lebih dekat, ("seri", nomor) kalau sama dekatnya,
+    ("menang", None) kalau tidak ada. Potongan {Q:} diambil dari ayat utuhnya (kitab yang menambah satu huruf di depan
+    potongan {Q:} yang pendek tidak boleh menang hanya karena potongannya pendek). Ayat {Q:} sendiri dan potongan
+    yang kerangkanya sama dengan potongan {Q:} (ayat yang berulang) bukan saingan."""
     nomor = ":".join(spec.split(":")[:2])
-    a = shamela.padat(ayat(nomor)[0])
     s, _, ayat_ = nomor.partition(":")
     x1, _, x2 = ayat_.partition("-")
     sendiri = {f"{s}:{n}" for n in range(int(x1), int(x2 or x1) + 1)}
-    nilai = lambda w, batas=None: (-_jarak(w, b, batas), difflib.SequenceMatcher(None, w, b, autojunk=False).ratio())
+    lain = next((k for k, x in _quran_padat_nomor() if k not in sendiri and b in x), None)
+    if lain:  # «وقاتلوا في سبيل الله» (2:190) bukan {Q:2:154} «يقتل في سبيل الله», walau kerangkanya sama
+        return "kalah", lain
+    kb = KERANGKA.sub("", b)
+    if len(kb) < 5:  # kerangka 3-4 huruf termuat di banyak ayat: tidak bisa ditandingkan
+        return "menang", None
+    a = KERANGKA.sub("", shamela.padat(ayat(nomor)[0]))
     milik = None
-    for _, w in _potongan(a, b):
-        n = nilai(w, -milik[0] if milik else None) + (w,)
-        milik = max(milik, n) if milik else n
-    skor, saingan = milik[:2], None
-    for k, x in _quran_padat_nomor():
-        for w in _calon(x, b, -skor[0]) if k not in sendiri else ():
-            if w == milik[2]:
+    for i in range(max(1, len(a) - len(kb) + 1)):
+        w = a[i:i + len(kb)]
+        n = (_jarak(w, kb, milik[0] if milik else None), w)
+        milik = min(milik, n) if milik else n
+    beda, saingan = milik[0], None
+    padat = dict(_quran_padat_nomor())
+    jauh = functools.cache(lambda: _jarak_ayat(shamela.padat(ayat(nomor)[0]), b))  # huruf lengkap {Q:}
+    for k, x in _quran_kerangka_nomor():
+        for w in _calon(x, kb, beda) if k not in sendiri else ():
+            if w == milik[1]:
+                # kerangka sama («الله للكافرين» 4:141, «والله للكافرين» 58:4): ayat berulang, kecuali huruf lengkapnya
+                # lebih dekat ke ayat lain. Ejaan imla'i bisa begitu juga, jadi cukup seri (perhatian)
+                if saingan is None and _jarak_ayat(padat[k], b) < jauh():
+                    saingan = k
                 continue
-            n = nilai(w, -skor[0])
-            if n > skor:
-                return "kalah", k
-            if n == skor and saingan is None:
+            n = _jarak(w, kb, beda)
+            if n < beda:
+                # salah ketik huruf mati bisa mendekatkan kerangka ke ayat lain: kalah hanya kalau ayat lain itu juga
+                # tidak lebih jauh dalam huruf lengkap; kalau lebih jauh, cukup seri (perhatian)
+                if _jarak_ayat(padat[k], b) <= jauh():
+                    return "kalah", k
+                saingan = saingan or k
+            elif n == beda and saingan is None and _jarak_ayat(padat[k], b) <= jauh():  # seri di keduanya
                 saingan = k
     return ("seri", saingan) if saingan else ("menang", None)
+
+
+def _jarak_ayat(a, b):
+    """Jumlah huruf beda terkecil antara b dan potongan ayat a (`padat`) sepanjang b."""
+    terbaik = None
+    for i in range(max(1, len(a) - len(b) + 1)):
+        n = _jarak(a[i:i + len(b)], b, terbaik)
+        terbaik = n if terbaik is None else min(terbaik, n)
+    return terbaik
+
+
+@functools.cache
+def _quran_kerangka_nomor():
+    return [(k, KERANGKA.sub("", x)) for k, x in _quran_padat_nomor()]
 
 
 @functools.cache
