@@ -159,8 +159,9 @@ try {
         $sel.Collapse(0)
     }
     # Halaman fisik sebuah posisi (seperti Information(3)) dari awal tiap halaman: GoTo sekali per halaman. Information per
-    # catatan kaki atau penanda menyusun halaman dari awal dokumen tiap dipanggil, makin belakang makin lambat
-    # (bahts 63 catatan kaki: ±10 detik per putaran NomorCatatan; dengan GoTo ±0,2 detik)
+    # catatan kaki menyusun halaman dari awal dokumen tiap dipanggil, makin belakang makin lambat (bahts 63 catatan kaki:
+    # ±10 detik per putaran NomorCatatan; dengan GoTo ±0,2 detik). Untuk penanda فهرس (Hal) Information(1) tetap lebih
+    # cepat: bentuk kitab 187 halaman 7 detik, peta GoTo 9,5
     function AwalHalaman { $n = $doc.ComputeStatistics(2); return , @(for ($k = 1; $k -le $n; $k++) { $doc.GoTo(1, 1, $k).Start }) }
     function HalamanDi($awal, $pos) {
         $lo = 0; $hi = $awal.Count - 1
@@ -211,11 +212,14 @@ try {
     function NomorCatatan {
         for ($putaran = 1; $putaran -le 5; $putaran++) {
             $doc.Repaginate()
-            $awal = AwalHalaman
+            # halaman hanya dibaca untuk nomor yang mulai ulang tiap halaman, dan hanya kalau ada catatan kaki: AwalHalaman
+            # membaca awal tiap halaman (bentuk kitab 187 halaman tanpa catatan kaki: ±6 detik untuk apa-apa)
+            $ulangHal = $ULANG -eq 2 -and $doc.Footnotes.Count -gt 0
+            if ($ulangHal) { $awal = AwalHalaman }
             $salah = @(); $hal = -1; $n = 0; $i = 0
             foreach ($fn in $doc.Footnotes) {
-                $i++; $p = HalamanDi $awal $fn.Reference.Start
-                if ($ULANG -eq 2 -and $p -ne $hal) { $n = 0; $hal = $p }
+                $i++
+                if ($ulangHal) { $p = HalamanDi $awal $fn.Reference.Start; if ($p -ne $hal) { $n = 0; $hal = $p } }
                 $n++
                 if ($fn.Reference.Text -ne (Angka $n)) { $salah += , @($i, (Angka $n)) }
             }
@@ -407,31 +411,15 @@ try {
 
     # ---------- 5. Isi nomor halaman ----------
     $doc.Repaginate()
-    # nomor halaman seperti yang tercetak (= Information(1)): halaman fisik dari AwalHalaman, dikurangi selisih bagian Word
-    # tempatnya (dibaca sekali per bagian). Petanya dibaca ulang ($petaBasi) sesudah perubahan yang bisa menggeser halaman
-    # penanda berikutnya; isi tabel فهرس tidak menggeser penanda di matan, yang letaknya sebelum tabel itu
-    $petaBasi = $true
-    function Hal($bm) {
-        if ($script:petaBasi) {
-            $script:awalHal = AwalHalaman
-            $script:selisih = @(foreach ($sc in $doc.Sections) {
-                $a = $sc.Range.Start; , @($a, ((HalamanDi $script:awalHal $a) - $doc.Range($a, $a).Information(1))) })
-            $script:petaBasi = $false
-        }
-        $pos = $doc.Bookmarks.Item($bm).Range.Start
-        $g = 0; foreach ($x in $script:selisih) { if ($x[0] -le $pos) { $g = $x[1] } }
-        return (HalamanDi $script:awalHal $pos) - $g
-    }
+    function Hal($bm) { return $doc.Bookmarks.Item($bm).Range.Information(1) }   # 1 = nomor halaman seperti yang tercetak
     if ($adaAy) { $r = 1; foreach ($key in $urut) { $r++; $pg = ($ay[$key].bm | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '; Sel $tAy $r 4 (Angka $pg) 1 0 } }
     if ($adaHd) { $r = 1; foreach ($h in $DATA.hadits) { $r++; $ks = @($h.k); if ($h.lagi) { $ks += $h.lagi }; $pg = ($ks | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '; Sel $tHd $r 3 (Angka $pg) 1 0 } }
-    $petaBasi = $true                                    # judul فهرس sesudah tabel ayat/hadits bisa tergeser
     if ($adaTo) { $r = 1; foreach ($e in $toc) { $r++; Sel $tTo $r 2 (Angka (Hal $e.bm)) 1 0 } }
     # {P:kunci} di catatan kaki: tiap ⟦h_…⟧ diganti nomor halaman hadits itu (satu catatan kaki bisa memuat beberapa)
     foreach ($fn in $doc.Footnotes) {
         foreach ($k in @([regex]::Matches($fn.Range.Text, '⟦(h_[^⟧]+)⟧') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)) {
             $rg = $fn.Range; $f = $rg.Find; $f.ClearFormatting(); $f.Replacement.ClearFormatting()
             [void]$f.Execute(('⟦' + $k + '⟧'), $true, $false, $false, $false, $false, $true, 0, $false, (Angka (Hal $k)), 2)
-            $petaBasi = $true                            # catatan kaki yang berubah panjang bisa menggeser halaman sesudahnya
         }
     }
     foreach ($fn in $doc.Footnotes) { if ($fn.Range.Text.Contains('⟦')) { throw "Nomor halaman {P:...} gagal diisi di catatan kaki: $($fn.Range.Text.Trim())" } }
@@ -442,7 +430,6 @@ try {
     $ft.Range.Select(); $word.Selection.RtlRun()
     if ($KITAB) { $fg.Range.Select(); $word.Selection.RtlRun() }
     $pages = $doc.ComputeStatistics(2)
-    $petaBasi = $true
     # halaman isi = المقدمة s.d. الخاتمة (nomor halaman dihitung mulai dari المقدمة); tanpa المصادر dan فهرس = halaman terakhir
     if ($doc.Bookmarks.Exists($bmSesudahIsi)) { $isi = (Hal $bmSesudahIsi) - 1 }
     else { $akhir = $doc.Content.End - 1; $isi = $doc.Range($akhir, $akhir).Information(1) }
