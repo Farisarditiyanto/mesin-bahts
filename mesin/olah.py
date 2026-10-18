@@ -158,6 +158,37 @@ def salah_juz(sid, juz, hal):
     return ""
 
 
+RENTANG_MAKS = 50  # halaman paling banyak satu bukti (dan satu rentang tercetak)
+
+
+def salah_halaman(hal):
+    """'' kalau halaman bukti «n» atau «n-m» masuk akal; selain itu pesan kesalahannya."""
+    p1, _, p2 = hal.partition("-")
+    p1 = int(p1); p2 = int(p2) if p2 else p1
+    if p1 < 1:
+        return (f"halaman 0 tidak ada: teks tanpa nomor halaman (mukadimah, sampul jilid) tidak bisa dirujuk ke halaman "
+                f"cetak: {hal}")
+    if p2 < p1:
+        return f"rentang halaman terbalik: {hal}"
+    if p2 - p1 > RENTANG_MAKS:
+        return f"rentang halaman bukti terlalu lebar (lebih dari {RENTANG_MAKS} halaman): {hal}"
+    return ""
+
+
+@functools.cache
+def halaman_janggal(sid, juz):
+    """{halaman: (sebelum, sesudah)}: nomor halaman rekaman yang menyendiri jauh dari halaman lain juz itu (lebih dari
+    RENTANG_MAKS di bawahnya dan di atasnya), biasanya salah ketik Shamela (ص3110 di antara ص310 dan ص312 di jilid
+    ±520 halaman). sebelum/sesudah = nomor rekaman tetangganya di berkas."""
+    ix = shamela.indeks(sid)
+    semua = [i for ii in kitab(sid).values() for i in ii] if juz == "-" else kitab(sid)[juz]
+    nomor = sorted({ix[i][1] for i in semua if ix[i][1]})
+    sendiri = {n for k, n in enumerate(nomor) if k and n - nomor[k - 1] > RENTANG_MAKS
+               and (k == len(nomor) - 1 or nomor[k + 1] - n > RENTANG_MAKS)}
+    return {ix[i][1]: (ix[semua[k - 1]][1] if k else None, ix[semua[k + 1]][1] if k + 1 < len(semua) else None)
+            for k, i in enumerate(semua) if ix[i][1] in sendiri}
+
+
 def rekaman_dulu(sid, juz, p1, p2):
     """Rekaman tepat sebelum rekaman pertama yang menyentuh halaman p1..p2 (kata di akhir halaman sebelumnya); None kalau tidak ada."""
     ix = shamela.indeks(sid)
@@ -189,21 +220,38 @@ def _di(sid, juz, p1, p2, q, utuh, kata=()):
                 lain = lain or (h[0], h[1], tanda)
             break
     if not hasyiah and len(rekaman(sid, juz, p1, p2)) > 1:  # kutipan yang menyambung dari satu rekaman ke berikutnya
-        h = shamela.tempat(gabung(sid, juz, p1, p2), q, "body", utuh, kata, (p1, p2))
-        if h and p1 <= (h[0] or 0) and (h[1] or 0) <= p2:
-            return "matan", None
+        for bagian in ("body", "footnotes"):  # حاشية yang bersambung («… =» lalu «= …» di halaman berikutnya)
+            for g in gabung(sid, juz, p1, p2):
+                h = shamela.tempat(g, q, bagian, utuh, kata, (p1, p2))
+                if h and p1 <= (h[0] or 0) and (h[1] or 0) <= p2:
+                    return ("matan" if bagian == "body" else "hasyiah"), None
     return (hasyiah, None) if hasyiah else (None, lain)
+
+
+def _akhir(r):
+    """Halaman cetak terakhir rekaman r (page_num, atau penanda ⦗n⦘ terbesar di matannya)."""
+    return max([r.get("page_num") or 0] + [int(n) for n in shamela.PENANDA.findall(r.get("body") or "")])
 
 
 @functools.cache
 def gabung(sid, juz, p1, p2):
-    """Matan rekaman-rekaman yang menyentuh halaman p1..p2 sebagai satu rekaman: awal tiap rekaman diberi penanda
-    halaman ⦗n⦘, jadi kutipan yang menyambung lintas rekaman tetap dicek per kata dan halamannya tetap tercatat."""
-    rr = rekaman(sid, juz, p1, p2)
-    body = rr[0].get("body") or ""
-    for r in rr[1:]:
-        body += f" ⦗{str(r.get('page_num') or 0).translate(AD)}⦘ " + (r.get("body") or "")
-    return {"body": body, "page_num": rr[0].get("page_num")}
+    """Rekaman-rekaman yang menyentuh halaman p1..p2 sebagai rangkaian rekaman: awal tiap rekaman diberi penanda
+    halaman ⦗n⦘, jadi kutipan yang menyambung lintas rekaman tetap dicek per kata dan halamannya tetap tercatat.
+    Rekaman diurutkan menurut halamannya (urutan berkas Shamela bisa melompat: mukadimah diselipkan di tengah, dua
+    rangkaian halaman berselang-seling), dan hanya rekaman yang halamannya bersambung (sama atau +1) yang dirangkai:
+    teks dua halaman yang tidak bersambung tidak boleh jadi satu kutipan."""
+    hasil = []
+    for r in sorted(rekaman(sid, juz, p1, p2), key=lambda r: r.get("page_num") or 0):
+        n = r.get("page_num")
+        if hasil and n and hasil[-1]["_akhir"] <= n <= hasil[-1]["_akhir"] + 1:
+            g = hasil[-1]
+            for bagian, _ in shamela.BAGIAN:
+                g[bagian] += f" ⦗{str(n).translate(AD)}⦘ " + (r.get(bagian) or "")
+        else:
+            g = {bagian: r.get(bagian) or "" for bagian, _ in shamela.BAGIAN} | {"page_num": n}
+            hasil.append(g)
+        g["_akhir"] = max(g.get("_akhir", 0), _akhir(r))
+    return hasil
 
 
 def _petunjuk(sid, juz, q):
@@ -263,7 +311,7 @@ def _menyimpang(sid, juz, p1, p2, teks):
     lalu kata sesudahnya di naskah dan di kitab. '' kalau awalannya terlalu pendek untuk ditunjuk."""
     if not rekaman(sid, juz, p1, p2):
         return ""
-    raw = re.sub(r"\s+", " ", shamela.HARAKAT.sub("", shamela.TAGS.sub("", gabung(sid, juz, p1, p2)["body"])))
+    raw = re.sub(r"\s+", " ", shamela.HARAKAT.sub("", shamela.TAGS.sub("", " ".join(g["body"] for g in gabung(sid, juz, p1, p2)))))
     raw = shamela.PENANDA.sub(" ", raw)
     kitab_padat, kata = shamela.padat(raw), teks.split()
     lo, hi = 0, len(kata) - 1  # awalan sepanjang kata[:lo] ada di matan; kata[:hi+1] tidak (kutipan utuhnya tidak ketemu)
@@ -307,10 +355,16 @@ def cek(sid, juz, hal, pot, perhatian, kutipan=False, rinci=True):
                  "(مخطوط، ل n) atau pakai edisi cetak kalau ada")
         if not any(p.endswith(pesan) for p in perhatian):
             perhatian.append(pesan)
+    e = salah_halaman(hal)
+    if e:
+        return e
     p1, _, p2 = hal.partition("-")
     p1 = int(p1); p2 = int(p2) if p2 else p1
-    if p2 < p1:
-        return f"rentang halaman terbalik: {hal}"
+    for n, (a, b) in halaman_janggal(sid, juz).items():
+        pesan = (f"nomor halaman {juz}/{n} kitab {sid} jauh dari halaman lain juz itu (rekaman sebelum/sesudahnya di Shamela: "
+                 f"{'، '.join(f'ص{x}' for x in (a, b) if x)}): mungkin salah ketik Shamela; cocokkan ke cetakan (`scan`) dan tulis nomor cetakannya")
+        if p1 <= n <= p2 and not any(p.endswith(pesan) for p in perhatian):
+            perhatian.append(pesan)
     if pot.startswith("#") and not kutipan:
         nomor = pot[1:].translate(ANGKA_LATIN)
         if not re.fullmatch(r"\d+", nomor.strip()):  # «#» kosong cocok di halaman mana saja
@@ -536,26 +590,60 @@ def ragu_kutipan(rr, awal, pot, periksa_angka=True, dulu=lambda: None):
 
 
 def tercetak(isi, juz):
-    """Rentang halaman yang tercetak di catatan kaki untuk juz ini: [(awal, akhir)]. Angka ٠-٩ dibaca seperti 0-9."""
+    """Rentang halaman yang tercetak di catatan kaki untuk juz ini: [(awal, akhir)]. Angka ٠-٩ dibaca seperti 0-9.
+    «ص» harus berdiri sebagai kata («النص 5» bukan halaman)."""
     isi = isi.translate(ANGKA_LATIN)
-    pola = r"ص\s*(\d+)(?:\s*-\s*(\d+))?" if juz == "-" else rf"(?<![\d/]){re.escape(juz)}\s*/\s*(\d+)(?:\s*-\s*(\d+))?"
+    pola = r"(?<![\wـ])ص\s*(\d+)(?:\s*-\s*(\d+))?" if juz == "-" else rf"(?<![\d/]){re.escape(juz)}\s*/\s*(\d+)(?:\s*-\s*(\d+))?"
     return [(int(a), int(b or a)) for a, b in re.findall(pola, isi)]
+
+
+# «j/n» juz mana saja; bukan tanggal («12/5/1420», «1420هـ/2000م») atau cetakan («ط2/1420»)
+JUZ_TERCETAK = re.compile(r"(?<![\w/])(\d{1,2})\s*/\s*\d+(?![\d/])(?!\s*(?:هـ|م(?!\w)))")
+
+
+def _bagian_kitab(isi, bukti):
+    """Catatan kaki berbukti beberapa kitab: [(teks, bukti kitab itu)] dipotong di judul tiap kitab, supaya halaman yang
+    tercetak dicocokkan dengan bukti kitabnya sendiri. Judul yang tidak ketemu (disingkat lain) = tidak dipotong."""
+    sids = list(dict.fromkeys(b[0] for b in bukti))
+    if len(sids) < 2:
+        return [(isi, bukti)]
+    letak = {}
+    for sid in sids:
+        kata = shamela.info(int(sid))["title_ar"].split(" - ")[0].split()
+        for n in range(len(kata), min(2, len(kata)) - 1, -1):
+            m = re.search(rf"(?<!\w)و?{re.escape(' '.join(kata[:n]))}(?!\w)", isi)  # «ورياض الصالحين»
+            if m:
+                letak[sid] = m.start(); break
+        else:
+            return [(isi, bukti)]
+    urut = sorted(sids, key=letak.get)
+    if len(set(letak.values())) < len(sids):
+        return [(isi, bukti)]
+    batas = [0] + [letak[s] for s in urut[1:]] + [len(isi)]
+    return [(isi[batas[i]:batas[i + 1]], [b for b in bukti if b[0] == s]) for i, s in enumerate(urut)]
 
 
 def cocok_halaman(isi, bukti):
     """Bandingkan juz/halaman yang tercetak dengan bukti [(sid, juz, p1, p2)]; kembalikan daftar galat.
+    Tiap halaman tercetak harus di dalam rentang bukti kitabnya, dan tiap bukti harus tercetak.
     «سبق تخريجه» mencetak halaman bahts ({P:}), bukan halaman kitab: yang dicek hanya halaman kitab yang tercetak."""
     if not bukti:
         return []
     galat = []
-    for juz in {b[1] for b in bukti}:
-        ada = {n for _, z, p1, p2 in bukti if z == juz for n in range(p1, p2 + 1)}
-        galat += [f"halaman tercetak {juz}/{a}{'-' + str(b) if b != a else ''} tidak punya bukti"
-                  for a, b in tercetak(isi, juz) if b - a > 50 or not set(range(a, b + 1)) & ada]
-    for sid in {b[0] for b in bukti} if "سبق تخريجه" not in isi else ():
-        if not any(a <= p1 and p2 <= b for s, z, p1, p2 in bukti if s == sid for a, b in tercetak(isi, z)):
-            galat.append(f"juz/halaman bukti kitab {sid} tidak tercetak di catatan kaki")
-    return [f"{g} || fn: {isi[:60]}" for g in galat]
+    bagian = _bagian_kitab(isi, bukti)
+    for teks, bb in bagian:
+        kitabnya = f" (kitab {bb[0][0]})" if len(bagian) > 1 else ""
+        juz_bukti = {b[1] for b in bb}
+        # juz yang tidak punya bukti sama sekali («3/77» di kitab satu jilid, «ص900» di kitab berjilid)
+        lain = {j for j in JUZ_TERCETAK.findall(teks.translate(ANGKA_LATIN))} | {"-"}
+        for juz in juz_bukti | (lain - juz_bukti):
+            ada = {n for _, z, p1, p2 in bb if z == juz for n in range(p1, p2 + 1)}
+            galat += [f"halaman tercetak {juz}/{a}{'-' + str(b) if b != a else ''} tidak punya bukti{kitabnya}"
+                      for a, b in tercetak(teks, juz) if b - a > RENTANG_MAKS or not set(range(a, b + 1)) <= ada]
+        for s, z, p1, p2 in dict.fromkeys(bb) if "سبق تخريجه" not in isi else ():
+            if not any(a <= p1 and p2 <= b for a, b in tercetak(teks, z)):
+                galat.append(f"juz/halaman bukti kitab {s} ({z}/{p1}{'-' + str(p2) if p2 != p1 else ''}) tidak tercetak di catatan kaki")
+    return [f"{'; '.join(dict.fromkeys(galat))} || fn: {isi[:60]}"] if galat else []  # satu catatan kaki = satu galat
 
 
 def ayat(spec):
@@ -806,7 +894,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 f = b.split("|")
                 if len(f) not in (3, 4) or not re.fullmatch(r"\d+", f[0]) or not re.fullmatch(r"\d+(-\d+)?", f[2]):
                     raise TandaRusak(f"<<{b}>>: bentuknya <<sid|juz|hal>> atau <<sid|juz|hal|potongan>>")
-                e = salah_juz(int(f[0]), f[1], f[2])
+                e = salah_juz(int(f[0]), f[1], f[2]) or salah_halaman(f[2])
                 if e:  # juz/halamannya belum bisa dibandingkan dengan yang tercetak: satu galat saja
                     galat.append(e + f"  || fn: {isi[:45]}"); continue
                 terbukti.append((f[0], f[1], *map(int, (f[2] + "-" + f[2]).split("-")[:2])))
