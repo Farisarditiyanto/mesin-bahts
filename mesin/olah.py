@@ -474,11 +474,22 @@ def _ayat_sama(spec, antara, rujukan):
 def _salah_ketik(a, b):
     """Ayat bertanda ﴿﴾ yang pendek salah ketik di kitab («﴿وَءَاثُوا الزَّكَاةَ﴾» untuk «وءاتوا الزكوة», «﴿فِيهِدْنَهُمْ
     أَقْتَدَةً﴾» untuk «فبهداهم اقتده»): satu-dua huruf beda sudah memutus 10 huruf berturut-turut. Paling sedikit 8
-    huruf `padat`, dan 4/5 hurufnya sama dengan sepotong ayat {Q:} sepanjang itu (ayat lain: «وأقيموا الصلاة» 0,56)."""
-    if len(b) < 8:
+    huruf `padat`, tidak termuat di ayat mana pun, dan 4/5 hurufnya sama dengan sepotong ayat {Q:} sepanjang itu."""
+    if len(b) < 8 or _di_quran(b):  # teks kitab yang memang ayat lain («مهتدون» 43:22 untuk «مقتدون» 43:23) bukan salah ketik
         return False
     return any(difflib.SequenceMatcher(None, a[i:i + len(b)], b, autojunk=False).ratio() >= 0.8
                for i in range(max(1, len(a) - len(b) + 1)))
+
+
+@functools.cache
+def _quran_padat():
+    return [shamela.padat(x) for x in QURAN.values()]
+
+
+def _di_quran(b):
+    """Teks `padat` b termuat di salah satu ayat mushaf (juga tanpa alif, waw, ya, dan hamzah: ejaan imla'i)."""
+    kb = KERANGKA.sub("", b)
+    return any(b in x or kb in KERANGKA.sub("", x) for x in _quran_padat())
 
 
 def _kerangka_sama(a, b):
