@@ -5,6 +5,10 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+## 4.0.1 — 2026-10-18
+
+Tambalan naik dari 4.0.0: hanya percepatan dan perbaikan; naskah lama tetap jalan tanpa diubah.
+
 - `cek` jauh lebih cepat untuk bahts yang merujuk banyak kitab besar: hanya halaman yang dirujuk yang dibaca, bukan seluruh kitab. Diukur (median 5 jalan): bahts 32 kitab 7,8 → 1,7 detik; bahts lain 5,9 → 1,0 dan 2,2 → 0,45 detik. Hasil `cek` tidak berubah. `cek` pertama sesudah memperbarui mesin sekali lebih lama: tiap kitab dibuatkan `indeks.json` di foldernya.
 - Cache teks kitab (`padat-….json.gz`) tidak lagi dibuat ulang tiap kali `mesin/shamela.py` berubah (juga untuk perubahan yang tidak menyentuh penyamaan huruf); hanya kalau aturan penyamaan huruf (`mesin/norma.py`) berubah.
 - `rakit` lebih cepat untuk bahts bercatatan kaki: Word menyusun dalam tampilan Draft, dan nomor catatan kaki dicocokkan ke halaman tanpa menyusun ulang halaman dari awal dokumen tiap catatan kaki. Diukur (median 3 jalan, bergantian dengan versi lama): bahts 28 halaman 111 catatan kaki 136 → 75 detik, bahts 11 halaman 12 catatan kaki 34 → 24 detik; bentuk kitab 187 halaman tanpa catatan kaki tetap ±200 detik. Naskah sangat pendek tidak lebih cepat: `contoh` (7 halaman, 2 catatan kaki) 14,0 → 15,6 detik. PDF dan laporan sama persis dengan sebelumnya (dibandingkan per piksel tiap halaman).
