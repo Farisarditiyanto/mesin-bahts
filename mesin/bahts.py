@@ -30,13 +30,13 @@ Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex dan DOAJ
                                dan menurut makna. Saringan OpenAlex, mis. language:ar,type:dissertation
   dirasat-pdf <W…> <folder>    unduh PDF penelitian (nomor OpenAlex dari `dirasat`) ke folder bahts; butuh kunci OpenAlex
 """
-import difflib, hashlib, json, math, os, re, subprocess, sys, urllib.error
+import difflib, hashlib, json, math, os, re, subprocess, sys, sysconfig, urllib.error
 from pathlib import Path
 
 import dirasat, hadits, shamela  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
 from shamela import perintah
 
-MESIN = Path(__file__).parent
+MESIN = Path(__file__).resolve().parent
 AKAR = MESIN.parent
 # Font mushaf «KFGQPC HAFS Uthmanic Script» milik مجمع الملك فهد: tidak ikut repo (lihat NOTICE), diunduh oleh `siapkan`.
 FONT = "UthmanicHafs_V22.ttf"
@@ -126,8 +126,16 @@ def periksa():
 
     baris(sys.version_info >= (3, 12), f"Python {sys.version_info.major}.{sys.version_info.minor} (butuh 3.12 ke atas)",
           "pasang Python 3.12 (Windows: winget install Python.Python.3.12), lalu ulangi dengan Python itu")
-    baris(all(importlib.util.find_spec(m) for m in PUSTAKA), f"pustaka Python ({', '.join(PUSTAKA)})",
-          f'"{sys.executable}" -m pip install -r "{AKAR / "requirements.txt"}"')
+    pip = f'-m pip install -r "{AKAR / "requirements.txt"}"'
+    if sys.prefix == sys.base_prefix and (Path(sysconfig.get_path("stdlib")) / "EXTERNALLY-MANAGED").exists():
+        # Python bawaan distro (Ubuntu 23.04+, Debian 12, Homebrew) menolak pip (PEP 668): pustaka dipasang di venv dalam repo (diabaikan git)
+        venv = AKAR / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        pip = (f'"{sys.executable}" -m venv "{AKAR / ".venv"}" && "{venv}" {pip}\n'
+               f'          lalu jalankan semua perintah mesin dengan "{venv}" (Python ini menolak pip ke sistem).\n'
+               '          venv gagal karena ensurepip/pip tidak ada → Debian/Ubuntu: sudo apt install python3-venv, lalu ulangi')
+    else:
+        pip = f'"{sys.executable}" {pip}'
+    baris(all(importlib.util.find_spec(m) for m in PUSTAKA), f"pustaka Python ({', '.join(PUSTAKA)})", pip)
     baris((AKAR / "kitab" / shamela.KATALOG).exists(), "katalog kitab", perintah("siapkan"))
     baris(os.name == "nt", "Windows", "`rakit` hanya jalan di Windows; di sini mesin berhenti di `cek`", untuk_cek=False)
     if os.name == "nt":
@@ -153,11 +161,18 @@ def periksa():
 
 
 def folder_bahts(nama):
-    f = (AKAR / nama).resolve()  # jalur lengkap («C:\\…\\mesin-bahts\\ikhlas») juga diterima
-    if f.name.lower() == "naskah.txt":  # yang disebut berkas naskahnya, bukan foldernya
-        f = f.parent
-    if not f.is_relative_to(AKAR.resolve()):
-        sys.exit(f"Bahts «{nama}» di luar folder mesin ({AKAR}): tiap bahts tinggal di dalam folder itu.")
+    def folder(f):  # yang disebut berkas naskahnya, bukan foldernya
+        return f.parent if f.name.lower() == "naskah.txt" else f
+    f = folder((AKAR / nama).resolve())  # jalur lengkap («C:\\…\\mesin-bahts\\ikhlas») juga diterima
+    # jalur relatif dibaca dulu dari folder tempat perintah dijalankan (mis. `cek .` di dalam folder bahts), lalu dari folder mesin
+    sini = folder((Path.cwd() / nama).resolve())
+    if (sini / "naskah.txt").exists() and sini != f:
+        if sini.is_relative_to(AKAR):
+            return sini
+        if not (f.is_relative_to(AKAR) and (f / "naskah.txt").exists()):
+            f = sini
+    if not f.is_relative_to(AKAR):
+        sys.exit(f"Bahts «{nama}» ({f}) di luar folder mesin ({AKAR}): tiap bahts tinggal di dalam folder itu.")
     if (f / "naskah.txt").exists():
         return f
     ada = sorted(d.name for d in AKAR.iterdir() if (d / "naskah.txt").exists())
@@ -195,7 +210,7 @@ def baru(nama, judul):
                 isi = isi.replace("@berkas:", f"@{k}: {v.strip()}\n@berkas:", 1)
     f.mkdir()
     (f / "naskah.txt").write_text(isi, encoding="utf8")
-    print(f"Siap: {f.name}/naskah.txt")
+    print(f"Siap: {f / 'naskah.txt'}")
     kosong = re.findall(r"^@(\w+):[ \t]*$", isi, re.M)
     if kosong:
         print("Data sampul yang masih kosong: " + ", ".join("@" + k for k in kosong)
@@ -291,7 +306,7 @@ def pola(teks):
     try:
         re.compile(teks)
         return teks
-    except re.error:
+    except (re.error, OverflowError):  # OverflowError: pengulangan raksasa, mis. a{99999999999}
         return re.escape(teks)
 
 
@@ -317,7 +332,7 @@ PERINTAH = {  # nama: (jumlah argumen minimal, pemanggil)
     "tanda": (0, lambda a: print(tanda())),
     "kitab": (0, lambda a: shamela.daftar()),
     "katalog": (1, lambda a: ketemu(shamela.katalog(pola(a[0])))),
-    "temukan": (1, lambda a: shamela.temukan(a[0], *(angka(x, "maks") for x in a[1:2]))),
+    "temukan": (1, lambda a: ketemu(shamela.temukan(a[0], *(angka(x, "maks") for x in a[1:2])))),
     "ambil": (1, lambda a: ambil(a)),
     "kartu": (1, lambda a: shamela.kartu(a[0])),
     "cari": (2, lambda a: ketemu(shamela.cari(a[0], a[1]))),
@@ -325,7 +340,7 @@ PERINTAH = {  # nama: (jumlah argumen minimal, pemanggil)
     "bab": (2, lambda a: ketemu(shamela.bab(a[0], a[1]))),
     "halaman": (3, lambda a: ketemu(shamela.halaman(*a[:3]))),
     "scan": (3, lambda a: ketemu(shamela.scan(*a[:3]))),
-    "hadits": (1, lambda a: hadits.cari(a[0], *(angka(x, "maks") for x in a[1:2]))),
+    "hadits": (1, lambda a: ketemu(hadits.cari(a[0], *(angka(x, "maks") for x in a[1:2])))),
     "dirasat": (1, lambda a: dirasat.cari(a[0], *(angka(x, "maks") for x in a[1:2]), *a[2:3])),
     "dirasat-pdf": (2, lambda a: dirasat.pdf(a[0], folder_bahts(a[1]))),
 }

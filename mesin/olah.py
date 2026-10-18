@@ -45,7 +45,7 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   Judul (#K/#F/#B/#M/#S/#R) tidak boleh memuat [^, <<, {Q:/{H: atau **
   Contoh: قال ابن القيم: "…"[^مدارج السالكين، ابن القيم، 2/15. <<8370|2|15>>].
 """
-import difflib, functools, json, re
+import difflib, functools, json, os, re
 from pathlib import Path
 
 import shamela
@@ -987,8 +987,11 @@ def utama(folder):
     try:
         baris = [(n, x.rstrip("\n")) for n, x in enumerate(open(folder / "naskah.txt", encoding="utf-8-sig"), 1) if x.strip()]
     except UnicodeDecodeError:
-        raise SystemExit(f"{folder.name}/naskah.txt bukan UTF-8: buka di Notepad, File > Save As, pilih Encoding «UTF-8», "
-                         "simpan, lalu ulangi `cek`.") from None
+        raise SystemExit(f"{folder.name}/naskah.txt bukan UTF-8: " + (
+            "buka di Notepad, File > Save As, pilih Encoding «UTF-8», simpan" if os.name == "nt" else
+            "simpan ulang sebagai UTF-8 di editormu (atau dari terminal, mis. untuk UTF-16: "
+            "iconv -f UTF-16 -t UTF-8 naskah.txt > naskah8.txt, lalu ganti naskah.txt dengan naskah8.txt)")
+            + ", lalu ulangi `cek`.") from None
     blok, catatan, ayat_idx, hadits_idx, galat, perhatian, pustaka = [], [], [], [], [], [], []
     meta = {"berkas": folder.name}
     di_baris = {}  # @kunci dan #R -> nomor barisnya, untuk galat yang baru ketahuan sesudah semua baris dibaca

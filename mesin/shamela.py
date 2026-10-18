@@ -100,7 +100,7 @@ def _meta():
     try:
         import pandas as pd
     except ImportError:
-        raise SystemExit("Pustaka Python belum terpasang: pip install -r requirements.txt")
+        raise SystemExit("Pustaka Python belum terpasang; cara memasangnya disebut oleh: " + perintah("periksa"))
     return pd.read_parquet(ROOT / KATALOG)
 
 
@@ -205,7 +205,7 @@ def temukan(frasa, maks=20):
     if not d["count"]:
         print(f"TIDAK KETEMU di seluruh Shamela, berurutan maupun longgar: {frasa}\n"
               "Coba frasa lebih pendek (2-4 kata inti), atau ejaan lain.")
-        return
+        return 0
     print(f"{d['count']} tempat cocok di seluruh Shamela: {frasa}\n" + ada_keterangan())
     ada = set(punya())
     df = _meta()
@@ -218,6 +218,7 @@ def temukan(frasa, maks=20):
               f"{m['book_name']} — {m['author_name']} :: {cuplikan[:160]}")
     if d["count"] > maks:
         print(f"(ditampilkan {min(maks, len(d['data']))}, paling banyak {TURATH_MAKS}; persempit frasanya untuk hasil lain)")
+    return d["count"]
 
 
 def letak(juz, h):
@@ -673,6 +674,7 @@ def scan(sid, juz, hal):
     """Alamat scan cetakan (PDF di turath.io) untuk satu halaman cetak, untuk mencocokkan bacaan yang meragukan.
     Juz "-" = kitab satu jilid. Penunjuk jalan saja: hasilnya dibuka dan dibaca orang."""
     angka = lambda x: str(int(x)) if str(x).isdigit() else str(x)  # «05» dan «٥» = 5
+    _folder(sid)  # nomor yang bukan angka ditolak dengan pesan yang sama dengan perintah kitab lain
     buku = _turath_buku(sid)
     if buku is None:
         print(f"[{sid}] turath.io tidak punya kitab ini.")
