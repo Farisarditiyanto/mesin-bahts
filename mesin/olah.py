@@ -585,8 +585,8 @@ def _tanding(spec, b):
             n = _jarak(w, kb, beda)
             if n < beda:
                 # salah ketik huruf mati bisa mendekatkan kerangka ke ayat lain: kalah hanya kalau ayat lain itu juga
-                # tidak lebih jauh dalam huruf lengkap; kalau lebih jauh, cukup seri (perhatian)
-                if _jarak_ayat(padat[k], b) <= jauh():
+                # lebih dekat dalam huruf lengkap («الرسل حلا»: 1 huruf dari 46:35 dan dari 16:35); selain itu seri
+                if _jarak_ayat(padat[k], b) < jauh():
                     return "kalah", k
                 saingan = saingan or k
             elif n == beda and saingan is None and _jarak_ayat(padat[k], b) <= jauh():  # seri di keduanya
