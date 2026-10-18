@@ -466,9 +466,19 @@ def _ayat_sama(spec, antara, rujukan):
             a = shamela.padat(ayat(x)[0])
             # ayat bertanda ﴿﴾ ditulis kitab dengan ejaan imla'i («الصراط»/«الصرط», «الصلاة»/«الصلوة»): dibandingkan
             # juga tanpa huruf alif, waw, ya, dan hamzah
-            if sama(a, b, 10) or teks in tanda and _kerangka_sama(a, b):
+            if sama(a, b, 10) or teks in tanda and (_kerangka_sama(a, b) or _salah_ketik(a, b)):
                 return True
     return False
+
+
+def _salah_ketik(a, b):
+    """Ayat bertanda ﴿﴾ yang pendek salah ketik di kitab («﴿وَءَاثُوا الزَّكَاةَ﴾» untuk «وءاتوا الزكوة», «﴿فِيهِدْنَهُمْ
+    أَقْتَدَةً﴾» untuk «فبهداهم اقتده»): satu-dua huruf beda sudah memutus 10 huruf berturut-turut. Paling sedikit 8
+    huruf `padat`, dan 4/5 hurufnya sama dengan sepotong ayat {Q:} sepanjang itu (ayat lain: «وأقيموا الصلاة» 0,56)."""
+    if len(b) < 8:
+        return False
+    return any(difflib.SequenceMatcher(None, a[i:i + len(b)], b, autojunk=False).ratio() >= 0.8
+               for i in range(max(1, len(a) - len(b) + 1)))
 
 
 def _kerangka_sama(a, b):
@@ -628,7 +638,9 @@ def _nilai_susunan(raw, angka, letak, bagian, celah, ujung, mulai, akhir):
                 lebih = max(0, len(re.findall(r"\d+", angka[a:a + len(luar)])) - len(re.findall(r"\d+", kepala.translate(ANGKA_LATIN))))
         if re.search(r"[\d٠-٩۰-۹\])]", ekor):
             luar = re.split(r"[\r\n]", raw[z:mulai(k)])[0]
-            tutup = [luar.find(x) for x in "])" if x in luar] if ekor.rstrip()[-1:] in ("]", ")") else []
+            # «…خالتها)**.» ditutup kurung walau sesudahnya ada titik/** : angka catatan kaki kitab «(١)» sesudah
+            # kurung itu bukan bagian kutipan
+            tutup = [luar.find(x) for x in "])" if x in luar] if re.sub(r"[\s.,،؛:*]+$", "", ekor)[-1:] in ("]", ")") else []
             z += min(tutup) + 1 if tutup else len(luar)
         naskah, di_kitab = re.findall(r"\d+", b.translate(ANGKA_LATIN)), re.findall(r"\d+", angka[a:z])[lebih:]
         if naskah != di_kitab:
@@ -732,18 +744,32 @@ def _bagian_kitab(isi, bukti):
     sids = list(dict.fromkeys(b[0] for b in bukti))
     if len(sids) < 2:
         return [(isi, bukti)]
-    letak, terpakai = {}, []
-    judul = {sid: shamela.info(int(sid))["title_ar"].split(" - ")[0].split() for sid in sids}
+    letak, terpakai = {}, {}
+    data = {sid: shamela.info(int(sid)) for sid in sids}
+    judul = {sid: data[sid]["title_ar"].split(" - ")[0].split() for sid in sids}
+    # pengarang di dalam judul katalog bukan bagian judul: «المغني لابن قدامة» ditulis «المغني، ابن قدامة»
+    judul = {sid: kata[:next((i for i, w in enumerate(kata) if i and PENGARANG_SESUDAH.match(w)), len(kata))]
+             for sid, kata in judul.items()}
+    cari = lambda teks, luar: next((m for m in re.finditer(rf"(?<!\w)و?{re.escape(teks)}(?!\w)", isi)  # «ورياض الصالحين»
+                                    if not any(a <= m.start() < z for a, z in luar)), None)
     # judul terpanjang dulu: «زاد المستقنع» di dalam «الشرح الممتع على زاد المستقنع» bukan tempat kitab متن-nya
     for sid in sorted(sids, key=lambda x: -len(judul[x])):
         kata = judul[sid]
         for n in range(len(kata), min(2, len(kata)) - 1, -1):
-            m = next((m for m in re.finditer(rf"(?<!\w)و?{re.escape(' '.join(kata[:n]))}(?!\w)", isi)  # «ورياض الصالحين»
-                      if not any(a <= m.start() < z for a, z in terpakai)), None)
+            m = cari(" ".join(kata[:n]), terpakai.values())
             if m:
-                letak[sid] = m.start(); terpakai.append(m.span()); break
-        else:
-            return [(isi, bukti)]
+                letak[sid] = m.start(); terpakai[sid] = m.span(); break
+    # nama pengarang juga tempat kitabnya: takhrij «أخرجه البخاري، …، 7/2، ومسلم، …، 2/1020» (judul lengkapnya, kalau
+    # ada, baru di data cetak di ujung), «المغني، ابن قدامة، …؛ والذخيرة، القرافي، …». Yang paling depan yang dipakai.
+    # Pengarang yang sama untuk dua kitab di catatan kaki ini tidak menunjuk kitab mana pun.
+    nama = {sid: (data[sid].get("main_author_name_ar") or "").strip() for sid in sids}
+    for sid in sids:
+        if nama[sid] and list(nama.values()).count(nama[sid]) == 1:
+            m = cari(nama[sid], [z for s, z in terpakai.items() if s != sid])
+            if m and m.start() < letak.get(sid, len(isi)):
+                letak[sid] = m.start()
+    if len(letak) < len(sids):
+        return [(isi, bukti)]
     urut = sorted(sids, key=letak.get)
     if len(set(letak.values())) < len(sids):
         return [(isi, bukti)]
