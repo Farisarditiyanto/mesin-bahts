@@ -152,14 +152,14 @@ def salah_juz(sid, juz, hal):
     return ""
 
 
-def _di(sid, juz, p1, p2, q, utuh):
+def _di(sid, juz, p1, p2, q, utuh, kata=()):
     """Cari q (sudah `padat`) di juz/halaman p1..p2, matan dan حاشية per halaman.
     Kembalikan (jenis, None): jenis "matan", "hasyiah", atau "hasyiah?" (حاشية tanpa penanda halaman di rekaman
     banyak halaman); atau (None, (awal, akhir, tanda)) kalau hanya ada di halaman lain; atau (None, None)."""
     lain, hasyiah = None, None
     for r in rekaman(sid, juz, p1, p2):
         for bagian, tanda in shamela.BAGIAN:
-            h = shamela.tempat(r, q, bagian, utuh)
+            h = shamela.tempat(r, q, bagian, utuh, kata, (p1, p2))  # q yang muncul dua kali: yang di p1..p2 didahulukan
             if not h:
                 continue
             a, z = h[0] or 0, h[1] or 0
@@ -173,7 +173,7 @@ def _di(sid, juz, p1, p2, q, utuh):
                 lain = lain or (h[0], h[1], tanda)
             break
     if not hasyiah and len(rekaman(sid, juz, p1, p2)) > 1:  # kutipan yang menyambung dari satu rekaman ke berikutnya
-        h = shamela.tempat(gabung(sid, juz, p1, p2), q, "body", utuh)
+        h = shamela.tempat(gabung(sid, juz, p1, p2), q, "body", utuh, kata, (p1, p2))
         if h and p1 <= (h[0] or 0) and (h[1] or 0) <= p2:
             return "matan", None
     return (hasyiah, None) if hasyiah else (None, lain)
@@ -214,7 +214,7 @@ def _cek_bagian(sid, juz, hal, p1, p2, teks, utuh, perhatian, rinci=True):
     """Cek satu teks (kutipan, satu bagian kutipan berelipsis, atau potongan) di juz/hal; '' kalau cocok.
     rinci=False: pesan kesalahannya tidak disusun (mencari di seluruh kitab), untuk pemanggil yang hanya butuh cocok/tidak."""
     q = shamela.padat(teks)
-    jenis, lain = _di(sid, juz, p1, p2, q, utuh)
+    jenis, lain = _di(sid, juz, p1, p2, q, utuh, shamela.kata_dalam(teks))
     if jenis == "hasyiah":
         perhatian.append(f"bukti ada di حاشية المحقق, bukan di matan kitab {sid} {juz}/{hal}: "
                          f"itu kalimat muhaqqiq, bukan pengarang :: {teks[:40]}")
@@ -226,6 +226,9 @@ def _cek_bagian(sid, juz, hal, p1, p2, teks, utuh, perhatian, rinci=True):
     if not rinci:
         return "tidak cocok"
     if utuh and _di(sid, juz, p1, p2, q, False)[0]:
+        if _di(sid, juz, p1, p2, q, True)[0]:  # ujungnya utuh, yang bergeser batas kata di dalamnya
+            return (f"pembagian kata kutipan beda dengan kitab {sid} {juz}/{hal} (mis. «بل أشك» ≠ «بلا شك»): salin spasinya "
+                    f"seperti di kitab, lihat `teks {sid} \"…\"` :: {teks[:40]}")
         return (f"kutipan mulai atau berakhir di tengah kata (kitab {sid} {juz}/{hal}): salin kata pertama dan terakhirnya utuh, "
                 f"lihat `teks {sid} \"…\"` :: {teks[:40]}")
     if lain:

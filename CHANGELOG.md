@@ -5,6 +5,9 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `cek` lebih ketat mencocokkan kata: kutipan yang mengambil potongan kata kitab kini GAGAL. «أن القدر» tidak lagi lolos dari «فلو كان القدر» (huruf ب ل ك di depan kata hanya dianggap huruf sambung kalau sesudahnya «ال», mis. «بالله» → «الله»; و ف tetap seperti dulu), dan «بل أشك» tidak lagi lolos dari «بلا شك» (pembagian kata yang bergeser dari kitab; kata yang disambung atau dipisah di satu pihak saja, mis. «عبد الله»/«عبدالله», tetap lolos).
+- GAGAL palsu yang diperbaiki: frasa yang muncul dua kali dalam satu rekaman banyak halaman kini dicari di halaman yang dirujuk, bukan hanya kemunculan pertamanya; «عليها السلام» disamakan dengan lambang ﵍; basmalah ﷽ di kitab dibaca «بسم الله الرحمن الرحيم»; «الرحمن» = «الرحمان»; «شيء» = ketikan «شي» tanpa hamzah. Cache teks kitab dibuat ulang sekali.
+
 ## 4.0.1 — 2026-10-18
 
 Tambalan naik dari 4.0.0: hanya percepatan dan perbaikan; naskah lama tetap jalan tanpa diubah.
