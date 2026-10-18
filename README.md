@@ -12,7 +12,7 @@ Agent AI pandai menulis, tetapi bisa mengarang kutipan. Di mesin ini:
 
 - Agent mengutip kitab المكتبة الشاملة yang sudah diunduh ke komputermu. Sumber lain (jurnal, PDF penelitian) ditandai untuk kamu periksa sendiri.
 - Tiap kutipan membawa alamat di catatan kakinya: kitab, juz, halaman.
-- Mesin membuka alamat itu. Kutipan yang tidak ada di sana, atau tanpa alamat, ditolak.
+- Mesin membuka alamat itu. Kutipan yang tidak ada di sana, atau tanpa alamat, ditolak. Ayat dan angka di dalam kutipan, juga juz/halaman yang tercetak, ikut dicocokkan.
 - Ayat ditulis dari mushaf مجمع الملك فهد. Word dan PDF dirakit lengkap: sampul, catatan kaki, المصادر والمراجع, dan الفهارس.
 
 ## Mulai
@@ -37,7 +37,7 @@ Catatan untuk agent AI: lanjutkan dari [`AGENTS.md`](AGENTS.md), bagian «Pemaka
 ## Batasnya
 
 - `cek` hanya membuktikan bahwa teksnya ada di halaman itu. Ia tidak menilai siapa yang berkata, derajat hadits, kutipan tanpa catatan kaki, atau sumber di luar Shamela. Itu diperiksa agent kedua (tanpa subagent: buka sesi agent baru), lalu kamu. **Periksa sendiri kutipan utamamu.**
-- Teks kitab adalah ketikan Shamela, jadi bisa salah ketik.
+- Teks kitab adalah ketikan Shamela, jadi bisa salah ketik. Ayat kitab yang salah ketik biasanya ditandai `cek` sebagai perhatian: cocokkan ke scan cetakannya.
 - Model AI gratis lebih sering salah langkah. `cek` tetap menolak kutipan tanpa bukti, tetapi pemeriksaan agent kedua dan pemeriksaanmu makin penting.
 - Nama di sampul namamu: isinya tanggung jawabmu. Tanyakan ke dosen apakah bantuan AI dibolehkan.
 - Proyek ini tidak mewakili kampus mana pun.
