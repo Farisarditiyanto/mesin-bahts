@@ -54,6 +54,7 @@ def buka(url, data=None, kepala=UA, waktu=60, coba=3):
         time.sleep(2 ** i)
 
 SAMBUNG = "وفبلك"  # huruf sambung di depan kata: kutipan boleh mulai sesudahnya («و"الإحياء"» = «والإحياء»)
+NAFI_SAMBUNG = {"ما", "لا", "لم", "لن", "ليس"}  # kutipan tidak boleh mulai dengan kata ini kalau di kitab ia didahului ب/ل
 
 
 @functools.cache  # daftar folder dataset tidak berubah selama satu perintah
@@ -426,8 +427,14 @@ def _utuh(p, bagian, j, k, kata=()):
     teks = _ruas(p, bagian)[0]
     for d in (1, 2):
         if j - d in awal and all(c in SAMBUNG for c in teks[j - d:j]):
-            # ب ل ك hanya awalan kalau sesudahnya «ال» («بالله» → «الله»); selain itu hurufnya milik kata («كان», «لكن», «بلا»)
-            return not (set(teks[j - d:j]) - set("وف")) or teks.startswith("ال", j)
+            # ك hanya awalan kalau sesudahnya «ال» («كالله»); selain itu hurufnya milik kata («كان», «كأنه»). ب/ل (huruf jar:
+            # «لأن»/«بأن» → «أن») bukan awalan di «لكن», «لله» (→ «له»), dan di depan kata nafi («لما», «بلا» → «ما», «لا»)
+            awalan, sisa = teks[j - d:j], teks[j:min(a for a in akhir if a > j)]
+            if "ك" in awalan:
+                return teks.startswith("ال", j)
+            if set(awalan) - set("وف") and sisa in NAFI_SAMBUNG:
+                return False
+            return not ("ل" in awalan and teks.startswith(("ل", "كن"), j))
     return False
 
 

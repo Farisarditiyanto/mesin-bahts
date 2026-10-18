@@ -130,7 +130,7 @@ KUTIPAN_MIN = 6  # huruf (bentuk `padat`) paling sedikit tiap bagian kutipan yan
 POTONGAN_MIN = 7  # huruf paling sedikit potongan sendiri <<sid|juz|hal|potongan>> (potongan sah terpendek di bahts nyata: 7)
 # pengganti {Q:s:a} di tengah kutipan («﴿s:a﴾»; ﴿﴾ yang diketik = ayat tanpa nomor): kutipannya dicek per bagian,
 # dan celah di kitab di antara bagiannya harus memang ayat
-AYAT_DI_KUTIPAN = re.compile(r"﴿[\d:\-]*﴾")
+AYAT_DI_KUTIPAN = re.compile(r"﴿(?:[0-9]+:[0-9]+(?:-[0-9]+)?)?﴾")  # bukan «﴿٢٨﴾» yang diketik penulis
 DIPOTONG = re.compile(r"\.{2,}|…")  # potongan oleh penulis: yang dilompati tidak dicek mesin, jadi selalu perhatian
 ELIPSIS = re.compile(f"{DIPOTONG.pattern}|{AYAT_DI_KUTIPAN.pattern}")  # pemisah bagian kutipan: tiap bagiannya dicek, berurutan
 JARAK_AYAT = 300  # huruf `padat` celah {Q:} yang ayatnya tanpa ﴿﴾ di kitab (dikenali dari teksnya) sebelum jadi perhatian
@@ -374,13 +374,17 @@ def cek(sid, juz, hal, pot, perhatian, kutipan=False, rinci=True):
                 return ""
         return f"nomor {pot[1:]} tidak ada di {sid} {juz}/{hal}"
     bagian, celah, pisah = [], [], []  # celah[i] = pemisah (... atau ﴿s:a﴾) di antara bagian i dan i+1
+    ujung = [[], []]  # pemisah sebelum bagian pertama dan sesudah bagian terakhir («"قال تعالى: {Q:…}"»)
     for k, x in enumerate(re.split(f"({ELIPSIS.pattern})", pot)):
         if k % 2:
             pisah.append(x)
         elif shamela.padat(x):
             if bagian:
                 celah.append(pisah)
+            else:
+                ujung[0] = pisah
             bagian.append(x); pisah = []
+    ujung[1] = pisah
     if not bagian:
         return f"{'kutipan' if kutipan else 'potongan'} tanpa huruf Arab: {pot[:40]}"
     minimal = KUTIPAN_MIN if kutipan else POTONGAN_MIN
@@ -406,17 +410,17 @@ def cek(sid, juz, hal, pot, perhatian, kutipan=False, rinci=True):
         jarak = [j for j in (berurutan(rr, sisi, bagian) for sisi, _ in shamela.BAGIAN) if j is not None]
         if not jarak:
             return f"bagian kutipan yang dipisah ... tidak berurutan seperti di kitab {sid} {juz}/{hal} :: {pot[:40]}"
-        # dipotong ...: sambungan yang rapat pun bisa mengubah makna atau pembicaranya; dipisah ayat: diperiksa susunan_kitab
-        if min(jarak) and DIPOTONG.search(pot):
-            perhatian.append(f"kutipan dipotong ... atau dipisah ayat ({min(jarak)} huruf kitab dilompati) {sid} {juz}/{hal}: "
-                             f"baca yang dilompati, pastikan makna dan pembicaranya tetap :: {pot[:40]}")
     angka = kutipan and re.search(r"\d", AYAT_DI_KUTIPAN.sub(" ", pot).translate(ANGKA_LATIN))
     diperiksa = False  # angka (atau rujukan [سورة: n] yang angkanya dibuang) sudah dicocokkan di tempatnya
-    if kutipan and (angka or re.search(r"[\[\]]", pot) or any(not DIPOTONG.search("".join(c)) for c in celah)):
-        e, catat, diperiksa = susunan_kitab(rr, bagian, celah)
+    if kutipan and (angka or re.search(r"[\[\]]", pot) or AYAT_DI_KUTIPAN.search(pot)):
+        e, catat, diperiksa = susunan_kitab(rr, bagian, celah, ujung)
         if e:
             return f"{e} ({sid} {juz}/{hal}) :: {pot[:40]}"
         perhatian += [f"{p} ({sid} {juz}/{hal}) :: {pot[:40]}" for p in catat]
+    # dipotong ...: sambungan yang rapat pun bisa mengubah makna atau pembicaranya; dipisah ayat: diperiksa susunan_kitab
+    if len(bagian) > 1 and min(jarak) and DIPOTONG.search(pot):
+        perhatian.append(f"kutipan dipotong ... atau dipisah ayat ({min(jarak)} huruf kitab dilompati) {sid} {juz}/{hal}: "
+                         f"baca yang dilompati, pastikan makna dan pembicaranya tetap :: {pot[:40]}")
     if kutipan:
         perhatian += [f"{p} ({sid} {juz}/{hal}) :: {pot[:40]}"
                       for p in ragu_kutipan(rr, bagian[0], pot, angka and not diperiksa, lambda: rekaman_dulu(sid, juz, p1, p2))]
@@ -446,7 +450,24 @@ def _mirip_ayat(spec, teks):
     return difflib.SequenceMatcher(None, a, b, autojunk=False).find_longest_match(0, len(a), 0, len(b)).size >= min(10, len(a))
 
 
-def susunan_kitab(rr, bagian, celah):
+def _ayat_sama(spec, antara, rujukan):
+    """Ayat kitab di celah {Q:} bisa ayat {Q:spec}: nama surat di rujukan [سورة: n] sama, atau teks salah satu ayat
+    bertanda ﴿﴾ (atau seluruh celah) memuat sepotong ayat itu. False hanya kalau keduanya ada dan tidak ada yang sama."""
+    surat = {shamela.padat(SURAH[int(x.split(":")[0]) - 1]) for x in spec}
+    nama = [shamela.padat(re.sub(r"سورة|الآية|الآيات|آية", " ", x)) for x in rujukan]
+    if any(n and any(n in t or t in n for t in surat) for n in nama):
+        return True
+    for teks in [m.group()[1:-1] for m in AYAT_KITAB.finditer(antara)] + [antara]:
+        b = shamela.padat(teks)
+        for x in spec:
+            a = shamela.padat(ayat(x)[0])
+            if b and len(b) <= 3000 and difflib.SequenceMatcher(None, a, b, autojunk=False).find_longest_match(
+                    0, len(a), 0, len(b)).size >= min(10, len(a), len(b)):
+                return True
+    return False
+
+
+def susunan_kitab(rr, bagian, celah, ujung=([], [])):
     """Yang tidak terbaca pencocokan huruf `padat`, diperiksa di teks asli kitab (matan, lalu حاشية) tempat bagian-bagian
     kutipan berada: celah {Q:} harus memang ayat (bertanda ﴿﴾; nomornya sama kalau kitab menulis [سورة: n]), dan angka
     tiap bagian harus sama dengan angka kitab di tempatnya. Kembalikan (galat, perhatian, letaknya ketemu)."""
@@ -470,7 +491,7 @@ def susunan_kitab(rr, bagian, celah):
         mulai = lambda k: sesudah(k) - 1 if k < len(pd) else len(raw)  # letak huruf ke-k
         akhir = lambda k: sesudah(k - 1) if k > 0 else 0  # sesudah huruf terakhir sebelum huruf ke-k
         for letak in _susunan(pd, q):
-            hasil = _nilai_susunan(raw, angka, letak, bagian, celah, mulai, akhir)
+            hasil = _nilai_susunan(raw, angka, letak, bagian, celah, ujung, mulai, akhir)
             kunci = (bool(hasil[0]), len(hasil[1]))
             if terbaik is None or kunci < terbaik[0]:
                 terbaik = kunci, hasil
@@ -479,19 +500,20 @@ def susunan_kitab(rr, bagian, celah):
     return (*terbaik[1], True) if terbaik else ("", [], False)
 
 
-def _nilai_susunan(raw, angka, letak, bagian, celah, mulai, akhir):
+def _nilai_susunan(raw, angka, letak, bagian, celah, ujung, mulai, akhir):
     """(galat, perhatian) satu susunan letak bagian kutipan di teks asli kitab raw (lihat susunan_kitab)."""
-    catat = []
+    catat, sisa_celah = [], {}
     for i, c in enumerate(celah):
-        if DIPOTONG.search("".join(c)):
+        dipotong = DIPOTONG.search("".join(c))
+        spec = [x[1:-1] for x in c if x.startswith("﴿") and len(x) > 2]
+        if dipotong and not spec:
             continue
         a, z = akhir(letak[i][1]), mulai(letak[i + 1][0])
         antara = raw[a:z]
         rujukan = [m.group() for m in RUJUKAN_AYAT.finditer(raw, a, min(len(raw), z + 40)) if m.start() < z]
-        spec = [x[1:-1] for x in c if len(x) > 2]
         if not AYAT_KITAB.search(antara) and not rujukan:
             if any(_mirip_ayat(s, antara) for s in spec):  # ayat tanpa tanda ﴿﴾ di kitab
-                if len(shamela.padat(antara)) > JARAK_AYAT:
+                if len(shamela.padat(antara)) > JARAK_AYAT and not dipotong:
                     catat.append(f"kutipan dipisah ayat ({len(shamela.padat(antara))} huruf kitab dilompati): "
                                  "baca yang dilompati, pastikan makna dan pembicaranya tetap")
                 continue
@@ -506,24 +528,59 @@ def _nilai_susunan(raw, angka, letak, bagian, celah, mulai, akhir):
             mau |= set(range(int(x), int(y or x) + 1))
         if mau and nomor and not mau & nomor:
             return f"ayat yang dikutip kitab di tempat {{Q:{spec[0]}}} adalah {'، '.join(rujukan)}: salin ayat yang benar", catat
-        sisa = shamela.padat(RUJUKAN_AYAT.sub(" ", AYAT_KITAB.sub(" ", antara)))
-        if len(sisa) > SISA_AYAT:
-            catat.append(f"selain ayat, {len(sisa)} huruf kitab dilompati di tempat {{Q:}}: baca yang dilompati, "
+        if spec and not _ayat_sama(spec, antara, rujukan):
+            return (f"ayat yang dikutip kitab di tempat {{Q:{spec[0]}}} adalah surat lain "
+                    f"({'، '.join(rujukan) or AYAT_KITAB.search(antara).group()[:40]}): salin ayat yang benar", catat)
+        if dipotong:  # yang dilompati sudah jadi perhatian «dipotong ...»
+            continue
+        sisa_celah[i] = len(shamela.padat(RUJUKAN_AYAT.sub(" ", AYAT_KITAB.sub(" ", antara))))
+        if sisa_celah[i] > SISA_AYAT:
+            catat.append(f"selain ayat, {sisa_celah[i]} huruf kitab dilompati di tempat {{Q:}}: baca yang dilompati, "
                          "pastikan makna dan pembicaranya tetap")
-    for (j, k), b in zip(letak, bagian):
+    # {Q:} di awal/akhir kutipan: kalau kitab menulis ayat tepat di sebelahnya, ayat itu harus ayat yang sama
+    for spec, sisi in ((ujung[0], 0), (ujung[1], 1)):
+        spec = [x[1:-1] for x in spec if x.startswith("﴿") and len(x) > 2]
+        if not spec:
+            continue
+        if sisi:
+            z = akhir(letak[-1][1]); ayat_ = AYAT_KITAB.search(raw, z, z + 400)
+            dekat = ayat_ and raw[z:ayat_.start()]
+        else:
+            a = mulai(letak[0][0]); ayat_ = ([None] + list(AYAT_KITAB.finditer(raw, max(0, a - 400), a)))[-1]
+            dekat = ayat_ and RUJUKAN_AYAT.sub(" ", raw[ayat_.end():a])
+        if not ayat_ or len(shamela.padat(dekat)) > SISA_AYAT:
+            continue
+        rujukan = [m.group() for m in RUJUKAN_AYAT.finditer(raw, ayat_.end(), min(len(raw), ayat_.end() + 40))
+                   if not shamela.padat(raw[ayat_.end():m.start()])]
+        if not _ayat_sama(spec, ayat_.group(), rujukan):
+            return (f"ayat yang dikutip kitab di tempat {{Q:{spec[0]}}} adalah surat lain "
+                    f"({'، '.join(rujukan) or ayat_.group()[:40]}): salin ayat yang benar", catat)
+    for i, ((j, k), b) in enumerate(zip(letak, bagian)):
+        # bagian pendek di samping {Q:} (lihat cek): harus kata utuh di kitab, tepat menempel ayatnya
+        if len(shamela.padat(b)) < KUTIPAN_MIN:
+            a, z = mulai(j), akhir(k)
+            putus = (re.search(rf"[ء-ي]{HARAKAT.pattern}*$", raw[:a])
+                     and not re.search(rf"(?<![ء-ي])[وف]{HARAKAT.pattern}*$", raw[:a])  # «و» / «ف» sambung boleh
+                     or re.match(rf"{HARAKAT.pattern}*[ء-ي]", raw[z:]))
+            if putus or any(sisa_celah.get(x, 0) > SISA_AYAT for x in (i - 1, i)):
+                return (f"bagian kutipan terlalu pendek untuk dicek (paling sedikit {KUTIPAN_MIN} huruf), dan di kitab ia "
+                        f"tidak menempel ayatnya sebagai kata utuh :: {b.strip()}", catat)
         # angka/rujukan di ujung bagian ikut dicocokkan: teks kitab sampai huruf terdekat, tidak melewati baris baru
         # atau kurung yang menutup ujung itu
         a, z = mulai(j), akhir(k)
         kepala, ekor = re.match(r"[^ء-ي]*", b).group(), re.search(r"[^ء-ي]*$", b).group()
+        lebih = 0  # angka kitab di depan kutipan yang tidak ikut disalin («١٩/ ٤٧ - وعن» dikutip «47 - وعن»)
         if re.search(r"[\d٠-٩۰-۹\[(]", kepala):
-            luar = raw[akhir(j):a].rsplit("\n", 1)[-1]
+            luar = re.split(r"[\r\n]", raw[akhir(j):a])[-1]
             buka = max(luar.rfind(x) for x in "[(") if kepala.lstrip()[:1] in ("[", "(") else -1
             a -= len(luar) - max(buka, 0)
+            if buka < 0:
+                lebih = max(0, len(re.findall(r"\d+", angka[a:a + len(luar)])) - len(re.findall(r"\d+", kepala.translate(ANGKA_LATIN))))
         if re.search(r"[\d٠-٩۰-۹\])]", ekor):
-            luar = raw[z:mulai(k)].split("\n", 1)[0]
+            luar = re.split(r"[\r\n]", raw[z:mulai(k)])[0]
             tutup = [luar.find(x) for x in "])" if x in luar] if ekor.rstrip()[-1:] in ("]", ")") else []
             z += min(tutup) + 1 if tutup else len(luar)
-        naskah, di_kitab = re.findall(r"\d+", b.translate(ANGKA_LATIN)), re.findall(r"\d+", angka[a:z])
+        naskah, di_kitab = re.findall(r"\d+", b.translate(ANGKA_LATIN)), re.findall(r"\d+", angka[a:z])[lebih:]
         if naskah != di_kitab:
             beda = (f"angka di kutipan ({' '.join(naskah) or 'tidak ada'}) beda dengan angka kitab di tempat itu "
                     f"({' '.join(di_kitab) or 'tidak ada'})")
@@ -591,10 +648,15 @@ def ragu_kutipan(rr, awal, pot, periksa_angka=True, dulu=lambda: None):
 
 def tercetak(isi, juz):
     """Rentang halaman yang tercetak di catatan kaki untuk juz ini: [(awal, akhir)]. Angka ٠-٩ dibaca seperti 0-9.
-    «ص» harus berdiri sebagai kata («النص 5» bukan halaman)."""
+    «ص» harus berdiri sebagai kata («النص 5» bukan halaman), boleh disambung و/ف («وص6»). Rentang boleh «-» atau «–»;
+    «ص5، 7» = halaman 5 dan 7 (angka sesudah koma yang bukan tahun atau juz/halaman)."""
     isi = isi.translate(ANGKA_LATIN)
-    pola = r"(?<![\wـ])ص\s*(\d+)(?:\s*-\s*(\d+))?" if juz == "-" else rf"(?<![\d/]){re.escape(juz)}\s*/\s*(\d+)(?:\s*-\s*(\d+))?"
-    return [(int(a), int(b or a)) for a, b in re.findall(pola, isi)]
+    rentang = r"\d+(?:\s*[-–]\s*\d+)?"
+    if juz == "-":
+        pola = rf"(?<![\wـ])[وف]?ص\s*({rentang}(?:\s*[،,]\s*{rentang}(?![\d/]|\s*(?:هـ|م(?!\w))))*)"
+    else:
+        pola = rf"(?<![\d/]){re.escape(juz)}\s*/\s*({rentang})"
+    return [(int(a), int(b or a)) for m in re.findall(pola, isi) for a, b in re.findall(r"(\d+)(?:\s*[-–]\s*(\d+))?", m)]
 
 
 # «j/n» juz mana saja; bukan tanggal («12/5/1420», «1420هـ/2000م») atau cetakan («ط2/1420»)
@@ -720,7 +782,7 @@ def kutipan_semua(teks):
     return out
 
 
-TAK_TERLIHAT = "\u200b\u200c\u200d\u200e\u200f\u061c\u2066\u2067\u2068\u2069"
+TAK_TERLIHAT = "\u200b\u200c\u200d\u200e\u200f\u061c\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069\ufeff"
 
 
 def kutipan_akhir(teks):
@@ -889,7 +951,8 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             kutipan_4 = []  # hasil cek kutipan ke tiap bukti berpotongan sendiri: (pesan, perhatian)
             tiga = any(b.count("|") == 2 for b in bukti)
             # kutipan bertanda petik di dalam catatan kaki itu sendiri (selain judul kitab; tiga kata atau kurang = istilah)
-            kc = [k for k in kutipan_semua(isi) if len(k.split()) >= 4 and not any(shamela.nomor_judul(k.strip()))]
+            kc = [k for k in kutipan_semua(isi) if len(k.split()) >= 4 and not any(shamela.nomor_judul(k.strip()))
+                  and not judul_shamela(k)[1]]
             for b in bukti:
                 f = b.split("|")
                 if len(f) not in (3, 4) or not re.fullmatch(r"\d+", f[0]) or not re.fullmatch(r"\d+(-\d+)?", f[2]):
@@ -919,8 +982,18 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             else:
                 perhatian += next((p for e, p in kutipan_4 if not e), [])
             for k in kc if terbukti else ():
-                if all(cek(int(s), z, f"{a}-{b}", k, [], kutipan=True, rinci=False) for s, z, a, b in terbukti):
-                    galat.append(f"kutipan di dalam catatan kaki tidak ada di halaman buktinya: «{k[:40]}»  || fn: {isi[:45]}")
+                kq = re.sub(r"\{Q:([^}]*)\}", lambda m: " ﴿%s:%s﴾ " % ayat(m.group(1))[1:], k)  # {Q:} dicek seperti di matan
+                if all(cek(int(s), z, f"{a}-{b}", kq, [], kutipan=True, rinci=False) for s, z, a, b in terbukti):
+                    # judul («"…"، مجلة …») atau sumber <<luar>>: mungkin memang bukan dari kitab bukti, cukup perhatian
+                    sesudah = seragam(isi).split(k, 1)[-1][1:].lstrip()[:1]
+                    judul, persis, mirip = judul_shamela(k)
+                    if not luar and sesudah and sesudah in "،," and (persis or mirip) and len(judul.split()) >= 2 and k.startswith(judul):
+                        continue  # judul kitab Shamela yang diberi tambahan («"شرح … لابن عثيمين"، ص6»)
+                    if luar or sesudah and sesudah in "،,":
+                        perhatian.append(f"kutipan di dalam catatan kaki tidak ada di halaman buktinya: «{k[:40]}»; kalau itu "
+                                         f"judul atau nukilan sumber <<{LUAR}>>, cocokkan sendiri ke sumbernya  || fn: {isi[:45]}")
+                    else:
+                        galat.append(f"kutipan di dalam catatan kaki tidak ada di halaman buktinya: «{k[:40]}»  || fn: {isi[:45]}")
             # kutipan lain sejak catatan kaki sebelumnya: perhatian, kecuali yang terbaca di halaman bukti catatan kaki ini
             # atau yang memang judul yang disebut di catatan kaki itu; tiga kata atau kurang biasanya istilah
             for k in lain:
@@ -937,7 +1010,9 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             seg_h = len(hadits_idx)
             p_kunci = re.findall(r"\{P:([a-z]+)\}", isi)
             dulu_h = [h.get("kutipan") for h in hadits_idx if h["k"] in {"h_" + k for k in p_kunci}]
-            dikecualikan = ((isi.startswith("سورة") and q_akhir and "﴿" in (mk or ""))
+            # «سورة …» hanya membebaskan kutipan yang isinya ayat saja; prosa lain di dalamnya butuh bukti
+            dikecualikan = ((isi.startswith("سورة") and q_akhir and "﴿" in (mk or "")
+                             and not shamela.padat(re.sub(r"﴿[^﴾]*﴾", " ", mk)))
                             or (isi.startswith("سبق تخريجه") and p_kunci
                                 and any(d and shamela.padat(mk or "") in shamela.padat(d) for d in dulu_h)))
             if not bukti and mk is not None and isi.startswith("سبق تخريجه") and p_kunci and not dikecualikan:
