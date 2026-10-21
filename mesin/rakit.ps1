@@ -187,6 +187,11 @@ try {
         $fr.Font.Name = $TA; $fr.Font.NameBi = $TA; $fr.Font.Size = $uCatatan; $fr.Font.SizeBi = $uCatatan; $fr.Font.Bold = 0; $fr.Font.BoldBi = 0; $fr.Font.Superscript = 0
         $fp = $fr.Paragraphs(1); $fp.ReadingOrder = 0; $fp.Alignment = 3
         $fr.Select(); $word.Selection.RtlRun()
+        if ($c.al) {   # @angka_ayat: latin: angka di run kiri-ke-kanan dicetak Word 0-9 walau angka konteks
+            foreach ($a in [regex]::Matches((TeksRuns $c.runs), '[0-9]+(?:[-–][0-9]+)*')) {
+                $l = $fn.Range; $l.SetRange($fr.Start + 1 + $a.Index, $fr.Start + 1 + $a.Index + $a.Length); $l.Select(); $word.Selection.LtrRun()
+            }
+        }
         $fr.ParagraphFormat.SpaceBefore = 0; $fr.ParagraphFormat.SpaceAfter = 0; $fr.ParagraphFormat.LineSpacingRule = 0
         $off = 1
         foreach ($r in $c.runs) {

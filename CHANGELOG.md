@@ -5,6 +5,8 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `@angka_ayat: latin` (baru): angka di catatan kaki rujukan ayat («سورة الفتح، آية: 29.») dicetak 0123, sisanya tetap ٠١٢٣ (nomor halaman, catatan kaki lain, tahun, فهرس). Untuk dosen yang menulis nomor ayat dengan 0123 tetapi tidak minta seluruh PDF 0123. Bawaan: ikut `@angka`.
+
 ## 5.0.0 — 2026-10-18
 
 Besar naik dari 4.0.1: `cek` jauh lebih ketat. Naskah lama yang dulu lolos bisa GAGAL, terutama karena juz/halaman yang tercetak kini harus seluruhnya punya bukti (mis. «1/36-37» dengan bukti ص36 saja kini GAGAL «bukti belum mencakup 37»; lebarkan buktinya jadi `<<…|1|36-37>>`), tiap bukti harus tercetak halamannya, dan `{Q:}` di dalam kutipan harus memang ayat yang dikutip kitab di situ. Jalankan `cek` ulang untuk bahts yang sedang dikerjakan.
