@@ -1500,13 +1500,13 @@ def utama(folder):
         for r in [r for b in blok + catatan for r in b["runs"]] + hadits_idx:
             if "t" in r and not r.get("q"):
                 r["t"] = ubah(r["t"]).translate(HORMAT_CETAK)
-        if angka_ayat == "latin":  # rujukan ayat [^سورة …، آية: n.] saja; "al" = rakit.ps1 mencetak angkanya kiri-ke-kanan,
+        if angka_ayat != angka:  # rujukan ayat [^سورة …، آية: n.] saja; "al" = rakit.ps1 mencetak angkanya kiri-ke-kanan,
             for c in catatan:      # karena Word (angka konteks) mencetak 0-9 di tengah teks Arab sebagai ٠-٩
                 if "".join(r.get("t", "") for r in c["runs"]).startswith("سورة"):
-                    c["al"] = True
+                    c["al"] = angka_ayat == "latin"
                     for r in c["runs"]:
                         if "t" in r:
-                            r["t"] = r["t"].translate(ANGKA_LATIN)
+                            r["t"] = hindi(r["t"]) if angka_ayat == "hindi" else r["t"].translate(ANGKA_LATIN)
         for b in blok:
             if "judul" in b:
                 b["judul"] = ubah(b["judul"])
