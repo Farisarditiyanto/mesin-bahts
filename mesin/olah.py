@@ -7,6 +7,8 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       berkas (nama file hasil), format (profil di format.json; bawaan imam),
                       angka (hindi = ٠١٢٣، bawaan; latin = 0123): angka yang tercetak di seluruh PDF,
                       termasuk nomor halaman, nomor catatan kaki, dan فهرس. Naskah boleh ditulis dengan angka mana saja
+                      angka_ayat (bawaan = @angka): angka di catatan kaki rujukan ayat [^سورة …، آية: n.] saja,
+                      mis. «@angka_ayat: latin» = nomor ayat di catatan kaki 0123, sisanya tetap ٠١٢٣
                       tanpa (yang tidak dicetak: فهرس ayat, hadits, maudhuat, dan pustaka = المصادر والمراجع
                       bila dosen minta sumber cukup di catatan kaki; mis. «@tanpa: ayat, hadits»).
                       فهرس الآيات dan فهرس الأحاديث yang kosong tidak dicetak dengan sendirinya
@@ -1485,8 +1487,11 @@ def utama(folder):
     if fmt not in FORMAT:
         galat.append(di("@format") + f"@format: «{fmt}» tidak ada di mesin/format.json (yang ada: {'، '.join(FORMAT)})")
     angka = meta.setdefault("angka", ANGKA[0])
+    angka_ayat = meta.get("angka_ayat", angka)
     if angka not in ANGKA:
         galat.append(di("@angka") + f"@angka: «{angka}» tidak dikenal (yang ada: {'، '.join(ANGKA)})")
+    elif angka_ayat not in ANGKA:
+        galat.append(di("@angka_ayat") + f"@angka_ayat: «{angka_ayat}» tidak dikenal (yang ada: {'، '.join(ANGKA)})")
     else:  # yang dihitung Word (nomor halaman, catatan kaki, فهرس) diubah di rakit.ps1; ayat (q) tetap apa adanya
         ubah = hindi if angka == "hindi" else (lambda s: s.translate(ANGKA_LATIN))
         for k in ("judul", "jenis", "nama", "nim", "fasl", "musyrif", "jabatan"):
@@ -1495,6 +1500,13 @@ def utama(folder):
         for r in [r for b in blok + catatan for r in b["runs"]] + hadits_idx:
             if "t" in r and not r.get("q"):
                 r["t"] = ubah(r["t"]).translate(HORMAT_CETAK)
+        if angka_ayat == "latin":  # rujukan ayat [^سورة …، آية: n.] saja; "al" = rakit.ps1 mencetak angkanya kiri-ke-kanan,
+            for c in catatan:      # karena Word (angka konteks) mencetak 0-9 di tengah teks Arab sebagai ٠-٩
+                if "".join(r.get("t", "") for r in c["runs"]).startswith("سورة"):
+                    c["al"] = True
+                    for r in c["runs"]:
+                        if "t" in r:
+                            r["t"] = r["t"].translate(ANGKA_LATIN)
         for b in blok:
             if "judul" in b:
                 b["judul"] = ubah(b["judul"])
