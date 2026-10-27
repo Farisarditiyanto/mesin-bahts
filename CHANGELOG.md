@@ -5,6 +5,8 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+## 5.1.0 — 2026-10-27
+
 - `<<luar|berkas.pdf|hal>>` (baru): kutipan dari PDF penelitian di folder bahts (mis. hasil `dirasat-pdf`) dicari di teks PDF itu, sebagai PENUNJUK halaman, tidak pernah lolos: ditemukan di halaman itu = perhatian «ditemukan di halaman …, cocokkan sendiri»; ada di halaman lain, berkas tidak ada atau di luar folder bahts, halaman di luar PDF, atau bagian kutipan kurang dari 6 huruf = GAGAL; tidak ada di teks PDF atau scan = perhatian. Teks PDF tidak bisa dipercaya seperti Shamela: PDF buatan Word menukar huruf sambungan («املقدمة», «هللا»), sebagian PDF membalik urutan kata per baris, dan angka tidak dicocokkan. `<<luar>>` tanpa berkas tetap seperti dulu.
 - `ambil <folder>` (baru): unduh semua kitab yang dirujuk bukti naskah satu bahts; yang sudah ada dilewati.
 - `cek`: kitab yang belum diunduh diringkas jadi satu baris di atas daftar GAGAL, berisi satu perintah untuk semuanya («→ 22 kitab belum diunduh; unduh semuanya sekaligus: python mesin/bahts.py ambil zuhd»). Dulu tiap bukti GAGAL sendiri-sendiri tanpa perintah gabungan (naskah dengan 22 kitab hilang = 153 baris GAGAL).
