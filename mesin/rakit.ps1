@@ -426,9 +426,6 @@ try {
     # ---------- 5. Isi nomor halaman ----------
     $doc.Repaginate()
     function Hal($bm) { return $doc.Bookmarks.Item($bm).Range.Information(1) }   # 1 = nomor halaman seperti yang tercetak
-    if ($adaAy) { $r = 1; foreach ($key in $urut) { $r++; $pg = ($ay[$key].bm | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '; Sel $tAy $r 4 (Angka $pg) 1 0 } }
-    if ($adaHd) { $r = 1; foreach ($h in $DATA.hadits) { $r++; $ks = @($h.k); if ($h.lagi) { $ks += $h.lagi }; $pg = ($ks | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '; Sel $tHd $r 3 (Angka $pg) 1 0 } }
-    if ($adaTo) { $r = 1; foreach ($e in $toc) { $r++; Sel $tTo $r 2 (Angka (Hal $e.bm)) 1 0 } }
     # {P:kunci} di catatan kaki: tiap ⟦h_…⟧ diganti nomor halaman hadits itu (satu catatan kaki bisa memuat beberapa)
     foreach ($fn in $doc.Footnotes) {
         foreach ($k in @([regex]::Matches($fn.Range.Text, '⟦(h_[^⟧]+)⟧') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)) {
@@ -438,6 +435,17 @@ try {
     }
     foreach ($fn in $doc.Footnotes) { if ($fn.Range.Text.Contains('⟦')) { throw "Nomor halaman {P:...} gagal diisi di catatan kaki: $($fn.Range.Text.Trim())" } }
     $doc.Repaginate()
+    # tabel فهرس: angka asli («٢٤، ٣٠») bisa lebih lebar daripada '00', barisnya melipat, dan judul sesudahnya pindah halaman
+    # (فهرس الموضوعات pernah mencetak 41 padahal judulnya di halaman 42): isi, Repaginate, ulangi sampai tidak ada yang berubah
+    $isiLama = @{}
+    for ($putaran = 1; $putaran -le 5; $putaran++) {
+        $ubah = 0
+        if ($adaAy) { $r = 1; foreach ($key in $urut) { $r++; $pg = Angka (($ay[$key].bm | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '); if ($isiLama["a$r"] -ne $pg) { $isiLama["a$r"] = $pg; $ubah++; Sel $tAy $r 4 $pg 1 0 } } }
+        if ($adaHd) { $r = 1; foreach ($h in $DATA.hadits) { $r++; $ks = @($h.k); if ($h.lagi) { $ks += $h.lagi }; $pg = Angka (($ks | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '); if ($isiLama["h$r"] -ne $pg) { $isiLama["h$r"] = $pg; $ubah++; Sel $tHd $r 3 $pg 1 0 } } }
+        if ($adaTo) { $r = 1; foreach ($e in $toc) { $r++; $pg = Angka (Hal $e.bm); if ($isiLama["t$r"] -ne $pg) { $isiLama["t$r"] = $pg; $ubah++; Sel $tTo $r 2 $pg 1 0 } } }
+        $doc.Repaginate()
+        if (-not $ubah) { break }
+    }
 
     # ---------- 6. Simpan ----------
     # nomor halaman = teks kanan-ke-kiri, supaya ArabicNumeral 2 mencetaknya ٠-٩ (di akhir: memindah Selection ke kaki halaman)
