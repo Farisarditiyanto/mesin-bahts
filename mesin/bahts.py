@@ -14,7 +14,7 @@ Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
   kitab                        daftar kitab yang sudah diunduh
   katalog "<pola>"             cari judul/pengarang di katalog Shamela (regex)
   temukan "<frasa>" [maks]     cari frasa di isi SEMUA kitab Shamela (turath.io, butuh internet) -> kitab + juz/halaman; paling banyak 20
-  ambil <id> [<id> ...]        unduh kitab (sekali saja)
+  ambil <id|folder> [...]      unduh kitab (sekali saja); nama folder bahts = semua kitab yang dirujuk naskahnya
   kartu <id>                   data cetak kitab (untuk rujukan pertama & daftar pustaka)
   cari <id|semua> "<frasa>"    cari frasa -> juz/halaman cetak
   teks <id> "<frasa>" [lebar] [maks]   teks asli di sekitar frasa, untuk disalin persis
@@ -311,8 +311,21 @@ def pola(teks):
 
 
 def ambil(nomor):
-    """Unduh tiap kitab; satu yang gagal tidak membatalkan yang lain. Keluar dengan kode 1 kalau ada yang belum terunduh."""
-    gagal = shamela.ambil(*nomor)
+    """Unduh tiap kitab; satu yang gagal tidak membatalkan yang lain. Keluar dengan kode 1 kalau ada yang belum terunduh.
+    Nama folder bahts = semua kitab yang dirujuk bukti naskahnya (yang sudah ada dilewati)."""
+    import olah
+    sid = []
+    for x in nomor:
+        if not x.isdigit():
+            try:
+                f = folder_bahts(x)
+            except SystemExit:  # bukan folder bahts: shamela.ambil yang menjelaskan kenapa bukan nomor kitab
+                sid.append(x); continue
+            dirujuk = olah.kitab_dirujuk(f)
+            print(f"{f.name}: {len(dirujuk)} kitab dirujuk naskahnya")
+            sid += dirujuk; continue
+        sid.append(x)
+    gagal = shamela.ambil(*dict.fromkeys(sid))
     if gagal:
         sys.exit(f"Belum terunduh: {', '.join(gagal)} (lihat pesan di atas).")
 

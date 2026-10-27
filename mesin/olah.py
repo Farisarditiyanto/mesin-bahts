@@ -42,6 +42,10 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       sebelumnya dicek sebagai nukilan utuh dari halaman itu (tanda ((…)) dan ** tidak ikut dicek)
   <<luar>>            kutipan dari sumber yang tidak ada di Shamela (jurnal, PDF penelitian): lolos, tetapi masuk
                       perhatian; lafaz dan halamannya dicocokkan sendiri ke sumbernya. Judul kitab Shamela = GAGAL
+  <<luar|berkas.pdf|hal>>   kutipan dari PDF penelitian yang disimpan di folder bahts (mis. hasil dirasat-pdf):
+                      kutipan bertanda petik dicari di teks PDF itu. hal = urutan halaman di berkas PDF (mulai 1),
+                      bukan nomor tercetak jurnal; boleh rentang 3-4. Ada di halaman itu = lolos; ada di halaman lain
+                      atau berkas/halamannya tidak ada = GAGAL; tidak terbaca (scan, teks PDF rusak) = perhatian
   Tanda petik yang dikenali: "…" «…» “…” ‘…’ '…'. Perhatian: kutipan yang dipotong ... di tengahnya atau disambung ...
                       dengan kutipan lain, dan tanda petik tanpa pasangan
   Judul (#K/#F/#B/#M/#S/#R) tidak boleh memuat [^, <<, {Q:/{H: atau **
@@ -51,6 +55,7 @@ import difflib, functools, json, os, re
 from pathlib import Path
 
 import shamela
+import sumber_pdf
 
 HERE = Path(__file__).parent
 QURAN = json.load(open(HERE / "quran_hafs_v22.json", encoding="utf8"))
@@ -144,6 +149,48 @@ NAFI = {"لا", "فلا", "ولا", "ما", "فما", "وما", "ليس", "ول�
         "لم", "ولم", "فلم", "لن", "ولن", "فلن", "بلا", "وبلا", "فبلا"}  # kata tepat sebelum kutipan di kitab yang bisa membalik maknanya
 BELUM_DIUNDUH = "kitab {} belum diunduh"  # pesan GAGAL per bukti; ringkasan di `utama` mengumpulkan nomornya dari pesan ini
 BELUM_DIUNDUH_RE = re.compile(re.escape(BELUM_DIUNDUH).replace(r"\{\}", r"(\d+)"))
+
+
+BUKTI_SID = re.compile(r"<<(\d+)\|")  # nomor kitab di bukti <<sid|juz|hal>>
+
+
+def kitab_dirujuk(folder):
+    """Nomor kitab Shamela yang dirujuk bukti naskah di folder bahts, urut kemunculan pertama (untuk `ambil <folder>`)."""
+    return list(dict.fromkeys(BUKTI_SID.findall((Path(folder) / "naskah.txt").read_text(encoding="utf-8-sig"))))
+
+
+def cek_pdf(folder, berkas, hal, kutipan, galat, perhatian, fn):
+    """Bukti <<luar|berkas|hal>>: kutipan dicari di teks PDF folder/berkas. Kembalikan True kalau terbukti."""
+    p = Path(folder) / berkas
+    if not p.is_file():
+        galat.append(f"<<{LUAR}|{berkas}|{hal}>>: berkas «{berkas}» tidak ada di folder bahts {Path(folder).name}; simpan "
+                     f"PDF-nya di sana (mis. {shamela.perintah('dirasat-pdf <W…> ' + Path(folder).name)})  || fn: {fn}")
+        return False
+    try:
+        isi = sumber_pdf.halaman(p)
+    except Exception as e:  # pypdf: PDF rusak, terkunci sandi, atau bentuk yang tidak dikenalnya
+        perhatian.append(f"PDF «{berkas}» tidak bisa dibaca mesin ({type(e).__name__}): cocokkan sendiri lafaz dan "
+                         f"halamannya  || fn: {fn}")
+        return False
+    a, z = map(int, (hal + "-" + hal).split("-")[:2])
+    if not 1 <= a <= z <= len(isi):
+        galat.append(f"<<{LUAR}|{berkas}|{hal}>>: PDF itu hanya {len(isi)} halaman (hal = urutan halaman di berkas, "
+                     f"mulai 1)  || fn: {fn}")
+        return False
+    bagian = [b for b in ELIPSIS.split(kutipan) if shamela.padat(b)]
+    ketemu = sumber_pdf.cari(isi, bagian)
+    if any(a <= n <= z for n in ketemu):
+        return True
+    if ketemu:
+        galat.append(f"kutipan «{kutipan[:30]}» tidak ada di halaman berkas {hal} «{berkas}», tetapi ada di halaman "
+                     f"{'، '.join(map(str, ketemu[:5]))}  || fn: {fn}")
+    elif all(sumber_pdf.tanpa_teks(isi, n) for n in range(a, z + 1)):
+        perhatian.append(f"halaman {hal} «{berkas}» berupa gambar (scan), teksnya tidak terbaca mesin: cocokkan sendiri "
+                         f"lafaz kutipan «{kutipan[:30]}»  || fn: {fn}")
+    else:
+        perhatian.append(f"kutipan «{kutipan[:30]}» tidak terbaca di teks PDF «{berkas}» (teks PDF bisa rusak, atau "
+                         f"lafaznya berbeda): cocokkan sendiri lafaz dan halamannya  || fn: {fn}")
+    return False
 
 
 def salah_juz(sid, juz, hal):
@@ -1157,9 +1204,9 @@ TOKEN = re.compile(r"(\*\*|\(\(|\)\)|\{(?:Q|H2|H|P):[^}]*\}|\[\^|\])")
 KUNCI = re.compile(r"[a-z]+")
 
 
-def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False, rumuz=None, warna=None):
+def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False, rumuz=None, warna=None, folder=None):
     """Pecah satu baris jadi 'runs'. Catatan kaki ([^...]) diurai rekursif. rumuz = {sid: huruf} dari @rumuz;
-    warna = {sid: warna Word (BGR)} dari @warna."""
+    warna = {sid: warna Word (BGR)} dari @warna; folder = folder bahts (tempat PDF bukti <<luar|berkas|hal>>)."""
     runs, tebal, merah, i = [], False, False, 0
     q_akhir = None  # ayat terakhir di baris ini (untuk mencocokkan catatan kaki «سورة …»)
     polos = ""  # teks polos berjalan (untuk mencari kutipan sebelum catatan kaki)
@@ -1234,7 +1281,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 raise TandaRusak("bukti <<...>> tidak tertutup rapi (tidak boleh ada > di dalam potongan)")
             # bukti saja + semua sumbernya di @rumuz: tidak dicetak, dan seluruh teks sejak catatan kaki sebelumnya = nukilan
             # utuh dari halaman bukti (kitab tanpa catatan kaki: paragraf syarah yang disalin dari kitabnya)
-            sid_bukti = [b.split("|")[0] for b in bukti if b != LUAR]
+            sid_bukti = [b.split("|")[0] for b in bukti if b.split("|")[0] != LUAR]
             diam = not isi and rumuz is not None and bool(sid_bukti) and all(x in rumuz for x in sid_bukti)
             zz = [z for z in dict.fromkeys((rumuz or {}).get(x) for x in sid_bukti) if z and z != "-"]
             penggal = polos[seg:]
@@ -1261,7 +1308,12 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                     if "t" in r and not r.get("m"):
                         r["w"] = next(iter(ww))
             luar = LUAR in bukti
-            bukti = [b for b in bukti if b != LUAR]
+            pdf = [b.split("|")[1:] for b in bukti if b.startswith(LUAR + "|")]  # <<luar|berkas|hal>>
+            for f in pdf:
+                if len(f) != 2 or not f[0].strip() or not re.fullmatch(r"\d+(-\d+)?", f[1]):
+                    raise TandaRusak(f"<<{LUAR}|{'|'.join(f)}>>: bentuknya <<{LUAR}|berkas.pdf|hal>>, hal = urutan halaman di berkas")
+            bukti = [b for b in bukti if b.split("|")[0] != LUAR]
+            n_pdf = 0  # bukti PDF yang terbukti, untuk ringkasan
             terbukti = []  # (sid, juz, p1, p2) tiap bukti, untuk dicocokkan dengan yang tercetak
             kutipan_4 = []  # hasil cek kutipan ke tiap bukti berpotongan sendiri: (pesan, perhatian)
             tiga = any(b.count("|") == 2 for b in bukti)
@@ -1337,7 +1389,9 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 galat.append(f"kutipan «{mk[:30]}» berbeda dari yang ditakhrij di {{H:…|{p_kunci[0]}}}: beri bukti <<sid|juz|hal>>"
                              f"  || fn: {isi[:45]}")
                 mk = None  # sudah dilaporkan
-            if not bukti and mk is not None and not dikecualikan:
+            if pdf and mk is not None and not dikecualikan:
+                n_pdf = sum(cek_pdf(folder, b.strip(), h, mk, galat, perhatian, isi[:45]) for b, h in pdf)
+            elif not bukti and mk is not None and not dikecualikan:
                 if luar:
                     # <<luar>> hanya untuk sumber yang memang tidak ada di Shamela: judul kitab Shamela = GAGAL
                     judul, persis, mirip = judul_shamela(isi)
@@ -1357,7 +1411,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             sub = urai(isi, None, ayat_idx, hadits_idx, galat, perhatian, di_catatan=True)
             seg_h = len(hadits_idx)  # {H:} di dalam catatan kaki tidak ikut kutipan matn berikutnya
             runs += [{"z": z} for z in zz]
-            catatan.append({"runs": sub, "bukti": len(bukti), "luar": luar})
+            catatan.append({"runs": sub, "bukti": len(bukti), "luar": luar, "pdf": n_pdf})
             if not diam:
                 runs.append({"fn": len(catatan) - 1})
             seg_run = len(runs)
@@ -1367,7 +1421,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
         raise TandaRusak("tanda ** tidak berpasangan")
     if merah:
         raise TandaRusak("tanda (( tidak ditutup dengan ))")
-    if re.search(rf"<<(?:\d+\||{LUAR}>>)", polos):
+    if re.search(rf"<<(?:\d+\||{LUAR}(?:>>|\|))", polos):
         raise TandaRusak("bukti <<...>> hanya boleh di dalam catatan kaki [^...]; di luar itu ia ikut tercetak")
     if re.search(r"\{(?:Q|H2|H|P):", polos):
         raise TandaRusak("tanda {Q:/{H:/{H2:/{P: tidak ditutup dengan }")
@@ -1418,7 +1472,7 @@ def utama(folder):
                 galat.append(f"baris {n}: judul harus «#K/#F/#B/#M/#S/#R/#T teks» :: {b[:40]}"); continue
             if k == "T":  # kotak matn: paragraf biasa (boleh bercatatan kaki), dicetak merah dalam bingkai
                 try:
-                    blok.append({"k": "T", "runs": urai(t, catatan, ayat_idx, hadits_idx, galat, perhatian, rumuz=rumuz, warna=warna)})
+                    blok.append({"k": "T", "runs": urai(t, catatan, ayat_idx, hadits_idx, galat, perhatian, rumuz=rumuz, warna=warna, folder=folder)})
                 except TandaRusak as e:
                     galat.append(f"baris {n}: tanda rusak — {e}")
                 except (KeyError, IndexError, ValueError) as e:  # bukan salah tulis naskah: mesinnya yang keliru di baris ini
@@ -1435,7 +1489,7 @@ def utama(folder):
             pustaka.append(b.strip())
         else:
             try:
-                blok.append({"k": "P", "runs": urai(b, catatan, ayat_idx, hadits_idx, galat, perhatian, rumuz=rumuz, warna=warna)})
+                blok.append({"k": "P", "runs": urai(b, catatan, ayat_idx, hadits_idx, galat, perhatian, rumuz=rumuz, warna=warna, folder=folder)})
             except TandaRusak as e:
                 galat.append(f"baris {n}: tanda rusak — {e}")
             except (KeyError, IndexError, ValueError) as e:  # bukan salah tulis naskah: mesinnya yang keliru di baris ini
@@ -1521,15 +1575,17 @@ def utama(folder):
               open(HERE / "_tmp" / f"{folder.name}.json", "w", encoding="utf8"), ensure_ascii=False)
     n_bukti = sum(c["bukti"] for c in catatan)
     n_luar = sum(c["luar"] for c in catatan)  # disebut di ringkasan: tanda yang bisa menyembunyikan kutipan karangan
+    n_pdf = sum(c["pdf"] for c in catatan)
     fn_tanpa = [HARAKAT.sub("", "".join(r.get("t", "") for r in c["runs"]))[:60] for c in catatan
                 if c["bukti"] == 0 and not "".join(r.get("t", "") for r in c["runs"]).startswith(("سورة", "سبق تخريجه"))]
     lap = [f"blok={len(blok)} | kata matan={n_matan} | catatan kaki={len(catatan)} ({n_fn} kata) | ayat={len(ayat_idx)} | hadits={len(hadits_idx)} | pustaka={len(pustaka)}",
-           f"bukti dicek ke Shamela lokal: {n_bukti}{f' | <<{LUAR}>> (tidak dicek mesin): {n_luar}' if n_luar else ''} | GAGAL: {len(galat)}"]
+           f"bukti dicek ke Shamela lokal: {n_bukti}{f' | dicek ke PDF: {n_pdf}' if n_pdf else ''}"
+           f"{f' | <<{LUAR}>> (tidak dicek mesin): {n_luar}' if n_luar else ''} | GAGAL: {len(galat)}"]
     # kitab yang belum diunduh membuat tiap buktinya GAGAL: satu perintah untuk semuanya, sebelum daftar panjangnya
     belum = list(dict.fromkeys(m.group(1) for g in galat for m in BELUM_DIUNDUH_RE.finditer(g)))
     if belum:
         lap.append(f"  → {len(belum)} kitab belum diunduh; unduh semuanya sekaligus: "
-                   + shamela.perintah("ambil " + " ".join(belum)))
+                   + shamela.perintah("ambil " + folder.resolve().relative_to(HERE.parent.resolve()).as_posix()))
     lap += [f"  ✗ {g}" for g in galat]
     lap.append(f"perhatian (lolos, tetapi lihat sendiri): {len(perhatian)}")
     lap += [f"  ! {p}" for p in perhatian]

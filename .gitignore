@@ -24,6 +24,8 @@
 !/contoh/jebakan/
 /contoh/jebakan/*
 !/contoh/jebakan/naskah.txt
+# PDF sumber bukti <<luar|sumber.pdf|hal>> di jebakan (salinan contoh.pdf hasil `rakit contoh`)
+!/contoh/jebakan/sumber.pdf
 # bahan antara mesin, sisa Word/Python, dan font mushaf (diunduh `siapkan`, lihat NOTICE)
 mesin/_tmp/
 mesin/*.ttf
