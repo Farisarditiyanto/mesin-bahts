@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `rakit`: nomor halaman di فهرس الآيات, فهرس الأحاديث, dan فهرس الموضوعات diisi ulang sampai tidak berubah. Dulu diisi sekali: angka asli («٢٤، ٣٠») lebih lebar daripada isian sementara, baris tabel melipat, judul sesudahnya terdorong ke halaman berikut, tetapi angkanya tetap angka lama (فهرس الموضوعات mencetak ٤١ padahal ada di halaman ٤٢).
 - Sampul: judul «… - دراسة …» dicetak dua baris; bagian sesudah « - » jadi baris kedua yang lebih kecil (26). Judul utama dikecilkan dari 36 sampai paling kecil 26 supaya muat satu baris. Dulu judul panjang terpotong di tengah kata ke baris kedua dengan ukuran 36. Kepala halaman tetap memakai judul utuh.
 - AGENTS.md: agent wajib mencari alat connector lewat pencari alatnya sebelum menyimpulkan tidak ada (di Claude Code alat connector tersembunyi sampai dicari; lewat gateway MCP seperti Toolport namanya berawalan lain). Tiap ayat yang dibahas dibaca tafsirnya lewat `tafsir`, dan masalah yang diperselisihkan dicari di kitab tiap mazhab. Dulu ada bahts yang selesai tanpa satu pun panggilan connector padahal kelimanya tersambung.
 
