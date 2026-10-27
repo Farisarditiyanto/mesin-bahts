@@ -5,6 +5,8 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- AGENTS.md: agent wajib mencari alat connector lewat pencari alatnya sebelum menyimpulkan tidak ada (di Claude Code alat connector tersembunyi sampai dicari; lewat gateway MCP seperti Toolport namanya berawalan lain). Tiap ayat yang dibahas dibaca tafsirnya lewat `tafsir`, dan masalah yang diperselisihkan dicari di kitab tiap mazhab. Dulu ada bahts yang selesai tanpa satu pun panggilan connector padahal kelimanya tersambung.
+
 ## 5.1.0 — 2026-10-27
 
 - `<<luar|berkas.pdf|hal>>` (baru): kutipan dari PDF penelitian di folder bahts (mis. hasil `dirasat-pdf`) dicari di teks PDF itu, sebagai PENUNJUK halaman, tidak pernah lolos: ditemukan di halaman itu = perhatian «ditemukan di halaman …, cocokkan sendiri»; ada di halaman lain, berkas tidak ada atau di luar folder bahts, halaman di luar PDF, atau bagian kutipan kurang dari 6 huruf = GAGAL; tidak ada di teks PDF atau scan = perhatian. Teks PDF tidak bisa dipercaya seperti Shamela: PDF buatan Word menukar huruf sambungan («املقدمة», «هللا»), sebagian PDF membalik urutan kata per baris, dan angka tidak dicocokkan. `<<luar>>` tanpa berkas tetap seperti dulu.
