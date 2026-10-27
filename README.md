@@ -22,7 +22,35 @@ Agent AI pandai menulis, tetapi bisa mengarang kutipan. Di mesin ini:
 
    > Pakai https://github.com/Farisarditiyanto/mesin-bahts untuk membuatkan saya bahts tentang الإخلاص وأثره في قبول العمل. Susunannya: مقدمة, satu فصل berisi dua مبحث, خاتمة. Kira-kira 6 halaman.
 
-3. Jawab pertanyaan agent: nama, nomor mahasiswa, jenis tugas, semester, pembimbing. Kamu tidak perlu mengetik perintah.
+   Supaya agent tidak perlu banyak bertanya, tempel templat ini dan isi semampumu. Baris yang dikosongkan akan ditanyakan agent atau memakai bawaan.
+
+   ```
+   Pakai https://github.com/Farisarditiyanto/mesin-bahts untuk membuatkan saya bahts.
+
+   Data diri:
+   - Nama (Arab):
+   - Nomor mahasiswa:
+   - Jenis tugas (Arab): بحث صفي للمستوى ...
+   - Semester (Arab): الفصل الدراسي ...
+   - Mahasiswa/mahasiswi:
+   - Kampus: معهد العلوم الإسلامية والعربية في جاكرتا، كلية الشريعة (ya/tidak)
+
+   Bahts:
+   - Judul (Arab):
+   - Pembimbing (Arab) dan jabatannya:
+   - Halaman isi (المقدمة sampai الخاتمة): kira-kira ... halaman
+   - Susunan: مقدمة، ... فصل/مبحث، خاتمة (atau: terserah agent)
+   - Isi المقدمة yang diminta dosen:
+   - الدراسات السابقة: ya/tidak
+   - Kitab yang wajib atau dilarang dipakai:
+   - Angka: ٠١٢٣ / 0123 / hanya nomor ayat di catatan kaki 0123
+   - فهرس yang tidak dicetak: tidak ada / ayat / hadits / maudhuat
+   - Sumber cukup di catatan kaki (tanpa المصادر والمراجع): ya/tidak
+   - Aturan bentuk halaman lain dari dosen: tidak ada / ...
+   - Nama folder (huruf Latin, tanpa spasi):
+   ```
+
+3. Jawab pertanyaan agent yang tersisa. Kamu tidak perlu mengetik perintah.
 
 Hasilnya ada di folder `mesin-bahts` di dalam folder Dokumen-mu.
 
