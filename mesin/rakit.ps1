@@ -20,6 +20,9 @@ function Angka($s) {
     return -join ($s.ToCharArray() | ForEach-Object { if ($_ -ge [char]'0' -and $_ -le [char]'9') { [char](0x0660 + [int]$_ - 48) } else { $_ } })
 }
 $JUDUL = $M.judul; $NAMA = $M.nama; $NIM = $M.nim
+# judul sampul «… - دراسة …»: bagian sesudah « - » jadi baris kedua yang lebih kecil (kepala halaman tetap judul utuh)
+$JUDUL1 = $JUDUL; $JUDUL2 = ''
+if ($JUDUL -match '^(.+?)\s+[-–—]\s*(.+)$') { $JUDUL1 = $Matches[1].Trim(); $JUDUL2 = $Matches[2].Trim() }
 $MUSYRIF = if ($M.musyrif -and $M.musyrif -ne '-') { [string]$M.musyrif } else { '' }
 $JABATAN = if ($MUSYRIF -and $M.jabatan -and $M.jabatan -ne '-') { [string]$M.jabatan } else { '' }
 # فهرس dicetak kalau ada isinya dan tidak disebut di @tanpa (ayat, hadits, maudhuat)
@@ -73,10 +76,10 @@ try {
         }
     }
     function Ganti($p, $teks) { $r = $p.Range; [void]$r.MoveEnd(1, -1); $r.Text = $teks }
-    $pNama = $null
+    $pNama = $null; $pJudul = $null
     foreach ($p in $doc.Paragraphs) {
         $t = $p.Range.Text.Trim()
-        if ($t -eq 'عنوان البحث') { Ganti $p $JUDUL }
+        if ($t -eq 'عنوان البحث') { Ganti $p $JUDUL1; $pJudul = $p }
         elseif ($t -like 'بحث صفي للمستوى*') { Ganti $p $M.jenis }
         elseif ($t -like 'اسم*الطالبة*') { Ganti $p $(if ($M.thalibah -eq 'ya') { 'اسم الطالبة :' } else { 'اسم الطالب :' }); $pNama = $p }
         elseif ($t -eq '4300000') { Ganti $p $NIM }
@@ -88,14 +91,20 @@ try {
     }
     $pNama.Range.InsertParagraphAfter()
     $pBaru = $pNama.Next(1); Ganti $pBaru $NAMA
+    if ($JUDUL2) { $pJudul.Range.InsertParagraphAfter(); Ganti $pJudul.Next(1) $JUDUL2 }
     foreach ($p in $doc.Paragraphs) {
-        $r = $p.Range
-        if ($r.Text.Trim().Length -gt 0) {
+        $r = $p.Range; $t = $r.Text.Trim()
+        if ($t.Length -gt 0) {
             $sz = $r.Font.SizeBi; if ($sz -gt 100) { $sz = 19 }
             $r.Font.Name = $TA; $r.Font.NameBi = $TA; $r.Font.Bold = 1; $r.Font.BoldBi = 1
-            if ($r.Text.Trim() -eq $JUDUL) { $r.Font.Size = 36; $r.Font.SizeBi = 36 } else { $r.Font.Size = [Math]::Max($sz, 20); $r.Font.SizeBi = [Math]::Max($sz, 20) }
+            if ($t -eq $JUDUL1) { $r.Font.Size = 36; $r.Font.SizeBi = 36 }
+            elseif ($JUDUL2 -and $t -eq $JUDUL2) { $r.Font.Size = 26; $r.Font.SizeBi = 26 }
+            else { $r.Font.Size = [Math]::Max($sz, 20); $r.Font.SizeBi = [Math]::Max($sz, 20) }
         }
     }
+    # judul utama dikecilkan (paling kecil 26) sampai muat satu baris; yang tetap terlalu panjang dibiarkan dua baris
+    $uk = 36
+    while ($uk -gt 26 -and $pJudul.Range.ComputeStatistics(1) -gt 1) { $uk -= 2; $pJudul.Range.Font.Size = $uk; $pJudul.Range.Font.SizeBi = $uk }
     # buang paragraf kosong di ekor sampul supaya sampul tetap 1 halaman
     while ($doc.Paragraphs.Count -gt 3 -and $doc.Paragraphs.Last.Range.Text.Trim().Length -eq 0 -and $doc.Paragraphs.Last.Previous(1).Range.Text.Trim().Length -eq 0) {
         $doc.Paragraphs.Last.Previous(1).Range.Delete() | Out-Null
