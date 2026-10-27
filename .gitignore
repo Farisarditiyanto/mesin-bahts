@@ -24,8 +24,10 @@
 !/contoh/jebakan/
 /contoh/jebakan/*
 !/contoh/jebakan/naskah.txt
-# PDF sumber bukti <<luar|sumber.pdf|hal>> di jebakan (salinan contoh.pdf hasil `rakit contoh`)
+# PDF bukti <<luar|…|hal>> di jebakan: sumber.pdf = teks bersih (cetak Chromium dari teks buatan sendiri);
+# sumber_word.pdf = salinan contoh.pdf hasil `rakit contoh` (Word: huruf sambungan tertukar di teks PDF)
 !/contoh/jebakan/sumber.pdf
+!/contoh/jebakan/sumber_word.pdf
 # bahan antara mesin, sisa Word/Python, dan font mushaf (diunduh `siapkan`, lihat NOTICE)
 mesin/_tmp/
 mesin/*.ttf
