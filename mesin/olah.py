@@ -142,12 +142,14 @@ RUJUKAN_AYAT = re.compile(r"\[[^\]\n]*[ء-ي][^\]\n]*[0-9٠-٩][^\]\n]*\]")  # �
 LUAR = "luar"  # <<luar>>: sumbernya bukan kitab Shamela (jurnal, PDF penelitian, kamus); tidak bisa dicek mesin
 NAFI = {"لا", "فلا", "ولا", "ما", "فما", "وما", "ليس", "وليس", "فليس", "ليست", "وليست", "فليست",
         "لم", "ولم", "فلم", "لن", "ولن", "فلن", "بلا", "وبلا", "فبلا"}  # kata tepat sebelum kutipan di kitab yang bisa membalik maknanya
+BELUM_DIUNDUH = "kitab {} belum diunduh"  # pesan GAGAL per bukti; ringkasan di `utama` mengumpulkan nomornya dari pesan ini
+BELUM_DIUNDUH_RE = re.compile(re.escape(BELUM_DIUNDUH).replace(r"\{\}", r"(\d+)"))
 
 
 def salah_juz(sid, juz, hal):
     """'' kalau kitab sid sudah diunduh dan punya juz itu; selain itu pesan kesalahannya."""
     if not (shamela.ROOT / str(sid) / "pages.jsonl.gz").exists():
-        return f"kitab {sid} belum diunduh ({shamela.perintah(f'ambil {sid}')})"
+        return f"{BELUM_DIUNDUH.format(sid)} ({shamela.perintah(f'ambil {sid}')})"
     juz_ada = set(kitab(sid))
     # kitab satu jilid = satu nilai juz saja, atau bagiannya hanya bernama (mis. المقدمة + الكتاب) tanpa juz berangka
     if juz == "-" and len(juz_ada) > 1 and any(str(j).isdigit() for j in juz_ada):
@@ -1523,6 +1525,11 @@ def utama(folder):
                 if c["bukti"] == 0 and not "".join(r.get("t", "") for r in c["runs"]).startswith(("سورة", "سبق تخريجه"))]
     lap = [f"blok={len(blok)} | kata matan={n_matan} | catatan kaki={len(catatan)} ({n_fn} kata) | ayat={len(ayat_idx)} | hadits={len(hadits_idx)} | pustaka={len(pustaka)}",
            f"bukti dicek ke Shamela lokal: {n_bukti}{f' | <<{LUAR}>> (tidak dicek mesin): {n_luar}' if n_luar else ''} | GAGAL: {len(galat)}"]
+    # kitab yang belum diunduh membuat tiap buktinya GAGAL: satu perintah untuk semuanya, sebelum daftar panjangnya
+    belum = list(dict.fromkeys(m.group(1) for g in galat for m in BELUM_DIUNDUH_RE.finditer(g)))
+    if belum:
+        lap.append(f"  → {len(belum)} kitab belum diunduh; unduh semuanya sekaligus: "
+                   + shamela.perintah("ambil " + " ".join(belum)))
     lap += [f"  ✗ {g}" for g in galat]
     lap.append(f"perhatian (lolos, tetapi lihat sendiri): {len(perhatian)}")
     lap += [f"  ! {p}" for p in perhatian]
