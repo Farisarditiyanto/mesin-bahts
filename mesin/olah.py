@@ -1308,6 +1308,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                     galat.append(f"catatan kaki ayat tidak cocok dengan {{Q:{s}:{a}}} (سورة {SURAH[s - 1]}) || fn: {isi[:45]}")
             # kutipan terakhir tepat sebelum catatan kaki; kutipan lain sejak catatan kaki sebelumnya tidak punya catatan kaki sendiri
             mk = kutipan_akhir(polos)
+            mk_pdf = mk  # kutipan untuk bukti PDF: tetap dicek walau mk dikosongkan sesudah galat lain
             lain = kutipan_semua(polos[seg:])[:-1 if mk is not None else None]
             sisa = luar_petik(polos[seg:])  # teks sejak catatan kaki sebelumnya, kutipan-kutipannya dibuang
             if mk is None and bukti and not diam and SISA_PETIK.search(sisa):  # nukilan utuh: tanda petiknya tidak menentukan apa pun
@@ -1403,10 +1404,11 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 galat.append(f"kutipan «{mk[:30]}» berbeda dari yang ditakhrij di {{H:…|{p_kunci[0]}}}: beri bukti <<sid|juz|hal>>"
                              f"  || fn: {isi[:45]}")
                 mk = None  # sudah dilaporkan
-            if pdf and mk is not None and not dikecualikan:
+            # tiap bukti PDF selalu dicek (juga sesudah سورة / سبق تخريجه): berkas dan halamannya tetap harus benar
+            if pdf and mk_pdf is not None:
                 for b, h in pdf:
-                    cek_pdf(folder, b.strip(), h, mk, galat, perhatian, isi[:45])
-            elif pdf and not dikecualikan:  # nukilan makna (انظر) dari PDF: tidak ada lafaz yang bisa dicek
+                    cek_pdf(folder, b.strip(), h, mk_pdf, galat, perhatian, isi[:45])
+            elif pdf:  # nukilan makna (انظر) dari PDF: tidak ada lafaz yang bisa dicek
                 perhatian.append(f"nukilan tanpa tanda petik dari PDF ({'، '.join(b for b, _ in pdf)}): mesin tidak "
                                  f"mengecek isinya; pastikan sendiri maknanya ada di halaman itu  || fn: {isi[:45]}")
             elif not bukti and mk is not None and not dikecualikan:
