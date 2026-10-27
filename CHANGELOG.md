@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `cek`: kitab yang belum diunduh diringkas jadi satu baris di atas daftar GAGAL, berisi satu perintah `ambil` untuk semuanya («→ 22 kitab belum diunduh; unduh semuanya sekaligus: …»). Dulu tiap bukti GAGAL sendiri-sendiri tanpa perintah gabungan (naskah dengan 22 kitab hilang = 153 baris GAGAL).
 - README «Mulai»: templat permintaan lengkap (data diri, data bahts, angka, فهرس, aturan dosen) untuk ditempel sekaligus, supaya agent jarang berhenti bertanya.
 - `@angka_ayat: latin` (baru): angka di catatan kaki rujukan ayat («سورة الفتح، آية: 29.») dicetak 0123, sisanya tetap ٠١٢٣ (nomor halaman, catatan kaki lain, tahun, فهرس). Untuk dosen yang menulis nomor ayat dengan 0123 tetapi tidak minta seluruh PDF 0123. Bawaan: ikut `@angka`.
 
