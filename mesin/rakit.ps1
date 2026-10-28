@@ -247,6 +247,36 @@ try {
         }
         throw "Nomor catatan kaki belum tetap sesudah 5 putaran penyusunan halaman."
     }
+    # baris terakhir paragraf yang cuma 1-2 kata ("runt"): jarak huruf paragraf itu dirapatkan 0,1 s.d. 0,3 pt sampai kata
+    # itu naik ke baris sebelumnya; tidak berhasil sampai 0,3 = dibiarkan. Hanya paragraf rata kanan-kiri di luar tabel,
+    # bukan sub-judul #S (tebal seluruhnya). Nomor baris (Information 10) hanya ada di Print Layout (di Draft -1).
+    # Sesudah NomorCatatan (nomor final menentukan lebar baris), lalu NomorCatatan lagi (halaman bisa bergeser).
+    # Qulub 27 halaman: runt 22 -> 8, rakit +±30 detik; bentuk kitab 162 halaman: 140 -> 50, +±2 menit
+    function BarisPendek {
+        $doc.ActiveWindow.View.Type = 3; $doc.Repaginate()
+        # runt = kata ketiga dari belakang (huruf saja, bukan angka catatan kaki/tanda baca) ada di baris lain daripada akhir paragraf
+        function Runt($r) {
+            $akhir = $r.Characters.Last; $pg = $akhir.Information(3); $ln = $akhir.Information(10)
+            $ws = $r.Words; $i = $ws.Count; $n = 0
+            while ($i -ge 1) {
+                $wd = $ws.Item($i); $i--
+                if ($wd.Text -notmatch '\p{L}') { continue }
+                $n++; if ($n -eq 3) { return ($wd.Information(10) -ne $ln -or $wd.Information(3) -ne $pg) }
+            }
+            return $false
+        }
+        $calon = @(foreach ($p in $doc.Paragraphs) {
+            $r = $p.Range
+            if ($p.Alignment -ne 3 -or $r.Information(12) -or $r.Font.Bold -eq -1 -or $r.ComputeStatistics(1) -lt 2) { continue }
+            if (Runt $r) { $p }
+        })
+        foreach ($p in $calon) {
+            $r = $p.Range; $ok = $false
+            foreach ($sp in -0.1, -0.2, -0.3) { $r.Font.Spacing = $sp; if (-not (Runt $r)) { $ok = $true; break } }
+            if (-not $ok) { $r.Font.Spacing = 0 }
+        }
+        if ($draft) { $doc.ActiveWindow.View.Type = 1 }
+    }
     function Runs($runs, $size, $paksaTebal, $paksaMerah) {
         foreach ($r in $runs) {
             if ($null -ne $r.fn) { Catatan $r.fn }
@@ -421,6 +451,8 @@ try {
         $b = $pf.Borders.Item(-4); $b.LineStyle = 1; $b.LineWidth = 12; $b.Color = $garis[$k - 1]
         $pf.Borders.DistanceFromRight = 4
     }
+    NomorCatatan
+    BarisPendek
     NomorCatatan
 
     # ---------- 5. Isi nomor halaman ----------
