@@ -328,7 +328,7 @@ try {
         $blk = $DATA.blok[$i]
         if ($blk.k -eq 'R') { $iR = $i; break }
         if ($blk.k -in 'K', 'F', 'B', 'M') {
-            $pb = ($blk.k -in 'K', 'F' -and -not $pertama -and -not ($KITAB -and $blk.k -eq 'F'))
+            $pb = (($blk.k -in 'K', 'F' -and -not ($KITAB -and $blk.k -eq 'F')) -or $blk.k -in $M.halaman_baru) -and -not $pertama   # @halaman_baru: B/M juga halaman baru
             $pertama = $false
             $nT++; $bm = "t_$nT"
             Judul $blk.judul $bm $pb

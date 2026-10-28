@@ -11,6 +11,8 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       mis. «@angka_ayat: latin» = nomor ayat di catatan kaki 0123, sisanya tetap ٠١٢٣
                       tanpa (yang tidak dicetak: فهرس ayat, hadits, maudhuat, dan pustaka = المصادر والمراجع
                       bila dosen minta sumber cukup di catatan kaki; mis. «@tanpa: ayat, hadits»).
+                      halaman_baru (B, M, atau keduanya): judul itu juga mulai halaman baru, mis. dosen minta
+                      مبحث dan مطلب beda halaman di bahts tanpa فصل → «@halaman_baru: B»
                       فهرس الآيات dan فهرس الأحاديث yang kosong tidak dicetak dengan sendirinya
   @bentuk: kitab      bukan bahts (mis. muqarrar gabungan dua syarah): tanpa sampul bahts, wajib hanya @judul (tercetak di
                       kepala tiap halaman), #R tidak wajib, hanya #K mulai halaman baru. Bawaan: bahts
@@ -19,7 +21,7 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   @warna: sid=biru    paragraf yang buktinya [^<<sid|..>>] saja (sid juga di @rumuz) dicetak dengan warna itu + garis tegak di sisi kanan, mis. ziyadah
                       syarah kedua di dalam syarah pertama; lafaz matn ((…)) tetap merah. Warna yang ada: biru
   #K #F #B #M teks    judul tengah + masuk فهرس الموضوعات: K = مقدمة/خاتمة, F = فصل (keduanya mulai halaman baru), B = مبحث, M = مطلب.
-                      Bahts pendek tanpa فصل: #F untuk مبحث, #B untuk مطلب
+                      Bahts pendek tanpa فصل: #F untuk مبحث, #B untuk مطلب. B/M halaman baru juga: @halaman_baru
   #S teks             sub-judul kanan (tidak masuk فهرس)
   #T teks             kotak matn: paragraf dalam bingkai, seluruhnya merah (boleh memuat catatan kaki)
   #R teks             awal المصادر والمراجع; sesudahnya satu kitab per baris (diurutkan abjad otomatis, القرآن الكريم paling atas).
@@ -64,6 +66,7 @@ QURAN = json.load(open(HERE / "quran_hafs_v22.json", encoding="utf8"))
 SURAH = json.load(open(HERE / "nama_surah.json", encoding="utf8"))
 FORMAT = json.load(open(HERE / "format.json", encoding="utf8"))  # huruf & ukuran tiap pedoman; dipilih dengan @format
 WAJIB = {"bahts": ("judul", "jenis", "nama", "nim", "fasl"), "kitab": ("judul",)}  # @bentuk: yang pertama = bawaan
+HALAMAN_BARU = ("B", "M")  # judul yang bisa dibuat mulai halaman baru lewat @halaman_baru; K dan F selalu
 TANPA = ("ayat", "hadits", "maudhuat", "pustaka")  # فهرس dan المصادر yang boleh dibuang lewat @tanpa; perakitnya di rakit.ps1
 # @angka: yang pertama = bawaan. Pedoman Jāmiʿat al-Imām tidak menyebut jenis angka; contoh resminya (pedoman 1443هـ,
 # مجلة العلوم الشرعية) memakai hindi di nomor halaman, catatan kaki, rujukan, tahun, ayat, dan فهرس
@@ -1504,7 +1507,7 @@ def utama(folder):
                 mode_r = k == "R"
                 if mode_r:
                     di_baris["#R"] = n
-                blok.append({"k": k, "runs": [{"t": t, "b": True}], "judul": t})
+                blok.append({"k": k, "runs": [{"t": t, "b": True}], "judul": t, "n": n})
         elif mode_r:
             pustaka.append(b.strip())
         else:
@@ -1557,6 +1560,14 @@ def utama(folder):
     asing = [t for t in tanpa if t not in TANPA]
     if asing:
         galat.append(di("@tanpa") + f"@tanpa: «{'، '.join(asing)}» tidak dikenal (yang ada: {', '.join(TANPA)})")
+    baru = [t for t in re.split(r"[,، ]+", meta.get("halaman_baru", "")) if t]
+    if any(t not in HALAMAN_BARU for t in baru):
+        galat.append(di("@halaman_baru") + f"@halaman_baru: «{meta['halaman_baru']}» tidak dikenal (yang ada: {', '.join(HALAMAN_BARU)})")
+    meta["halaman_baru"] = [t for t in baru if t in HALAMAN_BARU]  # dibaca rakit.ps1 dan perkiraan_halaman
+    for a, b in zip(blok, blok[1:]):  # judul yang langsung disusul judul halaman baru tercetak sendirian di halamannya
+        if a["k"] in ("K", "F", "B", "M") and b["k"] in ("K", *("F",) * (bentuk != "kitab"), *meta["halaman_baru"]):
+            perhatian.append(f"baris {a['n']}: judul «{a['judul'][:40]}» tercetak sendirian di halamannya, karena judul "
+                             f"sesudahnya mulai halaman baru: tulis paragraf pengantar di bawahnya")
     if meta.get("thalibah", "ya") != "ya":
         galat.append(di("@thalibah") + f"@thalibah: «{meta['thalibah']}» tidak dikenal: tulis «ya», atau hapus barisnya")
     fmt = meta.get("format", "imam")
