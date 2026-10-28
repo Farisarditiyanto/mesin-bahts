@@ -102,9 +102,20 @@ try {
             else { $r.Font.Size = [Math]::Max($sz, 20); $r.Font.SizeBi = [Math]::Max($sz, 20) }
         }
     }
-    # judul utama dikecilkan (paling kecil 26) sampai muat satu baris; yang tetap terlalu panjang dibiarkan dua baris
-    $uk = 36
-    while ($uk -gt 26 -and $pJudul.Range.ComputeStatistics(1) -gt 1) { $uk -= 2; $pJudul.Range.Font.Size = $uk; $pJudul.Range.Font.SizeBi = $uk }
+    # judul dikecilkan sampai muat satu baris (utama 36 -> 26, baris kedua 26 -> 22); yang tetap terlalu panjang diratakan:
+    # tepi kiri-kanan paragrafnya dilebarkan 6 pt demi 6 pt selama jumlah barisnya tetap, jadi tiap baris kira-kira sama
+    # panjang dan baris terakhir tidak tinggal satu kata («… وأوضح / المسالك»)
+    function Seimbang($p, $uk, $kecil) {
+        while ($uk -gt $kecil -and $p.Range.ComputeStatistics(1) -gt 1) { $uk -= 2; $p.Range.Font.Size = [single]$uk; $p.Range.Font.SizeBi = [single]$uk }
+        $n = $p.Range.ComputeStatistics(1); if ($n -le 1) { return }
+        $pf = $p.Range.ParagraphFormat
+        for ($tepi = 6; $tepi -le 180; $tepi += 6) {
+            $pf.LeftIndent = [single]$tepi; $pf.RightIndent = [single]$tepi
+            if ($p.Range.ComputeStatistics(1) -gt $n) { $pf.LeftIndent = [single]($tepi - 6); $pf.RightIndent = [single]($tepi - 6); break }
+        }
+    }
+    Seimbang $pJudul 36 26
+    if ($JUDUL2) { Seimbang $pJudul.Next(1) 26 22 }
     # buang paragraf kosong di ekor sampul supaya sampul tetap 1 halaman
     while ($doc.Paragraphs.Count -gt 3 -and $doc.Paragraphs.Last.Range.Text.Trim().Length -eq 0 -and $doc.Paragraphs.Last.Previous(1).Range.Text.Trim().Length -eq 0) {
         $doc.Paragraphs.Last.Previous(1).Range.Delete() | Out-Null
