@@ -225,7 +225,7 @@ def bahan(f):
 
 def perkiraan_halaman(d):
     """Perkiraan kasar halaman isi (المقدمة s.d. الخاتمة) dari jumlah kata, untuk yang belum bisa `rakit`.
-    Tiap #K/#F mulai halaman baru; kata catatan kaki dihitung menurut perbandingan luas hurufnya."""
+    Tiap #K/#F (dan judul di @halaman_baru) mulai halaman baru; kata catatan kaki dihitung menurut perbandingan luas hurufnya."""
     fmt = d.get("format")
     if not fmt:
         return None
@@ -235,7 +235,7 @@ def perkiraan_halaman(d):
     for b in d["blok"]:
         if b["k"] == "R":
             break
-        if b["k"] in ("K", "F") or not bagian:
+        if b["k"] in ("K", "F", *d["meta"].get("halaman_baru", [])) or not bagian:
             bagian.append(0.0)
         fn = sum(kata(d["catatan"][r["fn"]]["runs"]) for r in b["runs"] if r.get("fn") is not None)
         bagian[-1] += kata(b["runs"]) + fn * (fmt["catatan"] / fmt["matan"]) ** 2
