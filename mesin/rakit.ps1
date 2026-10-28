@@ -62,7 +62,10 @@ try {
     $TPL = $null; $kepalaTpl = $null
     # FormattedText ke dokumen lain hanya membawa format langsung; yang datang dari gaya templat (arah, rata, garis,
     # huruf judul) disalin per paragraf. Huruf disalin per sifat, hanya yang seragam dalam paragrafnya (bukan 9999999):
-    # menyalin objek Font utuh ikut membawa sifat yang tak tentu (sampul Satria: kop jadi miring)
+    # menyalin objek Font utuh ikut membawa sifat yang tak tentu. Miring hanya disalin kalau templatnya miring: Word
+    # melaporkan Italic kop sampul Satria terbalik menurut arah bagian (0 padahal XML-nya miring, -1 padahal tidak),
+    # jadi menyalin Italic=0 malah menulis <w:i/>. Nama huruf per jenis aksara: Name pada teks Arab = huruf Arabnya,
+    # dan menulisnya ke Name mengganti huruf Latin paragraf itu
     function SalinGaya($asal, $tujuan) {
         $n = [Math]::Min($asal.Paragraphs.Count, $tujuan.Paragraphs.Count)
         for ($i = 1; $i -le $n; $i++) {
@@ -73,8 +76,8 @@ try {
             $T = 9999999
             if ($fa.Size -ne $T) { $ft2.Size = $fa.Size }; if ($fa.SizeBi -ne $T) { $ft2.SizeBi = $fa.SizeBi }
             if ($fa.Bold -ne $T) { $ft2.Bold = $fa.Bold }; if ($fa.BoldBi -ne $T) { $ft2.BoldBi = $fa.BoldBi }
-            if ($fa.Italic -ne $T) { $ft2.Italic = $fa.Italic }; if ($fa.ItalicBi -ne $T) { $ft2.ItalicBi = $fa.ItalicBi }
-            if ($fa.Name) { $ft2.Name = $fa.Name }; if ($fa.NameBi) { $ft2.NameBi = $fa.NameBi }
+            if ($fa.Italic -eq -1) { $ft2.Italic = -1 }; if ($fa.ItalicBi -eq -1) { $ft2.ItalicBi = -1 }
+            if ($fa.NameAscii) { $ft2.NameAscii = $fa.NameAscii }; if ($fa.NameOther) { $ft2.NameOther = $fa.NameOther }; if ($fa.NameBi) { $ft2.NameBi = $fa.NameBi }
         }
     }
     if ($KITAB) { $doc = $word.Documents.Add(); $doc.SaveAs2($tmp, 16); Draft }
@@ -90,7 +93,7 @@ try {
     $p1.PageWidth = $pt.PageWidth; $p1.PageHeight = $pt.PageHeight
     $p1.TopMargin = $pt.TopMargin; $p1.BottomMargin = $pt.BottomMargin; $p1.LeftMargin = $pt.LeftMargin; $p1.RightMargin = $pt.RightMargin
     foreach ($h in 1..3) { try { $doc.Sections(1).Headers($h).Range.Text = '' } catch {} ; try { $doc.Sections(1).Footers($h).Range.Text = '' } catch {} }
-    # gaya sesudah tata halaman: mengganti arah bagian menyetel ulang huruf paragrafnya (kop sampul Satria jadi miring)
+    # gaya sesudah tata halaman: mengganti arah bagian menyetel ulang huruf paragrafnya
     SalinGaya $TPL.Range(0, $akhir) $doc.Content
     # kotak teks sampul (mis. kop) ikut disalin gayanya, berpasangan menurut urutan
     $ka = @($TPL.Shapes | Where-Object { $_.TextFrame.HasText }); $kt = @($doc.Shapes | Where-Object { $_.TextFrame.HasText })
