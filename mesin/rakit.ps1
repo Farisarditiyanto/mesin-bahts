@@ -59,7 +59,43 @@ try {
     # kembali ke Print Layout (3): .docx menyimpan tampilannya dan dibuka pemakai dalam tampilan itu, dan Word mengingat
     # tampilan dokumen terakhir sebagai bawaannya. Tampilan awal Word tanpa jendela (Web Layout) bukan tampilan pemakai
     function Draft { $script:draft = $true; $doc.ActiveWindow.View.Type = 1 }
-    if ($KITAB) { $doc = $word.Documents.Add(); $doc.SaveAs2($tmp, 16); Draft } else {
+    $TPL = $null; $kepalaTpl = $null
+    # FormattedText ke dokumen lain hanya membawa format langsung; yang datang dari gaya templat (arah, rata, garis,
+    # huruf judul) disalin per paragraf. Huruf disalin per sifat, hanya yang seragam dalam paragrafnya (bukan 9999999):
+    # menyalin objek Font utuh ikut membawa sifat yang tak tentu (sampul Satria: kop jadi miring)
+    function SalinGaya($asal, $tujuan) {
+        $n = [Math]::Min($asal.Paragraphs.Count, $tujuan.Paragraphs.Count)
+        for ($i = 1; $i -le $n; $i++) {
+            $pa = $asal.Paragraphs($i); $pt = $tujuan.Paragraphs($i)
+            $pt.Format = $pa.Format
+            $fa = $pa.Range.Font; $ft2 = $pt.Range.Font
+            # sifat ditulis satu-satu: $font.$nama = … pada objek COM diam-diam tidak berpengaruh
+            $T = 9999999
+            if ($fa.Size -ne $T) { $ft2.Size = $fa.Size }; if ($fa.SizeBi -ne $T) { $ft2.SizeBi = $fa.SizeBi }
+            if ($fa.Bold -ne $T) { $ft2.Bold = $fa.Bold }; if ($fa.BoldBi -ne $T) { $ft2.BoldBi = $fa.BoldBi }
+            if ($fa.Italic -ne $T) { $ft2.Italic = $fa.Italic }; if ($fa.ItalicBi -ne $T) { $ft2.ItalicBi = $fa.ItalicBi }
+            if ($fa.Name) { $ft2.Name = $fa.Name }; if ($fa.NameBi) { $ft2.NameBi = $fa.NameBi }
+        }
+    }
+    if ($KITAB) { $doc = $word.Documents.Add(); $doc.SaveAs2($tmp, 16); Draft }
+    elseif ($M.templat) {
+    # @templat: Word mahasiswa sendiri; halaman pertamanya jadi sampul apa adanya, kepala halamannya dipakai di bagian isi
+    $doc = $word.Documents.Add(); $doc.SaveAs2($tmp, 16); Draft
+    $TPL = $word.Documents.Open($M.templat, $false, $true)
+    $akhir = if ($TPL.ComputeStatistics(2) -gt 1) { $TPL.GoTo(1, 1, 2).Start - 1 } else { $TPL.Content.End - 1 }
+    $doc.Content.FormattedText = $TPL.Range(0, $akhir).FormattedText
+    $doc.Activate()                                      # Selection di bawah milik dokumen aktif; Open membuat templat aktif
+    $pt = $TPL.Sections(1).PageSetup; $p1 = $doc.Sections(1).PageSetup
+    $p1.SectionDirection = $pt.SectionDirection         # arah bagian dulu: di bagian kanan-ke-kiri tepi kiri dan kanan bertukar
+    $p1.PageWidth = $pt.PageWidth; $p1.PageHeight = $pt.PageHeight
+    $p1.TopMargin = $pt.TopMargin; $p1.BottomMargin = $pt.BottomMargin; $p1.LeftMargin = $pt.LeftMargin; $p1.RightMargin = $pt.RightMargin
+    foreach ($h in 1..3) { try { $doc.Sections(1).Headers($h).Range.Text = '' } catch {} ; try { $doc.Sections(1).Footers($h).Range.Text = '' } catch {} }
+    # gaya sesudah tata halaman: mengganti arah bagian menyetel ulang huruf paragrafnya (kop sampul Satria jadi miring)
+    SalinGaya $TPL.Range(0, $akhir) $doc.Content
+    # kotak teks sampul (mis. kop) ikut disalin gayanya, berpasangan menurut urutan
+    $ka = @($TPL.Shapes | Where-Object { $_.TextFrame.HasText }); $kt = @($doc.Shapes | Where-Object { $_.TextFrame.HasText })
+    for ($i = 0; $i -lt [Math]::Min($ka.Count, $kt.Count); $i++) { SalinGaya $ka[$i].TextFrame.TextRange $kt[$i].TextFrame.TextRange }
+    } else {
     $doc = $word.Documents.Open("$dir\sampul.doc", $false, $true)
     $doc.SaveAs2($tmp, 16)
     $doc.Convert()
@@ -139,6 +175,19 @@ try {
     # pedoman: nomor halaman di tengah bawah, huruf dan ukuran sama dengan matan, dihitung mulai dari المقدمة
     $ft.Range.Font.Name = $TA; $ft.Range.Font.NameBi = $TA; $ft.Range.Font.Size = $uMatan; $ft.Range.Font.SizeBi = $uMatan
     $ft.PageNumbers.RestartNumberingAtSection = $true; $ft.PageNumbers.StartingNumber = 1
+    if ($TPL) {                                          # kepala halaman @templat (nomor halamannya di situ): kaki halaman dikosongkan
+        $hd = $sec.Headers(1); $sh0 = $TPL.Sections(1).Headers(1); $hd.Range.FormattedText = $sh0.Range.FormattedText
+        # FormattedText membawa format langsung saja; arah, rata, dan garis dari gaya «Header» templat disalin per paragraf
+        while ($hd.Range.Paragraphs.Count -gt $sh0.Range.Paragraphs.Count) {
+            [void]$hd.Range.Paragraphs.Last.Previous(1).Range.Characters.Last.Delete()   # tanda paragraf (bukan $doc.Range: kepala halaman cerita lain)
+        }
+        SalinGaya $sh0.Range $hd.Range
+        # nomor halaman: kalau kepala templat tidak memuat PAGE, nomor di kaki halaman bawaan mesin tetap dicetak
+        $adaPage = @($sh0.Range.Fields | Where-Object { $_.Code.Text -match 'PAGE' }).Count -gt 0
+        foreach ($sp in $sh0.Shapes) { if ($sp.TextFrame.HasText -and @($sp.TextFrame.TextRange.Fields | Where-Object { $_.Code.Text -match 'PAGE' }).Count) { $adaPage = $true } }
+        if ($adaPage) { $ft.Range.Text = '' }
+        $TPL.Close(0); $TPL = $null; $doc.Activate(); $script:kepalaTpl = $hd
+    }
     # kepala halaman berjalan gaya cetakan kitab, bergaris bawah: halaman genap = judul kitab, halaman ganjil = judul bab
     # (#K / فهرس; tiap judul itu mulai bagian Word baru, lihat Judul). Nomor halaman bersambung di kaki semua halaman
     function KepalaHalaman($h, $teks) {
@@ -504,6 +553,9 @@ try {
     if (Test-Path -LiteralPath "$Out.docx") { Remove-Item -LiteralPath "$Out.docx" -Force }
     $doc.EmbedTrueTypeFonts = $true; $doc.SaveSubsetFonts = $false; $doc.DoNotEmbedSystemFonts = $false
     $doc.ActiveWindow.View.Type = 3
+    # nomor halaman di kotak teks kepala @templat ikut angka Arab (@angka): Word memilih angka menurut arah teks di
+    # sekitarnya, dan teks hasil PAGE di kotak itu kiri-ke-kanan. RtlRun hanya ada di Selection, dan hanya di Print Layout
+    if ($kepalaTpl) { foreach ($sh in $kepalaTpl.Shapes) { if ($sh.TextFrame.HasText) { $sh.TextFrame.TextRange.Select(); $word.Selection.RtlRun() } } }
     $doc.SaveAs2("$Out.docx", 16)
     $word.ScreenUpdating = $true                         # tanpa ini garis bingkai/kepala halaman tidak ikut ke PDF
     $doc.ExportAsFixedFormat("$Out.pdf", 17)
