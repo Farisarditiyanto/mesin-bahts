@@ -102,9 +102,17 @@ try {
             else { $r.Font.Size = [Math]::Max($sz, 20); $r.Font.SizeBi = [Math]::Max($sz, 20) }
         }
     }
-    # judul utama dikecilkan (paling kecil 26) sampai muat satu baris; yang tetap terlalu panjang dibiarkan dua baris
-    $uk = 36
-    while ($uk -gt 26 -and $pJudul.Range.ComputeStatistics(1) -gt 1) { $uk -= 2; $pJudul.Range.Font.Size = $uk; $pJudul.Range.Font.SizeBi = $uk }
+    # judul dikecilkan sampai muat satu baris (utama 36 -> 26, baris kedua 26 -> 22); yang tetap terlalu panjang dipatahkan
+    # di spasi yang paling dekat ke tengah, supaya baris keduanya tidak tinggal satu kata («… وأوضح / المسالك»)
+    function Seimbang($p, $uk, $kecil) {
+        while ($uk -gt $kecil -and $p.Range.ComputeStatistics(1) -gt 1) { $uk -= 2; $p.Range.Font.Size = [single]$uk; $p.Range.Font.SizeBi = [single]$uk }
+        if ($p.Range.ComputeStatistics(1) -le 1) { return }
+        $r = $p.Range; $t = $r.Text.TrimEnd("`r"); $i = -1
+        for ($k = 0; $k -lt $t.Length; $k++) { if ($t[$k] -eq ' ' -and ($i -lt 0 -or [Math]::Abs($k - $t.Length / 2) -lt [Math]::Abs($i - $t.Length / 2))) { $i = $k } }
+        if ($i -ge 0) { $doc.Range($r.Start + $i, $r.Start + $i + 1).Text = [string][char]11 }
+    }
+    Seimbang $pJudul 36 26
+    if ($JUDUL2) { Seimbang $pJudul.Next(1) 26 22 }
     # buang paragraf kosong di ekor sampul supaya sampul tetap 1 halaman
     while ($doc.Paragraphs.Count -gt 3 -and $doc.Paragraphs.Last.Range.Text.Trim().Length -eq 0 -and $doc.Paragraphs.Last.Previous(1).Range.Text.Trim().Length -eq 0) {
         $doc.Paragraphs.Last.Previous(1).Range.Delete() | Out-Null
