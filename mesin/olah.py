@@ -2,7 +2,7 @@
 + verifikasi setiap rujukan ke kitab Shamela lokal. Dipanggil lewat bahts.py.
 
 Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
-  @kunci: nilai       data sampul, di awal naskah. Wajib: judul, jenis, nama, nim, fasl.
+  @kunci: nilai       data sampul, di awal naskah. Wajib: judul, jenis ("-" = tidak tercetak), nama, nim, fasl.
                       Opsional: musyrif, jabatan (kosong atau "-" = tidak tercetak), thalibah (ya = sampul mencetak «اسم الطالبة»),
                       berkas (nama file hasil), format (profil di format.json; bawaan imam),
                       angka (hindi = ٠١٢٣، bawaan; latin = 0123): angka yang tercetak di seluruh PDF,

@@ -80,7 +80,7 @@ try {
     foreach ($p in $doc.Paragraphs) {
         $t = $p.Range.Text.Trim()
         if ($t -eq 'عنوان البحث') { Ganti $p $JUDUL1; $pJudul = $p }
-        elseif ($t -like 'بحث صفي للمستوى*') { Ganti $p $M.jenis }
+        elseif ($t -like 'بحث صفي للمستوى*') { Ganti $p $(if ($M.jenis -eq '-') { '' } else { $M.jenis }) }
         elseif ($t -like 'اسم*الطالبة*') { Ganti $p $(if ($M.thalibah -eq 'ya') { 'اسم الطالبة :' } else { 'اسم الطالب :' }); $pNama = $p }
         elseif ($t -eq '4300000') { Ganti $p $NIM }
         elseif ($t -like 'الفصل الدراسي*') { Ganti $p $M.fasl }
