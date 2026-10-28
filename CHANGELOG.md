@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `rakit`: paragraf yang baris terakhirnya cuma 1–2 kata dirapatkan jarak hurufnya 0,1 s.d. 0,3 pt sampai kata itu naik ke baris sebelumnya; yang belum naik sampai 0,3 pt dibiarkan. Dicoba di tiga bahts: baris pendek 22 → 7, 10 → 6, 5 → 3; bahts 27 halaman jadi 26. Sub-judul #S, judul, tabel, dan catatan kaki tidak dirapatkan. Rakit lebih lama: bahts ±25 halaman +10 s.d. 30 detik, bentuk kitab 160 halaman ±2 menit (baris pendek 140 → 50). Pedoman kampus tidak mengatur jarak huruf (`dok/standar.svg`: baris «Jarak baris dan huruf»). Halaman akhir فصل yang isinya cuma 1–3 baris belum ditangani.
 - Sampul: `@jenis: -` = baris jenis tugas tidak tercetak (untuk tugas yang bukan بحث صفي dan nama mata kuliahnya belum diketahui). Dulu `@jenis` selalu tercetak apa adanya, jadi «-» ikut tercetak.
 - `rakit`: nomor halaman di فهرس الآيات, فهرس الأحاديث, dan فهرس الموضوعات diisi ulang sampai tidak berubah. Dulu diisi sekali: angka asli («٢٤، ٣٠») lebih lebar daripada isian sementara, baris tabel melipat, judul sesudahnya terdorong ke halaman berikut, tetapi angkanya tetap angka lama (فهرس الموضوعات mencetak ٤١ padahal ada di halaman ٤٢).
 - Sampul: judul «… - دراسة …» dicetak dua baris; bagian sesudah « - » jadi baris kedua yang lebih kecil (26). Judul utama dikecilkan dari 36 sampai paling kecil 26 supaya muat satu baris. Dulu judul panjang terpotong di tengah kata ke baris kedua dengan ukuran 36. Kepala halaman tetap memakai judul utuh.
