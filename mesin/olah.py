@@ -11,11 +11,11 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       mis. «@angka_ayat: latin» = nomor ayat di catatan kaki 0123, sisanya tetap ٠١٢٣
                       tanpa (yang tidak dicetak: فهرس ayat, hadits, maudhuat, dan pustaka = المصادر والمراجع
                       bila dosen minta sumber cukup di catatan kaki; mis. «@tanpa: ayat, hadits»).
-                      halaman_baru (B, M, atau keduanya): judul itu juga mulai halaman baru, mis. dosen minta
-                      مبحث dan مطلب beda halaman di bahts tanpa فصل → «@halaman_baru: B»
                       فهرس الآيات dan فهرس الأحاديث yang kosong tidak dicetak dengan sendirinya
+                      halaman_baru (B, M, atau keduanya): judul itu juga mulai halaman baru, mis. dosen minta
+                      مبحث dan مطلب beda halaman, مبحث = #F dan مطلب = #B → «@halaman_baru: B»
   @bentuk: kitab      bukan bahts (mis. muqarrar gabungan dua syarah): tanpa sampul bahts, wajib hanya @judul (tercetak di
-                      kepala tiap halaman), #R tidak wajib, hanya #K mulai halaman baru. Bawaan: bahts
+                      kepala tiap halaman), #R tidak wajib, hanya #K (dan @halaman_baru) mulai halaman baru. Bawaan: bahts
   @rumuz: sid=ض، sid=ف  rumuz sumber: catatan kaki yang buktinya dari kitab sid itu dicetak dengan rumuznya ض (huruf kecil terangkat) tepat sebelum
                       nomor catatan kakinya. Rumuz diambil dari bukti, jadi tidak bisa berbeda dengan sumbernya
   @warna: sid=biru    paragraf yang buktinya [^<<sid|..>>] saja (sid juga di @rumuz) dicetak dengan warna itu + garis tegak di sisi kanan, mis. ziyadah

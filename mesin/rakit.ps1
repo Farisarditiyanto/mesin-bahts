@@ -30,7 +30,7 @@ $TANPA = @(([string]$M.tanpa -split '[,، ]+') | Where-Object { $_ })
 $adaAy = [bool]@($DATA.ayat).Count -and $TANPA -notcontains 'ayat'
 $adaHd = [bool]@($DATA.hadits).Count -and $TANPA -notcontains 'hadits'
 $adaTo = $TANPA -notcontains 'maudhuat'
-$KITAB = $M.bentuk -eq 'kitab'           # @bentuk: kitab = tanpa sampul bahts, judul di kepala halaman, hanya #K halaman baru
+$KITAB = $M.bentuk -eq 'kitab'           # @bentuk: kitab = tanpa sampul bahts, judul di kepala halaman, hanya #K (dan @halaman_baru) halaman baru
 $adaPu = $TANPA -notcontains 'pustaka' -and (-not $KITAB -or @($DATA.pustaka).Count)   # @tanpa: pustaka = sumber cukup di catatan kaki
 $MERAH = 176; $COKLAT = 2772843           # warna Word (BGR): lafaz matn RGB(176,0,0); rumuz RGB(107,79,42)
 
