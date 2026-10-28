@@ -209,7 +209,6 @@ try {
     $st.ParagraphFormat.SpaceAfter = 0; $st.ParagraphFormat.SpaceBefore = 0; $st.ParagraphFormat.LineSpacingRule = 0
     $doc.Footnotes.NumberingRule = $ULANG
     $doc.Footnotes.NumberStyle = 0
-    try { $doc.Footnotes.Separator.ParagraphFormat.ReadingOrder = 0; $doc.Footnotes.Separator.ParagraphFormat.Alignment = 0 } catch {}
 
     function Para($align, $before, $indent) {
         $pf = $sel.ParagraphFormat
@@ -543,6 +542,11 @@ try {
     # nomor halaman = teks kanan-ke-kiri, supaya ArabicNumeral 2 mencetaknya ٠-٩ (di akhir: memindah Selection ke kaki halaman)
     $ft.Range.Select(); $word.Selection.RtlRun()
     if ($KITAB) { $fg.Range.Select(); $word.Selection.RtlRun() }
+    # garis pemisah catatan kaki di kanan: ceritanya baru ada sesudah catatan kaki pertama; dokumen @templat berangkat dari
+    # dokumen kosong yang gaya Normal-nya kiri-ke-kanan, jadi garisnya ikut ke kiri kalau tidak disetel di sini
+    foreach ($g in @($doc.Footnotes.Separator, $doc.Footnotes.ContinuationSeparator)) {
+        try { $g.ParagraphFormat.ReadingOrder = 0; $g.ParagraphFormat.Alignment = 0 } catch {}
+    }
     $pages = $doc.ComputeStatistics(2)
     # halaman isi = المقدمة s.d. الخاتمة (nomor halaman dihitung mulai dari المقدمة); tanpa المصادر dan فهرس = halaman terakhir
     if ($doc.Bookmarks.Exists($bmSesudahIsi)) { $isi = (Hal $bmSesudahIsi) - 1 }
