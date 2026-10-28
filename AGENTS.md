@@ -20,6 +20,7 @@ Anggap pemakai baru pertama kali memakai agent, tidak membaca README, dan hanya 
 - Pemakainya mahasiswi → tambah baris `@thalibah: ya` di `sampul_saya.txt`: sampul mencetak «اسم الطالبة».
 - Pembimbing (`@musyrif`, `@jabatan`) ditanya tiap bahts dan ditulis di naskahnya: dosennya bisa berbeda.
 - Dosen minta مبحث dan مطلب beda halaman → `@halaman_baru:` berisi tanda مطلب, juga tanda مبحث kalau bukan #F (#F مبحث + #B مطلب → `B`; #B مبحث + #M مطلب → `B, M`). Halaman isi jadi beberapa halaman lebih banyak: isi jangan dipangkas demi jumlah halaman.
+- Pemakai memberi Word miliknya sendiri (sampul, kepala halaman bergaris) → simpan di folder bahts, tulis `@templat: <berkas>.docx`: halaman pertamanya jadi sampul apa adanya (`@nama` dkk. tidak tercetak), kepala halamannya dipakai di halaman isi. Isi tetap dari `naskah.txt`.
 - Sampul mencetak جامعة الإمام محمد بن سعود الإسلامية، معهد العلوم الإسلامية والعربية في جاكرتا، كلية الشريعة. Beri tahu pemakai sekali; kalau kampusnya lain, bilang bahwa sampul perlu diganti dulu (`mesin/sampul.doc`).
 - Nama folder untuk `baru`: pendek, huruf Latin, tanpa spasi (mis. `ikhlas`). Nama berkas hasil diatur `@berkas`.
 - Jumlah halaman yang disebut pemakai = halaman isi (المقدمة sampai الخاتمة); `rakit` mencetaknya sebagai `HALAMAN_ISI`. مقدمة, tiap فصل, dan خاتمة selalu mulai halaman baru. Jelaskan ke pemakai bahwa PDF juga memuat sampul, المصادر والمراجع, dan الفهارس, lalu sebut `HALAMAN_ISI` dan `HALAMAN` sesudah `rakit`.

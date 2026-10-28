@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `@templat: <berkas>.docx` (baru): Word mahasiswa sendiri di folder bahts. Halaman pertamanya jadi sampul apa adanya, kepala halamannya (judul, nomor halaman, garis) dipakai di tiap halaman isi, dan nomor halaman di kaki tidak dicetak. Nomor di kotak kepala halaman ikut `@angka`. Data sampul di naskah cukup `@judul`. Dulu sampul selalu `mesin/sampul.doc` dan nomor halaman selalu di kaki.
 - `@halaman_baru: B` (baru; `M` atau `B, M` juga bisa): judul #B/#M ikut mulai halaman baru, untuk dosen yang minta مبحث dan مطلب beda halaman. Dulu hanya #K dan #F, jadi judul مطلب pertama selalu menempel di bawah judul مبحث. `cek` memberi perhatian untuk judul yang langsung disusul judul halaman baru, karena judul itu tercetak sendirian di halamannya. Halaman isi bertambah beberapa halaman (kahf-umum: 34 → 39).
 - AGENTS.md: masalah khilaf disusun per pendapat lalu penganutnya («القول الأول: … وبه قال الشافعية والحنابلة»), bukan per mazhab, dan pendapat tiap mazhab dinukil dari kitab mu'tamad mazhab itu. المقدمة ikut خطة dari dosen (mis. تساؤلات الدراسة).
 - Sampul: baris kedua judul («… - …») juga dikecilkan sampai muat satu baris (26 sampai paling kecil 22). Judul utama atau baris kedua yang tetap terlalu panjang diratakan: tepi kiri-kanannya dilebarkan selama jumlah barisnya tetap, jadi tiap baris kira-kira sama panjang. Dulu baris kedua bisa menyisakan satu kata sendirian («… وأوضح / المسالك»).

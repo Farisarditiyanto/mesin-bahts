@@ -12,6 +12,8 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       tanpa (yang tidak dicetak: فهرس ayat, hadits, maudhuat, dan pustaka = المصادر والمراجع
                       bila dosen minta sumber cukup di catatan kaki; mis. «@tanpa: ayat, hadits»).
                       فهرس الآيات dan فهرس الأحاديث yang kosong tidak dicetak dengan sendirinya
+                      templat (berkas .docx di folder bahts): Word mahasiswa sendiri; halaman pertamanya jadi sampul
+                      apa adanya (data sampul di naskah tidak dipakai), kepala halamannya dipakai di tiap halaman isi
                       halaman_baru (B, M, atau keduanya): judul itu juga mulai halaman baru, mis. dosen minta
                       مبحث dan مطلب beda halaman, مبحث = #F dan مطلب = #B → «@halaman_baru: B»
   @bentuk: kitab      bukan bahts (mis. muqarrar gabungan dua syarah): tanpa sampul bahts, wajib hanya @judul (tercetak di
@@ -1556,10 +1558,20 @@ def utama(folder):
     def kata(runs): return sum(len(re.findall(r"[؀-ۿ]+", r.get("t", ""))) for r in runs)
     n_matan = sum(kata(b["runs"]) for b in blok)
     n_fn = sum(kata(c["runs"]) for c in catatan)
-    galat += [di("@" + k) + f"data sampul belum diisi: @{k}" for k in WAJIB[bentuk] if not meta.get(k)]
+    wajib = ("judul",) if meta.get("templat") else WAJIB[bentuk]  # @templat: sampul diambil apa adanya dari Word mahasiswa
+    galat += [di("@" + k) + f"data sampul belum diisi: @{k}" for k in wajib if not meta.get(k)]
     asing = [t for t in tanpa if t not in TANPA]
     if asing:
         galat.append(di("@tanpa") + f"@tanpa: «{'، '.join(asing)}» tidak dikenal (yang ada: {', '.join(TANPA)})")
+    if meta.get("templat"):  # Word mahasiswa: sampul dan kepala halaman diambil dari situ oleh rakit.ps1
+        tpl = (folder / meta["templat"]).resolve()
+        if bentuk == "kitab":
+            galat.append(di("@templat") + "@templat hanya untuk bahts, bukan @bentuk: kitab")
+        elif tpl.suffix.lower() not in (".docx", ".doc") or not tpl.is_file() or not tpl.is_relative_to(folder.resolve()):
+            galat.append(di("@templat") + f"@templat: «{meta['templat']}» tidak ada: simpan berkas .docx-nya di folder {folder.name}, "
+                         "lalu tulis namanya saja")
+        else:
+            meta["templat"] = str(tpl)
     baru = [t for t in re.split(r"[,، ]+", meta.get("halaman_baru", "")) if t]
     if any(t not in HALAMAN_BARU for t in baru):
         galat.append(di("@halaman_baru") + f"@halaman_baru: «{meta['halaman_baru']}» tidak dikenal (yang ada: {', '.join(HALAMAN_BARU)})")
