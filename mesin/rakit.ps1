@@ -102,14 +102,17 @@ try {
             else { $r.Font.Size = [Math]::Max($sz, 20); $r.Font.SizeBi = [Math]::Max($sz, 20) }
         }
     }
-    # judul dikecilkan sampai muat satu baris (utama 36 -> 26, baris kedua 26 -> 22); yang tetap terlalu panjang dipatahkan
-    # di spasi yang paling dekat ke tengah, supaya baris keduanya tidak tinggal satu kata («… وأوضح / المسالك»)
+    # judul dikecilkan sampai muat satu baris (utama 36 -> 26, baris kedua 26 -> 22); yang tetap terlalu panjang diratakan:
+    # tepi kiri-kanan paragrafnya dilebarkan 6 pt demi 6 pt selama jumlah barisnya tetap, jadi tiap baris kira-kira sama
+    # panjang dan baris terakhir tidak tinggal satu kata («… وأوضح / المسالك»)
     function Seimbang($p, $uk, $kecil) {
         while ($uk -gt $kecil -and $p.Range.ComputeStatistics(1) -gt 1) { $uk -= 2; $p.Range.Font.Size = [single]$uk; $p.Range.Font.SizeBi = [single]$uk }
-        if ($p.Range.ComputeStatistics(1) -le 1) { return }
-        $r = $p.Range; $t = $r.Text.TrimEnd("`r"); $i = -1
-        for ($k = 0; $k -lt $t.Length; $k++) { if ($t[$k] -eq ' ' -and ($i -lt 0 -or [Math]::Abs($k - $t.Length / 2) -lt [Math]::Abs($i - $t.Length / 2))) { $i = $k } }
-        if ($i -ge 0) { $doc.Range($r.Start + $i, $r.Start + $i + 1).Text = [string][char]11 }
+        $n = $p.Range.ComputeStatistics(1); if ($n -le 1) { return }
+        $pf = $p.Range.ParagraphFormat
+        for ($tepi = 6; $tepi -le 180; $tepi += 6) {
+            $pf.LeftIndent = [single]$tepi; $pf.RightIndent = [single]$tepi
+            if ($p.Range.ComputeStatistics(1) -gt $n) { $pf.LeftIndent = [single]($tepi - 6); $pf.RightIndent = [single]($tepi - 6); break }
+        }
     }
     Seimbang $pJudul 36 26
     if ($JUDUL2) { Seimbang $pJudul.Next(1) 26 22 }
