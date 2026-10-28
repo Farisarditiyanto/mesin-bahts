@@ -61,13 +61,20 @@ try {
     function Draft { $script:draft = $true; $doc.ActiveWindow.View.Type = 1 }
     $TPL = $null; $kepalaTpl = $null
     # FormattedText ke dokumen lain hanya membawa format langsung; yang datang dari gaya templat (arah, rata, garis,
-    # huruf judul) disalin per paragraf. Huruf paragraf yang bercampur (Size 9999999) dibiarkan: menyalinnya meratakan
+    # huruf judul) disalin per paragraf. Huruf disalin per sifat, hanya yang seragam dalam paragrafnya (bukan 9999999):
+    # menyalin objek Font utuh ikut membawa sifat yang tak tentu (sampul Satria: kop jadi miring)
     function SalinGaya($asal, $tujuan) {
         $n = [Math]::Min($asal.Paragraphs.Count, $tujuan.Paragraphs.Count)
         for ($i = 1; $i -le $n; $i++) {
             $pa = $asal.Paragraphs($i); $pt = $tujuan.Paragraphs($i)
             $pt.Format = $pa.Format
-            if ($pa.Range.Font.Size -lt 9999 -and $pa.Range.Font.SizeBi -lt 9999 -and $pa.Range.Font.NameBi) { $pt.Range.Font = $pa.Range.Font }
+            $fa = $pa.Range.Font; $ft2 = $pt.Range.Font
+            # sifat ditulis satu-satu: $font.$nama = … pada objek COM diam-diam tidak berpengaruh
+            $T = 9999999
+            if ($fa.Size -ne $T) { $ft2.Size = $fa.Size }; if ($fa.SizeBi -ne $T) { $ft2.SizeBi = $fa.SizeBi }
+            if ($fa.Bold -ne $T) { $ft2.Bold = $fa.Bold }; if ($fa.BoldBi -ne $T) { $ft2.BoldBi = $fa.BoldBi }
+            if ($fa.Italic -ne $T) { $ft2.Italic = $fa.Italic }; if ($fa.ItalicBi -ne $T) { $ft2.ItalicBi = $fa.ItalicBi }
+            if ($fa.Name) { $ft2.Name = $fa.Name }; if ($fa.NameBi) { $ft2.NameBi = $fa.NameBi }
         }
     }
     if ($KITAB) { $doc = $word.Documents.Add(); $doc.SaveAs2($tmp, 16); Draft }
@@ -77,13 +84,17 @@ try {
     $TPL = $word.Documents.Open($M.templat, $false, $true)
     $akhir = if ($TPL.ComputeStatistics(2) -gt 1) { $TPL.GoTo(1, 1, 2).Start - 1 } else { $TPL.Content.End - 1 }
     $doc.Content.FormattedText = $TPL.Range(0, $akhir).FormattedText
-    SalinGaya $TPL.Range(0, $akhir) $doc.Content
     $doc.Activate()                                      # Selection di bawah milik dokumen aktif; Open membuat templat aktif
     $pt = $TPL.Sections(1).PageSetup; $p1 = $doc.Sections(1).PageSetup
     $p1.SectionDirection = $pt.SectionDirection         # arah bagian dulu: di bagian kanan-ke-kiri tepi kiri dan kanan bertukar
     $p1.PageWidth = $pt.PageWidth; $p1.PageHeight = $pt.PageHeight
     $p1.TopMargin = $pt.TopMargin; $p1.BottomMargin = $pt.BottomMargin; $p1.LeftMargin = $pt.LeftMargin; $p1.RightMargin = $pt.RightMargin
     foreach ($h in 1..3) { try { $doc.Sections(1).Headers($h).Range.Text = '' } catch {} ; try { $doc.Sections(1).Footers($h).Range.Text = '' } catch {} }
+    # gaya sesudah tata halaman: mengganti arah bagian menyetel ulang huruf paragrafnya (kop sampul Satria jadi miring)
+    SalinGaya $TPL.Range(0, $akhir) $doc.Content
+    # kotak teks sampul (mis. kop) ikut disalin gayanya, berpasangan menurut urutan
+    $ka = @($TPL.Shapes | Where-Object { $_.TextFrame.HasText }); $kt = @($doc.Shapes | Where-Object { $_.TextFrame.HasText })
+    for ($i = 0; $i -lt [Math]::Min($ka.Count, $kt.Count); $i++) { SalinGaya $ka[$i].TextFrame.TextRange $kt[$i].TextFrame.TextRange }
     } else {
     $doc = $word.Documents.Open("$dir\sampul.doc", $false, $true)
     $doc.SaveAs2($tmp, 16)
@@ -171,7 +182,10 @@ try {
             [void]$hd.Range.Paragraphs.Last.Previous(1).Range.Characters.Last.Delete()   # tanda paragraf (bukan $doc.Range: kepala halaman cerita lain)
         }
         SalinGaya $sh0.Range $hd.Range
-        $ft.Range.Text = ''
+        # nomor halaman: kalau kepala templat tidak memuat PAGE, nomor di kaki halaman bawaan mesin tetap dicetak
+        $adaPage = @($sh0.Range.Fields | Where-Object { $_.Code.Text -match 'PAGE' }).Count -gt 0
+        foreach ($sp in $sh0.Shapes) { if ($sp.TextFrame.HasText -and @($sp.TextFrame.TextRange.Fields | Where-Object { $_.Code.Text -match 'PAGE' }).Count) { $adaPage = $true } }
+        if ($adaPage) { $ft.Range.Text = '' }
         $TPL.Close(0); $TPL = $null; $doc.Activate(); $script:kepalaTpl = $hd
     }
     # kepala halaman berjalan gaya cetakan kitab, bergaris bawah: halaman genap = judul kitab, halaman ganjil = judul bab

@@ -13,7 +13,8 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       bila dosen minta sumber cukup di catatan kaki; mis. «@tanpa: ayat, hadits»).
                       فهرس الآيات dan فهرس الأحاديث yang kosong tidak dicetak dengan sendirinya
                       templat (berkas .docx di folder bahts): Word mahasiswa sendiri; halaman pertamanya jadi sampul
-                      apa adanya (data sampul di naskah tidak dipakai), kepala halamannya dipakai di tiap halaman isi
+                      apa adanya (data sampul di naskah tidak dipakai), kepala halamannya (termasuk judul di dalamnya) dipakai
+                      di tiap halaman isi; nomor halaman di kaki hanya kalau kepala itu tidak memuat nomor halaman
                       halaman_baru (B, M, atau keduanya): judul itu juga mulai halaman baru, mis. dosen minta
                       مبحث dan مطلب beda halaman, مبحث = #F dan مطلب = #B → «@halaman_baru: B»
   @bentuk: kitab      bukan bahts (mis. muqarrar gabungan dua syarah): tanpa sampul bahts, wajib hanya @judul (tercetak di
@@ -1567,9 +1568,12 @@ def utama(folder):
         tpl = (folder / meta["templat"]).resolve()
         if bentuk == "kitab":
             galat.append(di("@templat") + "@templat hanya untuk bahts, bukan @bentuk: kitab")
-        elif tpl.suffix.lower() not in (".docx", ".doc") or not tpl.is_file() or not tpl.is_relative_to(folder.resolve()):
-            galat.append(di("@templat") + f"@templat: «{meta['templat']}» tidak ada: simpan berkas .docx-nya di folder {folder.name}, "
-                         "lalu tulis namanya saja")
+        elif tpl.suffix.lower() not in (".docx", ".doc"):
+            galat.append(di("@templat") + f"@templat: «{meta['templat']}» bukan berkas Word (.docx atau .doc)")
+        elif not tpl.is_relative_to(folder.resolve()):
+            galat.append(di("@templat") + f"@templat: «{meta['templat']}» di luar folder {folder.name}: salin berkasnya ke sana, lalu tulis namanya saja")
+        elif not tpl.is_file():
+            galat.append(di("@templat") + f"@templat: «{meta['templat']}» tidak ada di folder {folder.name}")
         else:
             meta["templat"] = str(tpl)
     baru = [t for t in re.split(r"[,، ]+", meta.get("halaman_baru", "")) if t]
