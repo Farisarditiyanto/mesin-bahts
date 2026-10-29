@@ -5,6 +5,8 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+## 5.2.0 — 2026-10-29
+
 - Connector `shamela` wajib (dulu sangat disarankan). Agent tidak mengumpulkan bahan sebelum `shamela` tersambung; Command Code belum bisa dipakai karena `shamela` belum bisa masuk di sana. `periksa` ikut menyebutnya wajib.
 - README ditulis ulang untuk agent dulu, lalu pemakai: lebih ringkas, isi penting tetap.
 - `@templat: <berkas>.docx` (baru): Word mahasiswa sendiri di folder bahts. Halaman pertamanya jadi sampul apa adanya, kepala halamannya (judul, nomor halaman, garis) dipakai di tiap halaman isi, dan nomor halaman di kaki tidak dicetak. Nomor di kotak kepala halaman ikut `@angka`. Data sampul di naskah cukup `@judul`. Dulu sampul selalu `mesin/sampul.doc` dan nomor halaman selalu di kaki.
