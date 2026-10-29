@@ -5,6 +5,8 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- Connector `shamela` wajib (dulu sangat disarankan). Agent tidak mengumpulkan bahan sebelum `shamela` tersambung; Command Code belum bisa dipakai karena `shamela` belum bisa masuk di sana. `periksa` ikut menyebutnya wajib.
+- README ditulis ulang untuk agent dulu, lalu pemakai: lebih ringkas, isi penting tetap.
 - `@templat: <berkas>.docx` (baru): Word mahasiswa sendiri di folder bahts. Halaman pertamanya jadi sampul apa adanya, kepala halamannya (judul, nomor halaman, garis) dipakai di tiap halaman isi, dan nomor halaman di kaki tidak dicetak. Nomor di kotak kepala halaman ikut `@angka`. Data sampul di naskah cukup `@judul`. Dulu sampul selalu `mesin/sampul.doc` dan nomor halaman selalu di kaki.
 - `@templat`: garis pemisah catatan kaki kembali di kanan. Dulu di bahts ber-`@templat` garisnya pindah ke kiri, karena arahnya disetel sebelum catatan kaki pertama ada; sekarang disetel sesudah semua catatan kaki masuk.
 - `@templat`: teks sampul yang tegak di Word mahasiswa tidak lagi tercetak miring (kop sampul Satria). Huruf Latin paragraf sampul juga tidak lagi tertimpa huruf Arabnya.
