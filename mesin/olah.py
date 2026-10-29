@@ -26,6 +26,8 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   #K #F #B #M teks    judul tengah + masuk فهرس الموضوعات: K = مقدمة/خاتمة, F = فصل (keduanya mulai halaman baru), B = مبحث, M = مطلب.
                       Bahts pendek tanpa فصل: #F untuk مبحث, #B untuk مطلب. B/M halaman baru juga: @halaman_baru
   #S teks             sub-judul kanan (tidak masuk فهرس)
+  #H                  pindah halaman: baris sesudahnya (judul, sub-judul, atau paragraf) mulai halaman baru,
+                      mis. pembuka المقدمة satu halaman sendiri, lalu «#H» sebelum «#S أهمية الدراسة»
   #T teks             kotak matn: paragraf dalam bingkai, seluruhnya merah (boleh memuat catatan kaki)
   #R teks             awal المصادر والمراجع; sesudahnya satu kitab per baris (diurutkan abjad otomatis, القرآن الكريم paling atas).
                       Wajib, kecuali «@tanpa: pustaka»
@@ -1492,6 +1494,8 @@ def utama(folder):
                                      f"mis. «@warna: 900002=biru»"); continue
                     rr, gg, bb = WARNA[w.strip()]
                     warna[sid.strip()] = rr + gg * 256 + bb * 65536
+        elif b.strip() == "#H":  # pindah halaman: blok sesudahnya mulai halaman baru (dibaca rakit.ps1 dan perkiraan_halaman)
+            blok.append({"k": "H", "runs": [], "n": n})
         elif b.startswith("#"):
             k, _, t = b[1:].partition(" ")
             if k not in ("K", "F", "B", "M", "S", "R", "T") or not t.strip():
@@ -1581,7 +1585,7 @@ def utama(folder):
         galat.append(di("@halaman_baru") + f"@halaman_baru: «{meta['halaman_baru']}» tidak dikenal (yang ada: {', '.join(HALAMAN_BARU)})")
     meta["halaman_baru"] = [t for t in baru if t in HALAMAN_BARU]  # dibaca rakit.ps1 dan perkiraan_halaman
     for a, b in zip(blok, blok[1:]):  # judul yang langsung disusul judul halaman baru tercetak sendirian di halamannya
-        if a["k"] in ("K", "F", "B", "M") and b["k"] in ("K", *("F",) * (bentuk != "kitab"), *meta["halaman_baru"]):
+        if a["k"] in ("K", "F", "B", "M") and b["k"] in ("K", "H", *("F",) * (bentuk != "kitab"), *meta["halaman_baru"]):
             perhatian.append(f"baris {a['n']}: judul «{a['judul'][:40]}» tercetak sendirian di halamannya, karena judul "
                              f"sesudahnya mulai halaman baru: tulis paragraf pengantar di bawahnya")
     if meta.get("thalibah", "ya") != "ya":
