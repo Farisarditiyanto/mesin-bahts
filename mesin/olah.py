@@ -182,10 +182,14 @@ def cek_pdf(folder, berkas, hal, kutipan, galat, perhatian, fn):
         galat.append(f"{tanda}: berkas «{berkas}» tidak ada di folder bahts {folder.name}; simpan PDF-nya di sana "
                      f"(mis. {shamela.perintah('dirasat-pdf <W…> ' + folder.name)})  || fn: {fn}")
         return
-    bagian = [b for b in ELIPSIS.split(kutipan) if shamela.padat(b)]
+    bagian = [b for b in ELIPSIS.split(kutipan or "") if shamela.padat(b)]
     if pendek := next((b for b in bagian if len(shamela.padat(b)) < KUTIPAN_MIN), None):
         galat.append(f"bagian kutipan terlalu pendek untuk dicek (paling sedikit {KUTIPAN_MIN} huruf; jangan dipotong "
                      f"... di situ) :: {pendek.strip()[:30]}  || fn: {fn}")
+        return
+    a, z = map(int, (hal + "-" + hal).split("-")[:2])
+    if not 1 <= a <= z:
+        galat.append(f"{tanda}: hal = urutan halaman di berkas PDF, mulai 1; rentang ditulis kecil-besar (mis. 3-4)  || fn: {fn}")
         return
     try:
         isi = sumber_pdf.halaman(p)
@@ -193,12 +197,12 @@ def cek_pdf(folder, berkas, hal, kutipan, galat, perhatian, fn):
         perhatian.append(f"PDF «{berkas}» tidak bisa dibaca mesin ({type(e).__name__}): cocokkan sendiri lafaz dan "
                          f"halamannya  || fn: {fn}")
         return
-    a, z = map(int, (hal + "-" + hal).split("-")[:2])
-    if not 1 <= a <= z:
-        galat.append(f"{tanda}: hal = urutan halaman di berkas PDF, mulai 1; rentang ditulis kecil-besar (mis. 3-4)  || fn: {fn}")
-        return
     if z > len(isi):
         galat.append(f"{tanda}: PDF itu hanya {len(isi)} halaman (hal = urutan halaman di berkas, mulai 1)  || fn: {fn}")
+        return
+    if kutipan is None:  # nukilan makna: berkas dan halaman tetap dicek, isi diperiksa orang
+        perhatian.append(f"nukilan tanpa tanda petik dari PDF ({berkas}): mesin tidak mengecek isinya; pastikan sendiri "
+                         f"maknanya ada di halaman itu  || fn: {fn}")
         return
     ketemu = sumber_pdf.cari(isi, bagian)
     if any(a <= n <= z for n in ketemu):
@@ -292,7 +296,7 @@ def _di(sid, juz, p1, p2, q, utuh, kata=()):
                 hasyiah = hasyiah or "hasyiah?"
             else:
                 lain = lain or (h[0], h[1], tanda)
-            break
+            # Matan di halaman lain tidak menutup pencarian حاشية pada rekaman yang sama.
     if not hasyiah and len(rekaman(sid, juz, p1, p2)) > 1:  # kutipan yang menyambung dari satu rekaman ke berikutnya
         for bagian in ("body", "footnotes"):  # حاشية yang bersambung («… =» lalu «= …» di halaman berikutnya)
             for g in gabung(sid, juz, p1, p2):
@@ -1031,10 +1035,13 @@ def cocok_halaman(isi, bukti, perhatian=None):
         for juz in juz_bukti | (lain - juz_bukti):
             ada = {n for _, z, p1, p2 in bb if z == juz for n in range(p1, p2 + 1)}
             for a, b in tercetak(teks, juz):
+                if a < 1 or b < a or b - a > RENTANG_MAKS:
+                    galat.append(f"halaman tercetak {juz}/{a}-{b} tidak punya bukti{kitabnya}")
+                    continue  # tolak sebelum range dibuat: salah ketik jangan menghabiskan memori
                 kurang = sorted(set(range(a, b + 1)) - ada)
-                if b - a > RENTANG_MAKS or not kurang:
-                    galat += [f"halaman tercetak {juz}/{a}-{b} tidak punya bukti{kitabnya}"] if b - a > RENTANG_MAKS else []
-                elif len(kurang) == b - a + 1:
+                if not kurang:
+                    continue
+                if len(kurang) == b - a + 1:
                     galat.append(f"halaman tercetak {juz}/{a}{'-' + str(b) if b != a else ''} tidak punya bukti{kitabnya}")
                 else:  # «1/36-37» dengan bukti 36 saja: lebarkan buktinya (<<…|1|36-37>>) atau cetak halaman buktinya saja
                     galat.append(f"halaman tercetak {juz}/{a}-{b}: bukti belum mencakup {_rentang(kurang)}{kitabnya}")
@@ -1049,7 +1056,7 @@ def cocok_halaman(isi, bukti, perhatian=None):
 def ayat(spec):
     """'s:a' | 's:a-b' | 's:a:i-j' -> (teks_utsmani, surah, 'a' atau 'a-b')."""
     p = spec.split(":")
-    if len(p) not in (2, 3) or not all(re.fullmatch(r"\d+(-\d+)?", x) for x in p):
+    if len(p) not in (2, 3) or not re.fullmatch(r"\d+", p[0]) or not all(re.fullmatch(r"\d+(-\d+)?", x) for x in p[1:]):
         raise TandaRusak(f"{{Q:{spec}}}: bentuknya {{Q:surat:ayat}}, {{Q:surat:a-b}}, atau {{Q:surat:ayat:i-j}}")
     if len(p) == 3 and "-" in p[1]:
         raise TandaRusak(f"{{Q:{spec}}}: kata ke-i s.d. j hanya untuk satu ayat ({{Q:surat:ayat:i-j}})")
@@ -1413,12 +1420,9 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                              f"  || fn: {isi[:45]}")
                 mk = None  # sudah dilaporkan
             # tiap bukti PDF selalu dicek (juga sesudah سورة / سبق تخريجه): berkas dan halamannya tetap harus benar
-            if pdf and mk_pdf is not None:
+            if pdf:
                 for b, h in pdf:
                     cek_pdf(folder, b.strip(), h, mk_pdf, galat, perhatian, isi[:45])
-            elif pdf:  # nukilan makna (انظر) dari PDF: tidak ada lafaz yang bisa dicek
-                perhatian.append(f"nukilan tanpa tanda petik dari PDF ({'، '.join(b for b, _ in pdf)}): mesin tidak "
-                                 f"mengecek isinya; pastikan sendiri maknanya ada di halaman itu  || fn: {isi[:45]}")
             elif not bukti and mk is not None and not dikecualikan:
                 if luar:
                     # <<luar>> hanya untuk sumber yang memang tidak ada di Shamela: judul kitab Shamela = GAGAL

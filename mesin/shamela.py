@@ -38,13 +38,29 @@ COBA = 3  # tiap kitab dicoba sebanyak ini kalau unduhannya putus
 SEMENTARA = (500, 502, 503)  # jawaban HTTP yang biasanya hilang sendiri (504 tidak: OpenAlex memakainya untuk «pencarian terlalu berat»)
 
 
+class _AlihAman(urllib.request.HTTPRedirectHandler):
+    """Kunci hanya ikut pengalihan di asal yang sama (protokol, nama host, dan port)."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        baru = super().redirect_request(req, fp, code, msg, headers, newurl)
+
+        def asal(url):
+            u = urllib.parse.urlsplit(url)
+            port = u.port if u.port is not None else {"http": 80, "https": 443}.get(u.scheme)
+            return u.scheme, u.hostname, port
+
+        if baru is not None and asal(req.full_url) != asal(baru.full_url):
+            baru.remove_header("Authorization")
+        return baru
+
+
 def buka(url, data=None, kepala=UA, waktu=60, coba=3):
     """Satu pintu permintaan ke layanan luar (temukan, hadits, dirasat, font). Galat sementara (koneksi putus/direset,
     SSL terputus, waktu habis, HTTP 500/502/503) dicoba lagi sampai `coba` kali dengan jeda 1, 2, 4 detik.
     Penolakan lain (4xx, 429 jatah habis, 504) langsung dilempar: artinya beda per layanan, pemanggil yang menjelaskan."""
+    pembuka = urllib.request.build_opener(_AlihAman)
     for i in range(coba):
         try:
-            return urllib.request.urlopen(urllib.request.Request(url, data, kepala), timeout=waktu)
+            return pembuka.open(urllib.request.Request(url, data, kepala), timeout=waktu)
         except urllib.error.HTTPError as e:
             if e.code not in SEMENTARA or i == coba - 1:
                 raise

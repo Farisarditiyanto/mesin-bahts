@@ -22,6 +22,8 @@ jobs:
       - run: python .github/uji_jebakan.py
       # tanpa @angka, angka di teks Arab bahan rakit ٠-٩ (dulu PDF mencetak «آية: ٢» di samping «ص5»)
       - run: python .github/uji_angka.py
+      # Pengalihan HTTP harus menjaga kunci di asal yang sama, tanpa membocorkannya ke asal lain (peladen lokal).
+      - run: python .github/uji_jaringan.py
       # opencode.json = salinan terpaksa .mcp.json (OpenCode tidak membaca .mcp.json): daftar connector harus sama
       - name: connector opencode.json sama dengan .mcp.json
         run: python -c "import json; a={k:v['url'] for k,v in json.load(open('.mcp.json'))['mcpServers'].items()}; b={k:v['url'] for k,v in json.load(open('opencode.json'))['mcp'].items()}; assert a==b, (a,b)"
@@ -33,3 +35,7 @@ jobs:
           $galat = $null
           [System.Management.Automation.Language.Parser]::ParseFile("$PWD\mesin\rakit.ps1", [ref]$null, [ref]$galat) | Out-Null
           if ($galat) { $galat | ForEach-Object { "$($_.Extent.StartLineNumber): $($_.Message)" }; exit 1 }
+      - name: startup rakit tidak menghentikan Word aplikasi lain
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: .github/uji_word_startup.ps1
