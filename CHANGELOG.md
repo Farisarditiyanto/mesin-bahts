@@ -5,6 +5,12 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `rakit`: tidak lagi menghentikan semua proses Word `/Automation` saat mulai. Proses itu bisa milik aplikasi lain; pembersihan saat selesai tetap dibatasi pada proses baru yang terdeteksi selama perakitan.
+- `dirasat` dan `dirasat-pdf`: kunci OpenAlex tidak lagi ikut pengalihan HTTP ke host, port, atau protokol lain; pengalihan di asal yang sama tetap memakai kunci. Sebelumnya `urllib` membawa header Authorization ke alamat tujuan lain. Diuji dengan peladen lokal dan kunci palsu.
+- `cek`: rentang halaman tercetak yang terbalik kini GAGAL, dan rentang terlalu besar ditolak sebelum dibuat daftar halamannya. Dulu «ص5، ص55-5» bisa lolos, sedangkan «ص5-99999999» bisa menghabiskan memori.
+- `cek`: nukilan makna dari `<<luar|berkas.pdf|hal>>` kini tetap memeriksa letak berkas, keberadaan PDF, dan rentang halamannya; yang valid tetap perhatian untuk diperiksa sendiri. Dulu tanpa tanda petik, berkas hilang/di luar folder atau halaman 0/terbalik/di luar PDF ikut lolos dengan perhatian saja.
+- `cek`: kutipan di حاشية tetap dicari ketika matan rekaman yang sama memuat lafaznya di halaman lain. Dulu kemunculan di matan menghentikan pencarian lebih awal dan membuat GAGAL palsu; حاشية yang halaman persisnya tidak diketahui tetap perhatian.
+- `cek`: nomor surat berbentuk rentang (mis. `{Q:1-2:2}`) kini dilaporkan sebagai tanda naskah yang salah, bukan GALAT MESIN.
 - Tanda `#H` (baru): satu baris berisi `#H` = baris sesudahnya (judul, sub-judul, atau paragraf) mulai halaman baru. Untuk pembuka المقدمة yang diminta satu halaman sendiri, atau daftar خطة البحث yang tidak boleh terpotong. Dulu halaman baru hanya di judul #K/#F (dan #B/#M lewat `@halaman_baru`).
 - Profil `@format: imam_ayat16_bersambung` (baru): sama dengan `imam_ayat16`, tetapi nomor catatan kaki bersambung sampai akhir bahts (١، ٢، ٣ …). Dulu semua profil memulai nomor dari ١ lagi tiap halaman.
 
