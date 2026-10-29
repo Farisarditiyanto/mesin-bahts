@@ -156,7 +156,7 @@ def periksa():
             baris(huruf_ada(h), f"huruf {h}" + ("" if h == wajib else f" (hanya untuk @format {', '.join(profil)})"),
                   HURUF_SARAN, untuk_cek=False, untuk_rakit=h == wajib)
     print(f"\nMenulis dan `cek`: {'SIAP' if siap_cek else 'BELUM'}.  `rakit` (Word + PDF): {'SIAP' if siap_rakit else 'BELUM'}.")
-    print("WSL tidak diperlukan. Connector shamela: pilihan, sangat disarankan (lihat README).")
+    print("WSL tidak diperlukan. Connector shamela: wajib, dipasang lewat agent (AGENTS.md «Pemakai baru» langkah 4).")
     sys.exit(0 if siap_cek else 1)
 
 
