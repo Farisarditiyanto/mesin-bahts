@@ -5,6 +5,8 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- Profil `@format: imam_ayat16_bersambung` (baru): sama dengan `imam_ayat16`, tetapi nomor catatan kaki bersambung sampai akhir bahts (١، ٢، ٣ …). Dulu semua profil memulai nomor dari ١ lagi tiap halaman.
+
 ## 5.2.0 — 2026-10-29
 
 - Connector `shamela` wajib (dulu sangat disarankan). Agent tidak mengumpulkan bahan sebelum `shamela` tersambung; Command Code belum bisa dipakai karena `shamela` belum bisa masuk di sana. `periksa` ikut menyebutnya wajib.

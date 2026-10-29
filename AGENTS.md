@@ -25,6 +25,7 @@ Anggap pemakai baru pertama kali memakai agent, tidak membaca README, dan hanya 
 - Nama folder untuk `baru`: pendek, huruf Latin, tanpa spasi (mis. `ikhlas`). Nama berkas hasil diatur `@berkas`.
 - Jumlah halaman yang disebut pemakai = halaman isi (المقدمة sampai الخاتمة); `rakit` mencetaknya sebagai `HALAMAN_ISI`. مقدمة, tiap فصل, dan خاتمة selalu mulai halaman baru. Jelaskan ke pemakai bahwa PDF juga memuat sampul, المصادر والمراجع, dan الفهارس, lalu sebut `HALAMAN_ISI` dan `HALAMAN` sesudah `rakit`.
 - Angka di PDF bawaan ٠١٢٣ (dasarnya di README «Standar halaman»). Dosen minta 0123 → `@angka: latin` di naskah. Cuma nomor ayat di catatan kaki yang 0123 → `@angka_ayat: latin`.
+- Nomor catatan kaki bawaan mulai ١ lagi tiap halaman. Diminta bersambung sampai akhir bahts → `@format: imam_ayat16_bersambung`.
 - Pemakai tidak mau فهرس tertentu → `@tanpa:` di naskah (`ayat`, `hadits`, `maudhuat`; mis. `@tanpa: ayat, hadits`). Dosen minta sumber cukup di catatan kaki → `@tanpa: pustaka` dan tanpa `#R`. Jangan membuangnya tanpa diminta.
 - Laporan akhir ke pemakai: tulis letak lengkap berkas PDF-nya.
 
