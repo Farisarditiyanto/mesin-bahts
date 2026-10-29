@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- Tanda `#H` (baru): satu baris berisi `#H` = baris sesudahnya (judul, sub-judul, atau paragraf) mulai halaman baru. Untuk pembuka المقدمة yang diminta satu halaman sendiri, atau daftar خطة البحث yang tidak boleh terpotong. Dulu halaman baru hanya di judul #K/#F (dan #B/#M lewat `@halaman_baru`).
 - Profil `@format: imam_ayat16_bersambung` (baru): sama dengan `imam_ayat16`, tetapi nomor catatan kaki bersambung sampai akhir bahts (١، ٢، ٣ …). Dulu semua profil memulai nomor dari ١ lagi tiap halaman.
 
 ## 5.2.0 — 2026-10-29

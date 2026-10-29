@@ -374,12 +374,15 @@ try {
     $toc = New-Object System.Collections.ArrayList
     $nKotak = 0
     $garis = New-Object System.Collections.ArrayList   # paragraf @warna: garis tegak di sisi awal (tetap terlihat di fotokopi hitam putih)
-    $nT = 0; $pertama = $true; $iR = -1
+    $nT = 0; $pertama = $true; $iR = -1; $pbBerikut = $false
+    function HalamanBaru { if ($script:pbBerikut) { $sel.ParagraphFormat.PageBreakBefore = -1; $sel.ParagraphFormat.SpaceBefore = 0; $script:pbBerikut = $false } }
     for ($i = 0; $i -lt $DATA.blok.Count; $i++) {
         $blk = $DATA.blok[$i]
         if ($blk.k -eq 'R') { $iR = $i; break }
+        if ($blk.k -eq 'H') { $pbBerikut = -not $pertama; continue }   # #H: blok sesudahnya mulai halaman baru
         if ($blk.k -in 'K', 'F', 'B', 'M') {
-            $pb = (($blk.k -in 'K', 'F' -and -not ($KITAB -and $blk.k -eq 'F')) -or $blk.k -in $M.halaman_baru) -and -not $pertama   # @halaman_baru: B/M juga halaman baru
+            $pb = ((($blk.k -in 'K', 'F' -and -not ($KITAB -and $blk.k -eq 'F')) -or $blk.k -in $M.halaman_baru) -and -not $pertama) -or $pbBerikut   # @halaman_baru: B/M juga halaman baru
+            $pbBerikut = $false
             $pertama = $false
             $nT++; $bm = "t_$nT"
             Judul $blk.judul $bm $pb
@@ -388,6 +391,7 @@ try {
         }
         elseif ($blk.k -eq 'T') {                         # kotak matn: bingkai merah tipis, teks merah, rata kanan-kiri
             Para 3 6 0
+            HalamanBaru
             $awal = $sel.Start
             Runs $blk.runs $uMatan $false $true
             $nKotak++; [void]$doc.Bookmarks.Add("kotak_$nKotak", $doc.Range($awal, $sel.Start))   # bingkainya dipasang sesudah isi selesai
@@ -395,12 +399,14 @@ try {
         }
         elseif ($blk.k -eq 'S') {
             Para 3 6 0
+            HalamanBaru
             $sel.ParagraphFormat.KeepWithNext = -1
             Tulis $blk.judul $TA $uJudul 1 0
             $sel.TypeParagraph()
         }
         else {
             Para 3 0 ($word.CentimetersToPoints(0.8))
+            HalamanBaru
             $awal = $sel.Start
             Runs $blk.runs $uMatan $false
             $teks = @($blk.runs | Where-Object { $_.t -and $_.t.Trim() })

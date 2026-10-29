@@ -235,7 +235,7 @@ def perkiraan_halaman(d):
     for b in d["blok"]:
         if b["k"] == "R":
             break
-        if b["k"] in ("K", "F", *d["meta"].get("halaman_baru", [])) or not bagian:
+        if b["k"] in ("K", "F", "H", *d["meta"].get("halaman_baru", [])) or not bagian:
             bagian.append(0.0)
         fn = sum(kata(d["catatan"][r["fn"]]["runs"]) for r in b["runs"] if r.get("fn") is not None)
         bagian[-1] += kata(b["runs"]) + fn * (fmt["catatan"] / fmt["matan"]) ** 2
