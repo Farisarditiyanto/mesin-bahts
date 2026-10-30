@@ -16,7 +16,7 @@ jobs:
       - run: python mesin/bahts.py siapkan
       - run: python mesin/bahts.py periksa
       # 11223 = kitab contoh/naskah.txt; sisanya untuk jebakan yang butuh kitab berharakat, berjilid, atau berhalaman rumit
-      - run: python mesin/bahts.py ambil 11223 2348 1082 10649 1727
+      - run: python mesin/bahts.py ambil 11223 2348 1082 10649 1727 1681
       - run: python mesin/bahts.py cek contoh
       # contoh/jebakan/naskah.txt: tiap baris di bawah #S menghasilkan persis yang disebut judulnya
       - run: python .github/uji_jebakan.py
@@ -26,6 +26,8 @@ jobs:
       - run: python .github/uji_jaringan.py
       # Bahan terpisah, cache rusak pulih, sumber tidak tertimpa, katalog ringan, PDF utuh; kegagalan Word disimulasikan.
       - run: python .github/uji_integritas.py
+      # Struktur yang diterima cek harus seluruhnya dapat dirakit; stress catatan kaki dan data salah ketik.
+      - run: python .github/uji_struktur.py
       # opencode.json = salinan terpaksa .mcp.json (OpenCode tidak membaca .mcp.json): daftar connector harus sama
       - name: connector opencode.json sama dengan .mcp.json
         run: python -c "import json; a={k:v['url'] for k,v in json.load(open('.mcp.json'))['mcpServers'].items()}; b={k:v['url'] for k,v in json.load(open('opencode.json'))['mcp'].items()}; assert a==b, (a,b)"
