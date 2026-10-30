@@ -5,7 +5,8 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   @kunci: nilai       data sampul, di awal naskah. Wajib: judul, jenis ("-" = tidak tercetak), nama, nim, fasl.
                       Opsional: musyrif, jabatan (kosong atau "-" = tidak tercetak), thalibah (ya = sampul mencetak «اسم الطالبة»),
                       sampul (mahad = sampul معهد، كلية الشريعة, bawaan; qism = model قسم الشريعة: logo, judul besar, sub-judul dalam kurung,
-                      العام الجامعي; wajib hanya judul dan nama), tahun (العام الجامعي di sampul qism, mis. ١٤٤٨;
+                      العام الجامعي; wajib hanya judul dan nama; jenis dan nim tercetak kalau diisi, fasl tidak),
+                      tahun (العام الجامعي di sampul qism, mis. ١٤٤٨;
                       bawaan = tahun hijriah Umm al-Qura saat tahun ajaran mulai, 1 Agustus),
                       berkas (nama file hasil), format (profil di format.json; bawaan imam),
                       angka (hindi = ٠١٢٣، bawaan; latin = 0123): angka yang tercetak di seluruh PDF,
@@ -76,7 +77,7 @@ SURAH = json.load(open(HERE / "nama_surah.json", encoding="utf8"))
 FORMAT = json.load(open(HERE / "format.json", encoding="utf8"))  # huruf & ukuran tiap pedoman; dipilih dengan @format
 WAJIB = {"bahts": ("judul", "jenis", "nama", "nim", "fasl"), "kitab": ("judul",)}  # @bentuk: yang pertama = bawaan
 # @sampul: model sampul bahts -> data yang wajib. Yang pertama = bawaan. mahad = mesin/sampul.doc (معهد، كلية الشريعة);
-# qism = mesin/sampul_qism.docx (قسم الشريعة: logo, judul besar, sub-judul dalam kurung, العام الجامعي; nim, jenis, fasl tidak tercetak)
+# qism = mesin/sampul_qism.docx (قسم الشريعة: logo, judul besar, sub-judul dalam kurung, العام الجامعي; jenis dan nim tercetak kalau diisi, fasl tidak)
 SAMPUL = {"mahad": WAJIB["bahts"], "qism": ("judul", "nama")}
 HALAMAN_BARU = ("B", "M")  # judul yang bisa dibuat mulai halaman baru lewat @halaman_baru; K dan F selalu
 TANPA = ("ayat", "hadits", "maudhuat", "pustaka")  # فهرس dan المصادر yang boleh dibuang lewat @tanpa; perakitnya di rakit.ps1
