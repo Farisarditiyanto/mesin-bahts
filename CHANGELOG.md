@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `hadits`: keluarannya kini mengingatkan bahwa daftar cocok memakai frasa persis, jadi lafaz lain (mis. بالنية/بالنيات) bisa terlewat; daftar «Riwayat mirip» perlu diperiksa terpisah. Perbandingan dengan connector `hadithunlocked` beserta batas pengujiannya dicatat di `dok/takhrij.md`.
 - `rakit`: tidak lagi menghentikan semua proses Word `/Automation` saat mulai. Proses itu bisa milik aplikasi lain; pembersihan saat selesai tetap dibatasi pada proses baru yang terdeteksi selama perakitan.
 - `dirasat` dan `dirasat-pdf`: kunci OpenAlex tidak lagi ikut pengalihan HTTP ke host, port, atau protokol lain; pengalihan di asal yang sama tetap memakai kunci. Sebelumnya `urllib` membawa header Authorization ke alamat tujuan lain. Diuji dengan peladen lokal dan kunci palsu.
 - `cek`: rentang halaman tercetak yang terbalik kini GAGAL, dan rentang terlalu besar ditolak sebelum dibuat daftar halamannya. Dulu «ص5، ص55-5» bisa lolos, sedangkan «ص5-99999999» bisa menghabiskan memori.
