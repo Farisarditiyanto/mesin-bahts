@@ -4,6 +4,9 @@
 Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   @kunci: nilai       data sampul, di awal naskah. Wajib: judul, jenis ("-" = tidak tercetak), nama, nim, fasl.
                       Opsional: musyrif, jabatan (kosong atau "-" = tidak tercetak), thalibah (ya = sampul mencetak «اسم الطالبة»),
+                      sampul (mahad = sampul معهد، كلية الشريعة, bawaan; qism = model قسم الشريعة: logo, judul dalam kurung,
+                      العام الجامعي; wajib hanya judul dan nama), tahun (العام الجامعي di sampul qism, mis. ١٤٤٨;
+                      bawaan = tahun hijriah Umm al-Qura saat rakit),
                       berkas (nama file hasil), format (profil di format.json; bawaan imam),
                       angka (hindi = ٠١٢٣، bawaan; latin = 0123): angka yang tercetak di seluruh PDF,
                       termasuk nomor halaman, nomor catatan kaki, dan فهرس. Naskah boleh ditulis dengan angka mana saja
@@ -71,6 +74,9 @@ QURAN = json.load(open(HERE / "quran_hafs_v22.json", encoding="utf8"))
 SURAH = json.load(open(HERE / "nama_surah.json", encoding="utf8"))
 FORMAT = json.load(open(HERE / "format.json", encoding="utf8"))  # huruf & ukuran tiap pedoman; dipilih dengan @format
 WAJIB = {"bahts": ("judul", "jenis", "nama", "nim", "fasl"), "kitab": ("judul",)}  # @bentuk: yang pertama = bawaan
+# @sampul: model sampul bahts -> data yang wajib. Yang pertama = bawaan. mahad = mesin/sampul.doc (معهد، كلية الشريعة);
+# qism = mesin/sampul_qism.docx (قسم الشريعة: logo, judul dalam kurung, العام الجامعي; nim, jenis, fasl tidak tercetak)
+SAMPUL = {"mahad": WAJIB["bahts"], "qism": ("judul", "nama")}
 HALAMAN_BARU = ("B", "M")  # judul yang bisa dibuat mulai halaman baru lewat @halaman_baru; K dan F selalu
 TANPA = ("ayat", "hadits", "maudhuat", "pustaka")  # فهرس dan المصادر yang boleh dibuang lewat @tanpa; perakitnya di rakit.ps1
 # @angka: yang pertama = bawaan. Pedoman Jāmiʿat al-Imām tidak menyebut jenis angka; contoh resminya (pedoman 1443هـ,
@@ -1567,7 +1573,17 @@ def utama(folder):
     def kata(runs): return sum(len(re.findall(r"[؀-ۿ]+", r.get("t", ""))) for r in runs)
     n_matan = sum(kata(b["runs"]) for b in blok)
     n_fn = sum(kata(c["runs"]) for c in catatan)
-    wajib = ("judul",) if meta.get("templat") else WAJIB[bentuk]  # @templat: sampul diambil apa adanya dari Word mahasiswa
+    # rakit.ps1 hanya memakai salah satu: jangan ada yang diabaikan diam-diam (@sampul yang tidak dikenal sudah GAGAL di bawah)
+    if meta.get("sampul", "").lower() in SAMPUL and meta.get("templat"):
+        galat.append(di("@sampul") + "@sampul dan @templat tidak bisa dipakai bersama: @templat sudah membawa sampulnya sendiri; hapus salah satu")
+    sampul = meta["sampul"] = meta.get("sampul", next(iter(SAMPUL))).lower()
+    if sampul not in SAMPUL:
+        galat.append(di("@sampul") + f"@sampul: «{sampul}» tidak dikenal (yang ada: {'، '.join(SAMPUL)})")
+        sampul = meta["sampul"] = next(iter(SAMPUL))
+    if meta.get("tahun") and not re.fullmatch(r"[0-9٠-٩]{4}", meta["tahun"]):
+        galat.append(di("@tahun") + f"@tahun: «{meta['tahun']}» bukan tahun hijriah empat angka (mis. ١٤٤٨)")
+    # @templat: sampul diambil apa adanya dari Word mahasiswa
+    wajib = ("judul",) if meta.get("templat") else SAMPUL[sampul] if bentuk == "bahts" else WAJIB[bentuk]
     galat += [di("@" + k) + f"data sampul belum diisi: @{k}" for k in wajib if not meta.get(k)]
     asing = [t for t in tanpa if t not in TANPA]
     if asing:
@@ -1605,7 +1621,7 @@ def utama(folder):
         galat.append(di("@angka_ayat") + f"@angka_ayat: «{angka_ayat}» tidak dikenal (yang ada: {'، '.join(ANGKA)})")
     else:  # yang dihitung Word (nomor halaman, catatan kaki, فهرس) diubah di rakit.ps1; ayat (q) tetap apa adanya
         ubah = hindi if angka == "hindi" else (lambda s: s.translate(ANGKA_LATIN))
-        for k in ("judul", "jenis", "nama", "nim", "fasl", "musyrif", "jabatan"):
+        for k in ("judul", "jenis", "nama", "nim", "fasl", "musyrif", "jabatan", "tahun"):
             if k in meta:
                 meta[k] = ubah(meta[k])
         for r in [r for b in blok + catatan for r in b["runs"]] + hadits_idx:
