@@ -46,7 +46,7 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       harus ada di kitab sid pada juz/hal itu, utuh per kata. Kutipan yang dipotong: tulis ... di tempat
                       potongannya; tiap bagian dicek, harus berurutan. Kutipan tanpa bukti = GAGAL
   <<sid|juz|hal|potongan>>   bukti dengan potongan lafaz sendiri (untuk nukilan makna «انظر», tanpa tanda petik).
-                      Nomor hadits saja (#123) bukan bukti lafaz: ganti dengan potongan teks kitab yang dibaca.
+                      #123 = nomor hadits: harus berdiri sebagai kepala hadits di halaman itu («123 - حدثنا», «36 - (123)», «(123) - حدثنا»).
                       Kutipan bertanda petik sebelum catatan kaki tetap dicek ke halaman bukti itu
                       juz "-" = kitab satu jilid; hal boleh rentang 12-14
   [^<<sid|juz|hal>>]  catatan kaki berisi bukti saja, semua sid-nya ada di @rumuz: tidak dicetak; yang tercetak hanya
@@ -453,8 +453,13 @@ def cek(sid, juz, hal, pot, perhatian, kutipan=False, rinci=True):
         if p1 <= n <= p2 and not any(p.endswith(pesan) for p in perhatian):
             perhatian.append(pesan)
     if pot.startswith("#") and not kutipan:
-        return (f"nomor hadits saja ({pot}) bukan bukti lafaz: angka yang sama bisa nomor ayat, halaman, atau catatan; "
-                "ganti #nomor dengan potongan lafaz yang dibaca di kitab pada juz/halaman itu")
+        nomor = pot[1:].strip().translate(ANGKA_LATIN)
+        if not re.fullmatch(r"\d+", nomor):  # «#» kosong cocok di halaman mana saja
+            return f"nomor hadits kosong/bukan angka: <<…|{pot}>>"
+        if any(nomor_hadits(r.get("body") or "", nomor) for r in rekaman(sid, juz, p1, p2)):
+            return ""
+        return (f"{nomor} bukan kepala hadits di {sid} {juz}/{hal}: angka di awal baris («{nomor} - حدثنا», «36 - ({nomor})») yang "
+                "dihitung, bukan nomor ayat atau catatan; betulkan nomornya, atau pakai potongan lafaz dari halaman itu")
     bagian, celah, pisah = [], [], []  # celah[i] = pemisah (... atau ﴿s:a﴾) di antara bagian i dan i+1
     ujung = [[], []]  # pemisah sebelum bagian pertama dan sesudah bagian terakhir («"قال تعالى: {Q:…}"»)
     for k, x in enumerate(re.split(f"({ELIPSIS.pattern})", pot)):
@@ -909,6 +914,14 @@ def angka_kitab(t):
     # «و٢٦٧» (و kata sambung yang berdiri sendiri) bukan nomor catatan kaki
     t = re.sub(r"(?<=[ء-ي])(?<!(?<![ء-ي])و)[٠-٩۰-۹]+|\(¬\s*[٠-٩۰-۹0-9]+\s*\)|^\s*\([٠-٩۰-۹0-9]+\)", kosong, t, flags=re.M)
     return t.translate(ANGKA_LATIN)
+
+
+def nomor_hadits(body, nomor):
+    """Nomor berdiri sebagai kepala hadits di awal baris: «3561 - حدثنا», «36 - (2408)», atau «(102) - حدثنا». Nomor ayat,
+    catatan, dan rentang halaman tidak ikut; nomor hadits lain atau daftar bernomor di halaman itu tetap bisa tertukar."""
+    # bukan angka_kitab: ia mengosongkan «(n)» di awal baris, padahal itu salah satu bentuk kepala hadits
+    baris = shamela.PENANDA.sub(" ", shamela.TAGS.sub(" ", body)).translate(ANGKA_LATIN).replace("\r", "\n")
+    return re.search(rf"^[ \t\u200e\u200f]*(?:\d+[ \t]*[-–][ \t]*\({nomor}\)|(?:\({nomor}\)|{nomor})[ \t]*[-–][ \t]*[^\d\s])", baris, re.M)
 
 
 def ragu_kutipan(rr, awal, pot, periksa_angka=True, dulu=lambda: None):
