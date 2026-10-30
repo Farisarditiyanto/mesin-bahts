@@ -91,7 +91,79 @@ try {
             if ($fa.NameAscii) { $ft2.NameAscii = $fa.NameAscii }; if ($fa.NameOther) { $ft2.NameOther = $fa.NameOther }; if ($fa.NameBi) { $ft2.NameBi = $fa.NameBi }
         }
     }
+    function Ganti($p, $teks) { $r = $p.Range; [void]$r.MoveEnd(1, -1); $r.Text = $teks }
+    # judul dikecilkan sampai muat satu baris (mis. utama 36 -> 26, baris kedua 26 -> 22); yang tetap terlalu panjang diratakan:
+    # tepi kiri-kanan paragrafnya dilebarkan 6 pt demi 6 pt selama jumlah barisnya tetap, jadi tiap baris kira-kira sama
+    # panjang dan baris terakhir tidak tinggal satu kata («… وأوضح / المسالك»)
+    function Seimbang($p, $uk, $kecil) {
+        while ($uk -gt $kecil -and $p.Range.ComputeStatistics(1) -gt 1) { $uk -= 2; $p.Range.Font.Size = [single]$uk; $p.Range.Font.SizeBi = [single]$uk }
+        $n = $p.Range.ComputeStatistics(1); if ($n -le 1) { return }
+        $pf = $p.Range.ParagraphFormat
+        for ($tepi = 6; $tepi -le 180; $tepi += 6) {
+            $pf.LeftIndent = [single]$tepi; $pf.RightIndent = [single]$tepi
+            if ($p.Range.ComputeStatistics(1) -gt $n) { $pf.LeftIndent = [single]($tepi - 6); $pf.RightIndent = [single]($tepi - 6); break }
+        }
+    }
     if ($KITAB) { $doc = $word.Documents.Add(); $doc.SaveAs2($tmp, 16); Draft }
+    elseif ($M.sampul -eq 'qism') {
+    # @sampul: qism = model قسم الشريعة (logo, judul dalam kurung, العام الجامعي): teks penanda diganti, bentuknya dari templat
+    $doc = $word.Documents.Open("$dir\sampul_qism.docx", $false, $true)
+    $doc.SaveAs2($tmp, 16)
+    Draft
+    # العام الجامعي bawaan = tahun hijriah saat tahun ajaran mulai (1 Agustus): satu tahun ajaran tetap satu tahun
+    # walau 1 Muharram lewat di tengahnya (Juni 2027 = 1449, tahun ajarannya masih 1448)
+    $awal = [datetime]::new((Get-Date).Year, 8, 1); if ((Get-Date) -lt $awal) { $awal = $awal.AddYears(-1) }
+    $TAHUN = if ($M.tahun) { [string]$M.tahun } else { Angka ([Globalization.UmAlQuraCalendar]::new().GetYear($awal)) }
+    $pJudul = $null; $pSub = $null
+    foreach ($p in @($doc.Paragraphs)) {
+        $t = $p.Range.Text.Trim()
+        if ($t -eq 'عنوان البحث') { Ganti $p $JUDUL1; $pJudul = $p }
+        # sub-judul (bagian judul sesudah « - ») dalam kurung; tanpa sub-judul barisnya kosong
+        elseif ($t -eq '( موضوع البحث )') { Ganti $p $(if ($JUDUL2) { "( $JUDUL2 )" } else { '' }); $pSub = $p }
+        # pembimbing: tanpa @musyrif (atau "-") ketiga barisnya kosong; tanpa @jabatan (atau "-") baris jabatannya kosong
+        elseif ($t -eq 'المشرف') { if (-not $MUSYRIF) { Ganti $p '' } }
+        elseif ($t -eq 'اسم المشرف') { Ganti $p $MUSYRIF }
+        elseif ($t -eq 'الدرجة العلمية للمشرف') { Ganti $p $JABATAN }
+        elseif ($t -eq 'إعداد الطالب:') { if ($M.thalibah -eq 'ya') { Ganti $p 'إعداد الطالبة:' } }
+        elseif ($t -eq 'اسم الطالب') { Ganti $p $NAMA }
+        elseif ($t -eq 'السنة الهجرية') { Ganti $p "$TAHUN هـ" }
+    }
+    # huruf judul model (dari templat: PT Bold Heading) belum terpasang = Word diam-diam memakai huruf lain: pakai huruf profil tebal
+    $hJudul = $pJudul.Range.Font.NameBi
+    if (@($word.FontNames) -notcontains $hJudul) {
+        Write-Output "PERINGATAN: huruf $hJudul (judul sampul qism) belum terpasang di Windows: judul dicetak $TA tebal. Pasang hurufnya, lalu rakit lagi."
+        $f = $pJudul.Range.Font; $f.Name = $TA; $f.NameBi = $TA; $f.Bold = 1; $f.BoldBi = 1
+    }
+    Seimbang $pJudul 24 18                               # judul 24 seperti model, dikecilkan sampai 18 supaya muat satu baris
+    if ($JUDUL2) { Seimbang $pSub 18 16 }
+    else { $pSub.Range.Font.Size = 2; $pSub.Range.Font.SizeBi = 2; $pSub.SpaceBefore = 0 }   # tanpa sub-judul: tanpa celah
+    # judul sangat panjang: sampul tetap satu halaman, judul dan sub-judul dikecilkan sampai 14.
+    # Jumlah halaman dihitung di Print Layout, dengan satu paragraf sementara untuk baris pemisah bagian sesudah sampul
+    $doc.ActiveWindow.View.Type = 3
+    $doc.Content.InsertParagraphAfter()
+    $uk = $pJudul.Range.Font.SizeBi; $kecil = $false
+    while ($uk -gt 14 -and $doc.ComputeStatistics(2) -gt 1) {
+        $uk--; $kecil = $true
+        foreach ($q in @($pJudul, $pSub)) {
+            if ($q.Range.Font.SizeBi -gt $uk) { $q.Range.Font.Size = [single]$uk; $q.Range.Font.SizeBi = [single]$uk }
+        }
+    }
+    if ($kecil) {                                        # baris berubah sesudah dikecilkan: ratakan lagi
+        foreach ($q in @($pJudul, $pSub)) { $q.LeftIndent = 0; $q.RightIndent = 0; $u = $q.Range.Font.SizeBi; Seimbang $q $u $u }
+    }
+    # masih dua halaman: jarak di atas «العام الجامعي» dipendekkan, lalu jarak antarbagian lain
+    $pTahun = @($doc.Paragraphs) | Where-Object { $_.Range.Text.Trim() -eq 'العام الجامعي' } | Select-Object -First 1
+    while ($doc.ComputeStatistics(2) -gt 1 -and $pTahun.SpaceBefore -gt 0) { $pTahun.SpaceBefore = [Math]::Max(0, $pTahun.SpaceBefore - 10) }
+    foreach ($q in @($doc.Paragraphs)) {
+        if ($doc.ComputeStatistics(2) -le 1) { break }
+        if ($q.SpaceBefore -gt 0) { $q.SpaceBefore = 0 }
+    }
+    if ($doc.ComputeStatistics(2) -gt 1) {
+        Write-Output "PERINGATAN: judul terlalu panjang untuk sampul qism: sampulnya jadi dua halaman. Pendekkan @judul."
+    }
+    [void]$doc.Paragraphs.Last.Range.Delete()
+    Draft
+    }
     elseif ($M.templat) {
     # @templat: Word mahasiswa sendiri; halaman pertamanya jadi sampul apa adanya, kepala halamannya dipakai di bagian isi
     $doc = $word.Documents.Add(); $doc.SaveAs2($tmp, 16); Draft
@@ -125,7 +197,6 @@ try {
             $s.Height = $s.Height + 45
         }
     }
-    function Ganti($p, $teks) { $r = $p.Range; [void]$r.MoveEnd(1, -1); $r.Text = $teks }
     $pNama = $null; $pJudul = $null
     foreach ($p in $doc.Paragraphs) {
         $t = $p.Range.Text.Trim()
@@ -150,18 +221,6 @@ try {
             if ($t -eq $JUDUL1) { $r.Font.Size = 36; $r.Font.SizeBi = 36 }
             elseif ($JUDUL2 -and $t -eq $JUDUL2) { $r.Font.Size = 26; $r.Font.SizeBi = 26 }
             else { $r.Font.Size = [Math]::Max($sz, 20); $r.Font.SizeBi = [Math]::Max($sz, 20) }
-        }
-    }
-    # judul dikecilkan sampai muat satu baris (utama 36 -> 26, baris kedua 26 -> 22); yang tetap terlalu panjang diratakan:
-    # tepi kiri-kanan paragrafnya dilebarkan 6 pt demi 6 pt selama jumlah barisnya tetap, jadi tiap baris kira-kira sama
-    # panjang dan baris terakhir tidak tinggal satu kata («… وأوضح / المسالك»)
-    function Seimbang($p, $uk, $kecil) {
-        while ($uk -gt $kecil -and $p.Range.ComputeStatistics(1) -gt 1) { $uk -= 2; $p.Range.Font.Size = [single]$uk; $p.Range.Font.SizeBi = [single]$uk }
-        $n = $p.Range.ComputeStatistics(1); if ($n -le 1) { return }
-        $pf = $p.Range.ParagraphFormat
-        for ($tepi = 6; $tepi -le 180; $tepi += 6) {
-            $pf.LeftIndent = [single]$tepi; $pf.RightIndent = [single]$tepi
-            if ($p.Range.ComputeStatistics(1) -gt $n) { $pf.LeftIndent = [single]($tepi - 6); $pf.RightIndent = [single]($tepi - 6); break }
         }
     }
     Seimbang $pJudul 36 26
