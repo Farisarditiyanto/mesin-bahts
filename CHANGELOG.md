@@ -3,7 +3,9 @@
 Tiap rilis ditulis di sini: yang baru di atas. Nomor versi = `besar.kecil.tambalan`:
 besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan baru, tambalan naik kalau hanya perbaikan.
 
-## Belum dirilis
+## 6.0.0 — 2026-10-31
+
+**Naskah lama bisa GAGAL di `cek`.** Itu karena aturannya lebih ketat: `@kunci` salah ketik, isi sesudah `#R`, kutipan palsu sebelum tanda baca, `#nomor` yang bukan kepala hadits, dan angka ayat yang salah kini ditolak. Baca pesan `cek`, betulkan naskahnya, lalu ulangi.
 
 - `cek`: angka di catatan kaki ayat harus termasuk ayat `{Q:…}` yang dibuktikannya; `آية: ٢٣ و٢` untuk `{Q:1:2}` kini GAGAL. Judul bernomor («4 - 128 - باب», «(1) - كتاب») tidak lagi terbaca kepala hadits.
 - `cek` mencocokkan nomor takhrij (`رقم الحديث (n)، j/h.` tepat sebelum bukti halaman itu) ke kepala hadits dan lafaz bukti di kitabnya. Tidak cocok = `perhatian`. Bukti `#nomor` juga menerima kepala banyak nomor («3980 - 3981 -»).
