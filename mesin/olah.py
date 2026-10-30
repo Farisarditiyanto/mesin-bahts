@@ -1,4 +1,4 @@
-"""Olah <bahts>/naskah.txt -> mesin/_tmp/<bahts>.json (bahan untuk perakit Word)
+"""Olah <bahts>/naskah.txt -> bahan JSON terpisah menurut jalur bahts/pekerjaan (untuk perakit Word)
 + verifikasi setiap rujukan ke kitab Shamela lokal. Dipanggil lewat bahts.py.
 
 Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
@@ -63,11 +63,12 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   Judul (#K/#F/#B/#M/#S/#R) tidak boleh memuat [^, <<, {Q:/{H: atau **
   Contoh: قال ابن القيم: "…"[^مدارج السالكين، ابن القيم، 2/15. <<8370|2|15>>].
 """
-import difflib, functools, json, os, re
+import difflib, functools, hashlib, io, json, os, re
 from pathlib import Path
 
 import shamela
 import sumber_pdf
+from berkas import bahan, sementara
 
 HERE = Path(__file__).parent
 QURAN = json.load(open(HERE / "quran_hafs_v22.json", encoding="utf8"))
@@ -1466,11 +1467,12 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
     return [r for r in runs if r.get("t", "x") != ""]
 
 
-def utama(folder):
+def utama(folder, keluar=None):
     """Olah naskah di `folder`. Kembalikan (jumlah galat, baris laporan)."""
     folder = Path(folder)
     try:
-        baris = [(n, x.rstrip("\n")) for n, x in enumerate(open(folder / "naskah.txt", encoding="utf-8-sig"), 1) if x.strip()]
+        naskah = (folder / "naskah.txt").read_bytes()
+        baris = [(n, x.rstrip("\n")) for n, x in enumerate(io.StringIO(naskah.decode("utf-8-sig"), newline=None), 1) if x.strip()]
     except UnicodeDecodeError:
         raise SystemExit(f"{folder.name}/naskah.txt bukan UTF-8: " + (
             "buka di Notepad, File > Save As, pilih Encoding «UTF-8», simpan" if os.name == "nt" else
@@ -1641,10 +1643,11 @@ def utama(folder):
         for h in hadits_idx:
             h["r"] = ubah(h["r"])
         pustaka = [ubah(p) for p in pustaka]
-    (HERE / "_tmp").mkdir(exist_ok=True)
-    json.dump({"meta": meta, "format": FORMAT.get(fmt), "blok": blok, "catatan": catatan, "ayat": ayat_idx, "hadits": hadits_idx, "pustaka": pustaka,
-               "quran": bool(quran)},
-              open(HERE / "_tmp" / f"{folder.name}.json", "w", encoding="utf8"), ensure_ascii=False)
+    sidik_naskah = hashlib.sha256(naskah).hexdigest()
+    with sementara(keluar or bahan(folder)) as part:
+        part.write_text(json.dumps({"meta": meta, "format": FORMAT.get(fmt), "blok": blok, "catatan": catatan,
+                                   "ayat": ayat_idx, "hadits": hadits_idx, "pustaka": pustaka,
+                                   "quran": bool(quran), "naskah_sha256": sidik_naskah}, ensure_ascii=False), encoding="utf8")
     n_bukti = sum(c["bukti"] for c in catatan)
     n_luar = sum(c["luar"] for c in catatan)  # disebut di ringkasan: tanda yang bisa menyembunyikan kutipan karangan
     n_pdf = sum(c["pdf"] for c in catatan)
@@ -1663,4 +1666,5 @@ def utama(folder):
     lap += [f"  ! {p}" for p in perhatian]
     lap.append(f"catatan kaki tanpa bukti (selain rujukan ayat): {len(fn_tanpa)}")
     lap += [f"  - {f}" for f in fn_tanpa]
+    lap.append(f"NASKAH_SHA256={sidik_naskah}")
     return len(galat), lap

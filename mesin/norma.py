@@ -1,10 +1,11 @@
 """Penyamaan tulisan Arab (`norm`, `padat`) dan cache teks `padat` tiap kitab. Dipakai lewat shamela.py.
 
 Hanya berkas ini yang menentukan isi cache: sidiknya (VERSI) jadi nama berkas cache. Aturan penyamaan yang diubah di
-sini membuat cache baru; perubahan di berkas lain tidak. Karena itu berkas ini tidak mengimpor modul mesin lain.
+sini membuat cache baru; perubahan di berkas lain tidak. Modul berkas hanya menangani penulisan, bukan isi normalisasi.
 """
 import gzip, hashlib, json, re, unicodedata
 from pathlib import Path
+from berkas import sementara
 
 HARAKAT = re.compile(r"[\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06ed\u0640]")  # harakat, tanda mushaf, tatwil (ditulis sebagai kode: penyunting teks bisa menukar urutan harakat)
 TAGS = re.compile(r"<[^>]+>")
@@ -114,18 +115,26 @@ def cache(folder):
     """Teks `padat` + ruas halaman tiap rekaman kitab di `folder` ([[body, footnotes], …]); dibuat sekali kalau belum ada.
     Cache yang rusak atau tidak bisa ditulis tidak menghentikan apa pun: dihitung biasa."""
     f = folder / f"padat-{VERSI}.json.gz"
+    with open(folder / "pages.jsonl.gz", "rb") as h:
+        sumber = hashlib.file_digest(h, "sha256").hexdigest()
     try:
         with gzip.open(f, "rt", encoding="utf8") as g:
-            return json.load(g)
-    except (OSError, ValueError, EOFError):
+            d = json.load(g)
+        if (isinstance(d, dict) and d.get("sumber") == sumber and isinstance(d.get("rekaman"), list)
+                and all(isinstance(r, list) and len(r) == len(BAGIAN)
+                        and all(isinstance(b, list) and len(b) == 2 and isinstance(b[0], str)
+                                and isinstance(b[1], list) and all(isinstance(x, list) and len(x) == 4
+                                and type(x[0]) is int and type(x[1]) is int and 0 <= x[0] <= x[1] <= len(b[0])
+                                for x in b[1]) for b in r) for r in d["rekaman"])):
+            return d["rekaman"]
+    except (OSError, ValueError, EOFError, TypeError):
         pass
     isi = [[_ruas(p, b) for b, _ in BAGIAN] for p in rekaman(folder / "pages.jsonl.gz")]
     try:
-        part = f.with_name(f.name + ".part")
-        with gzip.open(part, "wt", encoding="utf8", compresslevel=6) as g:
-            json.dump(isi, g, ensure_ascii=False, separators=(",", ":"))
-        part.replace(f)
-        for lama in folder.glob("padat-*.json.gz"):
+        with sementara(f) as part:
+            with gzip.open(part, "wt", encoding="utf8", compresslevel=6) as g:
+                json.dump({"sumber": sumber, "rekaman": isi}, g, ensure_ascii=False, separators=(",", ":"))
+        for lama in folder.glob("padat-*.json.gz"):  # cache versi norma.py lama tidak terpakai lagi
             if lama != f:
                 lama.unlink()
     except OSError:

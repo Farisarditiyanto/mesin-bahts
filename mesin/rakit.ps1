@@ -1,11 +1,11 @@
 ﻿# Rakit <Folder>\<berkas>.docx + .pdf dari build.json (hasil olah.py), memakai Word asli (COM).
 # Dipanggil oleh bahts.py; jangan dijalankan langsung.
-param([Parameter(Mandatory)][string]$Build, [Parameter(Mandatory)][string]$Folder)
+param([Parameter(Mandatory)][string]$Build, [Parameter(Mandatory)][string]$Folder, [string]$Hasil = $Folder)
 $ErrorActionPreference = 'Stop'
 $dir = $PSScriptRoot
 $DATA = Get-Content -LiteralPath $Build -Raw -Encoding UTF8 | ConvertFrom-Json
 $M = $DATA.meta
-$Out = Join-Path $Folder $M.berkas; $Laporan = Join-Path $Folder 'laporan.txt'
+$Out = Join-Path $Hasil $M.berkas; $Laporan = Join-Path $Hasil 'laporan.txt'
 $FMT = $DATA.format                                      # profil dari format.json (dipilih @format)
 $TA = [string]$FMT.huruf; $QF = 'KFGQPC HAFS Uthmanic Script'
 $uMatan = [single]$FMT.matan; $uCatatan = [single]$FMT.catatan; $uJudul = [single]$FMT.judul   # ukuran huruf (Word minta angka pecahan)
@@ -59,8 +59,10 @@ $word.Visible = $false; $word.ScreenUpdating = $false; $word.DisplayAlerts = 0
 # 2 = angka di teks Arab dicetak ٠-٩, di teks Latin 0-9; 0 = selalu 0-9
 $numeralLama = $word.Options.ArabicNumeral
 $word.Options.ArabicNumeral = if ($HINDI) { 2 } else { 0 }
-$tmp = "$dir\_tmp\_kerja.docx"
+# Alamat kerja Word berupa string biasa untuk COM.
+$tmp = "$Hasil\word\kerja.docx"
 try {
+    [IO.Directory]::CreateDirectory((Split-Path -Parent $tmp)) | Out-Null
     # huruf profil yang tidak terpasang diganti Word diam-diam: berhenti di sini saja
     if (@($word.FontNames) -notcontains $TA) { throw "Huruf [$TA] belum terpasang di Windows. Jalankan: python mesin/bahts.py periksa" }
     # ---------- 1. Sampul: berangkat dari template sampul (bentuk kitab: dokumen kosong) ----------
@@ -633,7 +635,6 @@ try {
     $lap = @("HALAMAN=$pages", "HALAMAN_ISI=$isi","CATATAN_KAKI=$($doc.Footnotes.Count)", "KATA(termasuk catatan kaki)=$($doc.ComputeStatistics(0, $true))")
     foreach ($e in $toc) { $lap += ("hal {0}: {1}" -f (Hal $e.bm), $e.t) }
     [IO.File]::AppendAllLines($Laporan, [string[]]$lap)
-    if (Test-Path -LiteralPath "$Out.docx") { Remove-Item -LiteralPath "$Out.docx" -Force }
     $doc.EmbedTrueTypeFonts = $true; $doc.SaveSubsetFonts = $false; $doc.DoNotEmbedSystemFonts = $false
     $doc.ActiveWindow.View.Type = 3
     # nomor halaman di kotak teks kepala @templat ikut angka Arab (@angka): Word memilih angka menurut arah teks di

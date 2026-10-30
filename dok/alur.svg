@@ -72,10 +72,10 @@
 <circle cx="1318" cy="214" r="17" fill="#2f4478"/><circle cx="1318" cy="214" r="20" fill="none" stroke="#b8892f" stroke-width="1.2"/><text x="1318" y="220" font-size="16" font-weight="700" font-family="Georgia, 'Times New Roman', serif" fill="#fff" text-anchor="middle">5</text>
 <rect x="1346.0" y="203" width="75.0" height="22" rx="11.0" fill="#2f4478"/><text x="1383.5" y="218.1" font-size="11.5" font-weight="700" fill="#fff" text-anchor="middle">Agent AI</text>
 <text x="1306" y="258" font-size="18" font-weight="700" font-family="Georgia, 'Times New Roman', serif" fill="#3a281b">Cari dan baca bahan</text>
-<text x="1306" y="285" font-size="13.5" fill="#5e4835">Cari kitab (connector shamela),</text>
-<text x="1306" y="304" font-size="13.5" fill="#5e4835">unduh, salin teks persis + data</text>
-<text x="1306" y="323" font-size="13.5" fill="#5e4835">cetaknya. Juga takhrij hadits dan</text>
-<text x="1306" y="342" font-size="13.5" fill="#5e4835">الدراسات السابقة.</text>
+<text x="1306" y="285" font-size="13.5" fill="#5e4835">Cari kitab, baca konteks lokal,</text>
+<text x="1306" y="304" font-size="13.5" fill="#5e4835">syarat, dan pengecualiannya.</text>
+<text x="1306" y="323" font-size="13.5" fill="#5e4835">Catat data cetak; takhrij hadits;</text>
+<text x="1306" y="342" font-size="13.5" fill="#5e4835">الدراسات السابقة bila diminta.</text>
 <rect x="1306.0" y="352" width="67.1" height="22" rx="5" fill="#fbf5e8" stroke="#2f4478" stroke-opacity="0.6"/><text x="1339.5" y="367.5" font-size="12" font-family="Consolas, Menlo, monospace" fill="#1f2f57" text-anchor="middle">temukan</text>
 <rect x="1379.1" y="352" width="52.5" height="22" rx="5" fill="#fbf5e8" stroke="#2f4478" stroke-opacity="0.6"/><text x="1405.3" y="367.5" font-size="12" font-family="Consolas, Menlo, monospace" fill="#1f2f57" text-anchor="middle">ambil</text>
 <rect x="1437.6" y="352" width="45.2" height="22" rx="5" fill="#fbf5e8" stroke="#2f4478" stroke-opacity="0.6"/><text x="1460.2" y="367.5" font-size="12" font-family="Consolas, Menlo, monospace" fill="#1f2f57" text-anchor="middle">cari</text>
@@ -111,6 +111,7 @@
 <text x="692" y="593" font-size="13.5" fill="#5e4835">Sampul, isi, catatan kaki,</text>
 <text x="692" y="612" font-size="13.5" fill="#5e4835">المصادر والمراجع, dan الفهارس.</text>
 <text x="692" y="631" font-size="13.5" fill="#5e4835">Butuh Windows + Microsoft Word.</text>
+<text x="692" y="650" font-size="13.5" fill="#5e4835">Gagal? Hasil lama tetap utuh.</text>
 <rect x="692.0" y="676" width="52.5" height="22" rx="5" fill="#fbf5e8" stroke="#2f6650" stroke-opacity="0.6"/><text x="718.2" y="691.5" font-size="12" font-family="Consolas, Menlo, monospace" fill="#1c4636" text-anchor="middle">rakit</text>
 <rect x="981" y="478" width="272" height="240" rx="14" fill="#fbf5e8" stroke="#2f4478" stroke-width="1.4" filter="url(#bayang)"/>
 <path d="M981 492Q981 478 995 478H1239Q1253 478 1253 492Z" fill="#2f4478"/>
