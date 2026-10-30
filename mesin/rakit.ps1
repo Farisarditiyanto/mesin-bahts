@@ -44,6 +44,7 @@ $CATATAN_WORD = "$dir\_tmp\rakit.word"
 if (Test-Path -LiteralPath $CATATAN_WORD) {
     foreach ($baris in Get-Content -LiteralPath $CATATAN_WORD) {
         $id, $mulai = $baris -split '\|'
+        $id = $id -as [int]                             # baris rusak dilewati: Get-Process -Id 'abc' menghentikan skrip
         $p = if ($id) { Get-Process -Id $id -ErrorAction SilentlyContinue }
         if ($p -and $p.ProcessName -eq 'WINWORD' -and [string]$p.StartTime.Ticks -eq $mulai) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
     }
@@ -52,7 +53,7 @@ if (Test-Path -LiteralPath $CATATAN_WORD) {
 $wordLain = @(Get-Process WINWORD -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
 $word = New-Object -ComObject Word.Application
 $wordIni = @(Get-Process WINWORD -ErrorAction SilentlyContinue | Where-Object { $_.Id -notin $wordLain } | ForEach-Object { $_.Id })
-Set-Content -LiteralPath $CATATAN_WORD -Encoding ASCII -Value @(Get-Process -Id $wordIni -ErrorAction SilentlyContinue | ForEach-Object { "$($_.Id)|$($_.StartTime.Ticks)" })
+if ($wordIni) { Set-Content -LiteralPath $CATATAN_WORD -Encoding ASCII -Value @(Get-Process -Id $wordIni -ErrorAction SilentlyContinue | ForEach-Object { "$($_.Id)|$($_.StartTime.Ticks)" }) }
 $word.Visible = $false; $word.ScreenUpdating = $false; $word.DisplayAlerts = 0
 # pengaturan Word pemakai (berlaku untuk semua dokumennya): dipinjam selama rakit, dikembalikan di finally.
 # 2 = angka di teks Arab dicetak ٠-٩, di teks Latin 0-9; 0 = selalu 0-9
