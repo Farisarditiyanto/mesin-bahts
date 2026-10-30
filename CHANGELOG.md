@@ -3,6 +3,11 @@
 Tiap rilis ditulis di sini: yang baru di atas. Nomor versi = `besar.kecil.tambalan`:
 besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan baru, tambalan naik kalau hanya perbaikan.
 
+## Belum dirilis
+
+- Penyederhanaan internal `cek`: keadaan daftar pustaka memakai nomor baris `#R` yang sudah disimpan; pencarian urutan kutipan memakai loop bersama; cache turunan Al-Qur'an dan pembantu kemiripan yang hanya punya satu pemakai dihapus. Keluaran pemeriksaan dan bahan rakit tetap sama pada naskah pembanding.
+- Laporan audit 29–30 Oktober diringkas menjadi tautan arsip commit tetap; reproduksi dan batas pengujian tetap bisa dibaca dari arsipnya.
+
 ## 6.0.0 — 2026-10-31
 
 **Naskah lama bisa GAGAL di `cek`.** Itu karena aturannya lebih ketat: `@kunci` salah ketik, isi sesudah `#R`, kutipan palsu sebelum tanda baca, `#nomor` yang bukan kepala hadits, dan angka ayat yang salah kini ditolak. Baca pesan `cek`, betulkan naskahnya, lalu ulangi.
