@@ -46,7 +46,7 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       harus ada di kitab sid pada juz/hal itu, utuh per kata. Kutipan yang dipotong: tulis ... di tempat
                       potongannya; tiap bagian dicek, harus berurutan. Kutipan tanpa bukti = GAGAL
   <<sid|juz|hal|potongan>>   bukti dengan potongan lafaz sendiri (untuk nukilan makna «انظر», tanpa tanda petik).
-                      #123 = nomor hadits: harus berdiri sebagai kepala hadits di halaman itu («123 - حدثنا», «36 - (123)»).
+                      #123 = nomor hadits: harus berdiri sebagai kepala hadits di halaman itu («123 - حدثنا», «36 - (123)», «(123) - حدثنا»).
                       Kutipan bertanda petik sebelum catatan kaki tetap dicek ke halaman bukti itu
                       juz "-" = kitab satu jilid; hal boleh rentang 12-14
   [^<<sid|juz|hal>>]  catatan kaki berisi bukti saja, semua sid-nya ada di @rumuz: tidak dicetak; yang tercetak hanya
@@ -917,10 +917,11 @@ def angka_kitab(t):
 
 
 def nomor_hadits(body, nomor):
-    """Nomor berdiri sebagai kepala hadits di awal baris: «3561 - حدثنا» atau «36 - (2408)». Nomor ayat dan catatan
-    tidak ikut, tetapi nomor hadits lain di halaman yang sama tetap bisa tertukar: ini bukan bukti lafaz."""
-    baris = angka_kitab(body).replace("\r", "\n")  # rekaman Shamela memakai \r dan \n sebagai pemisah baris
-    return re.search(rf"^[ \t]*(?:(?:\d+[ \t]*[-–][ \t]*)?\({nomor}\)|{nomor}[ \t]*[-–])", baris, re.M)
+    """Nomor berdiri sebagai kepala hadits di awal baris: «3561 - حدثنا», «36 - (2408)», atau «(102) - حدثنا». Nomor ayat,
+    catatan, dan rentang halaman tidak ikut; nomor hadits lain atau daftar bernomor di halaman itu tetap bisa tertukar."""
+    # bukan angka_kitab: ia mengosongkan «(n)» di awal baris, padahal itu salah satu bentuk kepala hadits
+    baris = shamela.PENANDA.sub(" ", shamela.TAGS.sub(" ", body)).translate(ANGKA_LATIN).replace("\r", "\n")
+    return re.search(rf"^[ \t\u200e\u200f]*(?:\d+[ \t]*[-–][ \t]*\({nomor}\)|(?:\({nomor}\)|{nomor})[ \t]*[-–][ \t]*[^\d\s])", baris, re.M)
 
 
 def ragu_kutipan(rr, awal, pot, periksa_angka=True, dulu=lambda: None):
