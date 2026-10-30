@@ -218,6 +218,11 @@ def utama():
             with patch.object(dirasat, "_buka", side_effect=lambda *a: io.BytesIO(isi)):
                 dirasat.pdf("W123", f)
             assert tujuan.read_bytes() == isi, "PDF lama yang rusak tidak dipulihkan"
+            # Revisi kedua terpotong: pypdf masih bisa membaca revisi pertama, tetapi unduhannya belum selesai.
+            tujuan.write_bytes(isi + b"\n9 0 obj\n<<" + b"0" * 2048)
+            with patch.object(dirasat, "_buka", side_effect=lambda *a: io.BytesIO(isi)):
+                dirasat.pdf("W123", f)
+            assert tujuan.read_bytes() == isi, "PDF terpotong sesudah revisi lama dianggap utuh"
 
         def katalog_ringan():
             # Proses baru: pembacaan katalog tidak boleh diam-diam mengimpor pandas.

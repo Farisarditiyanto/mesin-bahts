@@ -5,11 +5,12 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
-- Audit 30 Oktober: `cek` tidak lagi menerima `#nomor` sebagai bukti hadits. Angka ayat atau catatan dalam rekaman dapat menyamar sebagai nomor hadits; ganti bagian itu dengan potongan lafaz kitab yang dibaca. Nomor hadits tetap ditulis di takhrij yang tercetak.
+- `cek`: bukti `#nomor` hanya lolos kalau angkanya berdiri sebagai kepala hadits di awal baris halaman itu («3561 - حدثنا», «36 - (2408)»). Nomor ayat atau catatan yang sama angkanya tidak lagi lolos; nomor hadits yang benar tetap lolos.
+- `dirasat-pdf` juga menolak PDF yang akhir berkasnya terpotong, walau pypdf masih bisa membaca revisi lamanya.
 - Normalisasi tidak lagi menyamakan `تساءل` dengan `تساؤل`, termasuk di dalam kata berimbuhan. Jebakan lama yang keliru mengizinkan «التساءلات» untuk teks kitab «التساؤلات» dipindahkan ke GAGAL; lafaz asli tetap lolos.
 - `cek` menolak nama hasil yang akan menimpa templat Word atau PDF sumber yang dirujuk naskah, termasuk perbedaan huruf besar/kecil. Ganti `@berkas` atau nama sumber sebelum merakit.
 - Katalog langsung dibaca lewat `pyarrow`, hanya tujuh kolom yang dipakai; `pandas` tidak lagi diperlukan. Pola regex salah atau pengulangan terlalu besar memakai pencarian teks biasa, tanpa crash akibat perbedaan mesin regex pandas/Arrow.
-- Cache dengan aliran DEFLATE rusak dihitung ulang; kitab sumber yang rusak tetap tidak dianggap sah. `dirasat-pdf` memeriksa apakah PDF dapat dibaca dan memiliki halaman, lalu menerbitkannya lewat berkas sementara. PDF lama yang rusak dicoba unduh ulang; unduhan/penulisan yang gagal mempertahankan berkas lama.
+- Cache dengan aliran DEFLATE rusak dihitung ulang; kitab sumber yang rusak tetap tidak dianggap sah. `dirasat-pdf` memeriksa apakah PDF utuh, dapat dibaca, dan memiliki halaman, lalu menerbitkannya lewat berkas sementara. PDF lama yang rusak dicoba unduh ulang; unduhan/penulisan yang gagal mempertahankan berkas lama.
 - Komentar normalisasi, sumber jaringan, perkiraan halaman, dan bahan rakit diperbaiki; komentar berulang dan penyebutan nama pemakai dihapus. Pembacaan JSON menutup berkas dengan pasti, tanpa ResourceWarning.
 - `cek`/`rakit`: bahan dibedakan menurut jalur lengkap bahts; tiap rakit memegang salinan bahan sendiri. Dua folder bernama akhir sama atau `cek` lain tidak lagi menimpa bahan pekerjaan berjalan. Laporan menyebut `NASKAH_SHA256` dari naskah yang benar-benar dibaca.
 - Cache pencarian dan indeks halaman kini diikat ke isi kitab dengan SHA-256, bukan hanya versi normalisasi atau ukuran berkas; cache JSON berbentuk salah dihitung ulang. Penulisan cache dan unduhan memakai nama sementara unik.

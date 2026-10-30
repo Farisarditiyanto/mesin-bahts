@@ -17,6 +17,7 @@ from berkas import sementara
 
 KUNCI = Path(__file__).parent.parent / "kunci_openalex.txt"
 KUNCI_ENV = "OPENALEX_API_KEY"
+AKHIR_PDF = 1024  # bita terakhir PDF utuh yang harus memuat %%EOF
 OPENALEX = "https://api.openalex.org/works"
 PDF = "https://content.openalex.org/works/{}.pdf"  # salinan PDF yang disimpan OpenAlex
 KOLOM = ("id,title,publication_year,type,language,cited_by_count,authorships,primary_location,best_oa_location,"
@@ -201,6 +202,11 @@ def _pdf_terbaca(berkas):
     """Validasi minimum sebelum menamai hasil .pdf; bukan pemeriksaan ilmiah isinya."""
     from pypdf import PdfReader
     try:
+        # pypdf bisa membaca revisi lama dari berkas yang terpotong: akhir berkas harus ikut diperiksa
+        with open(berkas, "rb") as f:
+            f.seek(-min(AKHIR_PDF, f.seek(0, os.SEEK_END)), os.SEEK_END)
+            if b"%%EOF" not in f.read():
+                return False
         return bool(len(PdfReader(berkas).pages))
     except Exception:  # format rusak/bersandi tidak boleh dianggap unduhan yang selesai
         return False
