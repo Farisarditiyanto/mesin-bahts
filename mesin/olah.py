@@ -4,7 +4,7 @@
 Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   @kunci: nilai       data sampul, di awal naskah. Wajib: judul, jenis ("-" = tidak tercetak), nama, nim, fasl.
                       Opsional: musyrif, jabatan (kosong atau "-" = tidak tercetak), thalibah (ya = sampul mencetak «اسم الطالبة»),
-                      sampul (mahad = sampul معهد، كلية الشريعة, bawaan; qism = model قسم الشريعة: logo, judul dalam kurung,
+                      sampul (mahad = sampul معهد، كلية الشريعة, bawaan; qism = model قسم الشريعة: logo, judul besar, sub-judul dalam kurung,
                       العام الجامعي; wajib hanya judul dan nama), tahun (العام الجامعي di sampul qism, mis. ١٤٤٨;
                       bawaan = tahun hijriah Umm al-Qura saat tahun ajaran mulai, 1 Agustus),
                       berkas (nama file hasil), format (profil di format.json; bawaan imam),
@@ -75,7 +75,7 @@ SURAH = json.load(open(HERE / "nama_surah.json", encoding="utf8"))
 FORMAT = json.load(open(HERE / "format.json", encoding="utf8"))  # huruf & ukuran tiap pedoman; dipilih dengan @format
 WAJIB = {"bahts": ("judul", "jenis", "nama", "nim", "fasl"), "kitab": ("judul",)}  # @bentuk: yang pertama = bawaan
 # @sampul: model sampul bahts -> data yang wajib. Yang pertama = bawaan. mahad = mesin/sampul.doc (معهد، كلية الشريعة);
-# qism = mesin/sampul_qism.docx (قسم الشريعة: logo, judul dalam kurung, العام الجامعي; nim, jenis, fasl tidak tercetak)
+# qism = mesin/sampul_qism.docx (قسم الشريعة: logo, judul besar, sub-judul dalam kurung, العام الجامعي; nim, jenis, fasl tidak tercetak)
 SAMPUL = {"mahad": WAJIB["bahts"], "qism": ("judul", "nama")}
 HALAMAN_BARU = ("B", "M")  # judul yang bisa dibuat mulai halaman baru lewat @halaman_baru; K dan F selalu
 TANPA = ("ayat", "hadits", "maudhuat", "pustaka")  # فهرس dan المصادر yang boleh dibuang lewat @tanpa; perakitnya di rakit.ps1
@@ -1577,13 +1577,14 @@ def utama(folder):
     if meta.get("sampul", "").lower() in SAMPUL and meta.get("templat"):
         galat.append(di("@sampul") + "@sampul dan @templat tidak bisa dipakai bersama: @templat sudah membawa sampulnya sendiri; hapus salah satu")
     sampul = meta["sampul"] = meta.get("sampul", next(iter(SAMPUL))).lower()
-    if sampul not in SAMPUL:
+    sampul_dikenal = sampul in SAMPUL
+    if not sampul_dikenal:
         galat.append(di("@sampul") + f"@sampul: «{sampul}» tidak dikenal (yang ada: {'، '.join(SAMPUL)})")
         sampul = meta["sampul"] = next(iter(SAMPUL))
-    if meta.get("tahun") and not re.fullmatch(r"[0-9٠-٩]{4}", meta["tahun"]):
-        galat.append(di("@tahun") + f"@tahun: «{meta['tahun']}» bukan tahun hijriah empat angka (mis. ١٤٤٨)")
-    # @templat: sampul diambil apa adanya dari Word mahasiswa
-    wajib = ("judul",) if meta.get("templat") else SAMPUL[sampul] if bentuk == "bahts" else WAJIB[bentuk]
+    if meta.get("tahun") and not re.fullmatch(r"[1١][34٣٤][0-9٠-٩]{2}", meta["tahun"]):
+        galat.append(di("@tahun") + f"@tahun: «{meta['tahun']}» bukan tahun hijriah 1300-1499 (mis. ١٤٤٨)")
+    # @templat: sampul diambil apa adanya dari Word mahasiswa; @sampul salah ketik: data wajib model mana pun belum pasti
+    wajib = (("judul",) if meta.get("templat") or not sampul_dikenal else SAMPUL[sampul]) if bentuk == "bahts" else WAJIB[bentuk]
     galat += [di("@" + k) + f"data sampul belum diisi: @{k}" for k in wajib if not meta.get(k)]
     asing = [t for t in tanpa if t not in TANPA]
     if asing:

@@ -114,10 +114,12 @@ try {
     # walau 1 Muharram lewat di tengahnya (Juni 2027 = 1449, tahun ajarannya masih 1448)
     $awal = [datetime]::new((Get-Date).Year, 8, 1); if ((Get-Date) -lt $awal) { $awal = $awal.AddYears(-1) }
     $TAHUN = if ($M.tahun) { [string]$M.tahun } else { Angka ([Globalization.UmAlQuraCalendar]::new().GetYear($awal)) }
-    $pJudul = $null
+    $pJudul = $null; $pSub = $null
     foreach ($p in @($doc.Paragraphs)) {
         $t = $p.Range.Text.Trim()
-        if ($t -eq '( موضوع البحث )') { Ganti $p "( $JUDUL1 )"; $pJudul = $p }
+        if ($t -eq 'عنوان البحث') { Ganti $p $JUDUL1; $pJudul = $p }
+        # sub-judul (bagian judul sesudah « - ») dalam kurung; tanpa sub-judul barisnya kosong
+        elseif ($t -eq '( موضوع البحث )') { Ganti $p $(if ($JUDUL2) { "( $JUDUL2 )" } else { '' }); $pSub = $p }
         # pembimbing: tanpa @musyrif (atau "-") ketiga barisnya kosong; tanpa @jabatan (atau "-") baris jabatannya kosong
         elseif ($t -eq 'المشرف') { if (-not $MUSYRIF) { Ganti $p '' } }
         elseif ($t -eq 'اسم المشرف') { Ganti $p $MUSYRIF }
@@ -126,26 +128,39 @@ try {
         elseif ($t -eq 'اسم الطالب') { Ganti $p $NAMA }
         elseif ($t -eq 'السنة الهجرية') { Ganti $p "$TAHUN هـ" }
     }
-    Seimbang $pJudul 18 18                               # ukuran tetap seperti model; judul panjang dibagi rata per baris
-    if ($JUDUL2) {                                       # « - دراسة …»: baris sendiri di bawah kurung, lebih kecil
-        $pJudul.Range.InsertParagraphAfter(); $p2 = $pJudul.Next(1); Ganti $p2 $JUDUL2
-        $p2.SpaceBefore = 2; $p2.Range.Font.Size = 16; $p2.Range.Font.SizeBi = 16
-        Seimbang $p2 16 16
+    # huruf judul model (dari templat: PT Bold Heading) belum terpasang = Word diam-diam memakai huruf lain: pakai huruf profil tebal
+    $hJudul = $pJudul.Range.Font.NameBi
+    if (@($word.FontNames) -notcontains $hJudul) {
+        Write-Output "PERINGATAN: huruf $hJudul (judul sampul qism) belum terpasang di Windows: judul dicetak $TA tebal. Pasang hurufnya, lalu rakit lagi."
+        $f = $pJudul.Range.Font; $f.Name = $TA; $f.NameBi = $TA; $f.Bold = 1; $f.BoldBi = 1
     }
-    # judul sangat panjang: sampul tetap satu halaman, judul (dan baris keduanya) dikecilkan sampai 14.
+    Seimbang $pJudul 24 18                               # judul 24 seperti model, dikecilkan sampai 18 supaya muat satu baris
+    if ($JUDUL2) { Seimbang $pSub 18 16 }
+    else { $pSub.Range.Font.Size = 2; $pSub.Range.Font.SizeBi = 2; $pSub.SpaceBefore = 0 }   # tanpa sub-judul: tanpa celah
+    # judul sangat panjang: sampul tetap satu halaman, judul dan sub-judul dikecilkan sampai 14.
     # Jumlah halaman dihitung di Print Layout, dengan satu paragraf sementara untuk baris pemisah bagian sesudah sampul
     $doc.ActiveWindow.View.Type = 3
     $doc.Content.InsertParagraphAfter()
-    for ($uk = 17; $uk -ge 14 -and $doc.ComputeStatistics(2) -gt 1; $uk--) {
-        $pJudul.Range.Font.Size = [single]$uk; $pJudul.Range.Font.SizeBi = [single]$uk
-        if ($JUDUL2) { $pJudul.Next(1).Range.Font.Size = [single]($uk - 2); $pJudul.Next(1).Range.Font.SizeBi = [single]($uk - 2) }
+    $uk = $pJudul.Range.Font.SizeBi; $kecil = $false
+    while ($uk -gt 14 -and $doc.ComputeStatistics(2) -gt 1) {
+        $uk--; $kecil = $true
+        foreach ($q in @($pJudul, $pSub)) {
+            if ($q.Range.Font.SizeBi -gt $uk) { $q.Range.Font.Size = [single]$uk; $q.Range.Font.SizeBi = [single]$uk }
+        }
     }
-    if ($uk -lt 17) {                                    # baris berubah sesudah dikecilkan: ratakan lagi
-        $pJudul.LeftIndent = 0; $pJudul.RightIndent = 0; Seimbang $pJudul ($uk + 1) ($uk + 1)
+    if ($kecil) {                                        # baris berubah sesudah dikecilkan: ratakan lagi
+        foreach ($q in @($pJudul, $pSub)) { $q.LeftIndent = 0; $q.RightIndent = 0; $u = $q.Range.Font.SizeBi; Seimbang $q $u $u }
     }
-    # masih dua halaman: jarak di atas «العام الجامعي» dipendekkan
+    # masih dua halaman: jarak di atas «العام الجامعي» dipendekkan, lalu jarak antarbagian lain
     $pTahun = @($doc.Paragraphs) | Where-Object { $_.Range.Text.Trim() -eq 'العام الجامعي' } | Select-Object -First 1
     while ($doc.ComputeStatistics(2) -gt 1 -and $pTahun.SpaceBefore -gt 0) { $pTahun.SpaceBefore = [Math]::Max(0, $pTahun.SpaceBefore - 10) }
+    foreach ($q in @($doc.Paragraphs)) {
+        if ($doc.ComputeStatistics(2) -le 1) { break }
+        if ($q.SpaceBefore -gt 0) { $q.SpaceBefore = 0 }
+    }
+    if ($doc.ComputeStatistics(2) -gt 1) {
+        Write-Output "PERINGATAN: judul terlalu panjang untuk sampul qism: sampulnya jadi dua halaman. Pendekkan @judul."
+    }
     [void]$doc.Paragraphs.Last.Range.Delete()
     Draft
     }
