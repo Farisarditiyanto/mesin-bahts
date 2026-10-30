@@ -53,6 +53,10 @@ def kunci(f):
                 fcntl.flock(h, fcntl.LOCK_UN)
 
 
+class PemulihanGagal(RuntimeError):
+    """Hasil lama belum bisa dipasang kembali: cadangan dan hasil baru sengaja ditinggalkan untuk diselamatkan."""
+
+
 def terbitkan(kerja, folder, nama):
     """Pindahkan SEMUA hasil lama ke cadangan sebelum memasang hasil baru; pulihkan bila penggantian gagal.
     Berhasil = cadangan dibuang (seperti dulu hasil lama ditimpa: semuanya bisa dirakit ulang dari naskah),
@@ -88,7 +92,7 @@ def terbitkan(kerja, folder, nama):
                 except OSError as e:
                     gagal.append(str(e))
         if gagal:
-            raise RuntimeError(f"Pemulihan hasil belum lengkap. Cadangan: {cadangan}; hasil baru: {kerja}. " + "; ".join(gagal))
+            raise PemulihanGagal(f"Pemulihan hasil belum lengkap. Cadangan: {cadangan}; hasil baru: {kerja}. " + "; ".join(gagal))
         _buang_cadangan(cadangan)  # pulih lengkap: cadangan sudah kosong
         raise
     _buang_cadangan(cadangan)

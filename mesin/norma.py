@@ -134,6 +134,9 @@ def cache(folder):
         with sementara(f) as part:
             with gzip.open(part, "wt", encoding="utf8", compresslevel=6) as g:
                 json.dump({"sumber": sumber, "rekaman": isi}, g, ensure_ascii=False, separators=(",", ":"))
+        for lama in folder.glob("padat-*.json.gz"):  # cache versi norma.py lama tidak terpakai lagi
+            if lama != f:
+                lama.unlink()
     except OSError:
         pass
     return isi

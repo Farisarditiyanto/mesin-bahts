@@ -35,7 +35,7 @@ from pathlib import Path
 
 import dirasat, hadits, shamela  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
 from shamela import perintah
-from berkas import bahan, kunci, terbitkan
+from berkas import PemulihanGagal, bahan, kunci, terbitkan
 
 MESIN = Path(__file__).resolve().parent
 AKAR = MESIN.parent
@@ -257,6 +257,9 @@ def rakit(nama):
         try:
             with kunci(MESIN / "_tmp" / "rakit.pekerjaan"):
                 _rakit(nama)
+        except PermissionError as e:  # hasil lama (atau yang baru) sedang dibuka aplikasi lain; hasil lama tetap utuh
+            sys.exit(f"Perakitan GAGAL: {Path(e.filename or '').name or 'hasil'} sedang terbuka di aplikasi lain (Word "
+                     f"atau pembaca PDF). Tutup dulu, lalu ulangi `rakit`. Hasil lama tidak berubah.")
         except Exception as e:
             sys.exit(f"Perakitan GAGAL: {type(e).__name__}: {e}")
     else:
@@ -270,8 +273,11 @@ def _rakit(nama):
     kerja = Path(tempfile.mkdtemp(prefix=".rakit-", dir=f))
     try:
         _rakit_di(nama, f, kerja)
-    except BaseException:
+    except PemulihanGagal:  # hasil baru masih di folder kerja: jangan dibuang
         print(f"Bahan percobaan disimpan: {kerja}")
+        raise
+    except BaseException:  # galat cek, Word gagal, berkas terkunci: hasil lama utuh, bahan sementara tidak dibutuhkan
+        shutil.rmtree(kerja, ignore_errors=True)
         raise
     else:
         try:
@@ -305,7 +311,10 @@ def _rakit_di(nama, f, kerja):
         raise RuntimeError("Perakitan Word gagal; hasil lama belum diganti (lihat pesan di atas).")
     berkas = d["meta"]["berkas"]
     import teks_pdf
-    teks_pdf.betulkan(kerja / f"{berkas}.pdf")
+    try:  # supaya teks Arab PDF tersalin dan tercari dengan benar; tampilannya tidak berubah
+        teks_pdf.betulkan(kerja / f"{berkas}.pdf")
+    except Exception as e:
+        print(f"PERINGATAN: PDF jadi, tetapi teks Arabnya belum dibetulkan (salin/cari bisa terbalik): {type(e).__name__}: {e}")
     with zipfile.ZipFile(kerja / f"{berkas}.docx") as z:
         if z.testzip() or not {"[Content_Types].xml", "word/document.xml"} <= set(z.namelist()):
             raise RuntimeError("Word menghasilkan DOCX yang tidak utuh; hasil lama belum diganti.")

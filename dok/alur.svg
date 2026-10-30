@@ -111,7 +111,7 @@
 <text x="692" y="593" font-size="13.5" fill="#5e4835">Sampul, isi, catatan kaki,</text>
 <text x="692" y="612" font-size="13.5" fill="#5e4835">المصادر والمراجع, dan الفهارس.</text>
 <text x="692" y="631" font-size="13.5" fill="#5e4835">Butuh Windows + Microsoft Word.</text>
-<text x="692" y="650" font-size="13.5" fill="#5e4835">Hasil lama dicadangkan di _arsip/.</text>
+<text x="692" y="650" font-size="13.5" fill="#5e4835">Gagal? Hasil lama tetap utuh.</text>
 <rect x="692.0" y="676" width="52.5" height="22" rx="5" fill="#fbf5e8" stroke="#2f6650" stroke-opacity="0.6"/><text x="718.2" y="691.5" font-size="12" font-family="Consolas, Menlo, monospace" fill="#1c4636" text-anchor="middle">rakit</text>
 <rect x="981" y="478" width="272" height="240" rx="14" fill="#fbf5e8" stroke="#2f4478" stroke-width="1.4" filter="url(#bayang)"/>
 <path d="M981 492Q981 478 995 478H1239Q1253 478 1253 492Z" fill="#2f4478"/>

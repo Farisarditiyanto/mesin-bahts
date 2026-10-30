@@ -161,10 +161,16 @@ def utama():
             sebelum = {"hasil.docx": b"DOCX-LAMA", "hasil.pdf": b"PDF-LAMA", "laporan.txt": b"LAPORAN-LAMA"}
             for n, isi in sebelum.items(): (folder / n).write_bytes(isi)
             arsip_awal = set((folder / "_arsip").iterdir()) if (folder / "_arsip").exists() else set()
+            kerja_awal = set(folder.glob(".rakit-*"))
             r = subprocess.run([sys.executable, str(runner), str(akar), "a/sama", mode, "b/sama"],
                                cwd=akar, capture_output=True, encoding="utf8")
-            if mode in ("snapshot", "lock", "ok"):
+            # bahan sementara tidak tertinggal, kecuali hasil baru yang belum bisa dipulihkan (rollback-blocked)
+            if mode != "rollback-blocked":
+                assert set(folder.glob(".rakit-*")) == kerja_awal, "Rakit meninggalkan folder .rakit-* di folder bahts"
+            if mode in ("snapshot", "lock", "ok", "pdf-fail"):
                 assert r.returncode == 0, r.stdout + r.stderr
+                if mode == "pdf-fail":  # PDF tetap jadi; hanya teks salin/cari yang belum dibetulkan
+                    assert "PERINGATAN: PDF jadi" in r.stdout, r.stdout + r.stderr
                 assert (folder / "hasil.pdf").read_bytes().startswith(b"%PDF")
                 sidik = hashlib.sha256((folder / "naskah.txt").read_bytes()).hexdigest()
                 assert "NASKAH_SHA256=" + sidik in (folder / "laporan.txt").read_text(encoding="utf8")
@@ -181,8 +187,8 @@ def utama():
                                for p in (folder / "_arsip").iterdir())
                     return
                 pesan = {"save-fail": "Perakitan Word gagal", "export-fail": "Perakitan Word gagal",
-                         "pdf-fail": "pembetulan PDF gagal", "pages-fail": "PDF dan laporan halaman tidak cocok",
-                         "publish-fail": "penggantian PDF gagal", "changed": "Naskah berubah"}
+                         "pages-fail": "PDF dan laporan halaman tidak cocok",
+                         "publish-fail": "sedang terbuka di aplikasi lain", "changed": "Naskah berubah"}
                 assert pesan[mode] in r.stderr, r.stdout + r.stderr
                 assert all((folder / n).read_bytes() == isi for n, isi in sebelum.items()), "Hasil lama berubah atau berbeda generasi"
 
