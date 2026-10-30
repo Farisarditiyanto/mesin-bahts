@@ -5,6 +5,14 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `cek`: koma/titik koma Latin, kurung penutup, dan tanda baca Unicode sesudah petik tidak lagi membuat nukilan luput dari pemeriksaan. Dulu nukilan palsu tiga kata diikuti koma Latin dan bukti berpotongan sendiri bisa lolos tanpa perhatian.
+
+- `cek`: menolak judul, kotak matn `#T`, dan pindah halaman `#H` sesudah `#R`. Perakit berhenti membaca isi pada `#R` pertama; dulu bagian itu bisa lolos tanpa peringatan tetapi hilang dari Word/PDF, atau membuat bookmark tidak ditemukan.
+- Bukti `#nomor` tidak lagi memakai kepala hadits dari halaman cetak sesudah halaman rujukan di rekaman Shamela yang sama. Diuji dengan Shahih al-Bukhari 1681: nomor 856 mulai di 1/171, dulu 1/170 ikut lolos. Lanjutan hadits dari halaman sebelumnya tetap diterima.
+- `cek`: catatan kaki penjelasan tanpa bukti yang langsung mengikuti catatan sumber tidak lagi dianggap mengutip ulang teks sebelum catatan pertama dan ditolak karena tanpa bukti. Kutipan baru sesudah catatan pertama tetap diperiksa.
+- `cek`: data `@kunci` yang tidak dikenal ditolak dan diberi saran nama yang mirip; misalnya `@fromat` dulu diabaikan sehingga PDF memakai profil bawaan.
+
+
 - `cek`: bukti `#nomor` hanya lolos kalau angkanya berdiri sebagai kepala hadits di awal baris halaman itu («3561 - حدثنا», «36 - (2408)»). Nomor ayat atau catatan yang sama angkanya tidak lagi lolos; nomor hadits yang benar tetap lolos.
 - `dirasat-pdf` juga menolak PDF yang akhir berkasnya terpotong, walau pypdf masih bisa membaca revisi lamanya.
 - Normalisasi tidak lagi menyamakan `تساءل` dengan `تساؤل`, termasuk di dalam kata berimbuhan. Jebakan lama yang keliru mengizinkan «التساءلات» untuk teks kitab «التساؤلات» dipindahkan ke GAGAL; lafaz asli tetap lolos.
