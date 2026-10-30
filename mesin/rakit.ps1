@@ -116,12 +116,15 @@ try {
     # walau 1 Muharram lewat di tengahnya (Juni 2027 = 1449, tahun ajarannya masih 1448)
     $awal = [datetime]::new((Get-Date).Year, 8, 1); if ((Get-Date) -lt $awal) { $awal = $awal.AddYears(-1) }
     $TAHUN = if ($M.tahun) { [string]$M.tahun } else { Angka ([Globalization.UmAlQuraCalendar]::new().GetYear($awal)) }
-    $pJudul = $null; $pSub = $null
+    $pJudul = $null; $pSub = $null; $buang = @()
     foreach ($p in @($doc.Paragraphs)) {
         $t = $p.Range.Text.Trim()
         if ($t -eq 'عنوان البحث') { Ganti $p $JUDUL1; $pJudul = $p }
         # sub-judul (bagian judul sesudah « - ») dalam kurung; tanpa sub-judul barisnya kosong
         elseif ($t -eq '( موضوع البحث )') { Ganti $p $(if ($JUDUL2) { "( $JUDUL2 )" } else { '' }); $pSub = $p }
+        # @jenis dan @nim tercetak kalau diisi; kosong (atau "-") = barisnya dibuang
+        elseif ($t -eq 'نوع البحث') { if ($M.jenis -and $M.jenis -ne '-') { Ganti $p ([string]$M.jenis) } else { $buang += $p } }
+        elseif ($t -eq 'الرقم الجامعي') { if ($NIM -and $NIM -ne '-') { Ganti $p "الرقم الجامعي: $(Angka $NIM)" } else { $buang += $p } }
         # pembimbing: tanpa @musyrif (atau "-") ketiga barisnya kosong; tanpa @jabatan (atau "-") baris jabatannya kosong
         elseif ($t -eq 'المشرف') { if (-not $MUSYRIF) { Ganti $p '' } }
         elseif ($t -eq 'اسم المشرف') { Ganti $p $MUSYRIF }
@@ -130,6 +133,7 @@ try {
         elseif ($t -eq 'اسم الطالب') { Ganti $p $NAMA }
         elseif ($t -eq 'السنة الهجرية') { Ganti $p "$TAHUN هـ" }
     }
+    foreach ($p in $buang) { [void]$p.Range.Delete() }
     # huruf judul model (dari templat: PT Bold Heading) belum terpasang = Word diam-diam memakai huruf lain: pakai huruf profil tebal
     $hJudul = $pJudul.Range.Font.NameBi
     if (@($word.FontNames) -notcontains $hJudul) {
