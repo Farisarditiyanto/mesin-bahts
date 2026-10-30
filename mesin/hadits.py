@@ -77,7 +77,7 @@ def cari(taraf, maks=10, lebar=110):
         print("\n".join(mirip))
     if total or mirip:
         print("\nPenunjuk saja, datanya bisa salah: baca di kitabnya sendiri (`ambil`, `halaman`) sebelum menulis.")
-        print("Dicari frasa persis: riwayat yang lafaznya sedikit berbeda (mis. بالنية/بالنيات) tidak ikut. Coba juga bentuk lainnya.")
+        print("Daftar cocok memakai frasa persis: lafaz lain (mis. بالنية/بالنيات) bisa terlewat. Coba bentuk lain; daftar Riwayat mirip perlu diperiksa terpisah.")
     else:  # pencariannya frasa persis: kosong di sini bukan bukti haditsnya tidak ada
         print("Coba طرف yang lebih pendek (3-5 kata berurutan dari matan), atau `temukan`.")
     return total or len(mirip)
