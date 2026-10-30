@@ -124,7 +124,7 @@ KEPALA_HADITS = re.compile(r"^[ \t\u200e\u200f]*(?:(\d+)[ \t]*[-–][ \t]*\((\d+
 # «رقم الحديث (2408)، 4/1873»: nomor tepat sebelum juz/halaman tercetak, jadi bukan nomor riwayat kitab lain di takhrij itu
 TAKHRIJ = re.compile(r"رقم(?:\s+الحديث)?\s*\(\s*([\d٠-٩]+)[^()]*\)[،,\s]*([\d٠-٩]+)\s*/\s*([\d٠-٩]+)")
 BUKAN_KEPALA = frozenset(map(shamela.padat, ("باب", "كتاب", "فصل", "مسألة")))  # judul bernomor, bukan hadits…
-SANAD = re.compile("حدث|اخبر|ثنا|انبا")  # …kecuali diikuti sanad: «3403 - باب حدثني» di Bukhari
+SANAD = re.compile("حدث|اخبر|انبا|ثنا$")  # …kecuali diikuti sanad: «3403 - باب حدثني» di Bukhari
 NOMOR_AYAT = re.compile(r"آي(?:ة|ات)[:\s]*(\d+(?:\s*(?:[-–،,]|و|إلى)\s*\d+)*)")
 MUNDUR_KEPALA = 3  # halaman ke belakang tempat kepala hadits yang dinukil masih dicari
 ANGKA_LATIN = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "0123456789" * 2)  # angka Arab dan Persia -> 0-9
