@@ -6,6 +6,8 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 ## Belum dirilis
 
 - Agent memperbarui mesin sebelum mulai bahts baru, tidak saat bahts sedang dikerjakan.
+- Penyederhanaan internal `cek`: keadaan daftar pustaka memakai nomor baris `#R` yang sudah disimpan; pencarian urutan kutipan memakai loop bersama; cache turunan Al-Qur'an dan pembantu kemiripan yang hanya punya satu pemakai dihapus. Keluaran pemeriksaan dan bahan rakit tetap sama pada naskah pembanding.
+- Laporan audit 29–30 Oktober diringkas menjadi tautan arsip commit tetap; reproduksi dan batas pengujian tetap bisa dibaca dari arsipnya.
 
 ## 6.0.0 — 2026-10-31
 

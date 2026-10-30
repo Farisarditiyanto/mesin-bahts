@@ -603,16 +603,12 @@ def _salah_ketik(a, b):
     huruf `padat`, tidak termuat di ayat mana pun, dan 4/5 hurufnya sama dengan sepotong ayat {Q:} sepanjang itu."""
     if len(b) < 8 or _di_quran(b):  # teks kitab yang memang ayat lain («مهتدون» 43:22 untuk «مقتدون» 43:23) bukan salah ketik
         return False
-    return max((m for m, _ in _potongan(a, b)), default=0) >= 0.8
-
-
-def _potongan(a, b, lebih=-1.0):
-    """(kemiripan, potongan) tiap potongan a sepanjang b; hanya yang mungkin paling sedikit `lebih` yang dihitung penuh."""
     sm = difflib.SequenceMatcher(None, "", b, autojunk=False)
     for i in range(max(1, len(a) - len(b) + 1)):
         sm.set_seq1(a[i:i + len(b)])
-        if sm.real_quick_ratio() >= lebih and sm.quick_ratio() >= lebih:
-            yield sm.ratio(), a[i:i + len(b)]
+        if sm.ratio() >= 0.8:
+            return True
+    return False
 
 
 def _jarak(a, b, batas=None):
@@ -713,15 +709,10 @@ def _quran_padat_nomor():
     return [(k, shamela.padat(v)) for k, v in QURAN.items()]
 
 
-@functools.cache
-def _quran_padat():
-    return [x for _, x in _quran_padat_nomor()]
-
-
 def _di_quran(b):
     """Teks `padat` b termuat di salah satu ayat mushaf (juga tanpa alif, waw, ya, dan hamzah: ejaan imla'i)."""
     kb = KERANGKA.sub("", b)
-    return any(b in x or kb in KERANGKA.sub("", x) for x in _quran_padat())
+    return any(b in x or kb in KERANGKA.sub("", x) for _, x in _quran_padat_nomor())
 
 
 def _kerangka_sama(a, b):
@@ -906,16 +897,11 @@ def berurutan(rr, sisi, bagian):
     (huruf `padat`), dengan susunan yang paling rapat. None kalau tidak berurutan."""
     teks = "".join(shamela._ruas(r, sisi)[0] for r in rr)
     bagian = [shamela.padat(b) for b in bagian]
-    terbaik, j = None, teks.find(bagian[0])
-    while j >= 0:  # tiap letak bagian pertama; bagian berikutnya diambil yang terdekat
-        k, jarak = j + len(bagian[0]), 0
-        for b in bagian[1:]:
-            n = teks.find(b, k)
-            if n < 0:
-                return terbaik  # letak bagian pertama yang lebih belakang juga tidak akan berurutan
-            jarak, k = max(jarak, n - k), n + len(b)
+    # Semua kemunculan tetap dicoba; batas 50 milik pemeriksaan angka/ayat tidak berlaku di sini.
+    terbaik = None
+    for letak in _susunan(teks, bagian, maks=float("inf")):
+        jarak = max((b[0] - a[1] for a, b in zip(letak, letak[1:])), default=0)
         terbaik = jarak if terbaik is None else min(terbaik, jarak)
-        j = teks.find(bagian[0], j + 1)
     return terbaik
 
 
@@ -1565,8 +1551,6 @@ def utama(folder, keluar=None):
     blok, catatan, ayat_idx, hadits_idx, galat, perhatian, pustaka = [], [], [], [], [], [], []
     meta = {"berkas": folder.name}
     di_baris = {}  # @kunci dan #R -> nomor barisnya, untuk galat yang baru ketahuan sesudah semua baris dibaca
-    mode_r = False
-    awal_r = None  # perakit berhenti pada #R pertama; jangan menerima blok yang akan hilang sesudahnya
     rumuz = {}  # @rumuz: sid -> huruf
     warna = {}  # @warna: sid -> warna Word (BGR)
     for n, b in baris:
@@ -1594,8 +1578,8 @@ def utama(folder, keluar=None):
                                      f"mis. «@warna: 900002=biru»"); continue
                     rr, gg, bb = WARNA[w.strip()]
                     warna[sid.strip()] = rr + gg * 256 + bb * 65536
-        elif awal_r is not None and b.startswith("#"):
-            galat.append(f"baris {n}: {b.split()[0]} sesudah #R di baris {awal_r} tidak dirakit: "
+        elif "#R" in di_baris and b.startswith("#"):
+            galat.append(f"baris {n}: {b.split()[0]} sesudah #R di baris {di_baris['#R']} tidak dirakit: "
                          "pindahkan bagian isi sebelum #R; sesudah #R hanya satu rujukan per baris")
         elif b.strip() == "#H":  # pindah halaman: blok sesudahnya mulai halaman baru (dibaca rakit.ps1 dan perkiraan_halaman)
             blok.append({"k": "H", "runs": [], "n": n})
@@ -1614,12 +1598,10 @@ def utama(folder, keluar=None):
                 galat.append(f"baris {n}: judul tidak boleh memuat catatan kaki [^, bukti <<, tanda {{Q:/{{H: atau **: "
                              f"pindahkan ke paragraf sesudahnya :: {b[:40]}")
             else:
-                mode_r = k == "R"
-                if mode_r:
+                if k == "R":
                     di_baris["#R"] = n
-                    awal_r = n
                 blok.append({"k": k, "runs": [{"t": t, "b": True}], "judul": t, "n": n})
-        elif mode_r:
+        elif "#R" in di_baris:
             pustaka.append(b.strip())
         else:
             try:
@@ -1640,11 +1622,11 @@ def utama(folder, keluar=None):
         galat.append(di("@bentuk") + f"@bentuk: «{bentuk}» tidak dikenal (yang ada: {'، '.join(WAJIB)})")
         bentuk = next(iter(WAJIB))
     if "pustaka" in tanpa:  # sumber cukup di catatan kaki (rujukan pertama tiap kitab berdata lengkap)
-        if mode_r:
+        if "#R" in di_baris:
             galat.append(di("#R") + "@tanpa: pustaka, tetapi ada #R: hapus #R beserta daftarnya, atau hapus «pustaka» dari @tanpa")
-    elif not mode_r and bentuk != "kitab":
+    elif "#R" not in di_baris and bentuk != "kitab":
         galat.append("tidak ada #R (المصادر والمراجع) di akhir naskah")
-    elif mode_r and not pustaka:
+    elif "#R" in di_baris and not pustaka:
         galat.append(di("#R") + "المصادر والمراجع masih kosong: tulis satu kitab per baris sesudah #R")
     if not meta["berkas"]:
         meta["berkas"] = folder.name
