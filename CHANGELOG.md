@@ -3,6 +3,10 @@
 Tiap rilis ditulis di sini: yang baru di atas. Nomor versi = `besar.kecil.tambalan`:
 besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan baru, tambalan naik kalau hanya perbaikan.
 
+## Belum dirilis
+
+- Agent memperbarui mesin sebelum mulai bahts baru, tidak saat bahts sedang dikerjakan.
+
 ## 6.0.0 — 2026-10-31
 
 **Naskah lama bisa GAGAL di `cek`.** Itu karena aturannya lebih ketat: `@kunci` salah ketik, isi sesudah `#R`, kutipan palsu sebelum tanda baca, `#nomor` yang bukan kepala hadits, dan angka ayat yang salah kini ditolak. Baca pesan `cek`, betulkan naskahnya, lalu ulangi.
