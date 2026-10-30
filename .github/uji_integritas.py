@@ -31,6 +31,7 @@ WORD = r'''
 import hashlib, json, os, subprocess, sys, types, zipfile
 from pathlib import Path
 akar, nama, mode, lain = map(str, sys.argv[1:])
+akar = str(Path(akar).resolve())  # runner Windows GitHub: TEMP bernama pendek (RUNNER~1), mesin memakai jalur panjang
 sys.stdout.reconfigure(encoding="utf8"); sys.stderr.reconfigure(encoding="utf8")
 sys.path.insert(0, str(Path(akar) / "mesin"))
 import bahts, teks_pdf
