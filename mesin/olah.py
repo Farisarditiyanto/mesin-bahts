@@ -6,7 +6,7 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       Opsional: musyrif, jabatan (kosong atau "-" = tidak tercetak), thalibah (ya = sampul mencetak «اسم الطالبة»),
                       sampul (mahad = sampul معهد، كلية الشريعة, bawaan; qism = model قسم الشريعة: logo, judul dalam kurung,
                       العام الجامعي; wajib hanya judul dan nama), tahun (العام الجامعي di sampul qism, mis. ١٤٤٨;
-                      bawaan = tahun hijriah Umm al-Qura saat rakit),
+                      bawaan = tahun hijriah Umm al-Qura saat tahun ajaran mulai, 1 Agustus),
                       berkas (nama file hasil), format (profil di format.json; bawaan imam),
                       angka (hindi = ٠١٢٣، bawaan; latin = 0123): angka yang tercetak di seluruh PDF,
                       termasuk nomor halaman, nomor catatan kaki, dan فهرس. Naskah boleh ditulis dengan angka mana saja

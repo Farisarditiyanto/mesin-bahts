@@ -110,7 +110,10 @@ try {
     $doc = $word.Documents.Open("$dir\sampul_qism.docx", $false, $true)
     $doc.SaveAs2($tmp, 16)
     Draft
-    $TAHUN = if ($M.tahun) { [string]$M.tahun } else { Angka ([Globalization.UmAlQuraCalendar]::new().GetYear((Get-Date))) }
+    # العام الجامعي bawaan = tahun hijriah saat tahun ajaran mulai (1 Agustus): satu tahun ajaran tetap satu tahun
+    # walau 1 Muharram lewat di tengahnya (Juni 2027 = 1449, tahun ajarannya masih 1448)
+    $awal = [datetime]::new((Get-Date).Year, 8, 1); if ((Get-Date) -lt $awal) { $awal = $awal.AddYears(-1) }
+    $TAHUN = if ($M.tahun) { [string]$M.tahun } else { Angka ([Globalization.UmAlQuraCalendar]::new().GetYear($awal)) }
     $pJudul = $null
     foreach ($p in @($doc.Paragraphs)) {
         $t = $p.Range.Text.Trim()
