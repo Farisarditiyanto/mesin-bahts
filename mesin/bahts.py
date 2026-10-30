@@ -48,13 +48,13 @@ FONT_NAMA = "KFGQPC HAFS Uthmanic Script (TrueType)"
 FONT_PEMAKAI = Path(os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Windows\Fonts"))
 SAMPUL_SAYA = AKAR / "sampul_saya.txt"  # data sampul pemakai (@kunci: nilai); mengisi @kunci yang kosong di naskah baru
 NAMA_FOLDER = r"[A-Za-z0-9_-]+"  # nama folder bahts yang diterima `baru`
-FORMAT = json.load(open(MESIN / "format.json", encoding="utf8"))  # profil bentuk halaman; dipilih @format di naskah
+FORMAT = json.loads((MESIN / "format.json").read_text(encoding="utf8"))  # profil bentuk halaman; dipilih @format di naskah
 HURUF_SARAN = ("huruf ini ikut terpasang kalau Windows punya papan ketik Arab (Settings > Time & language > Language & region > Add a language > العربية).\n"
                "          Atau lewat PowerShell admin (pemakai cukup klik Yes): Start-Process powershell -Verb RunAs -Wait -ArgumentList "
                "\"Add-WindowsCapability -Online -Name Language.Fonts.Arab~~~und-ARAB~0.0.1.0\"")
-# perkiraan halaman isi tanpa Word: kata per halaman pada huruf matan 18 (ditera dari satu bahts nyata: ±5500 kata setara matan = 24 halaman isi)
+# perkiraan kasar kata per halaman isi pada huruf matan 18; angka pasti hanya dari Word
 KATA_PER_HALAMAN_18 = 260
-PUSTAKA = ("pandas", "pyarrow", "pypdf", "fontTools")  # nama modul; nama pemasangannya di requirements.txt
+PUSTAKA = ("pyarrow", "pypdf", "fontTools")  # nama modul; nama pemasangannya di requirements.txt
 
 
 def huruf_ada(nama):

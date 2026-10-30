@@ -3,7 +3,7 @@
 Hanya berkas ini yang menentukan isi cache: sidiknya (VERSI) jadi nama berkas cache. Aturan penyamaan yang diubah di
 sini membuat cache baru; perubahan di berkas lain tidak. Modul berkas hanya menangani penulisan, bukan isi normalisasi.
 """
-import gzip, hashlib, json, re, unicodedata
+import gzip, hashlib, json, re, unicodedata, zlib
 from pathlib import Path
 from berkas import sementara
 
@@ -17,15 +17,16 @@ HORMAT = re.compile(
 LIGATUR_HORMAT = re.compile(r"[﵀-﵏﷾﷿]")
 # bentuk huruf yang disamakan; huruf Persia (ی ک ە ھ) sering terbawa dari PDF/situs
 # ؤ/ئ tidak disamakan dengan ء: بئس («seburuk-buruk») ≠ بؤس («kesengsaraan»); kursi hamzah yang beda menurut cetakan
-# disamakan per kata di EJAAN
+# variasi ejaannya ditangani di EJAAN
 SAMA = (("إ", "ا"), ("أ", "ا"), ("آ", "ا"), ("ٱ", "ا"), ("ٲ", "ا"), ("ٳ", "ا"), ("ى", "ي"), ("ة", "ه"), ("ؤ", "و"), ("ئ", "ي"),
         ("ی", "ي"), ("ے", "ي"), ("ۓ", "ي"), ("ک", "ك"), ("ڪ", "ك"), ("ە", "ه"), ("ھ", "ه"), ("ۀ", "ه"), ("ہ", "ه"), ("ۃ", "ه"),
         ("ں", "ن"), ("ٮ", "ب"))
-# ejaan kata yang sama-sama sah dan dipakai bergantian, bahkan dalam satu kitab; hanya pasangan yang tidak mungkin
-# menyatukan dua kata berbeda makna («مائة/مئة» tidak: «مائه» juga «airnya»). Dicocokkan sesudah SAMA
-# Kursi hamzah ditulis sesudah SAMA (ؤ->و, ئ->ي): مسئول/مسؤول، شئون/شؤون، رءوس/رؤوس، تساءل/تساؤل
+# Pasangan ejaan yang diterima sesudah SAMA; penggantian ini juga berlaku di dalam kata berimbuhan.
+# Jangan menyamakan bentuk kata yang berbeda: تساءل (kata kerja) dan تساؤل (kata benda),
+# juga مائة/مئة karena «مائه» dapat berarti «airnya».
+# Kursi hamzah ditulis sesudah SAMA (ؤ->و, ئ->ي): مسئول/مسؤول، شئون/شؤون، رءوس/رؤوس
 EJAAN = (("سماوات", "سموات"), ("اسحاق", "اسحق"), ("داوود", "داود"), ("طاووس", "طاوس"),
-         ("مسيول", "مسوول"), ("شيون", "شوون"), ("رءوس", "رووس"), ("تساءل", "تساول"), ("رحمان", "رحمن"))
+         ("مسيول", "مسوول"), ("شيون", "شوون"), ("رءوس", "رووس"), ("رحمان", "رحمن"))
 
 
 BUKAN_HURUF = re.compile(r"[^ء-ي0-9]+")
@@ -127,7 +128,7 @@ def cache(folder):
                                 and type(x[0]) is int and type(x[1]) is int and 0 <= x[0] <= x[1] <= len(b[0])
                                 for x in b[1]) for b in r) for r in d["rekaman"])):
             return d["rekaman"]
-    except (OSError, ValueError, EOFError, TypeError):
+    except (OSError, ValueError, EOFError, TypeError, zlib.error):
         pass
     isi = [[_ruas(p, b) for b, _ in BAGIAN] for p in rekaman(folder / "pages.jsonl.gz")]
     try:

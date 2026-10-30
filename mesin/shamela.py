@@ -1,8 +1,8 @@
 """Perpustakaan Shamela lokal: unduh kitab per-judul dari dataset Hugging Face
 AuthenticIlm/Shamela4_Full_DB ke folder kitab/, lalu cari kutipan secara offline
-(tanpa kredit, tanpa internet). Hanya `temukan` yang bertanya ke luar (turath.io). Dipanggil lewat bahts.py.
+(tanpa kredit, tanpa internet). `temukan` dan `scan` memakai turath.io sebagai penunjuk jalan. Dipanggil lewat bahts.py.
 """
-import functools, gzip, hashlib, html, http.client, json, os, re, shutil, sys, time, urllib.error, urllib.parse, urllib.request, warnings
+import functools, gzip, hashlib, html, http.client, json, os, re, shutil, sys, time, urllib.error, urllib.parse, urllib.request
 from pathlib import Path
 
 import norma
@@ -115,10 +115,13 @@ def _meta():
     if not (ROOT / KATALOG).exists():
         raise SystemExit("Katalog kitab belum ada: " + perintah("siapkan"))
     try:
-        import pandas as pd
+        import pyarrow.parquet as pq
     except ImportError:
         raise SystemExit("Pustaka Python belum terpasang; cara memasangnya disebut oleh: " + perintah("periksa"))
-    return pd.read_parquet(ROOT / KATALOG)
+    # Katalog hanya perlu tujuh kolom ini; kartu lengkap dibaca dari kitab lokal.
+    with pq.ParquetFile(ROOT / KATALOG) as f:
+        return f.read(columns=["shamela_id", "book_id", "category_id", "title_ar",
+                               "main_author_name_ar", "category_name_ar", "has_multi_part"]).to_pylist()
 
 
 def ada_keterangan():
@@ -134,32 +137,29 @@ def katalog(pola):
     harakat, spasi). Pola bertanda regex dicoba dulu sebagai regex; tidak ada hasil -> sebagai teks biasa."""
     if not pola.strip():
         raise SystemExit("Tulis sebagian judul atau nama pengarang, mis.: " + perintah('katalog "مدارج السالكين"'))
-    df = _meta()
-    hit = df.iloc[:0]
+    daftar = _meta()
+    hit = []
     if REGEX.search(pola):
         try:
-            with warnings.catch_warnings():  # pandas memperingatkan pola ber-(kurung) dalam bahasa Inggris
-                warnings.simplefilter("ignore")
-                hit = df[df["title_ar"].str.contains(pola, regex=True, na=False)
-                         | df["main_author_name_ar"].str.contains(pola, regex=True, na=False)]
-        except re.error:
+            regex = re.compile(pola)
+            hit = [r for r in daftar if regex.search(r["title_ar"] or "") or regex.search(r["main_author_name_ar"] or "")]
+        except (re.error, OverflowError):
             pass  # judul bertanda kurung yang disalin persis: dicocokkan sebagai teks biasa di bawah
     rata = padat if not re.search(r"[A-Za-z]", pola) else str  # padat membuang huruf Latin
     q = rata(pola)
-    if hit.empty and len(q) < 2:
+    if not hit and len(q) < 2:
         raise SystemExit(f"«{pola}» terlalu pendek untuk katalog (paling sedikit 2 huruf judul/nama).")
-    if hit.empty:
-        hit = df[df["title_ar"].fillna("").map(rata).str.contains(q, regex=False)
-                 | df["main_author_name_ar"].fillna("").map(rata).str.contains(q, regex=False)]
-    if hit.empty:
+    if not hit:
+        hit = [r for r in daftar if q in rata(r["title_ar"] or "") or q in rata(r["main_author_name_ar"] or "")]
+    if not hit:
         latin = " Katalognya berhuruf Arab: tulis judul/nama dengan huruf Arab." if re.search(r"[A-Za-z]", pola) else ""
         print(f"TIDAK KETEMU di katalog: {pola}\nCoba satu kata judul atau nama pengarang saja, "
               f"atau `temukan \"<frasa>\"` untuk mencari di isi kitab.{latin}")
         return 0
     print("nomor\tADA\tjudul\tpengarang\tbidang  " + ada_keterangan())
-    for _, r in hit.head(KATALOG_MAKS).iterrows():
-        ada = "ADA" if (ROOT / str(r.shamela_id) / "pages.jsonl.gz").exists() else "-"
-        print(f"{r.shamela_id}\t{ada}\t{r.title_ar}\t{r.main_author_name_ar}\t{r.category_name_ar}")
+    for r in hit[:KATALOG_MAKS]:
+        ada = "ADA" if (ROOT / str(r['shamela_id']) / "pages.jsonl.gz").exists() else "-"
+        print(f"{r['shamela_id']}\t{ada}\t{r['title_ar']}\t{r['main_author_name_ar']}\t{r['category_name_ar']}")
     if len(hit) > KATALOG_MAKS:
         print(f"({len(hit)} cocok, ditampilkan {KATALOG_MAKS}: persempit judul/pengarangnya)")
     return len(hit)
@@ -167,14 +167,14 @@ def katalog(pola):
 
 @functools.cache
 def _judul_padat():
-    """{judul `padat`: [nomor kitab]} dari katalog lokal; kosong kalau katalog atau pandas belum ada (cek tetap jalan)."""
+    """{judul `padat`: [nomor kitab]} dari katalog lokal; kosong kalau katalog atau pyarrow belum ada (cek tetap jalan)."""
     try:
-        df = _meta()
+        daftar = _meta()
     except SystemExit:
         return {}
     out = {}
-    for sid, judul in zip(df["shamela_id"], df["title_ar"].fillna("")):
-        out.setdefault(padat(judul), []).append(int(sid))
+    for r in daftar:
+        out.setdefault(padat(r["title_ar"] or ""), []).append(int(r["shamela_id"]))
     return out
 
 
@@ -225,8 +225,7 @@ def temukan(frasa, maks=20):
         return 0
     print(f"{d['count']} tempat cocok di seluruh Shamela: {frasa}\n" + ada_keterangan())
     ada = set(punya())
-    df = _meta()
-    berjilid = set(df[df["has_multi_part"] == True]["shamela_id"])  # turath menulis «ج1» juga untuk kitab satu jilid
+    berjilid = {r["shamela_id"] for r in _meta() if r["has_multi_part"]}  # turath menulis «ج1» juga untuk kitab satu jilid
     for x in d["data"][:maks]:
         m = json.loads(x["meta"])
         cuplikan = re.sub(r"\s+", " ", HARAKAT.sub("", html.unescape(TAGS.sub("", x["snip"]))))
@@ -264,7 +263,7 @@ def info(sid):
     f = _folder(sid) / "book_metadata.json"
     if not f.exists():
         raise SystemExit(f"Kitab {sid} belum diunduh: " + perintah(f"ambil {sid}"))
-    return json.load(open(f, encoding="utf8"))
+    return json.loads(f.read_text(encoding="utf8"))
 
 
 def daftar():
@@ -308,13 +307,11 @@ def _ambil(sid):
     dst = ROOT / str(sid)
     if (dst / "pages.jsonl.gz").exists():
         print(sid, "sudah ada"); return
-    df = _meta()
-    row = df[df.shamela_id == sid]
-    if row.empty:
+    r = next((r for r in _meta() if r["shamela_id"] == sid), None)
+    if r is None:
         raise LookupError("TIDAK ADA di katalog Shamela (nomornya dari `katalog` atau `temukan`)")
-    r = row.iloc[0]
-    top = [x["path"] for x in _ls() if x["path"].startswith(f"{int(r.category_id):02d}__")]
-    folder = [x["path"] for x in _ls(top[0]) if x["path"].split("/")[-1].split("__")[0] == str(r.book_id)] if top else []
+    top = [x["path"] for x in _ls() if x["path"].startswith(f"{int(r['category_id']):02d}__")]
+    folder = [x["path"] for x in _ls(top[0]) if x["path"].split("/")[-1].split("__")[0] == str(r['book_id'])] if top else []
     if not folder:
         raise LookupError("folder kitabnya tidak ketemu di dataset Shamela (mungkin belum tersedia di sana)")
     dst.mkdir(parents=True, exist_ok=True)
@@ -328,7 +325,7 @@ def _ambil(sid):
             _unduh(url, dst / f, lambda q: open(q, "wb"))
     mb = (dst / "pages.jsonl.gz").stat().st_size / 1e6
     _cache(sid)  # sekarang, bukan saat `cari` pertama: kitab besar makan belasan detik
-    print(f"{sid} OK  {r.title_ar}  ({mb:.1f} MB)")
+    print(f"{sid} OK  {r['title_ar']}  ({mb:.1f} MB)")
 
 
 def _cache(sid):
