@@ -2,10 +2,11 @@
 AuthenticIlm/Shamela4_Full_DB ke folder kitab/, lalu cari kutipan secara offline
 (tanpa kredit, tanpa internet). Hanya `temukan` yang bertanya ke luar (turath.io). Dipanggil lewat bahts.py.
 """
-import functools, gzip, html, http.client, json, os, re, shutil, sys, time, urllib.error, urllib.parse, urllib.request, warnings
+import functools, gzip, hashlib, html, http.client, json, os, re, shutil, sys, time, urllib.error, urllib.parse, urllib.request, warnings
 from pathlib import Path
 
 import norma
+from berkas import sementara
 from norma import BAGIAN, HARAKAT, PENANDA, TAGS, BUKAN_ABJAD, _potong, _ruas, norm, padat  # dipakai juga lewat shamela.* (olah, hadits)
 
 MESIN = Path(__file__).parent
@@ -98,16 +99,15 @@ def siapkan():
 
 
 def _unduh(url, tujuan, buka):
-    """Unduh ke <tujuan>.part, baru dinamai <tujuan> kalau utuh: unduhan yang putus tidak pernah dianggap jadi."""
-    part = tujuan.with_name(tujuan.name + ".part")
-    n = 0
-    with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=120) as resp, buka(part) as o:
-        while chunk := resp.read(1 << 20):
-            o.write(chunk); n += len(chunk)
-        janji = resp.headers.get("Content-Length")
-    if janji and int(janji) != n:
-        raise ConnectionError(f"unduhan terpotong: {n} dari {janji} byte ({tujuan.name})")
-    part.replace(tujuan)
+    """Unduh ke nama sementara unik, lalu ganti tujuan kalau utuh; dua unduhan tidak berbagi penulisan."""
+    with sementara(tujuan) as part:
+        n = 0
+        with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=120) as resp, buka(part) as o:
+            while chunk := resp.read(1 << 20):
+                o.write(chunk); n += len(chunk)
+            janji = resp.headers.get("Content-Length")
+        if janji and int(janji) != n:
+            raise ConnectionError(f"unduhan terpotong: {n} dari {janji} byte ({tujuan.name})")
 
 
 @functools.cache
@@ -372,10 +372,13 @@ def indeks(sid):
     tidak bergantung pada norm(), jadi tidak dibuat ulang saat mesin berubah. Yang rusak atau tidak cocok dengan berkasnya
     dibuat ulang."""
     folder = _folder(sid)
-    f, ukuran = folder / INDEKS, (folder / "pages.jsonl.gz").stat().st_size
+    f = folder / INDEKS
+    sumber = hashlib.sha256(_isi(sid)).hexdigest()
     try:
         d = json.loads(f.read_text(encoding="utf8"))
-        if d["versi"] == INDEKS_VERSI and d["ukuran"] == ukuran:
+        if (d["versi"] == INDEKS_VERSI and d["sumber"] == sumber and isinstance(d["rekaman"], list)
+                and all(isinstance(x, list) and len(x) == 4 and type(x[3]) is int
+                        and 0 <= x[3] < len(_isi(sid)) for x in d["rekaman"])):
             return [tuple(x) for x in d["rekaman"]]
     except (OSError, ValueError, KeyError, TypeError):
         pass
@@ -387,9 +390,8 @@ def indeks(sid):
                         max([r.get("page_num") or 0] + [int(n) for n in PENANDA.findall(r.get("body") or "")]), letak))
         letak += len(baris)
     try:
-        part = f.with_name(f.name + ".part")
-        part.write_text(json.dumps({"versi": INDEKS_VERSI, "ukuran": ukuran, "rekaman": isi}, ensure_ascii=False), encoding="utf8")
-        part.replace(f)
+        with sementara(f) as part:
+            part.write_text(json.dumps({"versi": INDEKS_VERSI, "sumber": sumber, "rekaman": isi}, ensure_ascii=False), encoding="utf8")
     except OSError:
         pass
     return isi

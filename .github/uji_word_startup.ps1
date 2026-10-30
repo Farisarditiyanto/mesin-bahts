@@ -5,6 +5,12 @@ $rakit = Join-Path $PSScriptRoot '..\mesin\rakit.ps1'
 $token = $null; $galat = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($rakit, [ref]$token, [ref]$galat)
 if ($galat) { throw 'rakit.ps1 tidak bisa diurai' }
+$alamatTmp = $ast.Find({ param($a) $a -is [System.Management.Automation.Language.AssignmentStatementAst] -and $a.Left.Extent.Text -eq '$tmp' }, $true)
+if (-not $alamatTmp) { throw 'Alamat kerja Word tidak ditemukan' }
+$Hasil = Join-Path ([IO.Path]::GetTempPath()) ('bahts-alamat-' + [guid]::NewGuid())
+$dir = Split-Path $rakit
+Invoke-Expression $alamatTmp.Extent.Text
+if ((Split-Path -Parent $tmp) -eq $Hasil) { throw 'Nama kerja Word bisa bertabrakan dengan @berkas (mis. _kerja)' }
 $buatWord = $ast.Find({
     param($a)
     $a -is [System.Management.Automation.Language.AssignmentStatementAst] -and

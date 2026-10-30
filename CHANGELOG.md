@@ -5,6 +5,10 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `cek`/`rakit`: bahan dibedakan menurut jalur lengkap bahts; tiap rakit memegang salinan bahan sendiri. Dua folder bernama akhir sama atau `cek` lain tidak lagi menimpa bahan pekerjaan berjalan. Laporan menyebut `NASKAH_SHA256` dari naskah yang benar-benar dibaca.
+- Cache pencarian dan indeks halaman kini diikat ke isi kitab dengan SHA-256, bukan hanya versi normalisasi atau ukuran berkas; cache JSON berbentuk salah dihitung ulang. Penulisan cache dan unduhan memakai nama sementara unik.
+- `rakit`: Word, PDF dan laporan disiapkan terpisah, PDF dibetulkan dan kedua berkas diperiksa sebelum hasil lama dipindahkan ke `_arsip/`. Penggantian yang gagal dipulihkan; simpan/ekspor/pembetulan yang gagal mempertahankan hasil lama. Kunci pekerjaan meliputi pemeriksaan hingga penerbitan, dan naskah yang berubah selama rakit harus dirakit ulang. Penggantian berlaku per berkas, bukan transaksi atomik pasangan saat listrik/proses terputus.
+- Pedoman agent menambahkan kecukupan cakupan persoalan dan satu kalimat pemeriksaan hasil alat; laporan cukup menyebut versi naskah, tanpa catatan per kebutuhan.
 - `rakit`: Word yang tertinggal dari rakit yang dimatikan paksa (mis. terminal ditutup di tengah jalan) dimatikan oleh rakit berikutnya. Hanya Word yang dicatat rakit itu dan masih proses yang sama; Word aplikasi lain tetap tidak disentuh. Dulu Word itu tetap hidup dan memakan memori, juga sesudah rakit berikutnya.
 - `hadits`: keluarannya kini mengingatkan bahwa daftar cocok memakai frasa persis, jadi lafaz lain (mis. بالنية/بالنيات) bisa terlewat; daftar «Riwayat mirip» perlu diperiksa terpisah. Perbandingan dengan connector `hadithunlocked` beserta batas pengujiannya dicatat di `dok/takhrij.md`.
 - `rakit`: tidak lagi menghentikan semua proses Word `/Automation` saat mulai. Proses itu bisa milik aplikasi lain; pembersihan saat selesai tetap dibatasi pada proses baru yang terdeteksi selama perakitan.

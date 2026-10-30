@@ -6,13 +6,15 @@ import json, re, shutil, subprocess, sys
 from pathlib import Path
 
 AKAR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(AKAR / "mesin"))
+from berkas import bahan as alamat_bahan
 sys.stdout.reconfigure(encoding="utf-8")  # konsol Windows (cp1252) tidak bisa mencetak huruf Arab
 
 
 def bahan(nama):
     subprocess.run([sys.executable, str(AKAR / "mesin" / "bahts.py"), "cek", nama], cwd=AKAR, check=True,
                    capture_output=True)
-    return json.load(open(AKAR / "mesin" / "_tmp" / f"{nama}.json", encoding="utf-8"))
+    return json.loads(alamat_bahan(AKAR / nama).read_text(encoding="utf8"))
 
 
 def teks_latin(b, kecuali=lambda c: False):

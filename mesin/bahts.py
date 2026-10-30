@@ -30,11 +30,12 @@ Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex dan DOAJ
                                dan menurut makna. Saringan OpenAlex, mis. language:ar,type:dissertation
   dirasat-pdf <W…> <folder>    unduh PDF penelitian (nomor OpenAlex dari `dirasat`) ke folder bahts; butuh kunci OpenAlex
 """
-import difflib, hashlib, json, math, os, re, subprocess, sys, sysconfig, urllib.error
+import difflib, hashlib, json, math, os, re, shutil, subprocess, sys, sysconfig, tempfile, urllib.error, zipfile
 from pathlib import Path
 
 import dirasat, hadits, shamela  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
 from shamela import perintah
+from berkas import bahan, kunci, terbitkan
 
 MESIN = Path(__file__).resolve().parent
 AKAR = MESIN.parent
@@ -218,11 +219,6 @@ def baru(nama, judul):
               + ("\nContoh @jenis (huruf Arab, tercetak di sampul): بحث صفي للمستوى الرابع" if "jenis" in kosong else ""))
 
 
-def bahan(f):
-    """Bahan rakit yang ditulis olah.utama saat `cek` (meta, format, blok, catatan, ...)."""
-    return MESIN / "_tmp" / f"{f.name}.json"
-
-
 def perkiraan_halaman(d):
     """Perkiraan kasar halaman isi (المقدمة s.d. الخاتمة) dari jumlah kata, untuk yang belum bisa `rakit`.
     Tiap #K/#F (dan judul di @halaman_baru) mulai halaman baru; kata catatan kaki dihitung menurut perbandingan luas hurufnya."""
@@ -242,13 +238,13 @@ def perkiraan_halaman(d):
     return sum(max(1, math.ceil(x / per_hal)) for x in bagian)
 
 
-def cek(nama):
+def cek(nama, keluar=None):
     import olah
     f = folder_bahts(nama)
-    galat, lap = olah.utama(f)
+    galat, lap = olah.utama(f, keluar)
     print("\n".join(lap))
     try:
-        n = perkiraan_halaman(json.load(open(bahan(f), encoding="utf8")))
+        n = perkiraan_halaman(json.loads((keluar or bahan(f)).read_text(encoding="utf8")))
     except (OSError, ValueError, KeyError, IndexError, TypeError):
         n = None
     if n:
@@ -257,15 +253,44 @@ def cek(nama):
 
 
 def rakit(nama):
-    f, galat, lap = cek(nama)
+    if os.name == "nt":
+        try:
+            with kunci(MESIN / "_tmp" / "rakit.pekerjaan"):
+                _rakit(nama)
+        except Exception as e:
+            sys.exit(f"Perakitan GAGAL: {type(e).__name__}: {e}")
+    else:
+        _, galat, _ = cek(nama)
+        sys.exit(f"Belum dirakit: {galat} galat harus beres dulu." if galat else
+                 "`rakit` butuh Windows + Microsoft Word. Naskahnya sudah lolos `cek`.")
+
+
+def _rakit(nama):
+    f = folder_bahts(nama)
+    kerja = Path(tempfile.mkdtemp(prefix=".rakit-", dir=f))
+    try:
+        _rakit_di(nama, f, kerja)
+    except BaseException:
+        print(f"Bahan percobaan disimpan: {kerja}")
+        raise
+    else:
+        try:
+            shutil.rmtree(kerja)
+        except OSError:
+            print(f"Hasil sudah terbit; bahan sementara belum dibersihkan: {kerja}")
+
+
+def _rakit_di(nama, f, kerja):
+    build = kerja / "bahan.json"
+    f, galat, lap = cek(nama, build)
     if galat:
         sys.exit(f"Belum dirakit: {galat} galat di atas harus beres dulu.")
     if os.name != "nt":
         sys.exit("`rakit` butuh Windows + Microsoft Word. Naskahnya sudah lolos `cek`.")
     if not font_terpasang():
         sys.exit(f"Font mushaf belum terpasang: {perintah('siapkan')}, lalu ulangi.")
-    build = bahan(f)
-    huruf = json.load(open(build, encoding="utf8"))["format"]["huruf"]
+    d = json.loads(build.read_text(encoding="utf8"))
+    huruf = d["format"]["huruf"]
     if not huruf_ada(huruf):  # tanpa huruf profil, Word diam-diam memakai huruf lain
         sys.exit(f"Huruf {huruf} (dipakai @format naskah ini) belum terpasang di Windows.\n       -> {HURUF_SARAN}\n"
                  f"Sesudah itu: {perintah('periksa')}, lalu ulangi `rakit`.")
@@ -273,21 +298,30 @@ def rakit(nama):
     # Windows PowerShell 5.1 hanya membaca huruf Arab di skrip kalau berkasnya ber-BOM
     if not ps1.read_bytes().startswith(b"\xef\xbb\xbf"):
         ps1.write_bytes(b"\xef\xbb\xbf" + ps1.read_bytes())
-    (f / "laporan.txt").write_text("\n".join(lap) + "\n", encoding="utf8")
+    (kerja / "laporan.txt").write_text("\n".join(lap) + "\n", encoding="utf8")
     r = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(ps1),
-                        "-Build", str(build), "-Folder", str(f)])
+                        "-Build", str(build), "-Folder", str(f), "-Hasil", str(kerja)])
     if r.returncode:
-        sys.exit("Perakitan Word GAGAL (lihat pesan di atas). Kalau .docx/.pdf-nya sedang terbuka, tutup dulu.")
-    berkas = json.load(open(build, encoding="utf8"))["meta"]["berkas"]
+        raise RuntimeError("Perakitan Word gagal; hasil lama belum diganti (lihat pesan di atas).")
+    berkas = d["meta"]["berkas"]
     import teks_pdf
-    try:  # supaya teks Arab PDF tersalin dan tercari dengan benar; tampilannya tidak berubah
-        teks_pdf.betulkan(f / f"{berkas}.pdf")
-    except Exception as e:
-        print(f"PERINGATAN: PDF jadi, tetapi teks Arabnya belum dibetulkan (salin/cari bisa terbalik): {type(e).__name__}: {e}")
+    teks_pdf.betulkan(kerja / f"{berkas}.pdf")
+    with zipfile.ZipFile(kerja / f"{berkas}.docx") as z:
+        if z.testzip() or not {"[Content_Types].xml", "word/document.xml"} <= set(z.namelist()):
+            raise RuntimeError("Word menghasilkan DOCX yang tidak utuh; hasil lama belum diganti.")
+    from pypdf import PdfReader
+    halaman = len(PdfReader(kerja / f"{berkas}.pdf").pages)
+    laporan = (kerja / "laporan.txt").read_text(encoding="utf8")
+    if f"HALAMAN={halaman}" not in laporan.splitlines() or not halaman:
+        raise RuntimeError("PDF dan laporan halaman tidak cocok; hasil lama belum diganti.")
+    if hashlib.sha256((f / "naskah.txt").read_bytes()).hexdigest() != d["naskah_sha256"]:
+        raise RuntimeError("Naskah berubah selama rakit; hasil lama belum diganti. Ulangi rakit.")
+    cadangan = terbitkan(kerja, f, [f"{berkas}.docx", f"{berkas}.pdf", "laporan.txt"])
     for baris in (f / "laporan.txt").read_text(encoding="utf8").splitlines():
         if baris.startswith(("HALAMAN", "CATATAN_KAKI", "KATA")):
             print(baris)
     print(f"Jadi: {f / berkas}.docx dan .pdf")
+    print(f"Cadangan hasil sebelumnya: {cadangan}")
 
 
 def angka(teks, apa):
