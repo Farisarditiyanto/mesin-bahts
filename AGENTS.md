@@ -16,6 +16,10 @@ Anggap pemakai baru pertama kali memakai agent, tidak membaca README, dan hanya 
 
 ## Sebelum tiap bahts
 
+- Perbarui mesin hanya sebelum mulai bahts baru, jangan saat bahts sedang dikerjakan: `cek` versi baru bisa menggagalkan naskah yang tadinya lolos.
+  1. Folder ini repo git dan `git status --porcelain` kosong → jalankan `git pull --ff-only`, lalu ulangi `periksa`.
+  2. Perintah itu gagal atau ada perubahan lokal → jangan dipaksa. Beri tahu pemakai, lalu lanjut dengan versi yang ada.
+  3. Bukan repo git (dulu diunduh sebagai zip) → beri tahu pemakai bahwa versi baru tidak diambil otomatis. Jangan menimpa folder ini: semua bahtsnya ada di dalam.
 - `sampul_saya.txt` belum ada → tanya pemakai sekali: nama (huruf Arab), nomor mahasiswa, jenis tugas, semester, dan mahasiswa atau mahasiswi. Simpan sebagai baris `@nama:`, `@nim:`, `@jenis:`, `@fasl:` di berkas itu. `baru` memakainya untuk tiap bahts. Sampul `@sampul: qism` wajibnya hanya nama, tetapi nomor mahasiswa dan jenis tugas ikut tercetak kalau ada; semester cukup ditanya kalau pemakai juga memakai sampul bawaan.
 - Pemakainya mahasiswi → tambah baris `@thalibah: ya` di `sampul_saya.txt`: sampul mencetak «اسم الطالبة».
 - Pembimbing (`@musyrif`, `@jabatan`) ditanya tiap bahts dan ditulis di naskahnya: dosennya bisa berbeda.
