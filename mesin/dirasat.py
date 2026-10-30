@@ -13,6 +13,7 @@ import json, os, re, time, urllib.error, urllib.parse
 from pathlib import Path
 
 from shamela import buka, perintah
+from berkas import sementara
 
 KUNCI = Path(__file__).parent.parent / "kunci_openalex.txt"
 KUNCI_ENV = "OPENALEX_API_KEY"
@@ -196,14 +197,25 @@ def cari(kata, maks=10, saringan="", lebar=400):
         print("Coba kata kunci lebih pendek (2-3 kata inti), atau buang saringannya.")
 
 
+def _pdf_terbaca(berkas):
+    """Validasi minimum sebelum menamai hasil .pdf; bukan pemeriksaan ilmiah isinya."""
+    from pypdf import PdfReader
+    try:
+        return bool(len(PdfReader(berkas).pages))
+    except Exception:  # format rusak/bersandi tidak boleh dianggap unduhan yang selesai
+        return False
+
+
 def pdf(nomor, folder):
     """Unduh salinan PDF sebuah penelitian (nomor OpenAlex, W…) ke folder bahts, supaya isinya bisa dibaca."""
     if not re.fullmatch(r"W\d+", nomor):
         raise ValueError(f"«{nomor}» bukan nomor OpenAlex (bentuknya W123…, tercetak oleh `dirasat`)")
     tujuan = Path(folder) / f"{nomor}.pdf"
     if tujuan.exists():
-        print(f"Sudah ada: {tujuan}")
-        return
+        if _pdf_terbaca(tujuan):
+            print(f"Sudah ada: {tujuan}")
+            return
+        print(f"PDF lama tidak bisa dibaca; mengunduh ulang: {tujuan}")
     try:
         with _buka(PDF.format(nomor), WAKTU_PDF) as r:
             isi = r.read()
@@ -215,5 +227,10 @@ def pdf(nomor, folder):
         raise SystemExit(f"OpenAlex tidak menyimpan PDF {nomor}: pakai tautan «PDF:» yang dicetak `dirasat`, kalau ada")
     if not isi.startswith(b"%PDF"):
         raise SystemExit(f"Jawaban OpenAlex untuk {nomor} bukan PDF.")
-    tujuan.write_bytes(isi)
+    # Nama .pdf hanya terbit sesudah penulisan dan pembacaan berhasil. Sisa unduhan
+    # terpotong tidak boleh dianggap «Sudah ada» oleh panggilan berikutnya.
+    with sementara(tujuan) as part:
+        part.write_bytes(isi)
+        if not _pdf_terbaca(part):
+            raise SystemExit(f"PDF {nomor} tidak utuh atau tidak bisa dibaca; ulangi unduhan.")
     print(f"Jadi: {tujuan} ({len(isi) / 1e6:.1f} MB)")

@@ -1,4 +1,4 @@
-﻿# Rakit <Folder>\<berkas>.docx + .pdf dari build.json (hasil olah.py), memakai Word asli (COM).
+﻿# Rakit <Hasil>\<berkas>.docx + .pdf dari bahan JSON -Build (hasil olah.py), memakai Word asli (COM).
 # Dipanggil oleh bahts.py; jangan dijalankan langsung.
 param([Parameter(Mandatory)][string]$Build, [Parameter(Mandatory)][string]$Folder, [string]$Hasil = $Folder)
 $ErrorActionPreference = 'Stop'
@@ -76,7 +76,7 @@ try {
     # FormattedText ke dokumen lain hanya membawa format langsung; yang datang dari gaya templat (arah, rata, garis,
     # huruf judul) disalin per paragraf. Huruf disalin per sifat, hanya yang seragam dalam paragrafnya (bukan 9999999):
     # menyalin objek Font utuh ikut membawa sifat yang tak tentu. Miring hanya disalin kalau templatnya miring: Word
-    # melaporkan Italic kop sampul Satria terbalik menurut arah bagian (0 padahal XML-nya miring, -1 padahal tidak),
+    # melaporkan Italic kop sampul pemakai terbalik menurut arah bagian (0 padahal XML-nya miring, -1 padahal tidak),
     # jadi menyalin Italic=0 malah menulis <w:i/>. Nama huruf per jenis aksara: Name pada teks Arab = huruf Arabnya,
     # dan menulisnya ke Name mengganti huruf Latin paragraf itu
     function SalinGaya($asal, $tujuan) {

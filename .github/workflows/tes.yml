@@ -24,7 +24,7 @@ jobs:
       - run: python .github/uji_angka.py
       # Pengalihan HTTP harus menjaga kunci di asal yang sama, tanpa membocorkannya ke asal lain (peladen lokal).
       - run: python .github/uji_jaringan.py
-      # Bahan terpisah, cache mengikuti isi kitab, hasil lama pulih saat rakit gagal (Word disimulasikan).
+      # Bahan terpisah, cache rusak pulih, sumber tidak tertimpa, katalog ringan, PDF utuh; kegagalan Word disimulasikan.
       - run: python .github/uji_integritas.py
       # opencode.json = salinan terpaksa .mcp.json (OpenCode tidak membaca .mcp.json): daftar connector harus sama
       - name: connector opencode.json sama dengan .mcp.json

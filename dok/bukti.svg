@@ -68,7 +68,7 @@
 <text x="82" y="646" font-size="17" font-weight="700" font-family="Georgia, 'Times New Roman', serif" fill="#7d2f42">Yang TIDAK bisa dinilai cek</text>
 <text x="82" y="674" font-size="14" fill="#5e4835">Benarkah yang berkata memang orang itu, benarkah nama kitabnya, derajat hadits, kutipan tanpa catatan kaki,</text>
 <text x="82" y="696" font-size="14" fill="#5e4835">dan isi sumber di luar Shamela. Itu tugas agent kedua (langkah 9), lalu kamu.</text>
-<text x="82" y="720" font-size="13" fill="#5e4835">Berkas/halaman PDF tetap dicek. Rentang dibatasi sebelum diproses. NASKAH_SHA256 mengikat laporan ke naskah yang dibaca.</text>
+<text x="82" y="720" font-size="13" fill="#5e4835">#nomor bukan bukti: gunakan lafaz kitab. Templat/PDF sumber dilindungi dari hasil rakit. Laporan memuat NASKAH_SHA256.</text>
 <g transform="translate(1000 62) rotate(121) scale(1.10)" opacity="0.8"><path d="M0 -7C4 -7 6 -3 5 1C4 5 1 7 0 6C-1 7 -4 5 -5 1C-6 -3 -4 -7 0 -7Z" fill="#f2b8c4"/><path d="M0 -7L0 -3" stroke="#e48fa3" stroke-width="1"/></g>
 <g transform="translate(1060 100) rotate(66) scale(0.98)" opacity="0.8"><path d="M0 -7C4 -7 6 -3 5 1C4 5 1 7 0 6C-1 7 -4 5 -5 1C-6 -3 -4 -7 0 -7Z" fill="#f2b8c4"/><path d="M0 -7L0 -3" stroke="#e48fa3" stroke-width="1"/></g>
 <g transform="translate(1500 70) rotate(309) scale(1.04)" opacity="0.8"><path d="M0 -7C4 -7 6 -3 5 1C4 5 1 7 0 6C-1 7 -4 5 -5 1C-6 -3 -4 -7 0 -7Z" fill="#f2b8c4"/><path d="M0 -7L0 -3" stroke="#e48fa3" stroke-width="1"/></g>

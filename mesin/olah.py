@@ -45,7 +45,8 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   <<sid|juz|hal>>     bukti di dalam catatan kaki (tidak ikut tercetak): kutipan bertanda petik tepat sebelum catatan kaki
                       harus ada di kitab sid pada juz/hal itu, utuh per kata. Kutipan yang dipotong: tulis ... di tempat
                       potongannya; tiap bagian dicek, harus berurutan. Kutipan tanpa bukti = GAGAL
-  <<sid|juz|hal|potongan>>   bukti dengan potongan teks sendiri (untuk nukilan makna «انظر», tanpa tanda petik); #123 = nomor hadits.
+  <<sid|juz|hal|potongan>>   bukti dengan potongan lafaz sendiri (untuk nukilan makna «انظر», tanpa tanda petik).
+                      Nomor hadits saja (#123) bukan bukti lafaz: ganti dengan potongan teks kitab yang dibaca.
                       Kutipan bertanda petik sebelum catatan kaki tetap dicek ke halaman bukti itu
                       juz "-" = kitab satu jilid; hal boleh rentang 12-14
   [^<<sid|juz|hal>>]  catatan kaki berisi bukti saja, semua sid-nya ada di @rumuz: tidak dicetak; yang tercetak hanya
@@ -72,9 +73,9 @@ import sumber_pdf
 from berkas import bahan, sementara
 
 HERE = Path(__file__).parent
-QURAN = json.load(open(HERE / "quran_hafs_v22.json", encoding="utf8"))
-SURAH = json.load(open(HERE / "nama_surah.json", encoding="utf8"))
-FORMAT = json.load(open(HERE / "format.json", encoding="utf8"))  # huruf & ukuran tiap pedoman; dipilih dengan @format
+QURAN = json.loads((HERE / "quran_hafs_v22.json").read_text(encoding="utf8"))
+SURAH = json.loads((HERE / "nama_surah.json").read_text(encoding="utf8"))
+FORMAT = json.loads((HERE / "format.json").read_text(encoding="utf8"))  # huruf & ukuran tiap pedoman; dipilih dengan @format
 WAJIB = {"bahts": ("judul", "jenis", "nama", "nim", "fasl"), "kitab": ("judul",)}  # @bentuk: yang pertama = bawaan
 # @sampul: model sampul bahts -> data yang wajib. Yang pertama = bawaan. mahad = mesin/sampul.doc (معهد، كلية الشريعة);
 # qism = mesin/sampul_qism.docx (قسم الشريعة: logo, judul besar, sub-judul dalam kurung, العام الجامعي; jenis dan nim tercetak kalau diisi, fasl tidak)
@@ -452,13 +453,8 @@ def cek(sid, juz, hal, pot, perhatian, kutipan=False, rinci=True):
         if p1 <= n <= p2 and not any(p.endswith(pesan) for p in perhatian):
             perhatian.append(pesan)
     if pot.startswith("#") and not kutipan:
-        nomor = pot[1:].translate(ANGKA_LATIN)
-        if not re.fullmatch(r"\d+", nomor.strip()):  # «#» kosong cocok di halaman mana saja
-            return f"nomor hadits kosong/bukan angka: <<…|{pot}>>"
-        for r in rekaman(sid, juz, p1, p2):
-            if re.search(rf"(?<!\d){re.escape(nomor)}(?!\d)", angka_kitab(r.get("body") or "")):
-                return ""
-        return f"nomor {pot[1:]} tidak ada di {sid} {juz}/{hal}"
+        return (f"nomor hadits saja ({pot}) bukan bukti lafaz: angka yang sama bisa nomor ayat, halaman, atau catatan; "
+                "ganti #nomor dengan potongan lafaz yang dibaca di kitab pada juz/halaman itu")
     bagian, celah, pisah = [], [], []  # celah[i] = pemisah (... atau ﴿s:a﴾) di antara bagian i dan i+1
     ujung = [[], []]  # pemisah sebelum bagian pertama dan sesudah bagian terakhir («"قال تعالى: {Q:…}"»)
     for k, x in enumerate(re.split(f"({ELIPSIS.pattern})", pot)):
@@ -1389,7 +1385,6 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             for k in kc if terbukti else ():
                 kq = re.sub(r"\{Q:([^}]*)\}", lambda m: " ﴿%s:%s﴾ " % ayat(m.group(1))[1:], k)  # {Q:} dicek seperti di matan
                 if all(cek(int(s), z, f"{a}-{b}", kq, [], kutipan=True, rinci=False) for s, z, a, b in terbukti):
-                    # judul («"…"، مجلة …») atau sumber <<luar>>: mungkin memang bukan dari kitab bukti, cukup perhatian
                     # judul («"…"، مجلة …», «بعنوان "…"») atau sumber <<luar>>: cukup perhatian. GAGAL hanya untuk nukilan
                     # yang diantar «…:» («قال الشيخ: "…"»), bukan «انظر:»/«بعنوان:»
                     sebelum, _, ekor = seragam(isi).partition(k)
@@ -1604,6 +1599,16 @@ def utama(folder, keluar=None):
             galat.append(di("@templat") + f"@templat: «{meta['templat']}» tidak ada di folder {folder.name}")
         else:
             meta["templat"] = str(tpl)
+    # Hasil lama boleh diganti; templat dan PDF yang dirujuk naskah adalah bahan pemakai.
+    # Samakan kapitalisasi juga di Linux: hasilnya akan dirakit di Windows.
+    tujuan = {(folder / nama).resolve().as_posix().casefold()
+              for nama in (f"{meta['berkas']}.docx", f"{meta['berkas']}.pdf", "laporan.txt")}
+    sumber = re.findall(r"<<luar\|([^|<>]+)\|", naskah.decode("utf-8-sig"))
+    if meta.get("templat"):
+        sumber.append(meta["templat"])
+    for nama in dict.fromkeys(sumber):
+        if (folder / nama.strip()).resolve().as_posix().casefold() in tujuan:
+            galat.append(di("@berkas") + f"hasil rakit akan menimpa bahan sumber «{nama}»: ganti @berkas atau nama berkas sumber")
     baru = [t for t in re.split(r"[,، ]+", meta.get("halaman_baru", "")) if t]
     if any(t not in HALAMAN_BARU for t in baru):
         galat.append(di("@halaman_baru") + f"@halaman_baru: «{meta['halaman_baru']}» tidak dikenal (yang ada: {', '.join(HALAMAN_BARU)})")

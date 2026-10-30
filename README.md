@@ -68,6 +68,7 @@ Hasilnya ada di folder `mesin-bahts` di dalam folder Dokumen-mu.
 ## Batasnya
 
 - `cek` hanya membuktikan bahwa teksnya ada di halaman itu. Ia tidak menilai siapa yang berkata, derajat hadits, kutipan tanpa catatan kaki, atau sumber di luar Shamela (PDF penelitian di folder bahts, `<<luar|berkas.pdf|hal>>`, hanya ditunjukkan halamannya). Itu diperiksa agent kedua (tanpa subagent: sesi agent baru), lalu kamu. **Periksa sendiri kutipan utamamu.**
+- Nomor hadits saja (`<<sid|juz|hal|#123>>`) bukan bukti lafaz dan ditolak. Ganti `#123` dengan potongan lafaz yang dibaca di halaman kitab; nomor hadits tetap ditulis dalam takhrij catatan kaki.
 - Teks kitab = ketikan Shamela, jadi bisa salah ketik. Ayat kitab yang salah ketik biasanya ditandai `cek` sebagai perhatian: cocokkan ke scan cetakannya.
 - Model AI gratis lebih sering salah langkah; pemeriksaan ulang makin penting.
 - Nama di sampul namamu: isinya tanggung jawabmu. Tanyakan ke dosen apakah bantuan AI dibolehkan.

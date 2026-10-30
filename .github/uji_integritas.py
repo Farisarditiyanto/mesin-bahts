@@ -3,6 +3,7 @@ Word/COM dan kegagalan filesystem disimulasikan; rakit Word sungguhan tetap diuj
 """
 import gzip, hashlib, json, os, shutil, subprocess, sys, tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 AKAR = Path(__file__).resolve().parent.parent
 sys.stdout.reconfigure(encoding="utf8")
@@ -151,10 +152,115 @@ def utama():
                 r = jalan(akar, "cari", "11223", "كلمات جديدة للبحث")
                 assert r.returncode == 0, repr(payload) + r.stdout + r.stderr
 
+        def cache_deflate_rusak():
+            sumber(pages, True)
+            # Header gzip sah, tetapi blok DEFLATE tidak sah: zlib.error, bukan BadGzipFile.
+            (kitab / f"padat-{norma.VERSI}.json.gz").write_bytes(bytes.fromhex("1f8b08000000000000030600") + b"\0" * 8)
+            r = jalan(akar, "cari", "11223", "كلمات جديدة للبحث")
+            assert r.returncode == 0, r.stdout + r.stderr
+
+        def bahan_terlindungi():
+            f = akar / "uji-bahan"
+            f.mkdir()
+            tpl, pdf = f / "hasil.docx", f / "hasil.pdf"
+            tpl.write_bytes(b"TEMPLAT-PEMAKAI")
+            from pypdf import PdfWriter
+            w = PdfWriter(); w.add_blank_page(width=100, height=100)
+            with pdf.open("wb") as h: w.write(h)
+            awal = {p: p.read_bytes() for p in (tpl, pdf)}
+            for tambahan in ("@bentuk: bahts\n@templat: hasil.docx\n",
+                             "@bentuk: bahts\n@templat: HASIL.docx\n",
+                             "معنى من المصدر[^انظر: دراسة، ص1. <<luar|hasil.pdf|1>>].\n"):
+                naskah(f)
+                with (f / "naskah.txt").open("a", encoding="utf8") as h: h.write(tambahan)
+                r = jalan(akar, "cek", f)
+                assert r.returncode != 0 and "menimpa bahan sumber" in r.stdout + r.stderr, r.stdout + r.stderr
+                assert all(p.read_bytes() == isi for p, isi in awal.items()), "Bahan pemakai berubah"
+
+        def pdf_utuh():
+            import dirasat, io
+            from pypdf import PdfWriter
+            w = PdfWriter(); w.add_blank_page(width=100, height=100)
+            buf = io.BytesIO(); w.write(buf)
+            isi = buf.getvalue()
+            f = akar / "uji-unduh"
+            f.mkdir()
+            tujuan = f / "W123.pdf"
+            tulis = Path.write_bytes
+            def putus(p, data):
+                tulis(p, data[:8])
+                raise OSError("injeksi disk penuh")
+            for data, gagal in ((b"%PDF-1.7\nterpotong", True), (isi, True), (isi, False)):
+                with patch.object(dirasat, "_buka", side_effect=lambda *a: io.BytesIO(data)):
+                    try:
+                        if data == isi and gagal:
+                            with patch.object(Path, "write_bytes", putus): dirasat.pdf("W123", f)
+                        else:
+                            dirasat.pdf("W123", f)
+                    except (OSError, SystemExit):
+                        assert gagal, "PDF sah ditolak"
+                    else:
+                        assert not gagal, "PDF rusak/penulisan terputus dianggap berhasil"
+                assert tujuan.exists() != gagal
+                assert not list(f.glob("*.part")), "Sisa unduhan tidak dibersihkan"
+            assert tujuan.read_bytes() == isi
+            with patch.object(dirasat, "_buka", side_effect=AssertionError("PDF sah diunduh lagi")):
+                dirasat.pdf("W123", f)
+            tujuan.write_bytes(b"%PDF-lama-terpotong")
+            with patch.object(dirasat, "_buka", side_effect=lambda *a: io.BytesIO(b"%PDF-baru-terpotong")):
+                try:
+                    dirasat.pdf("W123", f)
+                except SystemExit:
+                    pass
+                else:
+                    raise AssertionError("PDF rusak dianggap selesai")
+            assert tujuan.read_bytes() == b"%PDF-lama-terpotong", "Kegagalan unduh mengganti berkas lama"
+            with patch.object(dirasat, "_buka", side_effect=lambda *a: io.BytesIO(isi)):
+                dirasat.pdf("W123", f)
+            assert tujuan.read_bytes() == isi, "PDF lama yang rusak tidak dipulihkan"
+
+        def katalog_ringan():
+            # Proses baru: pembacaan katalog tidak boleh diam-diam mengimpor pandas.
+            r = subprocess.run([sys.executable, "-c",
+                "import sys; sys.path.insert(0, 'mesin'); import shamela; "
+                "assert shamela._meta(); assert 'pandas' not in sys.modules; "
+                "assert shamela.nomor_judul('رسالة في القضاء والقدر')[0]; "
+                "assert shamela.katalog('(رياض') > 0; shamela.katalog('a{99999999999}')"],
+                cwd=akar, capture_output=True, encoding="utf8", env=dict(os.environ, PYTHONIOENCODING="utf8"))
+            assert r.returncode == 0, r.stdout + r.stderr
+
+        def konsumen_katalog():
+            import contextlib, io, shamela
+            rows = [{"shamela_id": 99001, "book_id": 777, "category_id": 7, "title_ar": "كتاب تجريبي",
+                     "main_author_name_ar": "مؤلف", "category_name_ar": "قسم", "has_multi_part": False},
+                    {"shamela_id": 99002, "has_multi_part": True}]
+            unduh = []
+            def ls(p=""):
+                return [{"path": "07__قسم/777__كتاب" if p else "07__قسم"}]
+            def ambil(url, tujuan, buka):
+                unduh.append(url)
+                tujuan.write_bytes(b"uji unduh")
+            jawaban = {"count": 2, "data": [{"book_id": sid, "snip": "نص البحث",
+                "meta": json.dumps({"vol": 1, "page": 9, "book_name": "كتاب", "author_name": "مؤلف"})}
+                for sid in (99001, 99002)]}
+            out = io.StringIO()
+            with patch.object(shamela, "_meta", return_value=rows), contextlib.redirect_stdout(out):
+                with patch.object(shamela, "_ls", side_effect=ls), patch.object(shamela, "_unduh", side_effect=ambil), patch.object(shamela, "_cache"):
+                    shamela._ambil(99001)
+                with patch.object(shamela, "buka", side_effect=lambda *a: io.StringIO(json.dumps(jawaban))):
+                    assert shamela.temukan("نص البحث") == 2
+            assert len(unduh) == 3 and all("/07__" in u and "/777__" in u for u in unduh), unduh
+            assert "ج- ص9" in out.getvalue() and "ج1 ص9" in out.getvalue(), out.getvalue()
+
         uji("bahan dua folder bernama sama terpisah", terpisah)
         uji("cache mengikuti perubahan isi meski ukuran dan mtime sama", cache_usang)
         uji("indeks mengikuti isi/offset baru meski ukuran dan mtime sama", indeks_usang)
         uji("cache JSON null/bentuk salah dihitung ulang", cache_rusak)
+        uji("cache DEFLATE rusak dihitung ulang", cache_deflate_rusak)
+        uji("templat/PDF sumber tidak ditimpa hasil rakit", bahan_terlindungi)
+        uji("PDF rusak dan penulisan putus tidak meninggalkan hasil", pdf_utuh)
+        uji("katalog tanpa pandas dan regex salah tidak crash", katalog_ringan)
+        uji("ambil/temukan memakai metadata judul dan jilid yang benar", konsumen_katalog)
 
         def rakit(mode):
             folder = akar / "a" / "sama"
@@ -197,7 +303,7 @@ def utama():
             uji("rakit " + mode, lambda mode=mode: rakit(mode))
         if gagal:
             sys.exit(f"{len(gagal)} uji integritas gagal: " + ", ".join(gagal))
-        print("uji integritas: 13 skenario sesuai; Word disimulasikan")
+        print("uji integritas: 18 skenario sesuai; Word disimulasikan")
 
 
 if __name__ == "__main__":
