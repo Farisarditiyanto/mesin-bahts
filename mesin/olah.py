@@ -123,6 +123,9 @@ KEPALA_HADITS = re.compile(r"^[ \t\u200e\u200f]*(?:(\d+)[ \t]*[-–][ \t]*\((\d+
                            r"|(\d+(?:[ \t]*[،,و–-][ \t]*\d+)*)[ \t]*[-–][ \t]*(?=[^\d\s]))", re.M)
 # «رقم الحديث (2408)، 4/1873»: nomor tepat sebelum juz/halaman tercetak, jadi bukan nomor riwayat kitab lain di takhrij itu
 TAKHRIJ = re.compile(r"رقم(?:\s+الحديث)?\s*\(\s*([\d٠-٩]+)[^()]*\)[،,\s]*([\d٠-٩]+)\s*/\s*([\d٠-٩]+)")
+BUKAN_KEPALA = frozenset(map(shamela.padat, ("باب", "كتاب", "فصل", "مسألة")))  # judul bernomor, bukan hadits…
+SANAD = re.compile("حدث|اخبر|انبا|ثنا$")  # …kecuali diikuti sanad: «3403 - باب حدثني» di Bukhari
+NOMOR_AYAT = re.compile(r"آي(?:ة|ات)[:\s]*(\d+(?:\s*(?:[-–،,]|و|إلى)\s*\d+)*)")
 MUNDUR_KEPALA = 3  # halaman ke belakang tempat kepala hadits yang dinukil masih dicari
 ANGKA_LATIN = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "0123456789" * 2)  # angka Arab dan Persia -> 0-9
 
@@ -934,6 +937,9 @@ def kepala_hadits(body):
     baris = shamela.PENANDA.sub(" ", shamela.TAGS.sub(" ", body)).translate(ANGKA_LATIN).replace("\r", "\n")
     kepala, kurung = [], []
     for m in KEPALA_HADITS.finditer(baris):
+        awal = list(map(shamela.padat, baris[m.end():m.end() + 60].split()[:2]))
+        if awal and awal[0] in BUKAN_KEPALA and not (len(awal) > 1 and SANAD.match(awal[1])):
+            continue
         if m[2] or m[3]:
             kurung.append((m.start(), int(m[2] or m[3])))
         kepala += [(m.start(), int(x)) for x in re.findall(r"\d+", m[0])]
@@ -1397,7 +1403,10 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 s, a = q_akhir
                 nama = re.split(r"[،,:(]|\sآي", isi[4:])[0]  # «سورة الفاتحة، آية: 2.» -> «الفاتحة»
                 angka = isi.translate(ANGKA_LATIN)
-                if shamela.padat(nama) != shamela.padat(SURAH[s - 1]) or not all(re.search(rf"(?<!\d){x}(?!\d)", angka) for x in a.split("-")):
+                ayat_sejak = {n for x, y in re.findall(rf"﴿{s}:(\d+)(?:-(\d+))?﴾", penggal) for n in range(int(x), int(y or x) + 1)}
+                tertulis = NOMOR_AYAT.search(angka)  # hanya nomor sesudah «آية»: juz, halaman, dan tahun di catatan bukan nomor ayat
+                if (shamela.padat(nama) != shamela.padat(SURAH[s - 1]) or not all(re.search(rf"(?<!\d){x}(?!\d)", angka) for x in a.split("-"))
+                        or ayat_sejak and tertulis and set(map(int, re.findall(r"\d+", tertulis[1]))) - ayat_sejak):
                     galat.append(f"catatan kaki ayat tidak cocok dengan {{Q:{s}:{a}}} (سورة {SURAH[s - 1]}) || fn: {isi[:45]}")
             # kutipan terakhir tepat sebelum catatan kaki; kutipan lain sejak catatan kaki sebelumnya tidak punya catatan kaki sendiri
             # Catatan penjelasan boleh berada di tengah kutipan, jadi pembukanya dapat sebelum seg.

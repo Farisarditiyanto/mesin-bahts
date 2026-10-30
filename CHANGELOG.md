@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `cek`: angka di catatan kaki ayat harus termasuk ayat `{Q:…}` yang dibuktikannya; `آية: ٢٣ و٢` untuk `{Q:1:2}` kini GAGAL. Judul bernomor («4 - 128 - باب», «(1) - كتاب») tidak lagi terbaca kepala hadits.
 - `cek` mencocokkan nomor takhrij (`رقم الحديث (n)، j/h.` tepat sebelum bukti halaman itu) ke kepala hadits dan lafaz bukti di kitabnya. Tidak cocok = `perhatian`. Bukti `#nomor` juga menerima kepala banyak nomor («3980 - 3981 -»).
 - `cek`: koma/titik koma Latin, kurung penutup, dan tanda baca Unicode sesudah petik tidak lagi membuat nukilan luput dari pemeriksaan. Dulu nukilan palsu tiga kata diikuti koma Latin dan bukti berpotongan sendiri bisa lolos tanpa perhatian.
 - `cek`: menolak judul, kotak matn `#T`, dan pindah halaman `#H` sesudah `#R`. Perakit berhenti membaca isi pada `#R` pertama; dulu bagian itu bisa lolos tanpa peringatan tetapi hilang dari Word/PDF, atau membuat bookmark tidak ditemukan.
