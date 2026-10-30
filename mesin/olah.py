@@ -2,7 +2,7 @@
 + verifikasi setiap rujukan ke kitab Shamela lokal. Dipanggil lewat bahts.py.
 
 Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
-  @kunci: nilai       data sampul, di awal naskah. Wajib: judul, jenis ("-" = tidak tercetak), nama, nim, fasl.
+  @kunci: nilai       data sampul, di awal naskah; kunci tidak dikenal = GAGAL (salah ketik tidak diabaikan). Wajib: judul, jenis ("-" = tidak tercetak), nama, nim, fasl.
                       Opsional: musyrif, jabatan (kosong atau "-" = tidak tercetak), thalibah (ya = sampul mencetak «اسم الطالبة»),
                       sampul (mahad = sampul معهد، كلية الشريعة, bawaan; qism = model قسم الشريعة: logo, judul besar, sub-judul dalam kurung,
                       العام الجامعي; wajib hanya judul dan nama; jenis dan nim tercetak kalau diisi, fasl tidak),
@@ -34,7 +34,7 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       mis. pembuka المقدمة satu halaman sendiri, lalu «#H» sebelum «#S أهمية الدراسة»
   #T teks             kotak matn: paragraf dalam bingkai, seluruhnya merah (boleh memuat catatan kaki)
   #R teks             awal المصادر والمراجع; sesudahnya satu kitab per baris (diurutkan abjad otomatis, القرآن الكريم paling atas).
-                      Wajib, kecuali «@tanpa: pustaka»
+                      Wajib, kecuali «@tanpa: pustaka»; semua bagian isi harus sebelum #R (tidak boleh ada judul/#T/#H sesudahnya)
   **...**             tebal
   ((...))             lafaz matn yang disyarah: dicetak merah di dalam kurung, «((ليس بحجة))» -> (ليس بحجة)
   {Q:s:a} {Q:s:a-b} {Q:s:a:i-j}   ayat surat s ayat a (atau a-b; atau kata ke-i s.d. j): teks resmi rasm Utsmani + masuk فهرس الآيات
@@ -65,7 +65,7 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   Judul (#K/#F/#B/#M/#S/#R) tidak boleh memuat [^, <<, {Q:/{H: atau **
   Contoh: قال ابن القيم: "…"[^مدارج السالكين، ابن القيم، 2/15. <<8370|2|15>>].
 """
-import difflib, functools, hashlib, io, json, os, re
+import difflib, functools, hashlib, io, json, os, re, unicodedata
 from pathlib import Path
 
 import shamela
@@ -85,6 +85,7 @@ TANPA = ("ayat", "hadits", "maudhuat", "pustaka")  # فهرس dan المصادر
 # @angka: yang pertama = bawaan. Pedoman Jāmiʿat al-Imām tidak menyebut jenis angka; contoh resminya (pedoman 1443هـ,
 # مجلة العلوم الشرعية) memakai hindi di nomor halaman, catatan kaki, rujukan, tahun, ayat, dan فهرس
 ANGKA = ("hindi", "latin")
+META = frozenset("judul jenis nama nim fasl musyrif jabatan thalibah sampul tahun berkas format angka angka_ayat tanpa templat halaman_baru bentuk rumuz warna".split())
 # @warna: nama -> RGB. Biru tua: tetap nyaman dibaca untuk paragraf panjang dan jelas beda dari hitam serta merah lafaz matn
 WARNA = {"biru": (20, 60, 150)}
 # lambang hormat Unicode 14 (﵀-﵏ ﷾ ﷿) tidak ada di huruf cetak (Traditional Arabic, Sakkal Majalla): kotak kosong di PDF.
@@ -461,7 +462,11 @@ def cek(sid, juz, hal, pot, perhatian, kutipan=False, rinci=True):
         nomor = pot[1:].strip().translate(ANGKA_LATIN)
         if not re.fullmatch(r"\d+", nomor):  # «#» kosong cocok di halaman mana saja
             return f"nomor hadits kosong/bukan angka: <<…|{pot}>>"
-        if any(nomor_hadits(r.get("body") or "", nomor) for r in rekaman(sid, juz, p1, p2)):
+        # Rekaman dapat melintasi halaman cetak. Kepala pada halaman sesudah p2 bukan bukti di sini;
+        # kepala sebelumnya tetap sah untuk lanjutan hadits dalam rekaman yang menyentuh halaman bukti.
+        if any(nomor_hadits("\n".join(teks for halaman, teks in shamela._potong(r)
+                                    if halaman is not None and halaman <= p2), nomor)
+               for r in rekaman(sid, juz, p1, p2)):
             return ""
         return (f"{nomor} bukan kepala hadits di {sid} {juz}/{hal}: angka di awal baris («{nomor} - حدثنا», «36 - ({nomor})») yang "
                 "dihitung, bukan nomor ayat atau catatan; betulkan nomornya, atau pakai potongan lafaz dari halaman itu")
@@ -1200,7 +1205,14 @@ def kutipan_akhir(teks):
     """Isi kutipan "..." atau «...» yang menutup teks (tanda baca sesudahnya boleh), termasuk kutipan di dalamnya:
     «قال: "…" ثم سكت» -> seluruh isi «…». None kalau teks tidak berakhir dengan kutipan."""
     # kurung lafaz matn «((…))» dan tanda arah tak terlihat (RLM, ZWNJ, …) sesudah tanda petik ikut dibuang
-    teks = AKHIR_NUKILAN.sub("", seragam(teks).rstrip(TAK_TERLIHAT)).rstrip(" \t.،؛!؟)" + TAK_TERLIHAT)
+    teks = seragam(teks)
+    # Tanda baca Latin/Unicode sesudah petik tidak memutus hubungan nukilan dengan catatan kakinya.
+    # Berhenti pada petik: ia diperlukan parser, termasuk pembuka yang tidak berpasangan.
+    for _ in range(2):  # juga «…». اهـ, dan «…» انتهى كلامه؛
+        while teks and (teks[-1].isspace() or teks[-1] in TAK_TERLIHAT or
+                        unicodedata.category(teks[-1]).startswith("P") and teks[-1] not in '\"«»‘’\''):
+            teks = teks[:-1]
+        teks = AKHIR_NUKILAN.sub("", teks)
     tunggu = []  # tanda pembuka yang dicari, dari belakang
     for i in range(len(teks) - 1, -1, -1):
         c = teks[i]
@@ -1388,7 +1400,10 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 if shamela.padat(nama) != shamela.padat(SURAH[s - 1]) or not all(re.search(rf"(?<!\d){x}(?!\d)", angka) for x in a.split("-")):
                     galat.append(f"catatan kaki ayat tidak cocok dengan {{Q:{s}:{a}}} (سورة {SURAH[s - 1]}) || fn: {isi[:45]}")
             # kutipan terakhir tepat sebelum catatan kaki; kutipan lain sejak catatan kaki sebelumnya tidak punya catatan kaki sendiri
-            mk = kutipan_akhir(polos)
+            # Catatan penjelasan boleh berada di tengah kutipan, jadi pembukanya dapat sebelum seg.
+            # Dua catatan sumber dapat membuktikan nukilan yang sama. Catatan penjelasan tanpa bukti
+            # tidak perlu mengulang buktinya, kecuali ada penutup petik baru sesudah catatan terakhir.
+            mk = kutipan_akhir(polos) if bukti or SISA_PETIK.search(seragam(penggal)) else None
             mk_pdf = mk  # kutipan untuk bukti PDF: tetap dicek walau mk dikosongkan sesudah galat lain
             lain = kutipan_semua(polos[seg:])[:-1 if mk is not None else None]
             sisa = luar_petik(polos[seg:])  # teks sejak catatan kaki sebelumnya, kutipan-kutipannya dibuang
@@ -1542,12 +1557,17 @@ def utama(folder, keluar=None):
     meta = {"berkas": folder.name}
     di_baris = {}  # @kunci dan #R -> nomor barisnya, untuk galat yang baru ketahuan sesudah semua baris dibaca
     mode_r = False
+    awal_r = None  # perakit berhenti pada #R pertama; jangan menerima blok yang akan hilang sesudahnya
     rumuz = {}  # @rumuz: sid -> huruf
     warna = {}  # @warna: sid -> warna Word (BGR)
     for n, b in baris:
         g0, p0 = len(galat), len(perhatian)
         if b.startswith("@"):
             k, _, v = b[1:].partition(":")
+            if k.strip() not in META:
+                mirip = difflib.get_close_matches(k.strip(), sorted(META), n=1)
+                galat.append(f"baris {n}: @{k.strip()}: data tidak dikenal" +
+                             (f"; maksudnya @{mirip[0]}?" if mirip else "; lihat `tanda` untuk daftar data naskah"))
             meta[k.strip()] = v.strip()
             di_baris["@" + k.strip()] = n
             if k.strip() == "rumuz":
@@ -1565,6 +1585,9 @@ def utama(folder, keluar=None):
                                      f"mis. «@warna: 900002=biru»"); continue
                     rr, gg, bb = WARNA[w.strip()]
                     warna[sid.strip()] = rr + gg * 256 + bb * 65536
+        elif awal_r is not None and b.startswith("#"):
+            galat.append(f"baris {n}: {b.split()[0]} sesudah #R di baris {awal_r} tidak dirakit: "
+                         "pindahkan bagian isi sebelum #R; sesudah #R hanya satu rujukan per baris")
         elif b.strip() == "#H":  # pindah halaman: blok sesudahnya mulai halaman baru (dibaca rakit.ps1 dan perkiraan_halaman)
             blok.append({"k": "H", "runs": [], "n": n})
         elif b.startswith("#"):
@@ -1585,6 +1608,7 @@ def utama(folder, keluar=None):
                 mode_r = k == "R"
                 if mode_r:
                     di_baris["#R"] = n
+                    awal_r = n
                 blok.append({"k": k, "runs": [{"t": t, "b": True}], "judul": t, "n": n})
         elif mode_r:
             pustaka.append(b.strip())
