@@ -5,7 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
-- `cek` mencocokkan nomor takhrij (`رقم الحديث (n)، j/h.` tepat sebelum bukti halaman itu) ke kepala hadits dan lafaz bukti di kitabnya. Tidak cocok = `perhatian`.
+- `cek` mencocokkan nomor takhrij (`رقم الحديث (n)، j/h.` tepat sebelum bukti halaman itu) ke kepala hadits dan lafaz bukti di kitabnya. Tidak cocok = `perhatian`. Bukti `#nomor` juga menerima kepala banyak nomor («3980 - 3981 -»).
 - `cek`: bukti `#nomor` hanya lolos kalau angkanya berdiri sebagai kepala hadits di awal baris halaman itu («3561 - حدثنا», «36 - (2408)»). Nomor ayat atau catatan yang sama angkanya tidak lagi lolos; nomor hadits yang benar tetap lolos.
 - `dirasat-pdf` juga menolak PDF yang akhir berkasnya terpotong, walau pypdf masih bisa membaca revisi lamanya.
 - Normalisasi tidak lagi menyamakan `تساءل` dengan `تساؤل`, termasuk di dalam kata berimbuhan. Jebakan lama yang keliru mengizinkan «التساءلات» untuk teks kitab «التساؤلات» dipindahkan ke GAGAL; lafaz asli tetap lolos.
