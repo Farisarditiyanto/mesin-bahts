@@ -41,12 +41,14 @@ run = subprocess.run
 if mode == "pdf-fail":
     def gagal(*a): raise RuntimeError("injeksi pembetulan PDF gagal")
     teks_pdf.betulkan = gagal
-if mode == "publish-fail":
+if mode in ("publish-fail", "rollback-blocked"):
     replace = Path.replace
     ditolak = False
     def ganti(self, target):
         global ditolak
         target = Path(target)
+        if mode == "rollback-blocked" and ditolak and self == Path(akar)/nama/"hasil.docx":
+            raise PermissionError("injeksi DOCX baru terkunci saat ditarik")
         if not ditolak and self.name == "hasil.pdf" and self.parent != Path(akar)/nama and target.parent == Path(akar)/nama:
             ditolak = True
             raise PermissionError("injeksi penggantian PDF gagal")
@@ -169,17 +171,25 @@ def utama():
                 assert any(p.read_bytes() == sebelum["hasil.pdf"] for p in cadangan)
             else:
                 assert r.returncode != 0, r.stdout + r.stderr
+                if mode == "rollback-blocked":
+                    assert "Pemulihan hasil belum lengkap" in r.stderr, r.stdout + r.stderr
+                    assert (folder / "hasil.docx").read_bytes().startswith(b"PK")
+                    assert not (folder / "hasil.pdf").exists(), "DOCX baru dipasangkan dengan PDF lama"
+                    assert not (folder / "laporan.txt").exists(), "DOCX baru dipasangkan dengan laporan lama"
+                    assert any(all((p / n).read_bytes() == isi for n, isi in sebelum.items())
+                               for p in (folder / "_arsip").iterdir())
+                    return
                 pesan = {"save-fail": "Perakitan Word gagal", "export-fail": "Perakitan Word gagal",
                          "pdf-fail": "pembetulan PDF gagal", "pages-fail": "PDF dan laporan halaman tidak cocok",
                          "publish-fail": "penggantian PDF gagal", "changed": "Naskah berubah"}
                 assert pesan[mode] in r.stderr, r.stdout + r.stderr
                 assert all((folder / n).read_bytes() == isi for n, isi in sebelum.items()), "Hasil lama berubah atau berbeda generasi"
 
-        for mode in ("save-fail", "export-fail", "pdf-fail", "pages-fail", "publish-fail", "changed", "snapshot", "lock"):
+        for mode in ("save-fail", "export-fail", "pdf-fail", "pages-fail", "publish-fail", "rollback-blocked", "changed", "snapshot", "lock"):
             uji("rakit " + mode, lambda mode=mode: rakit(mode))
         if gagal:
             sys.exit(f"{len(gagal)} uji integritas gagal: " + ", ".join(gagal))
-        print("uji integritas: 12 skenario sesuai; Word disimulasikan")
+        print("uji integritas: 13 skenario sesuai; Word disimulasikan")
 
 
 if __name__ == "__main__":

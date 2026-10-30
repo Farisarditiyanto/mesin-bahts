@@ -77,11 +77,14 @@ def terbitkan(kerja, folder, nama):
                 (folder / n).replace(kerja / n)
             except OSError as e:
                 gagal.append(str(e))
-        for n in reversed(lama):
-            try:
-                (cadangan / n).replace(folder / n)
-            except OSError as e:
-                gagal.append(str(e))
+        # Bila berkas baru terkunci, seluruh generasi lama tetap di cadangan: jangan
+        # memasangkan DOCX baru yang belum bisa ditarik dengan PDF/laporan lama.
+        if not gagal:
+            for n in reversed(lama):
+                try:
+                    (cadangan / n).replace(folder / n)
+                except OSError as e:
+                    gagal.append(str(e))
         if gagal:
             raise RuntimeError(f"Pemulihan hasil belum lengkap. Cadangan: {cadangan}; hasil baru: {kerja}. " + "; ".join(gagal))
         raise
