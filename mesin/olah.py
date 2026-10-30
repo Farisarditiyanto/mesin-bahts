@@ -119,6 +119,11 @@ def hindi(s):
         return m.group() if re.match(f"[{HURUF_LATIN}]", c) else m.group().translate(AD)
     return re.sub(r"[0-9]+", ganti, s)
 AD = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
+KEPALA_HADITS = re.compile(r"^[ \t\u200e\u200f]*(?:(\d+)[ \t]*[-–][ \t]*\((\d+)\)|\((\d+)\)[ \t]*[-–][ \t]*(?=[^\d\s])"
+                           r"|(\d+(?:[ \t]*[،,و–-][ \t]*\d+)*)[ \t]*[-–][ \t]*(?=[^\d\s]))", re.M)
+# «رقم الحديث (2408)، 4/1873»: nomor tepat sebelum juz/halaman tercetak, jadi bukan nomor riwayat kitab lain di takhrij itu
+TAKHRIJ = re.compile(r"رقم(?:\s+الحديث)?\s*\(\s*([\d٠-٩]+)[^()]*\)[،,\s]*([\d٠-٩]+)\s*/\s*([\d٠-٩]+)")
+MUNDUR_KEPALA = 3  # halaman ke belakang tempat kepala hadits yang dinukil masih dicari
 ANGKA_LATIN = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "0123456789" * 2)  # angka Arab dan Persia -> 0-9
 
 
@@ -921,12 +926,56 @@ def angka_kitab(t):
     return t.translate(ANGKA_LATIN)
 
 
-def nomor_hadits(body, nomor):
-    """Nomor berdiri sebagai kepala hadits di awal baris: «3561 - حدثنا», «36 - (2408)», atau «(102) - حدثنا». Nomor ayat,
-    catatan, dan rentang halaman tidak ikut; nomor hadits lain atau daftar bernomor di halaman itu tetap bisa tertukar."""
+def kepala_hadits(body):
+    """(teks, kepala, batas). kepala = [(letak, nomor)] di awal baris: «3561 - حدثنا», «3980 - 3981 - حدثنا», «36 - (2408)»,
+    «(102) - حدثنا». batas = kepala yang memisahkan hadits: di Muslim hanya nomor berkurung. «5736 - (1)» di Ahmad juga
+    terbaca kepala walau (1) nomor catatan: dua angkanya masuk `kepala`, jadi nomor yang benar tetap ditemukan."""
     # bukan angka_kitab: ia mengosongkan «(n)» di awal baris, padahal itu salah satu bentuk kepala hadits
     baris = shamela.PENANDA.sub(" ", shamela.TAGS.sub(" ", body)).translate(ANGKA_LATIN).replace("\r", "\n")
-    return re.search(rf"^[ \t\u200e\u200f]*(?:\d+[ \t]*[-–][ \t]*\({nomor}\)|(?:\({nomor}\)|{nomor})[ \t]*[-–][ \t]*[^\d\s])", baris, re.M)
+    kepala, kurung = [], []
+    for m in KEPALA_HADITS.finditer(baris):
+        if m[2] or m[3]:
+            kurung.append((m.start(), int(m[2] or m[3])))
+        kepala += [(m.start(), int(x)) for x in re.findall(r"\d+", m[0])]
+    return baris, kepala, kurung or kepala
+
+
+def nomor_hadits(body, nomor):
+    """Nomor berdiri sebagai kepala hadits. Nomor ayat, catatan, dan rentang halaman tidak ikut; nomor hadits lain atau
+    daftar bernomor di halaman itu tetap bisa tertukar."""
+    return any(n == int(nomor) for _, n in kepala_hadits(body)[1])
+
+
+def takhrij_janggal(sid, juz, p1, p2, nomor, lafaz):
+    """Nomor takhrij tidak cocok dengan kepala hadits di halaman bukti, atau lafaz bukti di hadits lain; None kalau cocok.
+    Hadits bisa mulai beberapa halaman sebelum lafaz yang dinukil. Halaman tanpa kepala hadits tidak bisa dinilai."""
+    # urut halaman: rekaman Shamela kadang tidak berurutan (Ahmad 29: ص299 sebelum ص296)
+    rr = sorted(rekaman(sid, juz, max(1, p1 - MUNDUR_KEPALA), p2), key=lambda r: r.get("page_num") or 0)
+    baris, kepala, batas = kepala_hadits("\n".join(r.get("body") or "" for r in rr))
+    if not kepala:
+        return None
+    # batas hadits = nomor lebih besar: angka kecil di awal baris sesudahnya biasanya daftar dalam syarah
+    ruas = [baris[a:next((x for x, n in batas if x > a and n > nomor), len(baris))] for a, n in kepala if n == nomor]
+    if not ruas:
+        return f"nomor takhrij ({nomor}) bukan kepala hadits di sekitar {juz}/{p1}: cocokkan nomornya ke kitab"
+    hasyiah = shamela.padat(" ".join(r.get("footnotes") or "" for r in rr))  # kalimat muhaqqiq (derajat) bukan bagian hadits
+    if any(not any(shamela.padat(x) in s for s in map(shamela.padat, ruas)) and shamela.padat(x) not in hasyiah for x in lafaz):
+        return f"lafaz bukti tidak ada di hadits ({nomor}) sekitar {juz}/{p1}: mungkin nomornya milik hadits lain"
+
+
+def periksa_takhrij(isi, bukti, terbukti, kutipan, perhatian):
+    """Nomor takhrij yang tercetak tepat di depan juz/halaman sebuah bukti dicocokkan ke kitabnya; lafaz = potongan bukti, atau kutipan."""
+    for nomor, juz, hal in TAKHRIJ.findall(isi.translate(ANGKA_LATIN)) if re.search("أخرج|رواه", isi) else ():
+        for f in map(lambda b: b.split("|"), bukti):
+            p1, _, p2 = f[2].partition("-") if len(f) > 2 else ("", "", "")
+            if len(f) < 3 or f[1] != juz or p1 != hal or (f[0], juz, int(p1), int(p2 or p1)) not in terbukti:
+                continue
+            # kutipan hanya diikutkan kalau memang dicek ke bukti ini; #nomor tidak membawa lafaz
+            sumber = (kutipan or "") if len(f) == 3 else "" if f[3].startswith("#") else f[3]
+            lafaz = [x for x in ELIPSIS.split(re.sub(r"\{Q:[^}]*\}", " ", sumber)) if len(shamela.padat(x)) >= POTONGAN_MIN]
+            pesan = takhrij_janggal(int(f[0]), juz, int(p1), int(p2 or p1), int(nomor), lafaz)
+            if pesan and f"{pesan}  || fn: {isi[:45]}" not in perhatian:
+                perhatian.append(f"{pesan}  || fn: {isi[:45]}")
 
 
 def ragu_kutipan(rr, awal, pot, periksa_angka=True, dulu=lambda: None):
@@ -1404,6 +1453,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                         kutipan_4.append((cek(int(f[0]), f[1], f[2], mk, p, kutipan=True), p))
                 if e:
                     galat.append(e + f"  || fn: {isi[:45]}")
+            periksa_takhrij(isi, bukti, terbukti, mk, perhatian)
             # kutipan bertanda petik tetap dicek walau buktinya membawa potongan sendiri: cukup ada di salah satu bukti itu
             if kutipan_4 and all(e for e, _ in kutipan_4):
                 galat.append(f"kutipan sebelum catatan kaki tidak ada di halaman buktinya (potongan <<…|potongan>> hanya "
