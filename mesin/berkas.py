@@ -1,5 +1,5 @@
 """Penulisan berkas utuh dan penerbitan hasil dengan cadangan; tanpa layanan luar."""
-import hashlib, os, tempfile
+import hashlib, os, shutil, tempfile
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -54,9 +54,11 @@ def kunci(f):
 
 
 def terbitkan(kerja, folder, nama):
-    """Arsipkan SEMUA hasil lama sebelum memasang hasil baru; pulihkan bila penggantian gagal.
-    Rename berlaku per berkas, bukan transaksi atomik pasangan. Bila proses dimatikan di tengah,
-    hasil dapat belum lengkap, tetapi hasil baru tidak dipasangkan dengan hasil lama.
+    """Pindahkan SEMUA hasil lama ke cadangan sebelum memasang hasil baru; pulihkan bila penggantian gagal.
+    Berhasil = cadangan dibuang (seperti dulu hasil lama ditimpa: semuanya bisa dirakit ulang dari naskah),
+    supaya folder bahts tidak menumpuk satu cadangan tiap rakit. Rename berlaku per berkas, bukan transaksi
+    atomik pasangan. Bila proses dimatikan di tengah, hasil dapat belum lengkap, tetapi hasil baru tidak
+    dipasangkan dengan hasil lama.
     """
     arsip = folder / "_arsip"
     arsip.mkdir(exist_ok=True)
@@ -87,5 +89,12 @@ def terbitkan(kerja, folder, nama):
                     gagal.append(str(e))
         if gagal:
             raise RuntimeError(f"Pemulihan hasil belum lengkap. Cadangan: {cadangan}; hasil baru: {kerja}. " + "; ".join(gagal))
+        _buang_cadangan(cadangan)  # pulih lengkap: cadangan sudah kosong
         raise
-    return cadangan
+    _buang_cadangan(cadangan)
+
+
+def _buang_cadangan(cadangan):
+    shutil.rmtree(cadangan, ignore_errors=True)
+    if not any(cadangan.parent.iterdir()):
+        cadangan.parent.rmdir()

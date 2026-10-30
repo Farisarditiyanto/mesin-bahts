@@ -59,7 +59,8 @@ $word.Visible = $false; $word.ScreenUpdating = $false; $word.DisplayAlerts = 0
 # 2 = angka di teks Arab dicetak ٠-٩, di teks Latin 0-9; 0 = selalu 0-9
 $numeralLama = $word.Options.ArabicNumeral
 $word.Options.ArabicNumeral = if ($HINDI) { 2 } else { 0 }
-$tmp = Join-Path (Join-Path $Hasil 'word') 'kerja.docx'
+# Alamat kerja Word berupa string biasa untuk COM.
+$tmp = "$Hasil\word\kerja.docx"
 try {
     [IO.Directory]::CreateDirectory((Split-Path -Parent $tmp)) | Out-Null
     # huruf profil yang tidak terpasang diganti Word diam-diam: berhenti di sini saja

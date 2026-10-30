@@ -316,12 +316,11 @@ def _rakit_di(nama, f, kerja):
         raise RuntimeError("PDF dan laporan halaman tidak cocok; hasil lama belum diganti.")
     if hashlib.sha256((f / "naskah.txt").read_bytes()).hexdigest() != d["naskah_sha256"]:
         raise RuntimeError("Naskah berubah selama rakit; hasil lama belum diganti. Ulangi rakit.")
-    cadangan = terbitkan(kerja, f, [f"{berkas}.docx", f"{berkas}.pdf", "laporan.txt"])
+    terbitkan(kerja, f, [f"{berkas}.docx", f"{berkas}.pdf", "laporan.txt"])
     for baris in (f / "laporan.txt").read_text(encoding="utf8").splitlines():
         if baris.startswith(("HALAMAN", "CATATAN_KAKI", "KATA")):
             print(baris)
     print(f"Jadi: {f / berkas}.docx dan .pdf")
-    print(f"Cadangan hasil sebelumnya: {cadangan}")
 
 
 def angka(teks, apa):

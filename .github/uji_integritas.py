@@ -160,6 +160,7 @@ def utama():
             naskah(folder)
             sebelum = {"hasil.docx": b"DOCX-LAMA", "hasil.pdf": b"PDF-LAMA", "laporan.txt": b"LAPORAN-LAMA"}
             for n, isi in sebelum.items(): (folder / n).write_bytes(isi)
+            arsip_awal = set((folder / "_arsip").iterdir()) if (folder / "_arsip").exists() else set()
             r = subprocess.run([sys.executable, str(runner), str(akar), "a/sama", mode, "b/sama"],
                                cwd=akar, capture_output=True, encoding="utf8")
             if mode in ("snapshot", "lock", "ok"):
@@ -167,8 +168,8 @@ def utama():
                 assert (folder / "hasil.pdf").read_bytes().startswith(b"%PDF")
                 sidik = hashlib.sha256((folder / "naskah.txt").read_bytes()).hexdigest()
                 assert "NASKAH_SHA256=" + sidik in (folder / "laporan.txt").read_text(encoding="utf8")
-                cadangan = list((folder / "_arsip").glob("*/hasil.pdf"))
-                assert any(p.read_bytes() == sebelum["hasil.pdf"] for p in cadangan)
+                arsip_akhir = set((folder / "_arsip").iterdir()) if (folder / "_arsip").exists() else set()
+                assert arsip_akhir == arsip_awal, "Rakit yang berhasil meninggalkan cadangan di folder bahts"
             else:
                 assert r.returncode != 0, r.stdout + r.stderr
                 if mode == "rollback-blocked":
@@ -176,7 +177,7 @@ def utama():
                     assert (folder / "hasil.docx").read_bytes().startswith(b"PK")
                     assert not (folder / "hasil.pdf").exists(), "DOCX baru dipasangkan dengan PDF lama"
                     assert not (folder / "laporan.txt").exists(), "DOCX baru dipasangkan dengan laporan lama"
-                    assert any(all((p / n).read_bytes() == isi for n, isi in sebelum.items())
+                    assert any(all((p / n).is_file() and (p / n).read_bytes() == isi for n, isi in sebelum.items())
                                for p in (folder / "_arsip").iterdir())
                     return
                 pesan = {"save-fail": "Perakitan Word gagal", "export-fail": "Perakitan Word gagal",
