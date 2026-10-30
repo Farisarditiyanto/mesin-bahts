@@ -38,9 +38,21 @@ $MERAH = 176; $COKLAT = 2772843           # warna Word (BGR): lafaz matn RGB(176
 try { $kunci = [IO.File]::Open("$dir\_tmp\rakit.kunci", 'OpenOrCreate', 'ReadWrite', 'None') }
 catch { throw "Rakit lain sedang jalan (memakai Word yang sama): tunggu sampai selesai, lalu ulangi." }
 # Proses /Automation bisa milik aplikasi lain. Hanya Word yang dibuat di sini yang dibersihkan di finally.
+# Rakit yang dimatikan paksa (terminal ditutup) tidak sempat ke finally, dan Word-nya tetap hidup: rakit berikutnya
+# mematikan Word yang dicatat rakit itu, asal masih proses yang sama (nomor proses bisa dipakai ulang proses lain)
+$CATATAN_WORD = "$dir\_tmp\rakit.word"
+if (Test-Path -LiteralPath $CATATAN_WORD) {
+    foreach ($baris in Get-Content -LiteralPath $CATATAN_WORD) {
+        $id, $mulai = $baris -split '\|'
+        $p = if ($id) { Get-Process -Id $id -ErrorAction SilentlyContinue }
+        if ($p -and $p.ProcessName -eq 'WINWORD' -and [string]$p.StartTime.Ticks -eq $mulai) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
+    }
+    Remove-Item -LiteralPath $CATATAN_WORD -Force
+}
 $wordLain = @(Get-Process WINWORD -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
 $word = New-Object -ComObject Word.Application
 $wordIni = @(Get-Process WINWORD -ErrorAction SilentlyContinue | Where-Object { $_.Id -notin $wordLain } | ForEach-Object { $_.Id })
+Set-Content -LiteralPath $CATATAN_WORD -Encoding ASCII -Value @(Get-Process -Id $wordIni -ErrorAction SilentlyContinue | ForEach-Object { "$($_.Id)|$($_.StartTime.Ticks)" })
 $word.Visible = $false; $word.ScreenUpdating = $false; $word.DisplayAlerts = 0
 # pengaturan Word pemakai (berlaku untuk semua dokumennya): dipinjam selama rakit, dikembalikan di finally.
 # 2 = angka di teks Arab dicetak ٠-٩, di teks Latin 0-9; 0 = selalu 0-9
@@ -581,6 +593,6 @@ finally {
     # cadangan: Word buatan skrip ini yang belum mati sesudah Quit dimatikan (yang itu saja)
     Start-Sleep -Milliseconds 500
     foreach ($id in $wordIni) { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue }
-    Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $tmp, $CATATAN_WORD -Force -ErrorAction SilentlyContinue
     $kunci.Close()
 }

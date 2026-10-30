@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `rakit`: Word yang tertinggal dari rakit yang dimatikan paksa (mis. terminal ditutup di tengah jalan) dimatikan oleh rakit berikutnya. Hanya Word yang dicatat rakit itu dan masih proses yang sama; Word aplikasi lain tetap tidak disentuh. Dulu Word itu tetap hidup dan memakan memori, juga sesudah rakit berikutnya.
 - `rakit`: tidak lagi menghentikan semua proses Word `/Automation` saat mulai. Proses itu bisa milik aplikasi lain; pembersihan saat selesai tetap dibatasi pada proses baru yang terdeteksi selama perakitan.
 - `dirasat` dan `dirasat-pdf`: kunci OpenAlex tidak lagi ikut pengalihan HTTP ke host, port, atau protokol lain; pengalihan di asal yang sama tetap memakai kunci. Sebelumnya `urllib` membawa header Authorization ke alamat tujuan lain. Diuji dengan peladen lokal dan kunci palsu.
 - `cek`: rentang halaman tercetak yang terbalik kini GAGAL, dan rentang terlalu besar ditolak sebelum dibuat daftar halamannya. Dulu «ص5، ص55-5» bisa lolos, sedangkan «ص5-99999999» bisa menghabiskan memori.
