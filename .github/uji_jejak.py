@@ -220,6 +220,12 @@ try:
         assert kode == 1 and "GAGAL: 1" in keluar, keluar
         assert "ج- ص3-4" in keluar and "TIDAK KETEMU" not in keluar, keluar
 
+    def rentang_menurun_di_pesan():
+        # 2348: rekaman ص39 berpenanda ⦗٣١⦘. Rentang di pesan harus bisa langsung dipakai: `cek` menolak «39-31».
+        tulis(folder, "<<2348|-|300>>", "أمامك، تعرف إلى الله في الرخاء يعرفك في الشدة")
+        kode, keluar = jalan(folder)
+        assert kode == 1 and "ص31-39" in keluar and "ص39-31" not in keluar, keluar
+
     def batas_sambungan():
         # Sambungan hanya pada halaman berurutan satu juz; bagian ber-... paling jauh sejauh rentang yang diterima `cek`.
         sid = 7
@@ -277,6 +283,7 @@ try:
 
     for nama, fn in (("kutipan lintas halaman ditunjuk rentangnya", lintas_halaman),
                      ("kutipan lintas halaman di kitab yang dirujuk", lintas_halaman_kitab_sendiri),
+                     ("rentang menurun di pesan cek", rentang_menurun_di_pesan),
                      ("batas sambungan halaman", batas_sambungan),
                      ("perintah saran pada folder bergaris miring", folder_bergaris_miring),
                      ("bagian pendek di samping ayat", potongan_pendek),

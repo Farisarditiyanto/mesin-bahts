@@ -562,9 +562,9 @@ def _rangkaian(isi, ix):
     return hasil
 
 
-@functools.cache
+@functools.lru_cache(maxsize=4)  # banyak GAGAL di kitab yang sama tidak membaca ulang; memori tetap kecil
 def _rangkaian_kitab(sid):
-    """`_rangkaian` kitab sid, sekali per perintah; `jejak` melepasnya tiap kitab."""
+    """`_rangkaian` kitab sid; `jejak` melepasnya tiap kitab."""
     return _rangkaian(shamela.norma.cache(shamela._folder(sid)), shamela.indeks(sid))
 
 

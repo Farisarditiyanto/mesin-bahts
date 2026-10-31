@@ -243,6 +243,8 @@ def letak(juz, h):
     j = f"ج{juz}" if juz == "-" or str(juz).isdigit() else f"ج«{juz}»"  # juz bernama tidak menempel ke «ج»
     if a is None:
         return f"{j} ص? (rekaman ini tanpa nomor halaman)"
+    if z is not None and z < a:  # penanda halaman yang menurun di satu rekaman: bukti hanya menerima kecil-besar
+        a, z = z, a
     return f"{j} ص{a}" + (f"-{z}" if z not in (None, a) else "")
 
 
