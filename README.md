@@ -104,7 +104,7 @@ Mac/Linux bisa menulis dan `cek`, tanpa Word dan PDF. `cek` dan `rakit` sendiri 
 ### Connector dan kunci
 
 - **`shamela`** (wajib, butuh akun shamela.link): mencari di seluruh kitab Shamela, termasuk yang belum diunduh.
-- **Tanpa akun, pilihan:** `turath` (isi semua kitab), `hadithunlocked` (hadits, derajat, syarah), `tafsir` (tafsir per ayat), `quran` (teks ayat).
+- **Tanpa akun, ikut dipasang:** `turath` (isi semua kitab), `hadithunlocked` (hadits, derajat, syarah), `tafsir` (tafsir per ayat), `quran` (teks ayat). Agent meminta izin sekali untuk semuanya. Kalau salah satunya mati, kerja tetap jalan.
 - Semua connector = layanan orang lain dan hanya penunjuk jalan: kitabnya tetap di-`ambil`, kutipannya tetap harus lolos `cek`.
 - **Kunci OpenAlex** (pilihan) untuk `dirasat` (penelitian terdahulu): tanpa kunci jatahnya kecil dan `dirasat-pdf` tertutup. Daftar di https://openalex.org, salin dari Settings > API key, simpan sebagai satu baris di `kunci_openalex.txt` (atau variabel `OPENALEX_API_KEY`).
 
