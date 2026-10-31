@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `cek --jejak` (baru): kutipan yang GAGAL karena teksnya tidak ada di kitab yang dirujuk dicari di kitab lain yang sudah diunduh, lalu ditunjuk kitab + juz/halamannya; teks yang tidak ada di kitab mana pun dilaporkan «tidak ditemukan». Hanya petunjuk: tidak ada bukti yang diloloskan, dan `cek` tanpa `--jejak` memberi tahu perintah ini. Pencarian pertama menyiapkan cache teks kitab yang belum pernah dicari, jadi bisa lama.
 - `cek` menolak `{H:}` di catatan kaki; dulu lolos, lalu `rakit` mati dengan galat Word.
 - Sampul bawaan kini model قسم الشريعة (`qism`), juga untuk naskah lama tanpa `@sampul` saat dirakit ulang. Sampul lama: `@sampul: mahad`.
 - Agent memperbarui mesin sebelum mulai bahts baru, tidak saat bahts sedang dikerjakan.

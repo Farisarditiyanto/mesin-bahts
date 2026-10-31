@@ -177,6 +177,7 @@ NAFI = {"لا", "فلا", "ولا", "ما", "فما", "وما", "ليس", "ول�
         "لم", "ولم", "فلم", "لن", "ولن", "فلن", "بلا", "وبلا", "فبلا"}  # kata tepat sebelum kutipan di kitab yang bisa membalik maknanya
 BELUM_DIUNDUH = "kitab {} belum diunduh"  # pesan GAGAL per bukti; ringkasan di `utama` mengumpulkan nomornya dari pesan ini
 BELUM_DIUNDUH_RE = re.compile(re.escape(BELUM_DIUNDUH).replace(r"\{\}", r"(\d+)"))
+TERTOLAK = []  # (sid, kutipan) yang GAGAL «teks TIDAK KETEMU di kitab»; dibaca `cek --jejak`, dikosongkan tiap `utama`
 
 
 BUKTI_SID = re.compile(r"<<(\d+)\|")  # nomor kitab di bukti <<sid|juz|hal>>
@@ -525,6 +526,64 @@ def cek(sid, juz, hal, pot, perhatian, kutipan=False, rinci=True):
         perhatian += [f"{p} ({sid} {juz}/{hal}) :: {pot[:40]}"
                       for p in ragu_kutipan(rr, bagian[0], pot, angka and not diperiksa, lambda: rekaman_dulu(sid, juz, p1, p2))]
     return ""
+
+
+def _bagian_cari(teks):
+    """Bagian kutipan terpanjang yang bisa dicari di kitab lain: kutipan yang dipotong ... dicek per bagian,
+    dan bagian terpendek (mis. rujukan ayat) tidak menunjuk apa pun."""
+    bagian = [b for b in ELIPSIS.split(teks) if len(shamela.padat(b)) >= KUTIPAN_MIN]
+    return max(bagian, key=lambda b: len(shamela.padat(b))) if bagian else ""
+
+
+def jejak(tertolak, maks=3):
+    """Cari kutipan yang ditolak «teks TIDAK KETEMU di kitab» pada kitab lain yang sudah diunduh.
+    Kembalikan baris laporan: hanya petunjuk, bukan bukti; putusan tetap milik `cek` (tidak ada yang diloloskan).
+    Tiap kitab dibaca sekali (cache `padat`), dicari dengan lafaz yang sama seperti `cari`, lalu cache-nya dilepas."""
+    cari = {}  # teks `padat` -> bagian kutipan asli yang dicari
+    for _, teks in tertolak:
+        b = _bagian_cari(teks)
+        if b:
+            cari.setdefault(shamela.padat(b), b)
+    if not cari:
+        return []
+    tertuju = {str(sid) for sid, _ in tertolak}  # kitab yang sudah disebut di pesan GAGAL: tidak dicari lagi
+    dapat = {q: [] for q in cari}
+    semua = shamela.punya()
+    for sid in semua:
+        if str(sid) in tertuju:
+            continue
+        ix = shamela.indeks(sid)
+        isi = shamela.norma.cache(shamela._folder(sid))
+        for i, r in enumerate(isi):
+            juz = ix[i][0] if i < len(ix) else None
+            juz = "-" if juz is None else juz
+            for q in cari:
+                if any(t[0] == sid for t in dapat[q]):
+                    continue
+                for (teks, batas), (bagian, tanda) in zip(r, shamela.BAGIAN):
+                    j = teks.find(q)
+                    if j < 0:
+                        continue
+                    a = next((h1 for x, z, h1, _ in batas if x <= j < z), None)
+                    z = next((h2 for x, z, _, h2 in batas if x <= j + len(q) - 1 < z), None)
+                    dapat[q].append((sid, juz, (a, z), tanda))
+                    break
+        del isi
+        shamela._isi.cache_clear()  # `_isi` menyimpan isi kitab utuh; jangan menumpuk 188 kitab di memori
+        shamela.indeks.cache_clear()
+        if all(len(dapat[q]) >= maks for q in cari):
+            break
+    baris = []
+    for q, asli in cari.items():
+        t = dapat[q]
+        if not t:
+            baris.append(f"  «{asli[:40]}» tidak ditemukan di {len(semua)} kitab yang sudah diunduh: "
+                         f"mungkin salah ketik, atau sumbernya di luar Shamela (<<luar>>)")
+            continue
+        rinci = "، ".join(f"{sid} {shamela.letak(juz, h)}{tanda}" for sid, juz, h, tanda in t[:maks])
+        lagi = f" (dan {len(t) - maks} kitab lain)" if len(t) > maks else ""
+        baris.append(f"  «{asli[:40]}» ketemu di kitab {rinci}{lagi}")
+    return baris
 
 
 def _susunan(pd, q, maks=50):
@@ -1450,6 +1509,8 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                         kutipan_4.append((cek(int(f[0]), f[1], f[2], mk, p, kutipan=True), p))
                 if e:
                     galat.append(e + f"  || fn: {isi[:45]}")
+                    if mk and e.startswith(f"teks TIDAK KETEMU di kitab {f[0]}"):
+                        TERTOLAK.append((f[0], mk))
             periksa_takhrij(isi, bukti, terbukti, mk, perhatian)
             # kutipan bertanda petik tetap dicek walau buktinya membawa potongan sendiri: cukup ada di salah satu bukti itu
             if kutipan_4 and all(e for e, _ in kutipan_4):
@@ -1550,6 +1611,7 @@ def utama(folder, keluar=None):
             "iconv -f UTF-16 -t UTF-8 naskah.txt > naskah8.txt, lalu ganti naskah.txt dengan naskah8.txt)")
             + ", lalu ulangi `cek`.") from None
     blok, catatan, ayat_idx, hadits_idx, galat, perhatian, pustaka = [], [], [], [], [], [], []
+    TERTOLAK.clear()
     meta = {"berkas": folder.name}
     di_baris = {}  # @kunci dan #R -> nomor barisnya, untuk galat yang baru ketahuan sesudah semua baris dibaca
     rumuz = {}  # @rumuz: sid -> huruf
