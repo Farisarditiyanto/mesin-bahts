@@ -368,7 +368,10 @@ def _petunjuk(sid, juz, q):
         tempat = [t for _, t in sorted(tempat, key=lambda t: t[0])]
         lagi = f" (dan {len(tempat) - 3} tempat lain)" if len(tempat) > 3 else ""
         return "، ".join(tempat[:3]) + lagi
-    return hasyiah
+    if hasyiah:
+        return hasyiah
+    t = _tempat_kitab(_rangkaian_kitab(sid), [q])  # kutipan yang menyambung ke halaman berikutnya
+    return shamela.letak(t[0], t[1]) + t[2] if t else None
 
 
 def _cek_bagian(sid, juz, hal, p1, p2, teks, utuh, perhatian, rinci=True):
@@ -559,15 +562,23 @@ def _rangkaian(isi, ix):
     return hasil
 
 
+@functools.cache
+def _rangkaian_kitab(sid):
+    """`_rangkaian` kitab sid, sekali per perintah; `jejak` melepasnya tiap kitab."""
+    return _rangkaian(shamela.norma.cache(shamela._folder(sid)), shamela.indeks(sid))
+
+
 def _tempat_kitab(rangkaian, bagian):
-    """Juz, rentang halaman, dan tanda (matan/حاشية) tempat SEMUA bagian kutipan berurutan, sesuai yang bisa diloloskan
-    `cek`: boleh menyambung ke halaman berikutnya, paling lebar RENTANG_MAKS halaman. None kalau tidak ada.
+    """Juz, rentang halaman, dan tanda (matan/حاشية) tempat SEMUA bagian kutipan berurutan: boleh menyambung ke halaman
+    berikutnya, paling lebar RENTANG_MAKS halaman. None kalau tidak ada. Hanya petunjuk: putusannya tetap milik `cek`.
     Yang ditunjuk rentang tersempit: kutipan ber-... tidak boleh ditunjuk di tempat bagian umumnya kebetulan berjauhan."""
     terbaik = None
     for juz, tanda, teks, ruas in rangkaian:
         for letak in _susunan(teks, bagian, len(teks)):
             h1 = ruas[bisect.bisect_right(ruas, letak[0][0], key=lambda r: r[1])][2]
             h2 = ruas[bisect.bisect_left(ruas, letak[-1][1], key=lambda r: r[1])][3]
+            if (h1 or 0) > (h2 or 0):  # penanda halaman yang menurun di satu rekaman: rentang tetap kecil-besar
+                h1, h2 = h2, h1
             lebar = (h2 or 0) - (h1 or 0)
             if lebar <= RENTANG_MAKS and (terbaik is None or lebar < terbaik[0]):
                 terbaik = lebar, ("-" if juz is None else juz), (h1, h2), tanda
@@ -598,8 +609,7 @@ def jejak(tertolak, maks=3):
         if not aktif:
             continue
         try:
-            ix = shamela.indeks(sid)
-            rangkaian = _rangkaian(shamela.norma.cache(shamela._folder(sid)), ix)
+            rangkaian = _rangkaian_kitab(sid)
             for entri in aktif:
                 t = _tempat_kitab(rangkaian, entri["bagian"])
                 entri["dibaca"] += 1
@@ -612,6 +622,7 @@ def jejak(tertolak, maks=3):
         finally:
             shamela._isi.cache_clear()  # isi kitab utuh tidak menumpuk, juga sesudah gagal dibaca
             shamela.indeks.cache_clear()
+            _rangkaian_kitab.cache_clear()
         if all(len(e["dapat"]) >= maks for e in cari.values()):
             break
     baris = []

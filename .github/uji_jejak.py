@@ -213,6 +213,13 @@ try:
         kode, keluar = jalan(folder)
         assert kode == 0 and "GAGAL: 0" in keluar, keluar
 
+    def lintas_halaman_kitab_sendiri():
+        # Kitabnya benar, halamannya salah: `cek` harus menunjuk ص3-4, bukan bilang teksnya tidak ada di kitab itu.
+        tulis(folder, "<<11223|-|5>>", KUTIPAN_LINTAS)
+        kode, keluar = jalan(folder)
+        assert kode == 1 and "GAGAL: 1" in keluar, keluar
+        assert "ج- ص3-4" in keluar and "TIDAK KETEMU" not in keluar, keluar
+
     def batas_sambungan():
         # Sambungan hanya pada halaman berurutan satu juz; bagian ber-... paling jauh sejauh rentang yang diterima `cek`.
         sid = 7
@@ -242,6 +249,14 @@ try:
             assert "ج1 ص41-51" in tunjuk(jauh_boleh), "rentang tersempit"
             (rak / "pages.jsonl.gz").write_bytes(gzip.compress(
                 "".join(json.dumps(b, ensure_ascii=False) + "\n" for b in baris).encode("utf-8")))
+            # Penanda halaman menurun di rekaman ص10: rentang tetap ditulis kecil-besar, seperti yang diterima `cek`.
+            mundur = dict(baris[9], body=baris[9]["body"] + " ⦗٥⦘ " + baris[9]["body"])
+            (rak / "pages.jsonl.gz").write_bytes(gzip.compress("".join(json.dumps(
+                mundur if b["page_num"] == 10 else b, ensure_ascii=False) + "\n" for b in baris).encode("utf-8")))
+            terbalik = tepi(9, 3, 6) + " " + tepi(9, 0, 3)
+            assert "ج1 ص5-10" in tunjuk(terbalik), "rentang menurun"
+            (rak / "pages.jsonl.gz").write_bytes(gzip.compress(
+                "".join(json.dumps(b, ensure_ascii=False) + "\n" for b in baris).encode("utf-8")))
             lompat = tepi(59, 3, 6) + " " + tepi(60, 0, 3)
             assert "ketemu di kitab" not in tunjuk(lompat), "halaman 60 dan 70 tidak bersambung"
             beda_juz = tepi(60, 3, 6) + " " + tepi(61, 0, 3)
@@ -261,6 +276,7 @@ try:
         assert r.returncode == 1 and "11223 ج- ص5" in r.stdout, r.stdout + r.stderr
 
     for nama, fn in (("kutipan lintas halaman ditunjuk rentangnya", lintas_halaman),
+                     ("kutipan lintas halaman di kitab yang dirujuk", lintas_halaman_kitab_sendiri),
                      ("batas sambungan halaman", batas_sambungan),
                      ("perintah saran pada folder bergaris miring", folder_bergaris_miring),
                      ("bagian pendek di samping ayat", potongan_pendek),
