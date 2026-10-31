@@ -28,7 +28,7 @@ PALSU = "هذا نص مخترع لا يوجد في أي كتاب من كتب ا�
 def jalan(folder, *tambahan):
     r = subprocess.run([sys.executable, str(BAHTS), "cek", str(folder), *tambahan], cwd=AKAR,
                        capture_output=True, text=True, encoding="utf-8")
-    return r.returncode, r.stdout + r.stderr
+    return r.returncode, (r.stdout or "") + (r.stderr or "")
 
 
 def tulis(folder, bukti, kutipan=KUTIPAN):
