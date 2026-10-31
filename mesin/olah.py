@@ -65,7 +65,7 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   Judul (#K/#F/#B/#M/#S/#R) tidak boleh memuat [^, <<, {Q:/{H: atau **
   Contoh: قال ابن القيم: "…"[^مدارج السالكين، ابن القيم، 2/15. <<8370|2|15>>].
 """
-import difflib, functools, hashlib, io, json, os, re, unicodedata
+import difflib, functools, hashlib, io, json, os, re, unicodedata, zlib
 from pathlib import Path
 
 import shamela
@@ -529,9 +529,9 @@ def cek(sid, juz, hal, pot, perhatian, kutipan=False, rinci=True):
 
 
 def _bagian_cari(teks):
-    """Bagian kutipan yang cukup panjang untuk dicari (`padat`), urut seperti di naskah. Kutipan yang dipotong ...
-    dicek per bagian, jadi semua bagiannya harus ada di kitab yang ditunjuk."""
-    return [shamela.padat(b) for b in ELIPSIS.split(teks) if len(shamela.padat(b)) >= KUTIPAN_MIN]
+    """Semua bagian berhuruf Arab (`padat`), urut seperti di naskah, termasuk bagian pendek di samping ayat.
+    Tidak boleh membuang satu bagian lalu menunjuk kitab yang hanya memuat sisanya."""
+    return [p for b in ELIPSIS.split(teks) if (p := shamela.padat(b))]
 
 
 def _tempat_kitab(isi, ix, bagian):
@@ -563,35 +563,44 @@ def jejak(tertolak, maks=3):
         bagian = _bagian_cari(teks)
         if not bagian:
             continue
-        entri = cari.setdefault(tuple(bagian), {"teks": teks, "bagian": bagian, "tertuju": set(), "dapat": []})
+        entri = cari.setdefault(tuple(bagian), {"teks": teks, "bagian": bagian, "tertuju": set(), "dapat": [], "dibaca": 0})
         entri["tertuju"].add(str(sid))
     if not cari:
         return []
     semua = shamela.punya()
+    rusak = []
     for sid in semua:
-        ix = shamela.indeks(sid)
-        isi = shamela.norma.cache(shamela._folder(sid))
-        for entri in cari.values():
-            if len(entri["dapat"]) >= maks or str(sid) in entri["tertuju"]:
-                continue
-            t = _tempat_kitab(isi, ix, entri["bagian"])
-            if t:
-                entri["dapat"].append((sid, *t))
-        del isi
-        shamela._isi.cache_clear()  # `_isi` menyimpan isi kitab utuh; jangan menumpuk 188 kitab di memori
-        shamela.indeks.cache_clear()
+        aktif = [e for e in cari.values() if len(e["dapat"]) < maks and str(sid) not in e["tertuju"]]
+        if not aktif:
+            continue
+        try:
+            ix = shamela.indeks(sid)
+            isi = shamela.norma.cache(shamela._folder(sid))
+            for entri in aktif:
+                t = _tempat_kitab(isi, ix, entri["bagian"])
+                entri["dibaca"] += 1
+                if t:
+                    entri["dapat"].append((sid, *t))
+            del isi
+        except (OSError, EOFError, ValueError, TypeError, AttributeError, KeyError, zlib.error) as e:
+            # Pencarian hanya petunjuk: sumber lain yang rusak tidak boleh menutup hasil kitab yang sehat.
+            rusak.append(f"kitab {sid} ({type(e).__name__})")
+        finally:
+            shamela._isi.cache_clear()  # isi kitab utuh tidak menumpuk, juga sesudah gagal dibaca
+            shamela.indeks.cache_clear()
         if all(len(e["dapat"]) >= maks for e in cari.values()):
             break
     baris = []
     for entri in cari.values():
         t, asli = entri["dapat"], entri["teks"]
         if not t:
-            baris.append(f"  «{asli[:40]}» tidak ditemukan di {len(semua)} kitab yang sudah diunduh: "
-                         f"mungkin salah ketik, atau sumbernya di luar Shamela (<<luar>>)")
+            baris.append(f"  «{asli}» tidak ditemukan di {entri['dibaca']} kitab lain yang berhasil dibaca: "
+                         "periksa ejaan dan sumber aslinya.")
             continue
         rinci = "، ".join(f"{sid} {shamela.letak(juz, h)}{tanda}" for sid, juz, h, tanda in t[:maks])
-        lagi = f" (dan {len(t) - maks} kitab lain)" if len(t) > maks else ""
-        baris.append(f"  «{asli[:40]}» ketemu di kitab {rinci}{lagi}")
+        baris.append(f"  «{asli}» ketemu di kitab {rinci} (maksimal {maks} kitab per teks)")
+    if rusak:
+        baris.append("  jejak belum lengkap: " + ", ".join(rusak) + "; hasil hanya dari kitab yang berhasil dibaca.")
     return baris
 
 

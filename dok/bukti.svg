@@ -49,11 +49,11 @@
 <text x="1084" y="353" font-size="12.5" font-family="Consolas, Menlo, monospace" fill="#1c4636">bukti dicek ke Shamela lokal: 1 | GAGAL: 0</text>
 <rect x="1060" y="384" width="480" height="166" rx="12" fill="#f6e0e1" stroke="#9a3040" stroke-width="1.3" filter="url(#bayang)"/>
 <circle cx="1090" cy="416" r="16" fill="#9a3040"/><text x="1090" y="423" font-size="18" font-weight="700" fill="#fff" text-anchor="middle">✗</text>
-<text x="1116" y="422" font-size="16" font-weight="700" fill="#3a281b">Kalimatnya dikarang</text>
-<text x="1078" y="448" font-size="13" fill="#5e4835">tidak ada di kitab itu: agent membuangnya. Kalau hanya</text>
+<text x="1116" y="422" font-size="16" font-weight="700" fill="#3a281b">Teks tidak ada di kitab rujukan</text>
+<text x="1078" y="448" font-size="13" fill="#5e4835">buka sumber sebelum membetulkan rujukan. Kalau hanya</text>
 <text x="1078" y="466" font-size="13" fill="#5e4835">satu kata yang salah, mesin menyebut kata itu dan</text>
 <text x="1078" y="484" font-size="13" fill="#5e4835">kata yang tertulis di kitab</text>
-<text x="1078" y="502" font-size="13" fill="#5e4835">Kalau teksnya ada di kitab lain: cek --jejak</text>
+<text x="1078" y="502" font-size="13" fill="#5e4835">cek --jejak: petunjuk; kitab rusak dilaporkan</text>
 <rect x="1074" y="516" width="452" height="24" rx="5" fill="#fffaf0" stroke="#9a3040" stroke-opacity="0.4"/>
 <text x="1084" y="533" font-size="12.5" font-family="Consolas, Menlo, monospace" fill="#6e1f2c">✗ baris 8: teks TIDAK KETEMU di kitab 30148</text>
 <rect x="1060" y="564" width="480" height="166" rx="12" fill="#f6e0e1" stroke="#9a3040" stroke-width="1.3" filter="url(#bayang)"/>

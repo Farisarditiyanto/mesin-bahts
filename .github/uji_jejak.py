@@ -12,13 +12,21 @@ Yang diuji:
 - teks yang tidak ada di kitab mana pun dilaporkan «tidak ditemukan», bukan ditebak;
 - `cek contoh` tetap lolos (GAGAL 0), supaya penunjuk ini tidak mengubah putusan bukti;
 - `cek --jejak` tanpa folder = kurang argumen, bukan nama folder.
+- regresi audit: bagian pendek di samping ayat, perintah saran pada folder berspasi, argumen salah,
+  bendera di depan folder, jumlah kitab yang dicari, kutipan berawalan sama, dan sumber kitab lain yang rusak.
 """
-import shutil, subprocess, sys, tempfile
+import gzip, shlex, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")  # konsol Windows (cp1252) tidak bisa mencetak ✗ dan huruf Arab
 
-AKAR = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parent.parent
+# Perpustakaan dan naskah percobaan terpisah dari data pemakai, tetap di TEMP sebagai arsip uji.
+AKAR = Path(tempfile.mkdtemp(prefix="bahts-uji-jejak-"))
+shutil.copytree(REPO / "mesin", AKAR / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__"))
+for sid in ("_meta", "11223", "2348"):
+    shutil.copytree(REPO / "kitab" / sid, AKAR / "kitab" / sid)
+shutil.copytree(REPO / "contoh", AKAR / "contoh", ignore=shutil.ignore_patterns("*.docx", "*.pdf", "laporan.txt"))
 BAHTS = AKAR / "mesin" / "bahts.py"
 ASLI = AKAR / "contoh" / "naskah.txt"
 KUTIPAN = "توحيد الربوبية وهو إفراد الله تعالى بالخلق والملك والتدبير"
@@ -28,7 +36,7 @@ PALSU = "هذا نص مخترع لا يوجد في أي كتاب من كتب ا�
 
 def jalan(folder, *tambahan):
     r = subprocess.run([sys.executable, str(BAHTS), "cek", str(folder), *tambahan], cwd=AKAR,
-                       capture_output=True, text=True, encoding="utf-8")
+                       capture_output=True, text=True, encoding="utf-8", timeout=60)
     return r.returncode, (r.stdout or "") + (r.stderr or "")
 
 
@@ -40,12 +48,13 @@ def tulis(folder, bukti, kutipan=KUTIPAN):
 def tulis_dua(folder, satu, bukti_satu, dua, bukti_dua):
     """Dua kutipan dalam satu naskah, masing-masing dengan bukti kitabnya sendiri."""
     isi = (f"@judul: uji jejak\n@jenis: uji\n@nama: uji\n@nim: 0\n@fasl: uji\n@tanpa: pustaka\n\n"
-           f"#K المقدمة\nقال الأول: \"{satu}\"[^مصدر. {bukti_satu}].\n"
-           f"قال الثاني: \"{dua}\"[^مصدر. {bukti_dua}].\n")
+           f"#K المقدمة\nقال الأول: \"{satu}\"[^مصدر، ص{bukti_satu.removesuffix('>>').split('|')[2]}. {bukti_satu}].\n"
+           f"قال الثاني: \"{dua}\"[^مصدر، ص{bukti_dua.removesuffix('>>').split('|')[2]}. {bukti_dua}].\n")
     (folder / "naskah.txt").write_text(isi, encoding="utf-8")
 
 
-folder = Path(tempfile.mkdtemp(prefix="uji-jejak-", dir=AKAR))
+folder = AKAR / "naskah uji"
+folder.mkdir()
 try:
     # 1. Kitab yang dirujuk salah: kutipan asli 11223 halaman 5, tetapi buktinya menunjuk 2348.
     tulis(folder, "<<2348|-|5>>")
@@ -116,10 +125,91 @@ try:
 
     # 8. Bendera saja = kurang argumen, bukan nama folder.
     r = subprocess.run([sys.executable, str(BAHTS), "cek", "--jejak"], cwd=AKAR,
-                       capture_output=True, text=True, encoding="utf-8")
+                       capture_output=True, text=True, encoding="utf-8", timeout=60)
     pesan = (r.stdout or "") + (r.stderr or "")
     assert r.returncode != 0 and "kurang argumen" in pesan, pesan
+
+    # Regresi audit: lanjutkan semua kasus agar setiap celah terlihat merah sendiri.
+    gagal = []
+    def uji(nama, fn):
+        try:
+            fn()
+            print("lolos:", nama)
+        except AssertionError as e:
+            gagal.append(nama)
+            print("GAGAL:", nama, str(e))
+
+    def potongan_pendek():
+        # Cek mengizinkan bagian pendek yang menempel ayat; jejak wajib tetap mencarinya.
+        tulis(folder, "<<2348|-|5>>", KUTIPAN + " {Q:1:2} ززز")
+        kode, keluar = jalan(folder, "--jejak")
+        assert kode == 1 and "GAGAL: 1" in keluar, keluar
+        assert "tidak ditemukan di" in keluar and "ketemu di kitab" not in keluar, keluar
+
+    def petunjuk_spasi():
+        tulis(folder, "<<2348|-|5>>")
+        kode, keluar = jalan(folder)
+        assert kode == 1 and f'cek "{folder}" --jejak' in keluar, keluar
+        # Jalankan perintah yang dicetak, persis seperti ditempel pemakai ke terminal.
+        perintah = next(b.split("cari di kitab lain yang sudah diunduh: ", 1)[1]
+                        for b in keluar.splitlines() if "cari di kitab lain" in b)
+        r = subprocess.run(perintah if sys.platform == "win32" else shlex.split(perintah),
+                           cwd=AKAR, capture_output=True, encoding="utf8", timeout=60)
+        assert r.returncode == 1 and "11223 ج- ص5" in r.stdout, r.stdout + r.stderr
+
+    def argumen_salah():
+        (folder / "naskah.txt").write_bytes(ASLI.read_bytes())
+        for tambahan in (("--jejka",), ("--jeja",), ("folder-lain",)):
+            kode, keluar = jalan(folder, *tambahan)
+            assert kode != 0 and "argumen" in keluar.lower(), (tambahan, keluar)
+            assert "NASKAH_SHA256" not in keluar, "Argumen salah harus ditolak sebelum naskah diperiksa"
+
+    def bendera_di_depan():
+        tulis(folder, "<<2348|-|5>>")
+        r = subprocess.run([sys.executable, str(BAHTS), "cek", "--jejak", str(folder)], cwd=AKAR,
+                           capture_output=True, encoding="utf8", timeout=60)
+        assert r.returncode == 1 and "11223 ج- ص5" in r.stdout, r.stdout + r.stderr
+
+    def hitungan_kitab():
+        tulis(folder, "<<2348|-|5>>", PALSU)
+        kode, keluar = jalan(folder, "--jejak")
+        assert kode == 1 and "tidak ditemukan di 1 kitab lain yang berhasil dibaca" in keluar, keluar
+
+    def awalan_sama():
+        panjang = KUTIPAN + " ... " + PALSU
+        tulis_dua(folder, KUTIPAN, "<<2348|-|5>>", panjang, "<<2348|-|5>>")
+        kode, keluar = jalan(folder, "--jejak")
+        assert kode == 1 and "GAGAL: 2" in keluar, keluar
+        assert f"«{KUTIPAN}» ketemu di kitab" in keluar, keluar
+        assert f"«{panjang}» tidak ditemukan di" in keluar, keluar
+
+    def kitab_rusak():
+        rusak = AKAR / "kitab" / "1"
+        rusak.mkdir()
+        halaman = rusak / "pages.jsonl.gz"
+        for data in (b"gzip rusak", gzip.compress(b"{}")[:-4], gzip.compress(b"bukan json"),
+                     gzip.compress(b"[]"), gzip.compress(b'{"body":42}')):
+            halaman.write_bytes(data)
+            tulis(folder, "<<2348|-|5>>")
+            kode, keluar = jalan(folder, "--jejak")
+            assert kode == 1 and "GAGAL: 1" in keluar, keluar
+            assert "11223 ج- ص5" in keluar and "Traceback" not in keluar, keluar
+            assert "jejak belum lengkap" in keluar and "kitab 1" in keluar, keluar
+            tulis(folder, "<<2348|-|5>>", PALSU)
+            kode, keluar = jalan(folder, "--jejak")
+            assert kode == 1 and "tidak ditemukan di 1 kitab lain yang berhasil dibaca" in keluar, keluar
+            assert "jejak belum lengkap" in keluar, keluar
+
+    for nama, fn in (("bagian pendek di samping ayat", potongan_pendek),
+                     ("perintah saran bisa ditempel pada folder berspasi", petunjuk_spasi),
+                     ("argumen salah ditolak sebelum cek", argumen_salah),
+                     ("bendera sebelum folder", bendera_di_depan),
+                     ("jumlah kitab yang benar-benar dicari", hitungan_kitab),
+                     ("kutipan berawalan sama tetap dapat dibedakan", awalan_sama),
+                     ("kitab lain rusak tidak menghentikan jejak", kitab_rusak)):
+        uji(nama, fn)
+    assert not gagal, gagal
 finally:
-    shutil.rmtree(folder, ignore_errors=True)
+    print("arsip uji:", AKAR)
 
 print("uji jejak: semua sesuai")

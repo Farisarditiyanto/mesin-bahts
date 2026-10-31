@@ -251,7 +251,7 @@ def cek(nama, keluar=None, jejak=False):
         else:
             n = len({shamela.padat(t) for _, t in olah.TERTOLAK})
             print(f"{n} teks tidak ditemukan di kitab yang dirujuk; cari di kitab lain yang sudah diunduh: "
-                  + perintah(f"cek {nama} --jejak"))
+                  + perintah(f'cek "{nama}" --jejak'))
     elif jejak:
         print("jejak: tidak ada bukti yang gagal «teks TIDAK KETEMU di kitab».")
     try:
@@ -394,6 +394,9 @@ def perintah_cek(a):
     folder = next((x for x in a if x != "--jejak"), None)
     if folder is None:
         sys.exit(f"Perintah «cek» kurang argumen. Bentuknya:\n  {re.search(r'^  cek .*', __doc__, re.M).group(0)}")
+    if len([x for x in a if x != "--jejak"]) != 1 or folder.startswith("--"):
+        sys.exit(f"Argumen perintah «cek» tidak dikenal atau berlebih: {a}\nBentuknya:\n"
+                 f"{re.search(r'^  cek .*', __doc__, re.M).group(0)}")
     sys.exit(1 if cek(folder, jejak="--jejak" in a)[1] else 0)
 
 
