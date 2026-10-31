@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- Kunci OpenAlex kini wajib untuk bahts yang memuat الدراسات السابقة, supaya isi penelitiannya bisa dibaca lewat `dirasat-pdf`. Bahts lain tidak dimintai kunci.
 - Connector tanpa akun (`turath`, `hadithunlocked`, `tafsir`, `quran`) kini ikut dipasang bersama `shamela` dengan satu izin, tidak lagi ditawarkan satu per satu. Kalau salah satunya mati, kerja tetap jalan.
 - Agent memakai `shamela_verify_quote` sesudah `cek --jejak` tidak menemukan kutipan, serta `shamela_research_scope` dan `shamela_scan_consensus` untuk masalah khilaf.
 - `cek --jejak` kini menemukan kutipan yang menyambung ke halaman berikutnya dan menunjuk rentangnya (mis. ص21-22); dulu kutipan itu dilaporkan «tidak ditemukan». `cek` juga menunjuk rentang itu kalau kitabnya benar tetapi halamannya salah, bukan lagi «teks TIDAK KETEMU di kitab». Perintah saran juga bisa ditempel kalau nama foldernya diakhiri garis miring.
