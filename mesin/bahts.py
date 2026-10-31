@@ -389,11 +389,19 @@ def ketemu(n):
         sys.exit(1)
 
 
+def perintah_cek(a):
+    """`cek <folder> [--jejak]`: bendera boleh sebelum/sesudah folder; bendera saja = kurang argumen."""
+    folder = next((x for x in a if x != "--jejak"), None)
+    if folder is None:
+        sys.exit(f"Perintah «cek» kurang argumen. Bentuknya:\n  {re.search(r'^  cek .*', __doc__, re.M).group(0)}")
+    sys.exit(1 if cek(folder, jejak="--jejak" in a)[1] else 0)
+
+
 PERINTAH = {  # nama: (jumlah argumen minimal, pemanggil)
     "periksa": (0, lambda a: periksa()),
     "siapkan": (0, lambda a: siapkan()),
     "baru": (2, lambda a: baru(a[0], a[1])),
-    "cek": (1, lambda a: sys.exit(1 if cek(a[0], jejak="--jejak" in a)[1] else 0)),
+    "cek": (0, perintah_cek),
     "rakit": (1, lambda a: rakit(a[0])),
     "tanda": (0, lambda a: print(tanda())),
     "kitab": (0, lambda a: shamela.daftar()),
@@ -420,6 +428,7 @@ def tanda():
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")  # pesan galat memuat «» dan huruf Arab; konsol Windows tidak bisa mencetaknya
     cmd, *a = sys.argv[1:] or [""]
     if cmd in ("", "-h", "--help", "bantuan"):
         print(__doc__); sys.exit(0)

@@ -529,53 +529,62 @@ def cek(sid, juz, hal, pot, perhatian, kutipan=False, rinci=True):
 
 
 def _bagian_cari(teks):
-    """Bagian kutipan terpanjang yang bisa dicari di kitab lain: kutipan yang dipotong ... dicek per bagian,
-    dan bagian terpendek (mis. rujukan ayat) tidak menunjuk apa pun."""
-    bagian = [b for b in ELIPSIS.split(teks) if len(shamela.padat(b)) >= KUTIPAN_MIN]
-    return max(bagian, key=lambda b: len(shamela.padat(b))) if bagian else ""
+    """Bagian kutipan yang cukup panjang untuk dicari (`padat`), urut seperti di naskah. Kutipan yang dipotong ...
+    dicek per bagian, jadi semua bagiannya harus ada di kitab yang ditunjuk."""
+    return [shamela.padat(b) for b in ELIPSIS.split(teks) if len(shamela.padat(b)) >= KUTIPAN_MIN]
+
+
+def _tempat_kitab(isi, ix, bagian):
+    """Juz, halaman, dan tanda (matan/حاشية) tempat SEMUA bagian kutipan berurutan di satu halaman kitab.
+    None kalau tidak ada. Kutipan ber-... tidak boleh ditunjuk hanya karena bagian yang umum ada di kitab itu."""
+    for i, r in enumerate(isi):
+        for (teks, batas), (_, tanda) in zip(r, shamela.BAGIAN):
+            for lo, hi, h1, h2 in batas:
+                seg, k = teks[lo:hi], 0
+                for b in bagian:
+                    n = seg.find(b, k)
+                    if n < 0:
+                        break
+                    k = n + len(b)
+                else:
+                    juz = ix[i][0] if i < len(ix) else None
+                    return ("-" if juz is None else juz), (h1, h2), tanda
+    return None
 
 
 def jejak(tertolak, maks=3):
     """Cari kutipan yang ditolak «teks TIDAK KETEMU di kitab» pada kitab lain yang sudah diunduh.
     Kembalikan baris laporan: hanya petunjuk, bukan bukti; putusan tetap milik `cek` (tidak ada yang diloloskan).
-    Tiap kitab dibaca sekali (cache `padat`), dicari dengan lafaz yang sama seperti `cari`, lalu cache-nya dilepas."""
-    cari = {}  # teks `padat` -> bagian kutipan asli yang dicari
-    for _, teks in tertolak:
-        b = _bagian_cari(teks)
-        if b:
-            cari.setdefault(shamela.padat(b), b)
+    Tiap kitab dibaca sekali (cache `padat`), dicari dengan lafaz yang sama seperti `cari`, lalu cache-nya dilepas.
+    Kitab yang dirujuk satu kutipan tidak dicari untuk kutipan itu; kutipan yang dipotong ... hanya ditunjuk
+    kalau semua bagiannya ada berurutan di satu halaman kitab yang sama."""
+    cari = {}  # bagian `padat` (tuple) -> entri kutipan
+    for sid, teks in tertolak:
+        bagian = _bagian_cari(teks)
+        if not bagian:
+            continue
+        entri = cari.setdefault(tuple(bagian), {"teks": teks, "bagian": bagian, "tertuju": set(), "dapat": []})
+        entri["tertuju"].add(str(sid))
     if not cari:
         return []
-    tertuju = {str(sid) for sid, _ in tertolak}  # kitab yang sudah disebut di pesan GAGAL: tidak dicari lagi
-    dapat = {q: [] for q in cari}
     semua = shamela.punya()
     for sid in semua:
-        if str(sid) in tertuju:
-            continue
         ix = shamela.indeks(sid)
         isi = shamela.norma.cache(shamela._folder(sid))
-        for i, r in enumerate(isi):
-            juz = ix[i][0] if i < len(ix) else None
-            juz = "-" if juz is None else juz
-            for q in cari:
-                if any(t[0] == sid for t in dapat[q]):
-                    continue
-                for (teks, batas), (bagian, tanda) in zip(r, shamela.BAGIAN):
-                    j = teks.find(q)
-                    if j < 0:
-                        continue
-                    a = next((h1 for x, z, h1, _ in batas if x <= j < z), None)
-                    z = next((h2 for x, z, _, h2 in batas if x <= j + len(q) - 1 < z), None)
-                    dapat[q].append((sid, juz, (a, z), tanda))
-                    break
+        for entri in cari.values():
+            if len(entri["dapat"]) >= maks or str(sid) in entri["tertuju"]:
+                continue
+            t = _tempat_kitab(isi, ix, entri["bagian"])
+            if t:
+                entri["dapat"].append((sid, *t))
         del isi
         shamela._isi.cache_clear()  # `_isi` menyimpan isi kitab utuh; jangan menumpuk 188 kitab di memori
         shamela.indeks.cache_clear()
-        if all(len(dapat[q]) >= maks for q in cari):
+        if all(len(e["dapat"]) >= maks for e in cari.values()):
             break
     baris = []
-    for q, asli in cari.items():
-        t = dapat[q]
+    for entri in cari.values():
+        t, asli = entri["dapat"], entri["teks"]
         if not t:
             baris.append(f"  «{asli[:40]}» tidak ditemukan di {len(semua)} kitab yang sudah diunduh: "
                          f"mungkin salah ketik, atau sumbernya di luar Shamela (<<luar>>)")
@@ -1519,6 +1528,10 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             if kutipan_4 and all(e for e, _ in kutipan_4):
                 galat.append(f"kutipan sebelum catatan kaki tidak ada di halaman buktinya (potongan <<…|potongan>> hanya "
                              f"membuktikan potongannya; nukilan makna tanpa tanda petik, diawali انظر): {kutipan_4[0][0]}  || fn: {isi[:45]}")
+                if mk:
+                    m = re.search(r"teks TIDAK KETEMU di kitab (\d+)", kutipan_4[0][0])
+                    if m:
+                        TERTOLAK.append((m.group(1), mk))
             else:
                 perhatian += next((p for e, p in kutipan_4 if not e), [])
             for k in kc if terbukti else ():
