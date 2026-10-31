@@ -3,7 +3,7 @@
 Tiap rilis ditulis di sini: yang baru di atas. Nomor versi = `besar.kecil.tambalan`:
 besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan baru, tambalan naik kalau hanya perbaikan.
 
-## Belum dirilis
+## 6.1.0 — 2026-10-31
 
 - Kunci OpenAlex kini wajib untuk bahts yang memuat الدراسات السابقة, supaya isi penelitiannya bisa dibaca lewat `dirasat-pdf`. Bahts lain tidak dimintai kunci.
 - Connector tanpa akun (`turath`, `hadithunlocked`, `tafsir`, `quran`) kini ikut dipasang bersama `shamela` dengan satu izin, tidak lagi ditawarkan satu per satu. Kalau salah satunya mati, kerja tetap jalan.
