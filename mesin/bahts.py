@@ -250,8 +250,9 @@ def cek(nama, keluar=None, jejak=False):
             print("\n".join(olah.jejak(olah.TERTOLAK)))
         else:
             n = len({shamela.padat(t) for _, t in olah.TERTOLAK})
+            jalur = nama.rstrip("/\\") or nama  # «"folder\"»: garis miring menelan tanda petik penutupnya
             print(f"{n} teks tidak ditemukan di kitab yang dirujuk; cari di kitab lain yang sudah diunduh: "
-                  + perintah(f'cek "{nama}" --jejak'))
+                  + perintah(f'cek "{jalur}" --jejak'))
     elif jejak:
         print("jejak: tidak ada bukti yang gagal «teks TIDAK KETEMU di kitab».")
     try:

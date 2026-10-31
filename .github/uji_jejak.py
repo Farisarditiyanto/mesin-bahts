@@ -13,9 +13,10 @@ Yang diuji:
 - `cek contoh` tetap lolos (GAGAL 0), supaya penunjuk ini tidak mengubah putusan bukti;
 - `cek --jejak` tanpa folder = kurang argumen, bukan nama folder.
 - regresi audit: bagian pendek di samping ayat, perintah saran pada folder berspasi, argumen salah,
-  bendera di depan folder, jumlah kitab yang dicari, kutipan berawalan sama, dan sumber kitab lain yang rusak.
+  bendera di depan folder, jumlah kitab yang dicari, kutipan berawalan sama, sumber kitab lain yang rusak,
+  kutipan lintas halaman, batas sambungan halaman, dan folder bergaris miring.
 """
-import gzip, shlex, shutil, subprocess, sys, tempfile
+import gzip, json, os, shlex, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")  # konsol Windows (cp1252) tidak bisa mencetak ✗ dan huruf Arab
@@ -32,6 +33,7 @@ ASLI = AKAR / "contoh" / "naskah.txt"
 KUTIPAN = "توحيد الربوبية وهو إفراد الله تعالى بالخلق والملك والتدبير"
 KUTIPAN_NU = "فإنها دار نفاد لا محل إخلاد، ومركب عبور لا منزل حبور"
 PALSU = "هذا نص مخترع لا يوجد في أي كتاب من كتب الشاملة التي نزلت"
+KUTIPAN_LINTAS = "إننا في هذا اللقاء الذي نرجو أن يفتح الله علينا فيه من"  # 11223 akhir ص3 + awal ص4
 
 
 def jalan(folder, *tambahan):
@@ -200,7 +202,68 @@ try:
             assert kode == 1 and "tidak ditemukan di 1 kitab lain yang berhasil dibaca" in keluar, keluar
             assert "jejak belum lengkap" in keluar, keluar
 
-    for nama, fn in (("bagian pendek di samping ayat", potongan_pendek),
+    def lintas_halaman():
+        # Kutipan menyambung ص3-4: `cek` meloloskannya, jadi jejak harus menunjuk rentang yang bisa langsung dipakai.
+        tulis(folder, "<<2348|-|5>>", KUTIPAN_LINTAS)
+        kode, keluar = jalan(folder, "--jejak")
+        assert kode == 1 and "11223 ج- ص3-4" in keluar, keluar
+        tulis(folder, "<<11223|-|3-4>>", KUTIPAN_LINTAS)
+        isi = (folder / "naskah.txt").read_text(encoding="utf-8").replace("ص5", "ص3-4")
+        (folder / "naskah.txt").write_text(isi, encoding="utf-8")
+        kode, keluar = jalan(folder)
+        assert kode == 0 and "GAGAL: 0" in keluar, keluar
+
+    def batas_sambungan():
+        # Sambungan hanya pada halaman berurutan satu juz; bagian ber-... paling jauh sejauh rentang yang diterima `cek`.
+        sid = 7
+        kata = lambda n: "".join("ابتثجحخدذرزسشصضطظعغفقكلمنهوي"[int(x)] for x in f"{n:03d}") + "ق"
+        baris = [{"part": "1", "page_num": n, "body": " ".join(kata(n) + str(i).translate(str.maketrans("0123456789", "ابتثجحخدذر"))
+                                                               for i in range(6))}
+                 for n in (*range(1, 61), 70)] + [{"part": "2", "page_num": 71, "body": "طرف الجزء الثاني بعد الجزء الاول"}]
+        tepi = lambda n, a, z: " ".join(baris[n]["body"].split()[a:z])
+        rak = AKAR / "kitab" / str(sid)
+        rak.mkdir()
+        (rak / "pages.jsonl.gz").write_bytes(gzip.compress(
+            "".join(json.dumps(b, ensure_ascii=False) + "\n" for b in baris).encode("utf-8")))
+        try:
+            def tunjuk(kutipan):
+                tulis(folder, "<<2348|-|5>>", kutipan)
+                return jalan(folder, "--jejak")[1]
+            sambung = tepi(0, 3, 6) + " " + tepi(1, 0, 3)
+            assert "ج1 ص1-2" in tunjuk(sambung), "dua halaman berurutan"
+            jauh_boleh = tepi(0, 0, 3) + " ... " + tepi(50, 0, 3)
+            assert "ج1 ص1-51" in tunjuk(jauh_boleh), "bagian ... sejauh RENTANG_MAKS masih kutipan yang diterima cek"
+            jauh_lewat = tepi(0, 0, 3) + " ... " + tepi(51, 0, 3)
+            assert "ketemu di kitab" not in tunjuk(jauh_lewat), "bagian ... melewati RENTANG_MAKS tidak boleh ditunjuk"
+            # Bagian pertama muncul lagi di ص41: rentang tersempit yang ditunjuk, bukan kemunculan pertamanya.
+            baris_ulang = tepi(0, 0, 3) + " " + baris[40]["body"]
+            (rak / "pages.jsonl.gz").write_bytes(gzip.compress("".join(json.dumps(
+                {**b, "body": baris_ulang} if b["page_num"] == 41 else b, ensure_ascii=False) + "\n" for b in baris).encode("utf-8")))
+            assert "ج1 ص41-51" in tunjuk(jauh_boleh), "rentang tersempit"
+            (rak / "pages.jsonl.gz").write_bytes(gzip.compress(
+                "".join(json.dumps(b, ensure_ascii=False) + "\n" for b in baris).encode("utf-8")))
+            lompat = tepi(59, 3, 6) + " " + tepi(60, 0, 3)
+            assert "ketemu di kitab" not in tunjuk(lompat), "halaman 60 dan 70 tidak bersambung"
+            beda_juz = tepi(60, 3, 6) + " " + tepi(61, 0, 3)
+            assert "ketemu di kitab" not in tunjuk(beda_juz), "akhir juz 1 tidak menyambung ke juz 2"
+        finally:
+            shutil.rmtree(rak)
+
+    def folder_bergaris_miring():
+        # Tab di terminal Windows menulis «folder\»: di dalam tanda petik \" menelan penutupnya.
+        tulis(folder, "<<2348|-|5>>")
+        r = subprocess.run([sys.executable, str(BAHTS), "cek", str(folder) + os.sep], cwd=AKAR,
+                           capture_output=True, encoding="utf8", timeout=60)
+        perintah = next(b.split("cari di kitab lain yang sudah diunduh: ", 1)[1]
+                        for b in r.stdout.splitlines() if "cari di kitab lain" in b)
+        r = subprocess.run(perintah if sys.platform == "win32" else shlex.split(perintah),
+                           cwd=AKAR, capture_output=True, encoding="utf8", timeout=60)
+        assert r.returncode == 1 and "11223 ج- ص5" in r.stdout, r.stdout + r.stderr
+
+    for nama, fn in (("kutipan lintas halaman ditunjuk rentangnya", lintas_halaman),
+                     ("batas sambungan halaman", batas_sambungan),
+                     ("perintah saran pada folder bergaris miring", folder_bergaris_miring),
+                     ("bagian pendek di samping ayat", potongan_pendek),
                      ("perintah saran bisa ditempel pada folder berspasi", petunjuk_spasi),
                      ("argumen salah ditolak sebelum cek", argumen_salah),
                      ("bendera sebelum folder", bendera_di_depan),
