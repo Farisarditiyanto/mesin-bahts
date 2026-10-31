@@ -38,7 +38,7 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   **...**             tebal
   ((...))             lafaz matn yang disyarah: dicetak merah di dalam kurung, «((ليس بحجة))» -> (ليس بحجة)
   {Q:s:a} {Q:s:a-b} {Q:s:a:i-j}   ayat surat s ayat a (atau a-b; atau kata ke-i s.d. j): teks resmi rasm Utsmani + masuk فهرس الآيات
-  {H:طرف|راوٍ|kunci}   daftarkan hadits/atsar ke فهرس الأحاديث; taruh tepat sebelum «matan». Kunci: huruf kecil a-z, satu kunci satu hadits
+  {H:طرف|راوٍ|kunci}   daftarkan hadits/atsar ke فهرس الأحاديث; taruh di matan, tepat sebelum «matan», bukan di catatan kaki. Kunci: huruf kecil a-z, satu kunci satu hadits
   {H2:kunci}          halaman tambahan untuk hadits yang sama
   {P:kunci}           nomor halaman {H:..|kunci}; hanya di dalam catatan kaki: [^سبق تخريجه، ص{P:kunci}.]
   [^ ... ]            catatan kaki
@@ -1346,6 +1346,8 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             induk["lagi"].append(f"{kunci}_{n}")
             runs.append({"bm": f"{kunci}_{n}"})
         elif tok.startswith("{H:"):
+            if di_catatan:  # penanda فهرس di catatan kaki tidak bisa dibaca halamannya oleh Word
+                raise TandaRusak(f"{tok}: tidak boleh di dalam catatan kaki: pindahkan ke matan, tepat sebelum «matan»")
             if tok.count("|") != 2:
                 raise TandaRusak(f"{tok}: bentuknya {{H:طرف|راوٍ|kunci}}")
             taraf, rawi, kunci = tok[3:-1].split("|")
@@ -1517,7 +1519,6 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             if not diam:
                 galat += cocok_halaman(isi, terbukti, perhatian)
             sub = urai(isi, None, ayat_idx, hadits_idx, galat, perhatian, di_catatan=True)
-            seg_h = len(hadits_idx)  # {H:} di dalam catatan kaki tidak ikut kutipan matn berikutnya
             runs += [{"z": z} for z in zz]
             catatan.append({"runs": sub, "bukti": len(bukti), "luar": luar, "pdf": len(pdf)})
             if not diam:

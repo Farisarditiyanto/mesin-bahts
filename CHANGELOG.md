@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `cek` menolak `{H:}` di catatan kaki; dulu lolos, lalu `rakit` mati dengan galat Word.
 - Sampul bawaan kini model قسم الشريعة (`qism`), juga untuk naskah lama tanpa `@sampul` saat dirakit ulang. Sampul lama: `@sampul: mahad`.
 - Agent memperbarui mesin sebelum mulai bahts baru, tidak saat bahts sedang dikerjakan.
 - Penyederhanaan internal `cek`: keadaan daftar pustaka memakai nomor baris `#R` yang sudah disimpan; pencarian urutan kutipan memakai loop bersama; cache turunan Al-Qur'an dan pembantu kemiripan yang hanya punya satu pemakai dihapus. Keluaran pemeriksaan dan bahan rakit tetap sama pada naskah pembanding.
