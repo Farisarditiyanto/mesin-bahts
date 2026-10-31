@@ -1509,8 +1509,11 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                         kutipan_4.append((cek(int(f[0]), f[1], f[2], mk, p, kutipan=True), p))
                 if e:
                     galat.append(e + f"  || fn: {isi[:45]}")
-                    if mk and e.startswith(f"teks TIDAK KETEMU di kitab {f[0]}"):
-                        TERTOLAK.append((f[0], mk))
+                    if e.startswith(f"teks TIDAK KETEMU di kitab {f[0]}"):
+                        # yang dicek: kutipan sebelum catatan kaki, paragraf salinan (diam), atau potongan bukti itu sendiri
+                        t = (penggal if diam else mk) if (len(f) == 3 or diam) else f[3]
+                        if t:
+                            TERTOLAK.append((f[0], t))
             periksa_takhrij(isi, bukti, terbukti, mk, perhatian)
             # kutipan bertanda petik tetap dicek walau buktinya membawa potongan sendiri: cukup ada di salah satu bukti itu
             if kutipan_4 and all(e for e, _ in kutipan_4):
