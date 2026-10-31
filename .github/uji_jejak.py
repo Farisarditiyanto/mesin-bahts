@@ -2,8 +2,8 @@
 yang sudah diunduh. Kitab yang dipakai sama dengan `tes.yml` (11223 dan 2348).
 
 Yang diuji:
-- tanpa `--jejak`, keluaran dan putusan `cek` tetap seperti sekarang (GAGAL 1, pesan «TIDAK KETEMU di kitab 2348»)
-  dan pemakai diberi tahu perintah yang bisa mencari di kitab lain;
+- tanpa `--jejak`, putusan `cek` dan pesan GAGAL-nya tetap seperti sekarang (GAGAL 1, «TIDAK KETEMU di kitab 2348»);
+  yang bertambah hanya satu baris perintah untuk mencari di kitab lain;
 - dengan `--jejak`, teks yang sebenarnya ada di kitab 11223 halaman 5 ditunjuk di sana (juz "-" kitab satu jilid);
 - dua kutipan yang tertukar kitabnya tidak saling menghalangi (kitab yang dirujuk satu kutipan hanya dilewati
   untuk kutipan itu);
