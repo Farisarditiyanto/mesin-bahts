@@ -65,7 +65,7 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   Judul (#K/#F/#B/#M/#S/#R) tidak boleh memuat [^, <<, {Q:/{H: atau **
   Contoh: قال ابن القيم: "…"[^مدارج السالكين، ابن القيم، 2/15. <<8370|2|15>>].
 """
-import difflib, functools, hashlib, io, json, os, re, unicodedata, zlib
+import bisect, difflib, functools, hashlib, io, json, os, re, unicodedata, zlib
 from pathlib import Path
 
 import shamela
@@ -368,7 +368,10 @@ def _petunjuk(sid, juz, q):
         tempat = [t for _, t in sorted(tempat, key=lambda t: t[0])]
         lagi = f" (dan {len(tempat) - 3} tempat lain)" if len(tempat) > 3 else ""
         return "، ".join(tempat[:3]) + lagi
-    return hasyiah
+    if hasyiah:
+        return hasyiah
+    t = _tempat_kitab(_rangkaian_kitab(sid), [q])  # kutipan yang menyambung ke halaman berikutnya
+    return shamela.letak(t[0], t[1]) + t[2] if t else None
 
 
 def _cek_bagian(sid, juz, hal, p1, p2, teks, utuh, perhatian, rinci=True):
@@ -534,22 +537,54 @@ def _bagian_cari(teks):
     return [p for b in ELIPSIS.split(teks) if (p := shamela.padat(b))]
 
 
-def _tempat_kitab(isi, ix, bagian):
-    """Juz, halaman, dan tanda (matan/حاشية) tempat SEMUA bagian kutipan berurutan di satu halaman kitab.
-    None kalau tidak ada. Kutipan ber-... tidak boleh ditunjuk hanya karena bagian yang umum ada di kitab itu."""
-    for i, r in enumerate(isi):
-        for (teks, batas), (_, tanda) in zip(r, shamela.BAGIAN):
-            for lo, hi, h1, h2 in batas:
-                seg, k = teks[lo:hi], 0
-                for b in bagian:
-                    n = seg.find(b, k)
-                    if n < 0:
-                        break
-                    k = n + len(b)
-                else:
-                    juz = ix[i][0] if i < len(ix) else None
-                    return ("-" if juz is None else juz), (h1, h2), tanda
-    return None
+def _rangkaian(isi, ix):
+    """Rangkaian rekaman kitab dari cache `padat`: [(juz, tanda, teks, ruas halaman)]. Aturannya sama dengan `gabung`:
+    urut halaman, dan hanya rekaman yang halamannya bersambung (sama atau +1) di juz yang sama yang dirangkai."""
+    hasil = []
+    juz = {}
+    for i, x in enumerate(ix):
+        juz.setdefault(x[0], []).append(i)
+    for j, ii in juz.items():
+        for s, (_, tanda) in enumerate(shamela.BAGIAN):
+            teks, ruas, panjang, akhir = [], [], 0, 0
+            for i in sorted(ii, key=lambda i: ix[i][1] or 0):
+                n = ix[i][1]
+                if panjang and not (n and akhir <= n <= akhir + 1):
+                    hasil.append((j, tanda, "".join(teks), ruas))
+                    teks, ruas, panjang, akhir = [], [], 0, 0
+                t, batas = isi[i][s]
+                teks.append(t)
+                ruas += [(lo + panjang, hi + panjang, h1, h2) for lo, hi, h1, h2 in batas]
+                panjang += len(t)
+                akhir = max(akhir, ix[i][2])
+            if panjang:
+                hasil.append((j, tanda, "".join(teks), ruas))
+    return hasil
+
+
+@functools.lru_cache(maxsize=4)  # banyak GAGAL di kitab yang sama tidak membaca ulang; memori tetap kecil
+def _rangkaian_kitab(sid):
+    """`_rangkaian` kitab sid; `jejak` melepasnya tiap kitab."""
+    return _rangkaian(shamela.norma.cache(shamela._folder(sid)), shamela.indeks(sid))
+
+
+def _tempat_kitab(rangkaian, bagian):
+    """Juz, rentang halaman, dan tanda (matan/حاشية) tempat SEMUA bagian kutipan berurutan: boleh menyambung ke halaman
+    berikutnya, paling lebar RENTANG_MAKS halaman. None kalau tidak ada. Hanya petunjuk: putusannya tetap milik `cek`.
+    Yang ditunjuk rentang tersempit: kutipan ber-... tidak boleh ditunjuk di tempat bagian umumnya kebetulan berjauhan."""
+    terbaik = None
+    for juz, tanda, teks, ruas in rangkaian:
+        for letak in _susunan(teks, bagian, len(teks)):
+            h1 = ruas[bisect.bisect_right(ruas, letak[0][0], key=lambda r: r[1])][2]
+            h2 = ruas[bisect.bisect_left(ruas, letak[-1][1], key=lambda r: r[1])][3]
+            if (h1 or 0) > (h2 or 0):  # penanda halaman yang menurun di satu rekaman: rentang tetap kecil-besar
+                h1, h2 = h2, h1
+            lebar = (h2 or 0) - (h1 or 0)
+            if lebar <= RENTANG_MAKS and (terbaik is None or lebar < terbaik[0]):
+                terbaik = lebar, ("-" if juz is None else juz), (h1, h2), tanda
+            if lebar == 0:
+                return terbaik[1:]
+    return terbaik[1:] if terbaik else None
 
 
 def jejak(tertolak, maks=3):
@@ -557,7 +592,7 @@ def jejak(tertolak, maks=3):
     Kembalikan baris laporan: hanya petunjuk, bukan bukti; putusan tetap milik `cek` (tidak ada yang diloloskan).
     Tiap kitab dibaca sekali (cache `padat`), dicari dengan lafaz yang sama seperti `cari`, lalu cache-nya dilepas.
     Kitab yang dirujuk satu kutipan tidak dicari untuk kutipan itu; kutipan yang dipotong ... hanya ditunjuk
-    kalau semua bagiannya ada berurutan di satu halaman kitab yang sama."""
+    kalau semua bagiannya ada berurutan dalam satu rentang yang bisa diloloskan `cek`."""
     cari = {}  # bagian `padat` (tuple) -> entri kutipan
     for sid, teks in tertolak:
         bagian = _bagian_cari(teks)
@@ -574,20 +609,20 @@ def jejak(tertolak, maks=3):
         if not aktif:
             continue
         try:
-            ix = shamela.indeks(sid)
-            isi = shamela.norma.cache(shamela._folder(sid))
+            rangkaian = _rangkaian_kitab(sid)
             for entri in aktif:
-                t = _tempat_kitab(isi, ix, entri["bagian"])
+                t = _tempat_kitab(rangkaian, entri["bagian"])
                 entri["dibaca"] += 1
                 if t:
                     entri["dapat"].append((sid, *t))
-            del isi
-        except (OSError, EOFError, ValueError, TypeError, AttributeError, KeyError, zlib.error) as e:
+            del rangkaian
+        except (OSError, EOFError, ValueError, TypeError, AttributeError, KeyError, IndexError, zlib.error) as e:
             # Pencarian hanya petunjuk: sumber lain yang rusak tidak boleh menutup hasil kitab yang sehat.
             rusak.append(f"kitab {sid} ({type(e).__name__})")
         finally:
             shamela._isi.cache_clear()  # isi kitab utuh tidak menumpuk, juga sesudah gagal dibaca
             shamela.indeks.cache_clear()
+            _rangkaian_kitab.cache_clear()
         if all(len(e["dapat"]) >= maks for e in cari.values()):
             break
     baris = []
