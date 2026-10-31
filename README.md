@@ -59,11 +59,12 @@ Hasilnya ada di folder `mesin-bahts` di dalam folder Dokumen-mu.
 - Agent mengutip kitab المكتبة الشاملة yang sudah diunduh ke komputer pemakai. Sumber lain (jurnal, PDF penelitian) ditandai untuk diperiksa sendiri.
 - Tiap kutipan membawa alamat di catatan kakinya: kitab, juz, halaman.
 - `cek` membuka alamat itu. Kutipan yang tidak ada di sana, atau tanpa alamat, ditolak. Ayat dan angka di dalam kutipan, juga juz/halaman yang tercetak, ikut dicocokkan.
+- Kutipan yang tidak ditemukan di kitab yang dirujuk bisa dicari di kitab lain yang sudah diunduh: `python mesin/bahts.py cek "<folder>" --jejak`. Hasilnya maksimal tiga kitab per teks (kitab + juz/halaman), hanya petunjuk; putusan tetap dari `cek`. Semua bagian lafaz harus berurutan di satu halaman. Kitab lain yang rusak dilewati dengan peringatan «jejak belum lengkap»; hasil kosong hanya berlaku untuk kitab yang berhasil dibaca. Pencarian pertama menyiapkan teks kitab yang belum pernah dicari, jadi bisa lama.
 - Ayat ditulis dari mushaf مجمع الملك فهد. `rakit` membuat Word dan PDF lengkap: sampul, catatan kaki, المصادر والمراجع, dan الفهارس.
 
 <img src="dok/alur.svg" width="100%" alt="Sepuluh langkah: kamu meminta, agent menyiapkan komputer dan menulis naskah, mesin mengecek kutipan dan merakit, agent kedua memeriksa ulang, kamu mengumpulkan">
 
-<img src="dok/bukti.svg" width="100%" alt="Cara cek bekerja: alamat di catatan kaki menunjuk kitab, juz, dan halaman; hasilnya lolos, tidak ketemu (dengan kata yang berbeda bila hampir cocok), atau ketemu di halaman lain">
+<img src="dok/bukti.svg" width="100%" alt="Cara cek bekerja: alamat di catatan kaki menunjuk kitab, juz, dan halaman; hasilnya lolos, tidak ketemu (dengan kata yang berbeda bila hampir cocok), atau ketemu di halaman lain; kalau ketemu di kitab lain, cek --jejak menunjuknya">
 
 ## Batasnya
 

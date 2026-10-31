@@ -6,7 +6,8 @@ Sekali sesudah mengunduh repo:
 
 Bahts (tiap bahts = satu folder berisi naskah.txt):
   baru <folder> "<judul>"      buat folder bahts baru + kerangka naskah.txt
-  cek <folder>                 periksa naskah: tanda, ayat, dan semua bukti <<...>> ke kitab lokal
+  cek <folder> [--jejak]       periksa naskah: tanda, ayat, dan semua bukti <<...>> ke kitab lokal;
+                               --jejak: teks yang tidak ada di kitabnya dicari di kitab lain yang sudah diunduh
   rakit <folder>               cek, lalu rakit .docx + .pdf (Word) ke dalam folder itu
   tanda                        daftar tanda yang dipakai di naskah.txt
 
@@ -238,11 +239,21 @@ def perkiraan_halaman(d):
     return sum(max(1, math.ceil(x / per_hal)) for x in bagian)
 
 
-def cek(nama, keluar=None):
+def cek(nama, keluar=None, jejak=False):
     import olah
     f = folder_bahts(nama)
     galat, lap = olah.utama(f, keluar)
     print("\n".join(lap))
+    if olah.TERTOLAK:
+        if jejak:
+            print("petunjuk dari kitab lain (hanya petunjuk, bukan bukti; putusan tetap milik `cek`):")
+            print("\n".join(olah.jejak(olah.TERTOLAK)))
+        else:
+            n = len({shamela.padat(t) for _, t in olah.TERTOLAK})
+            print(f"{n} teks tidak ditemukan di kitab yang dirujuk; cari di kitab lain yang sudah diunduh: "
+                  + perintah(f'cek "{nama}" --jejak'))
+    elif jejak:
+        print("jejak: tidak ada bukti yang gagal «teks TIDAK KETEMU di kitab».")
     try:
         n = perkiraan_halaman(json.loads((keluar or bahan(f)).read_text(encoding="utf8")))
     except (OSError, ValueError, KeyError, IndexError, TypeError):
@@ -378,11 +389,22 @@ def ketemu(n):
         sys.exit(1)
 
 
+def perintah_cek(a):
+    """`cek <folder> [--jejak]`: bendera boleh sebelum/sesudah folder; bendera saja = kurang argumen."""
+    folder = next((x for x in a if x != "--jejak"), None)
+    if folder is None:
+        sys.exit(f"Perintah «cek» kurang argumen. Bentuknya:\n  {re.search(r'^  cek .*', __doc__, re.M).group(0)}")
+    if len([x for x in a if x != "--jejak"]) != 1 or folder.startswith("--"):
+        sys.exit(f"Argumen perintah «cek» tidak dikenal atau berlebih: {a}\nBentuknya:\n"
+                 f"{re.search(r'^  cek .*', __doc__, re.M).group(0)}")
+    sys.exit(1 if cek(folder, jejak="--jejak" in a)[1] else 0)
+
+
 PERINTAH = {  # nama: (jumlah argumen minimal, pemanggil)
     "periksa": (0, lambda a: periksa()),
     "siapkan": (0, lambda a: siapkan()),
     "baru": (2, lambda a: baru(a[0], a[1])),
-    "cek": (1, lambda a: sys.exit(1 if cek(a[0])[1] else 0)),
+    "cek": (0, perintah_cek),
     "rakit": (1, lambda a: rakit(a[0])),
     "tanda": (0, lambda a: print(tanda())),
     "kitab": (0, lambda a: shamela.daftar()),
@@ -409,6 +431,7 @@ def tanda():
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")  # pesan galat memuat «» dan huruf Arab; konsol Windows tidak bisa mencetaknya
     cmd, *a = sys.argv[1:] or [""]
     if cmd in ("", "-h", "--help", "bantuan"):
         print(__doc__); sys.exit(0)

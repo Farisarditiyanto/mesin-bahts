@@ -20,6 +20,8 @@ jobs:
       - run: python mesin/bahts.py cek contoh
       # contoh/jebakan/naskah.txt: tiap baris di bawah #S menghasilkan persis yang disebut judulnya
       - run: python .github/uji_jebakan.py
+      # cek --jejak: kutipan yang salah kitab ditunjuk di kitab lain yang sudah diunduh, tanpa mengubah putusan cek
+      - run: python .github/uji_jejak.py
       # tanpa @angka, angka di teks Arab bahan rakit ٠-٩ (dulu PDF mencetak «آية: ٢» di samping «ص5»)
       - run: python .github/uji_angka.py
       # Pengalihan HTTP harus menjaga kunci di asal yang sama, tanpa membocorkannya ke asal lain (peladen lokal).
