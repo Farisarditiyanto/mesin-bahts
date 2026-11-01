@@ -5,7 +5,7 @@ Sekali sesudah mengunduh repo:
   siapkan                      unduh katalog kitab + font mushaf, lalu pasang font itu (Windows)
 
 Bahts (tiap bahts = satu folder berisi naskah.txt):
-  baru <folder> "<judul>"      buat folder bahts baru + kerangka naskah.txt
+  baru <folder> "<judul>"      buat folder bahts baru + kerangka naskah.txt; <folder> boleh bahts/<orang>/<topik>
   cek <folder> [--jejak]       periksa naskah: tanda, ayat, dan semua bukti <<...>> ke kitab lokal;
                                --jejak: teks yang tidak ada di kitabnya dicari di kitab lain yang sudah diunduh
   rakit <folder>               cek, lalu rakit .docx + .pdf (Word) ke dalam folder itu
@@ -48,7 +48,9 @@ FONT_SHA256 = "aa68bffce289b4c0ebac68e90502eb69e42356abcd1603cb2b8e99c2c723f145"
 FONT_NAMA = "KFGQPC HAFS Uthmanic Script (TrueType)"
 FONT_PEMAKAI = Path(os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Windows\Fonts"))
 SAMPUL_SAYA = AKAR / "sampul_saya.txt"  # data sampul pemakai (@kunci: nilai); mengisi @kunci yang kosong di naskah baru
-NAMA_FOLDER = r"[A-Za-z0-9_-]+"  # nama folder bahts yang diterima `baru`
+NAMA_FOLDER = r"[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+){0,2}"  # nama folder bahts yang diterima `baru`: «ikhlas» atau «bahts/<orang>/<topik>»
+BUKAN_BAHTS = {"mesin", "kitab"}  # folder akar yang bukan tempat bahts
+KELUARAN_SAYA = AKAR / "keluaran_saya.txt"  # opsional, satu baris: folder tempat `rakit` menaruh salinan PDF
 FORMAT = json.loads((MESIN / "format.json").read_text(encoding="utf8"))  # profil bentuk halaman; dipilih @format di naskah
 HURUF_SARAN = ("huruf ini ikut terpasang kalau Windows punya papan ketik Arab (Settings > Time & language > Language & region > Add a language > العربية).\n"
                "          Atau lewat PowerShell admin (pemakai cukup klik Yes): Start-Process powershell -Verb RunAs -Wait -ArgumentList "
@@ -162,6 +164,12 @@ def periksa():
     sys.exit(0 if siap_cek else 1)
 
 
+def semua_bahts():
+    """Jalur relatif tiap bahts, juga yang berada di bawah bahts/<orang>/."""
+    ada = (n.parent.relative_to(AKAR) for pola in ("*/naskah.txt", "*/*/naskah.txt", "*/*/*/naskah.txt") for n in AKAR.glob(pola))
+    return sorted(p.as_posix() for p in ada if p.parts[0] not in BUKAN_BAHTS)
+
+
 def folder_bahts(nama):
     def folder(f):  # yang disebut berkas naskahnya, bukan foldernya
         return f.parent if f.name.lower() == "naskah.txt" else f
@@ -177,11 +185,12 @@ def folder_bahts(nama):
         sys.exit(f"Bahts «{nama}» ({f}) di luar folder mesin ({AKAR}): tiap bahts tinggal di dalam folder itu.")
     if (f / "naskah.txt").exists():
         return f
-    ada = sorted(d.name for d in AKAR.iterdir() if (d / "naskah.txt").exists())
-    mirip = difflib.get_close_matches(f.name, ada, n=1, cutoff=0.6)
+    ada = semua_bahts()
+    dekat = difflib.get_close_matches(f.name, {Path(a).name for a in ada}, n=1, cutoff=0.6)
+    mirip = [a for a in ada if dekat and Path(a).name == dekat[0]]
     pesan = [f"Tidak ada bahts «{f.name}» (folder berisi naskah.txt) di {AKAR}."]
     if mirip:
-        pesan.append(f"Maksudnya «{mirip[0]}»?")
+        pesan.append(f"Maksudnya «{'» atau «'.join(mirip)}»?")
     pesan.append("Bahts yang ada: " + (", ".join(ada) if ada else "belum ada"))
     usul = re.sub(r"[^A-Za-z0-9_-]", "", f.name) or "<nama-latin>"
     if not (AKAR / usul).exists():  # folder yang sudah ada (mis. tanpa naskah.txt) tidak bisa dibuat `baru`
@@ -190,13 +199,13 @@ def folder_bahts(nama):
 
 
 def baru(nama, judul):
-    nama = nama.removeprefix("./").removeprefix(".\\")
-    if not re.fullmatch(NAMA_FOLDER, nama.strip("/\\")):
-        sys.exit(f"Nama folder «{nama}»: pakai huruf Latin, angka, - atau _ saja, tanpa spasi (mis. ikhlas).")
+    nama = nama.removeprefix("./").removeprefix(".\\").replace("\\", "/").strip("/")
+    if not re.fullmatch(NAMA_FOLDER, nama) or nama.split("/")[0] in BUKAN_BAHTS:
+        sys.exit(f"Nama folder «{nama}»: pakai huruf Latin, angka, - atau _ saja, tanpa spasi (mis. ikhlas, atau bahts/ahmad/ikhlas untuk bahts banyak orang).")
     if not judul.strip():
-        sys.exit('Judul bahts masih kosong: ' + perintah(f'baru {nama.strip("/.")} "<judul>"'))
-    f = AKAR / nama.strip("/\\")
-    kembar = [d.name for d in AKAR.iterdir() if d.name.lower() == f.name.lower()]
+        sys.exit('Judul bahts masih kosong: ' + perintah(f'baru {nama.strip(".")} "<judul>"'))
+    f = AKAR / nama
+    kembar = [d.name for d in f.parent.iterdir() if d.name.lower() == f.name.lower()] if f.parent.is_dir() else []
     if kembar:  # di Windows «Ikhlas» dan «ikhlas» satu folder
         sys.exit(f"Folder {kembar[0]} sudah ada.")
     isi = (MESIN / "naskah_baru.txt").read_text(encoding="utf8").replace("{judul}", judul).replace("{folder}", f.name)
@@ -210,7 +219,7 @@ def baru(nama, judul):
                 isi = re.sub(rf"^@{k}:[ \t]*$", lambda m: f"@{k}: {v.strip()}", isi, flags=re.M)
             else:  # kunci yang tidak ada di kerangka (mis. @thalibah) ikut ditulis
                 isi = isi.replace("@berkas:", f"@{k}: {v.strip()}\n@berkas:", 1)
-    f.mkdir()
+    f.mkdir(parents=True)
     (f / "naskah.txt").write_text(isi, encoding="utf8")
     print(f"Siap: {f / 'naskah.txt'}")
     kosong = re.findall(r"^@(\w+):[ \t]*$", isi, re.M)
@@ -342,6 +351,23 @@ def _rakit_di(nama, f, kerja):
         if baris.startswith(("HALAMAN", "CATATAN_KAKI", "KATA")):
             print(baris)
     print(f"Jadi: {f / berkas}.docx dan .pdf")
+    salin_keluaran(f, berkas)
+
+
+def salin_keluaran(f, berkas):
+    """Salinan PDF di folder pilihan pemakai, per orang: bahts/ahmad/ikhlas -> <keluaran>/ahmad/<berkas>.pdf.
+    Induknya tetap folder bahts, jadi salinan yang gagal hanya diperingatkan."""
+    if not KELUARAN_SAYA.exists():
+        return
+    induk = KELUARAN_SAYA.read_text(encoding="utf-8-sig").strip()
+    bagian = f.relative_to(AKAR).parts[:-1]
+    tujuan = Path(induk, *bagian[bagian[:1] == ("bahts",):]) / f"{berkas}.pdf"
+    try:
+        tujuan.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(f / f"{berkas}.pdf", tujuan)
+        print(f"Salinan: {tujuan}")
+    except OSError as e:
+        print(f"PERINGATAN: PDF jadi di folder bahts, tetapi salinan ke {tujuan} gagal: {e}")
 
 
 def angka(teks, apa):

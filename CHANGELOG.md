@@ -3,6 +3,11 @@
 Tiap rilis ditulis di sini: yang baru di atas. Nomor versi = `besar.kecil.tambalan`:
 besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan baru, tambalan naik kalau hanya perbaikan.
 
+## Belum dirilis
+
+- `baru` kini menerima `bahts/<orang>/<topik>` untuk yang mengerjakan bahts banyak orang. `cek`, `rakit`, dan `ambil` memakai jalur yang sama; nama yang salah menunjuk tempat bahts yang mirip.
+- `keluaran_saya.txt` (opsional): `rakit` menaruh salinan PDF di folder yang disebut berkas itu, dikelompokkan per orang.
+
 ## 6.1.0 — 2026-10-31
 
 - Kunci OpenAlex kini wajib untuk bahts yang memuat الدراسات السابقة, supaya isi penelitiannya bisa dibaca lewat `dirasat-pdf`. Bahts lain tidak dimintai kunci.

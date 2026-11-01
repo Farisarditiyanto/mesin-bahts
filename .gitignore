@@ -1,7 +1,7 @@
 # Yang masuk git cuma mesin, contoh, dan berkas akar. Sisanya tetap lokal:
-# - folder bahts (naskah, Word, PDF)
+# - folder bahts (naskah, Word, PDF), termasuk bahts/<orang>/<topik>
 # - kitab/ = perpustakaan Shamela lokal (diunduh lewat `python mesin/bahts.py siapkan` dan `ambil <id>`)
-# - sampul_saya.txt = data sampul pemakai
+# - sampul_saya.txt = data sampul pemakai; keluaran_saya.txt = folder salinan PDF
 /*
 !/.gitignore
 !/.gitattributes
