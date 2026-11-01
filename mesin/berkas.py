@@ -1,5 +1,5 @@
 """Penulisan berkas utuh dan penerbitan hasil dengan cadangan; tanpa layanan luar."""
-import hashlib, os, shutil, tempfile
+import hashlib, os, re, shutil, tempfile, zipfile
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -17,6 +17,17 @@ def sementara(tujuan):
         part.replace(tujuan)
     finally:
         part.unlink(missing_ok=True)
+
+
+def kosongkan_penulis(docx):
+    """Buang nama pengguna Word dari data penulis .docx; isi dokumen tidak disentuh."""
+    with sementara(docx) as part:  # di Windows docx harus sudah tertutup saat diganti
+        with zipfile.ZipFile(docx) as z, zipfile.ZipFile(part, "w", zipfile.ZIP_DEFLATED) as o:
+            for i in z.infolist():
+                isi = z.read(i.filename)
+                if i.filename == "docProps/core.xml":
+                    isi = re.sub(rb"(<(dc:creator|cp:lastModifiedBy)\b[^>/]*>).*?(</\2>)", rb"\1\3", isi, flags=re.S)
+                o.writestr(i, isi)
 
 
 def bahan(folder):
