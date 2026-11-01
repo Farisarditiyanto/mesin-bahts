@@ -74,6 +74,31 @@ def utama():
         assert "catatan kaki=4002" in out and "| GAGAL: 0" in out
         out = cek("500 data salah ketik", "@fromat: imam_ayat16\n" * 500 + dasar, True)
         assert "| GAGAL: 500" in out
+
+        def bahts(*argumen):
+            return subprocess.run([sys.executable, str(akar / "mesin" / "bahts.py"), *argumen], cwd=akar, capture_output=True,
+                                  encoding="utf8", timeout=60, env=dict(os.environ, PYTHONIOENCODING="utf8"))
+
+        r = bahts("baru", "bahts/ahmad/ikhlas", "الإخلاص")
+        assert r.returncode == 0 and (akar / "bahts" / "ahmad" / "ikhlas" / "naskah.txt").exists(), r.stdout + r.stderr
+        (akar / "bahts" / "ahmad" / "ikhlas" / "naskah.txt").write_text(dasar, encoding="utf8")
+        assert bahts("cek", "bahts/ahmad/ikhlas").returncode == 0
+        assert "Folder ikhlas sudah ada" in bahts("baru", "bahts/ahmad/Ikhlas", "الإخلاص").stderr
+        assert "bahts/ahmad/ikhlas" in bahts("cek", "ikhlas").stderr  # nama pendek menunjuk tempatnya
+        assert bahts("baru", "mesin/ikhlas", "الإخلاص").returncode != 0 and not (akar / "mesin" / "ikhlas").exists()
+        hasil.append("bahts bersarang per orang")
+
+        # Salinan PDF: tanpa keluaran_saya.txt tidak ada apa-apa; dengan berkas itu tersalin per orang.
+        salin = ("import sys; sys.argv=['bahts']; import bahts\n"
+                 "f = bahts.AKAR / 'bahts' / 'ahmad' / 'ikhlas'\n"
+                 "(f / 'hasil.pdf').write_bytes(b'PDF')\n"
+                 "bahts.salin_keluaran(f, 'hasil')")
+        jalan = lambda: subprocess.run([sys.executable, "-c", salin], cwd=akar / "mesin", capture_output=True, encoding="utf8", timeout=60)
+        assert jalan().returncode == 0
+        (akar / "keluaran_saya.txt").write_text(str(akar / "keluar") + "\n", encoding="utf8")
+        r = jalan()
+        assert (akar / "keluar" / "ahmad" / "hasil.pdf").read_bytes() == b"PDF", r.stdout + r.stderr
+        hasil.append("salinan PDF per orang")
         print(f"uji struktur: {len(hasil)} skenario sesuai, termasuk beban 2000 nukilan/4000 catatan kaki dan 500 data salah ketik")
 
 
