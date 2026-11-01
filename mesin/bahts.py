@@ -36,7 +36,7 @@ from pathlib import Path
 
 import dirasat, hadits, shamela  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
 from shamela import perintah
-from berkas import PemulihanGagal, bahan, kunci, terbitkan
+from berkas import PemulihanGagal, bahan, kosongkan_penulis, kunci, terbitkan
 
 MESIN = Path(__file__).resolve().parent
 AKAR = MESIN.parent
@@ -340,6 +340,7 @@ def _rakit_di(nama, f, kerja):
     with zipfile.ZipFile(kerja / f"{berkas}.docx") as z:
         if z.testzip() or not {"[Content_Types].xml", "word/document.xml"} <= set(z.namelist()):
             raise RuntimeError("Word menghasilkan DOCX yang tidak utuh; hasil lama belum diganti.")
+    kosongkan_penulis(kerja / f"{berkas}.docx")
     from pypdf import PdfReader
     halaman = len(PdfReader(kerja / f"{berkas}.pdf").pages)
     laporan = (kerja / "laporan.txt").read_text(encoding="utf8")

@@ -644,7 +644,6 @@ try {
     # nomor halaman di kotak teks kepala @templat ikut angka Arab (@angka): Word memilih angka menurut arah teks di
     # sekitarnya, dan teks hasil PAGE di kotak itu kiri-ke-kanan. RtlRun hanya ada di Selection, dan hanya di Print Layout
     if ($kepalaTpl) { foreach ($sh in $kepalaTpl.Shapes) { if ($sh.TextFrame.HasText) { $sh.TextFrame.TextRange.Select(); $word.Selection.RtlRun() } } }
-    $doc.RemovePersonalInformation = $true               # nama pengguna Word tidak ikut ke .docx (penulis, terakhir disimpan oleh)
     $doc.SaveAs2("$Out.docx", 16)
     $word.ScreenUpdating = $true                         # tanpa ini garis bingkai/kepala halaman tidak ikut ke PDF
     $doc.ExportAsFixedFormat("$Out.pdf", 17)

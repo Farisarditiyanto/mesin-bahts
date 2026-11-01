@@ -1,7 +1,7 @@
 """Regresi berkas melalui cek/cari/halaman/rakit asli, pada salinan TEMP.
 Word/COM dan kegagalan filesystem disimulasikan; rakit Word sungguhan tetap diuji lokal.
 """
-import gzip, hashlib, json, os, shutil, subprocess, sys, tempfile
+import gzip, hashlib, json, os, shutil, subprocess, sys, tempfile, zipfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -73,6 +73,8 @@ def word(args, **kwargs):
     with zipfile.ZipFile(out / "hasil.docx", "w") as z:
         z.writestr("[Content_Types].xml", "<Types/>")
         z.writestr("word/document.xml", "<document/>")
+        z.writestr("docProps/core.xml", "<cp:coreProperties><dc:creator>Nama Orang</dc:creator>"
+                   "<dc:title>Judul</dc:title><cp:lastModifiedBy>Nama Orang</cp:lastModifiedBy></cp:coreProperties>")
     if mode == "export-fail": return types.SimpleNamespace(returncode=1)
     from pypdf import PdfWriter
     w = PdfWriter(); w.add_blank_page(width=100, height=100)
@@ -284,6 +286,9 @@ def utama():
                 if mode == "pdf-fail":  # PDF tetap jadi; hanya teks salin/cari yang belum dibetulkan
                     assert "PERINGATAN: PDF jadi" in r.stdout, r.stdout + r.stderr
                 assert (folder / "hasil.pdf").read_bytes().startswith(b"%PDF")
+                with zipfile.ZipFile(folder / "hasil.docx") as z:
+                    inti = z.read("docProps/core.xml").decode("utf8")
+                assert "Nama Orang" not in inti and "<dc:title>Judul</dc:title>" in inti, "Nama pengguna Word tertinggal di .docx"
                 sidik = hashlib.sha256((folder / "naskah.txt").read_bytes()).hexdigest()
                 assert "NASKAH_SHA256=" + sidik in (folder / "laporan.txt").read_text(encoding="utf8")
                 arsip_akhir = set((folder / "_arsip").iterdir()) if (folder / "_arsip").exists() else set()
