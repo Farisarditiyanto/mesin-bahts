@@ -194,7 +194,8 @@ def folder_bahts(nama):
     pesan.append("Bahts yang ada: " + (", ".join(ada) if ada else "belum ada"))
     usul = re.sub(r"[^A-Za-z0-9_-]", "", f.name) or "<nama-latin>"
     if not (AKAR / usul).exists():  # folder yang sudah ada (mis. tanpa naskah.txt) tidak bisa dibuat `baru`
-        pesan.append("Kalau memang bahts baru: " + perintah(f'baru {usul} "<judul>"'))
+        tempat = f"bahts/<orang>/{usul}" if (AKAR / "bahts").is_dir() else usul
+        pesan.append("Kalau memang bahts baru: " + perintah(f'baru {tempat} "<judul>"'))
     sys.exit("\n".join(pesan))
 
 
