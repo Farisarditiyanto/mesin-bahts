@@ -5,6 +5,11 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `temukan` kini bisa dipersempit tanpa akun: `--mazhab hanafi,maliki,syafii,hanbali` hanya kitab fikih mazhab itu, `--kitab <id>` hanya kitab itu walau belum diunduh, dan `--halaman 2` membuka hasil sesudah 20 pertama. Dulu hasilnya berhenti di 20.
+- `cek --jejak`: kutipan yang satu huruf atau katanya meleset kini ditunjuk ke tempat yang paling mirip («Paling mirip: kitab … (±98% huruf sama)»), kitab yang dirujuk lebih dulu. Dulu hanya «tidak ditemukan». Kutipan ber-`...` dan yang lebih dari 300 huruf tidak dicari begini. Tetap petunjuk: putusan `cek` tidak berubah.
+- `cari`, `teks`, dan `bab` hanya mengurai rekaman yang memuat frasanya, jadi lebih cepat: `cari semua` di 289 kitab dari ±23 detik jadi ±12 detik. Hasilnya sama persis.
+- Layanan yang terlalu lama menjawab tidak lagi disebut masalah internet.
+- Memori komputer habis kini dijelaskan dengan satu kalimat, bukan pesan galat Python.
 - `halaman` kini langsung membaca halaman yang diminta lewat indeks kitab, tidak lagi seluruh kitab (juga pesan «TIDAK ADA halaman»): di kitab besar (±190 MB teks) dari ±3 detik dan ±400 MB memori jadi ±0,2-0,5 detik dan ±40 MB. Isi yang tercetak sama persis. Indeks kitab dicocokkan lewat sidik berkas `.gz`-nya, jadi tidak perlu membuka seluruh kitab; indeks lama ditulis ulang sekali dengan sendirinya.
 - Linux/macOS: kitab yang diunduh, cache, indeks, dan PDF `dirasat-pdf` tidak lagi tersimpan dengan izin 0600 (hanya pemilik); izinnya kini seperti berkas biasa.
 

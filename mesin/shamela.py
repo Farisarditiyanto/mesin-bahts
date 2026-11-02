@@ -191,16 +191,33 @@ def nomor_judul(judul):
 TURATH = "https://api.turath.io/search"  # pencarian isi seluruh Shamela; nomor kitabnya = shamela_id (sama dengan `ambil`)
 TURATH_MAKS = 20  # turath menjawab sebanyak ini tiap pencarian
 TURATH_SABAR = 30  # detik; turath minta menunggu lebih lama dari ini = jatah pencarian habis, bukan sekadar terlalu cepat
+# nomor bidang katalog Shamela (category_id), sama dengan nomor bidang turath. Saringan `cat`, `book`, dan `page` dibaca dari
+# kode situs app.turath.io (2 Nov 2026), tidak terdokumentasi, jadi bisa berubah tanpa kabar
+MAZHAB = {"hanafi": 14, "maliki": 15, "syafii": 16, "hanbali": 17}
 
 
-def temukan(frasa, maks=20):
+def temukan(frasa, maks=20, mazhab=(), kitab=(), halaman=1):
     """Cari frasa di ISI semua kitab Shamela lewat turath.io, termasuk yang belum diunduh: kitab mana, juz/halaman berapa.
+    mazhab = kunci MAZHAB dan kitab = nomor kitab mempersempit pencarian; halaman = hasil ke-(halaman-1)*20+1 dan seterusnya.
     Hanya penunjuk jalan: layanan orang lain, tanpa janji tetap ada. Kitabnya tetap di-`ambil`, kutipannya tetap lewat `cek`."""
     _kunci(frasa)  # frasa tanpa huruf Arab ditolak di sini, bukan oleh turath
     maks = min(maks, TURATH_MAKS)
+    if asing := [m for m in mazhab if m not in MAZHAB]:
+        raise ValueError(f"mazhab «{asing[0]}» tidak dikenal; yang ada: {', '.join(MAZHAB)}")
+    if mazhab and kitab:
+        raise ValueError("pilih salah satu: --mazhab atau --kitab")
+    saring = {"page": halaman}
+    if mazhab:
+        saring["cat"] = ",".join(str(MAZHAB[m]) for m in mazhab)
+    if kitab:
+        saring["book"] = ",".join(str(int(_folder(k).name)) for k in kitab)
+        ada = {r["shamela_id"] for r in _meta()}
+        if asing := [k for k in saring["book"].split(",") if int(k) not in ada]:
+            raise ValueError(f"kitab {asing[0]} tidak ada di katalog Shamela (nomornya dari `katalog`)")
+    tempat = f"kitab {saring['book']}" if kitab else f"fikih {', '.join(mazhab)}" if mazhab else "seluruh Shamela"
 
     def tanya(ketat):
-        url = TURATH + "?" + urllib.parse.urlencode({"q": frasa, "ver": 3, "precision": 3 if ketat else 2})
+        url = TURATH + "?" + urllib.parse.urlencode({"q": frasa, "ver": 3, "precision": 3 if ketat else 2, **saring})
         for ulang in (True, False):
             try:
                 with buka(url) as r:
@@ -220,10 +237,13 @@ def temukan(frasa, maks=20):
         if d["count"]:
             print("Kata-katanya tidak ketemu berurutan; ini hasil pencarian longgar:")
     if not d["count"]:
-        print(f"TIDAK KETEMU di seluruh Shamela, berurutan maupun longgar: {frasa}\n"
+        print(f"TIDAK KETEMU di {tempat}, berurutan maupun longgar: {frasa}\n"
               "Coba frasa lebih pendek (2-4 kata inti), atau ejaan lain.")
         return 0
-    print(f"{d['count']} tempat cocok di seluruh Shamela: {frasa}\n" + ada_keterangan())
+    if not d["data"]:
+        print(f"Halaman {halaman} melewati akhir hasil: {d['count']} tempat cocok di {tempat}, {TURATH_MAKS} tiap halaman.")
+        return 0
+    print(f"{d['count']} tempat cocok di {tempat}: {frasa}\n" + ada_keterangan())
     ada = set(punya())
     berjilid = {r["shamela_id"] for r in _meta() if r["has_multi_part"]}  # turath menulis «ج1» juga untuk kitab satu jilid
     for x in d["data"][:maks]:
@@ -232,8 +252,12 @@ def temukan(frasa, maks=20):
         juz = m.get("vol") if x["book_id"] in berjilid else "-"
         print(f"[{x['book_id']}] {'ADA' if x['book_id'] in ada else '-'}\t{letak(juz or '-', m.get('page'))}\t"
               f"{m['book_name']} — {m['author_name']} :: {cuplikan[:160]}")
-    if d["count"] > maks:
-        print(f"(ditampilkan {min(maks, len(d['data']))}, paling banyak {TURATH_MAKS}; persempit frasanya untuk hasil lain)")
+    awal = (halaman - 1) * TURATH_MAKS
+    tampil = min(maks, len(d["data"]))
+    lanjut = f"naikkan maks (paling banyak {TURATH_MAKS})" if tampil < len(d["data"]) else f"--halaman {halaman + 1}"
+    if d["count"] > awal + tampil:
+        persempit = "frasanya" if mazhab or kitab else "dengan frasa, --mazhab, atau --kitab"
+        print(f"(ditampilkan {awal + 1}-{awal + tampil} dari {d['count']}; persempit {persempit}; hasil berikutnya: {lanjut})")
     return d["count"]
 
 
@@ -377,7 +401,7 @@ def indeks(sid):
 def _indeks(sid):
     """(indeks, halaman cetak terkecil tiap rekaman atau None). Cocok tidaknya indeks.json dilihat dari sidik berkas .gz
     (isi .gz sama = isi kitab sama), jadi indeks yang sah terbaca tanpa membuka seluruh kitab. Indeks lama tanpa sidik
-    itu diperiksa dengan isi kitab seperti dulu, lalu dibuat ulang sekali."""
+    itu dibuat ulang sekali."""
     folder = _folder(sid)
     f = folder / INDEKS
     with open(folder / "pages.jsonl.gz", "rb") as h:
@@ -392,8 +416,9 @@ def _indeks(sid):
             return [tuple(x) for x in rek], awal
     except (OSError, ValueError, KeyError, TypeError):
         pass
+    mentah = _isi.__wrapped__(sid)  # tanpa cache: `cari semua` membuat indeks banyak kitab, isinya tidak boleh menumpuk
     isi, awal, letak = [], [], 0
-    for baris in _isi(sid).splitlines(keepends=True):
+    for baris in mentah.splitlines(keepends=True):
         if baris.strip():
             r = json.loads(baris)
             nomor = [int(n) for n in PENANDA.findall(r.get("body") or "")]
@@ -402,8 +427,8 @@ def _indeks(sid):
         letak += len(baris)
     try:
         with sementara(f) as part:
-            part.write_text(json.dumps({"versi": INDEKS_VERSI, "sumber": hashlib.sha256(_isi(sid)).hexdigest(), "sumber_gz": gz,
-                                        "panjang": len(_isi(sid)), "rekaman": isi, "awal": awal}, ensure_ascii=False), encoding="utf8")
+            part.write_text(json.dumps({"versi": INDEKS_VERSI, "sumber": hashlib.sha256(mentah).hexdigest(), "sumber_gz": gz,
+                                        "panjang": len(mentah), "rekaman": isi, "awal": awal}, ensure_ascii=False), encoding="utf8")
     except OSError:
         pass
     return isi, awal
@@ -522,7 +547,7 @@ def cari(sid, frasa, konteks=90, maks=15, diam=False):
         return n
     q = _kunci(frasa)
     n = 0
-    for p in _pages(sid):
+    for p in _berisi(sid, q):
         for bagian, tanda in BAGIAN:
             if q not in _ruas(p, bagian)[0]:  # saringan cepat dari cache; teks norm (untuk dicetak) hanya rekaman yang cocok
                 continue
@@ -562,7 +587,7 @@ def teks(sid, frasa, lebar=260, maks=3):
     """Seperti `cari`, tapi menampilkan teks ASLI (huruf apa adanya, tanpa harakat) untuk disalin persis."""
     q = _kunci(frasa)
     n = 0
-    for p in _pages(sid):
+    for p in _berisi(sid, q):
         for bagian, tanda in BAGIAN:
             h = tempat(p, q, bagian)
             if h is None:
@@ -631,7 +656,7 @@ def bab(sid, frasa):
         while t:
             r.append(HARAKAT.sub("", t["title_text"]).strip()); t = byid.get(t.get("parent_id"))
         return " < ".join(r[:3]) or "(sebelum judul pertama)"
-    for p in _pages(sid):
+    for p in _berisi(sid, q):
         for bagian, tanda in BAGIAN:
             c = _cocok(p, q, bagian)
             if c is None:
@@ -762,6 +787,18 @@ def _rekaman_di(sid, nomor):
         for i in sorted(nomor):
             g.seek(ix[i][3])
             yield json.loads(g.readline())
+
+
+def _berisi(sid, q):
+    """Rekaman kitab sid yang memuat q (sudah `padat`), urut berkas, dengan cache `padat`-nya. Rekaman lain tidak diurai."""
+    if not (_folder(sid) / "pages.jsonl.gz").exists():
+        raise SystemExit(f"Kitab {sid} belum diunduh: " + perintah(f"ambil {sid}"))
+    cache = _cache(sid)
+    kena = [i for i, r in enumerate(cache) if any(q in b[0] for b in r)]
+    for i, p in zip(kena, _rekaman_di(sid, kena)):
+        for (bagian, _), (isi, batas) in zip(BAGIAN, cache[i]):
+            p["_padat_" + bagian] = isi, batas
+        yield p
 
 
 def halaman(sid, juz, hal):
