@@ -25,6 +25,14 @@
     "judul": 20,
     "catatan_ulang_tiap_halaman": false
   },
+  "tatbiqi": {
+    "_sumber": "ketentuan dosen البحث التطبيقي di معهد العلوم الإسلامية والعربية: judul 16, matan 14, catatan kaki 12, Traditional Arabic, A4",
+    "huruf": "Traditional Arabic",
+    "matan": 14,
+    "catatan": 12,
+    "judul": 16,
+    "catatan_ulang_tiap_halaman": true
+  },
   "dalil": {
     "_sumber": "دليل إعداد وكتابة الرسائل العلمية (ماجستير/دكتوراه) بجامعة الإمام، الطبعة الثانية — hanya huruf dan ukurannya; gaya rujukan tetap catatan kaki",
     "huruf": "Sakkal Majalla",

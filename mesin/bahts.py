@@ -239,7 +239,10 @@ def perkiraan_halaman(d):
     per_hal = KATA_PER_HALAMAN_18 * (18 / fmt["matan"]) ** 2
     def kata(runs): return sum(len(re.findall(r"[؀-ۿ]+", r.get("t") or "")) for r in runs)
     bagian = []
-    for b in d["blok"]:
+    blok = d["blok"]
+    if d["meta"].get("nomor"):  # @nomor: abjad: الإهداء dst. sebelum المقدمة bukan halaman isi
+        blok = blok[next((i for i, b in enumerate(blok) if b.get("judul") == "المقدمة"), 0):]
+    for b in blok:
         if b["k"] == "R":
             break
         if b["k"] in ("K", "F", "H", *d["meta"].get("halaman_baru", [])) or not bagian:
