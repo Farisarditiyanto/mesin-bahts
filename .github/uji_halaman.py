@@ -2,7 +2,8 @@
 kitab (cara lama, disalin di sini sebagai pembanding) untuk tiap halaman tiap juz kitab yang sudah diunduh, juga
 halaman yang tidak ada, angka Arab, dan juz "-". Kitab buatan menambah penanda ⦗n⦘ yang menurun, rekaman tanpa nomor
 halaman, juz bernama, dan حاشية bertanda halaman. Di Linux/macOS berkas yang ditulis mesin harus terbaca seperti
-berkas biasa (umask), bukan 0600 bawaan mkstemp."""
+berkas biasa (umask), bukan 0600 bawaan mkstemp. `cari`, `teks`, dan `bab` hanya mengurai rekaman yang memuat frasa:
+hasilnya harus sama dengan mengurai seluruh kitab."""
 import contextlib, gzip, io, json, os, random, shutil, stat, sys, tempfile
 from pathlib import Path
 
@@ -68,6 +69,31 @@ def bandingkan(sid, tambahan=(), contoh=60):
     return n
 
 
+def sama_cari(sid, frasa):
+    """`cari`, `teks`, `bab` lewat `_berisi` = lewat seluruh rekaman kitab (`_pages`, tiap rekaman diperiksa)."""
+    baru = [keluaran(f, sid, frasa) for f in (shamela.cari, shamela.teks, shamela.bab)]
+    asli = shamela._berisi
+    shamela._berisi = lambda s, q: shamela._pages(s)
+    try:
+        lama = [keluaran(f, sid, frasa) for f in (shamela.cari, shamela.teks, shamela.bab)]
+    finally:
+        shamela._berisi = asli
+    assert baru == lama, f"kitab {sid} «{frasa}»:\nbaru={baru!r}\nlama={lama!r}"
+    return 3
+
+
+def bandingkan_cari(sid, n=25):
+    """Frasa = potongan teks matan dan حاشية kitab itu sendiri (ketemu, ketemu banyak, dan lintas penanda ⦗n⦘), plus frasa yang tidak ada."""
+    teks = [t for r in shamela.norma.rekaman(shamela._folder(sid) / "pages.jsonl.gz")
+            for t in (r.get("body"), r.get("footnotes")) if t and shamela.padat(t)]
+    frasa = ["قال", "والله أعلم", "قولا لا يوجد مثله في كتاب من الكتب"]
+    for t in random.sample(teks, min(len(teks), n)):
+        kata = shamela.TAGS.sub("", t).split()
+        k = random.randrange(max(1, len(kata) - 4))
+        frasa.append(" ".join(kata[k:k + 4]))
+    return sum(sama_cari(sid, x) for x in frasa if shamela.padat(x))
+
+
 def kitab_buatan(root):
     random.seed(7)
     kata = "قال الشيخ العلم العمل النية <span>".split()
@@ -83,16 +109,20 @@ def kitab_buatan(root):
     d.mkdir(parents=True)
     with gzip.open(d / "pages.jsonl.gz", "wt", encoding="utf8") as g:
         g.writelines(json.dumps(r, ensure_ascii=False) + "\n" for r in rek)
+    with gzip.open(d / "toc.jsonl.gz", "wt", encoding="utf8") as g:  # untuk `bab`
+        g.writelines(json.dumps({"title_id": i, "page_id": i, "title_text": f"باب {i}", "parent_id": None}, ensure_ascii=False) + "\n"
+                     for i in range(0, 400, 50))
+    (d / "book_metadata.json").write_text("{}", encoding="utf8")
 
 
 def utama():
     random.seed(3)
-    n = sum(bandingkan(sid, contoh=12) for sid in shamela.punya())
+    n = sum(bandingkan(sid, contoh=12) + bandingkan_cari(sid) for sid in shamela.punya())
     asli = shamela.ROOT
     with tempfile.TemporaryDirectory() as tmp:
         shamela.ROOT = Path(tmp)
         kitab_buatan(shamela.ROOT)
-        n += bandingkan(990001, range(1, 61))
+        n += bandingkan(990001, range(1, 61)) + bandingkan_cari(990001)
         # indeks lama (tanpa sidik .gz) tetap dipakai dengan benar, lalu ditulis ulang dengan sidiknya
         f = shamela.ROOT / "990001" / shamela.INDEKS
         d = json.loads(f.read_text(encoding="utf8"))

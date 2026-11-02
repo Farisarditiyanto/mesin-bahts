@@ -14,7 +14,9 @@ Bahts (tiap bahts = satu folder berisi naskah.txt):
 Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
   kitab                        daftar kitab yang sudah diunduh
   katalog "<pola>"             cari judul/pengarang di katalog Shamela (regex)
-  temukan "<frasa>" [maks]     cari frasa di isi SEMUA kitab Shamela (turath.io, butuh internet) -> kitab + juz/halaman; paling banyak 20
+  temukan "<frasa>" [maks] [--mazhab m,…] [--kitab id,…] [--halaman n]
+                               cari frasa di isi SEMUA kitab Shamela (turath.io, butuh internet) -> kitab + juz/halaman; 20 hasil
+                               tiap halaman. --mazhab hanafi,maliki,syafii,hanbali: hanya kitab fikih mazhab itu
   ambil <id|folder> [...]      unduh kitab (sekali saja); nama folder bahts = semua kitab yang dirujuk naskahnya
   kartu <id>                   data cetak kitab (untuk rujukan pertama & daftar pustaka)
   cari <id|semua> "<frasa>"    cari frasa -> juz/halaman cetak
@@ -415,6 +417,22 @@ def ambil(nomor):
         sys.exit(f"Belum terunduh: {', '.join(gagal)} (lihat pesan di atas).")
 
 
+def bendera_temukan(frasa, a):
+    """Argumen `shamela.temukan` dari `temukan "<frasa>" [maks] [--mazhab m,…] [--kitab id,…] [--halaman n]`."""
+    maks, saring = 20, {"--mazhab": [], "--kitab": [], "--halaman": ["1"]}
+    while a:
+        if a[0] in saring:
+            if len(a) < 2:
+                raise ValueError(f"{a[0]} butuh nilai, mis. {a[0]} {saring[a[0]][0] if saring[a[0]] else 'hanbali'}")
+            saring[a[0]] = a[1].replace("،", ",").split(",")
+            a = a[2:]
+        elif a[0].startswith("--"):
+            raise ValueError(f"bendera «{a[0]}» tidak dikenal")
+        else:
+            maks, a = angka(a[0], "maks"), a[1:]
+    return frasa, maks, saring["--mazhab"], saring["--kitab"], angka(saring["--halaman"][0], "halaman")
+
+
 def ketemu(n):
     """Pencarian yang kosong keluar dengan kode 1, supaya skrip/agent tahu tanpa membaca pesannya."""
     if not n:
@@ -441,7 +459,7 @@ PERINTAH = {  # nama: (jumlah argumen minimal, pemanggil)
     "tanda": (0, lambda a: print(tanda())),
     "kitab": (0, lambda a: shamela.daftar()),
     "katalog": (1, lambda a: ketemu(shamela.katalog(pola(a[0])))),
-    "temukan": (1, lambda a: ketemu(shamela.temukan(a[0], *(angka(x, "maks") for x in a[1:2])))),
+    "temukan": (1, lambda a: ketemu(shamela.temukan(*bendera_temukan(a[0], a[1:])))),
     "ambil": (1, lambda a: ambil(a)),
     "kartu": (1, lambda a: shamela.kartu(a[0])),
     "cari": (2, lambda a: ketemu(shamela.cari(a[0], a[1]))),
@@ -482,6 +500,8 @@ if __name__ == "__main__":
         if not 400 <= e.code < 500 or e.code == 429:
             sys.exit(f"Perintah '{cmd}': layanannya sedang menolak atau sibuk (HTTP {e.code}). Ulangi sebentar lagi.")
         sys.exit(f"Perintah '{cmd}': layanannya menolak permintaan ini (HTTP {e.code}). Periksa kata/angka yang diketik: {a}")
+    except MemoryError:
+        sys.exit(f"Perintah '{cmd}': memori komputer habis. Tutup aplikasi lain, lalu ulangi.")
     except BrokenPipeError:  # keluarannya dipotong pembaca (mis. `| head`): bukan masalah internet
         os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
     except shamela.GAGAL_JARINGAN as e:

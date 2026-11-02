@@ -12,6 +12,7 @@ Yang diuji:
 - teks yang tidak ada di kitab mana pun dilaporkan «tidak ditemukan», bukan ditebak;
 - `cek contoh` tetap lolos (GAGAL 0), supaya penunjuk ini tidak mengubah putusan bukti;
 - `cek --jejak` tanpa folder = kurang argumen, bukan nama folder.
+- kutipan yang satu hurufnya meleset ditunjuk ke tempat yang paling mirip, juga di kitab yang dirujuk;
 - regresi audit: bagian pendek di samping ayat, perintah saran pada folder berspasi, argumen salah,
   bendera di depan folder, jumlah kitab yang dicari, kutipan berawalan sama, sumber kitab lain yang rusak,
   kutipan lintas halaman, batas sambungan halaman, dan folder bergaris miring.
@@ -270,6 +271,21 @@ try:
         finally:
             shutil.rmtree(rak)
 
+    def lafaz_mirip():
+        # Satu huruf meleset: persisnya tidak ada di mana pun, tetapi tempatnya tetap ditunjuk, juga di kitab yang dirujuk.
+        meleset = KUTIPAN.replace("بالخلق", "بالحلق")
+        for bukti in ("<<2348|-|5>>", "<<11223|-|3>>"):
+            tulis(folder, bukti, meleset)
+            kode, keluar = jalan(folder, "--jejak")
+            assert kode == 1 and "TIDAK KETEMU di kitab" in keluar, keluar
+            assert "Paling mirip: kitab 11223 ج- ص5" in keluar and "ketemu di kitab" not in keluar, keluar
+        tulis(folder, "<<2348|-|5>>", PALSU)
+        assert "Paling mirip" not in jalan(folder, "--jejak")[1], "teks yang tidak ada tidak boleh ditunjuk"
+        tulis(folder, "<<2348|-|5>>", KUTIPAN + " " + PALSU)
+        assert "Paling mirip" not in jalan(folder, "--jejak")[1], "sama separuh bukan lafaz yang mirip"
+        tulis(folder, "<<2348|-|5>>")
+        assert "Paling mirip" not in jalan(folder, "--jejak")[1], "yang ketemu persis tidak butuh petunjuk mirip"
+
     def folder_bergaris_miring():
         # Tab di terminal Windows menulis «folder\»: di dalam tanda petik \" menelan penutupnya.
         tulis(folder, "<<2348|-|5>>")
@@ -285,6 +301,7 @@ try:
                      ("kutipan lintas halaman di kitab yang dirujuk", lintas_halaman_kitab_sendiri),
                      ("rentang menurun di pesan cek", rentang_menurun_di_pesan),
                      ("batas sambungan halaman", batas_sambungan),
+                     ("lafaz yang sedikit berbeda ditunjuk tempatnya", lafaz_mirip),
                      ("perintah saran pada folder bergaris miring", folder_bergaris_miring),
                      ("bagian pendek di samping ayat", potongan_pendek),
                      ("perintah saran bisa ditempel pada folder berspasi", petunjuk_spasi),

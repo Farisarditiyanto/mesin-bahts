@@ -259,6 +259,34 @@ def utama():
             assert len(unduh) == 3 and all("/07__" in u and "/777__" in u for u in unduh), unduh
             assert "ج- ص9" in out.getvalue() and "ج1 ص9" in out.getvalue(), out.getvalue()
 
+        def temukan_saring():
+            import contextlib, io, shamela, urllib.parse
+            rows = [{"shamela_id": 99001, "has_multi_part": False}]
+            jawaban = {"count": 45, "data": [{"book_id": 99001, "snip": "نص", "meta": json.dumps(
+                {"vol": 1, "page": 9, "book_name": "كتاب", "author_name": "مؤلف"})}] * 20}
+            alamat = []
+            def buka(url, *a):
+                alamat.append(urllib.parse.parse_qs(urllib.parse.urlsplit(url).query))
+                return io.StringIO(json.dumps(jawaban))
+            out = io.StringIO()
+            with patch.object(shamela, "_meta", return_value=rows), patch.object(shamela, "buka", side_effect=buka), contextlib.redirect_stdout(out):
+                assert shamela.temukan("نص البحث", 20, ["hanafi", "hanbali"], [], 2) == 45
+                assert shamela.temukan("نص البحث", 5, [], ["8370"]) == 45
+                shamela.temukan("نص البحث")
+            assert alamat[0]["cat"] == ["14,17"] and alamat[0]["page"] == ["2"], alamat
+            assert alamat[1]["book"] == ["8370"] and "cat" not in alamat[1], alamat
+            assert "cat" not in alamat[2] and "book" not in alamat[2], alamat
+            keluar = out.getvalue()
+            assert "45 tempat cocok di fikih hanafi, hanbali" in keluar and "21-40 dari 45" in keluar and "--halaman 3" in keluar, keluar
+            assert "1-5 dari 45" in keluar and "45 tempat cocok di kitab 8370" in keluar and "45 tempat cocok di seluruh Shamela" in keluar, keluar
+            with patch.object(shamela, "buka", side_effect=AssertionError("mazhab salah tidak boleh sampai ke turath")):
+                try:
+                    shamela.temukan("نص البحث", 20, ["zahiri"])
+                except ValueError as e:
+                    assert "zahiri" in str(e), e
+                else:
+                    raise AssertionError("mazhab salah harus ditolak")
+
         uji("bahan dua folder bernama sama terpisah", terpisah)
         uji("cache mengikuti perubahan isi meski ukuran dan mtime sama", cache_usang)
         uji("indeks mengikuti isi/offset baru meski ukuran dan mtime sama", indeks_usang)
@@ -267,6 +295,7 @@ def utama():
         uji("templat/PDF sumber tidak ditimpa hasil rakit", bahan_terlindungi)
         uji("PDF rusak dan penulisan putus tidak meninggalkan hasil", pdf_utuh)
         uji("katalog tanpa pandas dan regex salah tidak crash", katalog_ringan)
+        uji("temukan: saringan mazhab, kitab, dan halaman sampai ke turath", temukan_saring)
         uji("ambil/temukan memakai metadata judul dan jilid yang benar", konsumen_katalog)
 
         def rakit(mode):
