@@ -5,6 +5,8 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+## 6.2.0 — 2026-11-02
+
 - `@templat` kembali dipakai: sejak `qism` jadi sampul bawaan, Word mahasiswa diam-diam diganti sampul bawaan.
 - `#V`: bait syair di tengah halaman; « ... » jadi jarak antarparuh dan « // » pindah baris. `#L`: paragraf bahasa Latin kiri ke kanan, untuk الملخص bahasa Inggris.
 - `@nomor: abjad`: halaman sebelum `#F` pertama bernomor huruf أ ب ت, mulai `#F` pertama ١، ٢، ٣, untuk dosen yang memintanya.
@@ -14,6 +16,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 - `baru` kini menerima `bahts/<orang>/<topik>` untuk yang mengerjakan bahts banyak orang. `cek`, `rakit`, dan `ambil` memakai jalur yang sama; nama yang salah menunjuk tempat bahts yang mirip.
 - `keluaran_saya.txt` (opsional): `rakit` menaruh salinan PDF di folder yang disebut berkas itu, dikelompokkan per orang.
 - Agent memilih alat connector menurut kebutuhan (lafaz berharakat, sejarah, sebab turun, qiraat, i'rab) dan tahu batasnya: `quran` satu panggilan per detik, alat yang balasannya sangat panjang, serta status `differs` dari `shamela_verify_quote`.
+- Agent mencari lewat urutan yang sudah diuji: khilaf langsung ke kitab mu'tamad tiap mazhab (`dok/mutamad.md`), takhrij, tafsir, dan adab punya jalurnya sendiri (`dok/uji-riset.md`).
 
 ## 6.1.0 — 2026-10-31
 
