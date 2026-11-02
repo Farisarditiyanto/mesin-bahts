@@ -16,7 +16,8 @@ Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
   katalog "<pola>"             cari judul/pengarang di katalog Shamela (regex)
   temukan "<frasa>" [maks] [--mazhab m,…] [--kitab id,…] [--halaman n]
                                cari frasa di isi SEMUA kitab Shamela (turath.io, butuh internet) -> kitab + juz/halaman; 20 hasil
-                               tiap halaman. --mazhab hanafi,maliki,syafii,hanbali: hanya kitab fikih mazhab itu
+                               tiap halaman. --mazhab: hanya kitab fikih mazhab itu; --kitab: hanya kitab itu, walau belum
+                               diunduh; --halaman 2: hasil ke-21 dan seterusnya
   ambil <id|folder> [...]      unduh kitab (sekali saja); nama folder bahts = semua kitab yang dirujuk naskahnya
   kartu <id>                   data cetak kitab (untuk rujukan pertama & daftar pustaka)
   cari <id|semua> "<frasa>"    cari frasa -> juz/halaman cetak
@@ -419,18 +420,19 @@ def ambil(nomor):
 
 def bendera_temukan(frasa, a):
     """Argumen `shamela.temukan` dari `temukan "<frasa>" [maks] [--mazhab m,…] [--kitab id,…] [--halaman n]`."""
-    maks, saring = 20, {"--mazhab": [], "--kitab": [], "--halaman": ["1"]}
+    maks, saring = 20, {"--mazhab": "", "--kitab": "", "--halaman": "1"}
+    contoh = {"--mazhab": "hanbali", "--kitab": "8370", "--halaman": "2"}
     while a:
         if a[0] in saring:
             if len(a) < 2:
-                raise ValueError(f"{a[0]} butuh nilai, mis. {a[0]} {saring[a[0]][0] if saring[a[0]] else 'hanbali'}")
-            saring[a[0]] = a[1].replace("،", ",").split(",")
-            a = a[2:]
+                raise ValueError(f"{a[0]} butuh nilai, mis. {a[0]} {contoh[a[0]]}")
+            saring[a[0]], a = a[1], a[2:]
         elif a[0].startswith("--"):
             raise ValueError(f"bendera «{a[0]}» tidak dikenal")
         else:
             maks, a = angka(a[0], "maks"), a[1:]
-    return frasa, maks, saring["--mazhab"], saring["--kitab"], angka(saring["--halaman"][0], "halaman")
+    daftar = lambda s: [x.strip() for x in s.replace("،", ",").split(",") if x.strip()]
+    return frasa, maks, daftar(saring["--mazhab"]), daftar(saring["--kitab"]), angka(saring["--halaman"], "halaman")
 
 
 def ketemu(n):
@@ -504,6 +506,8 @@ if __name__ == "__main__":
         sys.exit(f"Perintah '{cmd}': memori komputer habis. Tutup aplikasi lain, lalu ulangi.")
     except BrokenPipeError:  # keluarannya dipotong pembaca (mis. `| head`): bukan masalah internet
         os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+    except TimeoutError:
+        sys.exit(f"Perintah '{cmd}': layanannya terlalu lama menjawab. Ulangi sebentar lagi.")
     except shamela.GAGAL_JARINGAN as e:
         sys.exit(f"Perintah '{cmd}' gagal mengunduh (cek internet, lalu ulangi): {e!r}")
     except (ValueError, FileNotFoundError, re.error) as e:

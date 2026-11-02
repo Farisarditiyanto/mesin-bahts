@@ -204,11 +204,16 @@ def temukan(frasa, maks=20, mazhab=(), kitab=(), halaman=1):
     maks = min(maks, TURATH_MAKS)
     if asing := [m for m in mazhab if m not in MAZHAB]:
         raise ValueError(f"mazhab «{asing[0]}» tidak dikenal; yang ada: {', '.join(MAZHAB)}")
+    if mazhab and kitab:
+        raise ValueError("pilih salah satu: --mazhab atau --kitab")
     saring = {"page": halaman}
     if mazhab:
         saring["cat"] = ",".join(str(MAZHAB[m]) for m in mazhab)
     if kitab:
         saring["book"] = ",".join(str(int(_folder(k).name)) for k in kitab)
+        ada = {r["shamela_id"] for r in _meta()}
+        if asing := [k for k in saring["book"].split(",") if int(k) not in ada]:
+            raise ValueError(f"kitab {asing[0]} tidak ada di katalog Shamela (nomornya dari `katalog`)")
     tempat = f"kitab {saring['book']}" if kitab else f"fikih {', '.join(mazhab)}" if mazhab else "seluruh Shamela"
 
     def tanya(ketat):
@@ -235,6 +240,9 @@ def temukan(frasa, maks=20, mazhab=(), kitab=(), halaman=1):
         print(f"TIDAK KETEMU di {tempat}, berurutan maupun longgar: {frasa}\n"
               "Coba frasa lebih pendek (2-4 kata inti), atau ejaan lain.")
         return 0
+    if not d["data"]:
+        print(f"Halaman {halaman} melewati akhir hasil: {d['count']} tempat cocok di {tempat}, 20 tiap halaman.")
+        return 0
     print(f"{d['count']} tempat cocok di {tempat}: {frasa}\n" + ada_keterangan())
     ada = set(punya())
     berjilid = {r["shamela_id"] for r in _meta() if r["has_multi_part"]}  # turath menulis «ج1» juga untuk kitab satu jilid
@@ -245,9 +253,11 @@ def temukan(frasa, maks=20, mazhab=(), kitab=(), halaman=1):
         print(f"[{x['book_id']}] {'ADA' if x['book_id'] in ada else '-'}\t{letak(juz or '-', m.get('page'))}\t"
               f"{m['book_name']} — {m['author_name']} :: {cuplikan[:160]}")
     awal = (halaman - 1) * TURATH_MAKS
-    if d["count"] > awal + min(maks, len(d["data"])):
-        print(f"(ditampilkan {awal + 1}-{awal + min(maks, len(d['data']))} dari {d['count']}; persempit dengan frasa, --mazhab, "
-              f"atau --kitab; hasil berikutnya: --halaman {halaman + 1})")
+    tampil = min(maks, len(d["data"]))
+    lanjut = f"naikkan maks (paling banyak {TURATH_MAKS})" if tampil < len(d["data"]) else f"--halaman {halaman + 1}"
+    if d["count"] > awal + tampil:
+        print(f"(ditampilkan {awal + 1}-{awal + tampil} dari {d['count']}; persempit dengan frasa, --mazhab, atau --kitab; "
+              f"hasil berikutnya: {lanjut})")
     return d["count"]
 
 
@@ -406,8 +416,9 @@ def _indeks(sid):
             return [tuple(x) for x in rek], awal
     except (OSError, ValueError, KeyError, TypeError):
         pass
+    mentah = _isi.__wrapped__(sid)  # tanpa cache: `cari semua` membuat indeks banyak kitab, isinya tidak boleh menumpuk
     isi, awal, letak = [], [], 0
-    for baris in _isi(sid).splitlines(keepends=True):
+    for baris in mentah.splitlines(keepends=True):
         if baris.strip():
             r = json.loads(baris)
             nomor = [int(n) for n in PENANDA.findall(r.get("body") or "")]
@@ -416,8 +427,8 @@ def _indeks(sid):
         letak += len(baris)
     try:
         with sementara(f) as part:
-            part.write_text(json.dumps({"versi": INDEKS_VERSI, "sumber": hashlib.sha256(_isi(sid)).hexdigest(), "sumber_gz": gz,
-                                        "panjang": len(_isi(sid)), "rekaman": isi, "awal": awal}, ensure_ascii=False), encoding="utf8")
+            part.write_text(json.dumps({"versi": INDEKS_VERSI, "sumber": hashlib.sha256(mentah).hexdigest(), "sumber_gz": gz,
+                                        "panjang": len(mentah), "rekaman": isi, "awal": awal}, ensure_ascii=False), encoding="utf8")
     except OSError:
         pass
     return isi, awal

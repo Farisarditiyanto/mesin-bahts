@@ -261,7 +261,7 @@ def utama():
 
         def temukan_saring():
             import contextlib, io, shamela, urllib.parse
-            rows = [{"shamela_id": 99001, "has_multi_part": False}]
+            rows = [{"shamela_id": 99001, "has_multi_part": False}, {"shamela_id": 8370, "has_multi_part": True}]
             jawaban = {"count": 45, "data": [{"book_id": 99001, "snip": "نص", "meta": json.dumps(
                 {"vol": 1, "page": 9, "book_name": "كتاب", "author_name": "مؤلف"})}] * 20}
             alamat = []
@@ -279,13 +279,22 @@ def utama():
             keluar = out.getvalue()
             assert "45 tempat cocok di fikih hanafi, hanbali" in keluar and "21-40 dari 45" in keluar and "--halaman 3" in keluar, keluar
             assert "1-5 dari 45" in keluar and "45 tempat cocok di kitab 8370" in keluar and "45 tempat cocok di seluruh Shamela" in keluar, keluar
-            with patch.object(shamela, "buka", side_effect=AssertionError("mazhab salah tidak boleh sampai ke turath")):
-                try:
-                    shamela.temukan("نص البحث", 20, ["zahiri"])
-                except ValueError as e:
-                    assert "zahiri" in str(e), e
-                else:
-                    raise AssertionError("mazhab salah harus ditolak")
+            assert "hasil berikutnya: naikkan maks" in keluar, "maks kecil + --halaman melompati hasil"
+            jawaban["data"] = []
+            out = io.StringIO()
+            with patch.object(shamela, "_meta", return_value=rows), patch.object(shamela, "buka", side_effect=buka), contextlib.redirect_stdout(out):
+                assert shamela.temukan("نص البحث", 20, [], [], 9) == 0
+            assert "Halaman 9 melewati akhir hasil: 45" in out.getvalue(), out.getvalue()
+            with patch.object(shamela, "_meta", return_value=rows), patch.object(
+                    shamela, "buka", side_effect=AssertionError("saringan salah tidak boleh sampai ke turath")):
+                for salah, kata in ((dict(mazhab=["zahiri"]), "zahiri"), (dict(mazhab=["hanafi"], kitab=["8370"]), "salah satu"),
+                                    (dict(kitab=["5"]), "katalog")):
+                    try:
+                        shamela.temukan("نص البحث", **salah)
+                    except ValueError as e:
+                        assert kata in str(e), e
+                    else:
+                        raise AssertionError(f"harus ditolak: {salah}")
 
         uji("bahan dua folder bernama sama terpisah", terpisah)
         uji("cache mengikuti perubahan isi meski ukuran dan mtime sama", cache_usang)

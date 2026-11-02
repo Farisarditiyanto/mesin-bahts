@@ -265,7 +265,8 @@ RENTANG_MAKS = 50  # halaman paling banyak satu bukti (dan satu rentang tercetak
 # `cek --jejak`, kutipan yang lafaznya sedikit berbeda dengan kitab; satuannya huruf `padat`
 MIRIP_BENIH = 14  # panjang potongan kutipan yang harus ada persis di kitab
 MIRIP_KUTIPAN = 30  # kutipan lebih pendek dari ini tidak dicari: yang pendek mirip di mana-mana
-MIRIP_MIN = 0.85  # bagian huruf kutipan yang harus sama
+MIRIP_PANJANG = 300  # kutipan lebih panjang dibandingkan awalnya saja: membandingkan makan waktu kuadrat panjangnya
+MIRIP_MIN = 0.9  # bagian huruf yang harus sama (lihat `_mirip_kitab`)
 MIRIP_CALON = 20  # tempat paling banyak tiap benih (benih umum, mis. basmalah, ada ribuan kali)
 MIRIP_LONGGAR = 12  # tempat yang berjarak kurang dari ini dibandingkan sekali
 
@@ -606,7 +607,9 @@ def _tempat_kitab(rangkaian, bagian):
 def _mirip_kitab(rangkaian, q):
     """Tempat q (sudah `padat`) yang lafaznya sedikit berbeda: (kemiripan, juz, halaman, tanda) terbaik, atau None.
     Benih = potongan pendek q yang harus ada persis; tiap tempat benihnya lalu dibandingkan huruf per huruf dengan q.
-    Kemiripan = bagian huruf q yang ada di tempat itu, berurutan. Hanya petunjuk, sama seperti `_tempat_kitab`."""
+    Kemiripan = huruf yang sama, berurutan, dibagi panjang yang lebih besar antara q dan tempat itu: kata kitab yang
+    tidak ada di kutipan (mis. kata nafi) ikut menurunkannya. Hanya petunjuk, sama seperti `_tempat_kitab`."""
+    q = q[:MIRIP_PANJANG]
     benih = [(k, q[k:k + MIRIP_BENIH]) for k in range(0, len(q) - MIRIP_BENIH + 1, MIRIP_BENIH)]
     terbaik = None
     for juz, tanda, teks, ruas in rangkaian:
@@ -620,9 +623,11 @@ def _mirip_kitab(rangkaian, q):
             awal = max(0, m * MIRIP_LONGGAR - MIRIP_LONGGAR)
             blok = [x for x in difflib.SequenceMatcher(None, q, teks[awal:awal + len(q) + 3 * MIRIP_LONGGAR], autojunk=False)
                     .get_matching_blocks() if x.size >= 3]
-            nilai = sum(x.size for x in blok) / len(q)
+            if not blok:
+                continue
+            a, z = awal + blok[0].b, awal + blok[-1].b + blok[-1].size
+            nilai = sum(x.size for x in blok) / max(len(q), z - a)
             if nilai >= MIRIP_MIN and (terbaik is None or nilai > terbaik[0]):
-                a, z = awal + blok[0].b, awal + blok[-1].b + blok[-1].size
                 terbaik = nilai, ("-" if juz is None else juz), _halaman_di(ruas, a, z), tanda
     return terbaik
 
@@ -634,7 +639,7 @@ def jejak(tertolak, maks=3):
     Kitab yang dirujuk satu kutipan tidak dicari untuk kutipan itu; kutipan yang dipotong ... hanya ditunjuk
     kalau semua bagiannya ada berurutan dalam satu rentang yang bisa diloloskan `cek`.
     Kutipan yang persisnya tidak ada di kitab mana pun: tempat yang lafaznya paling mirip ikut disebut, termasuk di
-    kitab yang dirujuk (kutipan yang satu huruf atau katanya meleset)."""
+    kitab yang dirujuk (kutipan yang satu huruf atau katanya meleset), kecuali kutipan ber-..."""
     cari = {}  # bagian `padat` (tuple) -> entri kutipan
     for sid, teks in tertolak:
         bagian = _bagian_cari(teks)
@@ -649,7 +654,8 @@ def jejak(tertolak, maks=3):
     rusak = []
     for sid in semua:
         aktif = [e for e in cari.values() if len(e["dapat"]) < maks and str(sid) not in e["tertuju"]]
-        longgar = [e for e in cari.values() if not e["dapat"] and len(max(e["bagian"], key=len)) >= MIRIP_KUTIPAN]
+        # kutipan ber-... tidak: satu bagian yang mirip tidak berkata apa-apa tentang bagian lain (bisa karangan)
+        longgar = [e for e in cari.values() if not e["dapat"] and len(e["bagian"]) == 1 and len(e["bagian"][0]) >= MIRIP_KUTIPAN]
         if not aktif and not longgar:
             continue
         try:
@@ -660,7 +666,7 @@ def jejak(tertolak, maks=3):
                 if t:
                     entri["dapat"].append((sid, *t))
             for entri in longgar:
-                if not entri["dapat"] and (t := _mirip_kitab(rangkaian, max(entri["bagian"], key=len))):
+                if not entri["dapat"] and (t := _mirip_kitab(rangkaian, entri["bagian"][0])):
                     entri["mirip"].append((t[0], sid, *t[1:]))
             del rangkaian
         except (OSError, EOFError, ValueError, TypeError, AttributeError, KeyError, IndexError, zlib.error) as e:
@@ -677,11 +683,13 @@ def jejak(tertolak, maks=3):
     for entri in cari.values():
         t, asli = entri["dapat"], entri["teks"]
         if not t:
-            mirip = "، ".join(f"{sid} {shamela.letak(juz, h)}{tanda} (±{nilai:.0%} huruf sama)" for nilai, sid, juz, h, tanda
-                              in sorted(entri["mirip"], key=lambda x: -x[0])[:maks])
+            # kitab yang dirujuk dulu, lalu yang paling mirip, matan sebelum حاشية
+            mirip = "، ".join(f"{sid} {shamela.letak(juz, h)}{tanda} (±{int(nilai * 100)}% huruf sama)" for nilai, sid, juz, h, tanda
+                              in sorted(entri["mirip"], key=lambda x: (str(x[1]) not in entri["tertuju"], -x[0], bool(x[4])))[:maks])
             baris.append(f"  «{asli}» tidak ditemukan di {entri['dibaca']} kitab lain yang berhasil dibaca: "
                          "periksa ejaan dan sumber aslinya."
-                         + (f" Paling mirip: kitab {mirip}; buka halamannya dan salin lafaznya dari sana." if mirip else ""))
+                         + (f" Paling mirip: kitab {mirip}. Lafaznya BERBEDA dan maknanya bisa terbalik: baca halamannya; "
+                            "yang tidak bermakna sama jangan disesuaikan, buang kutipannya." if mirip else ""))
             continue
         rinci = "، ".join(f"{sid} {shamela.letak(juz, h)}{tanda}" for sid, juz, h, tanda in t[:maks])
         baris.append(f"  «{asli}» ketemu di kitab {rinci} (maksimal {maks} kitab per teks)")

@@ -283,6 +283,11 @@ try:
         assert "Paling mirip" not in jalan(folder, "--jejak")[1], "teks yang tidak ada tidak boleh ditunjuk"
         tulis(folder, "<<2348|-|5>>", KUTIPAN + " " + PALSU)
         assert "Paling mirip" not in jalan(folder, "--jejak")[1], "sama separuh bukan lafaz yang mirip"
+        tulis(folder, "<<2348|-|5>>", KUTIPAN + " ... " + PALSU)
+        assert "Paling mirip" not in jalan(folder, "--jejak")[1], "bagian yang karangan tidak boleh hilang dari penilaian"
+        tulis(folder, "<<2348|-|5>>", KUTIPAN.replace(" وهو ", " "))  # kata kitab dibuang: semua huruf kutipan tetap ada di kitab
+        keluar = jalan(folder, "--jejak")[1]
+        assert "Paling mirip: kitab 11223 ج- ص5" in keluar and "100%" not in keluar, "kata kitab yang dibuang bukan 100% sama"
         tulis(folder, "<<2348|-|5>>")
         assert "Paling mirip" not in jalan(folder, "--jejak")[1], "yang ketemu persis tidak butuh petunjuk mirip"
 
