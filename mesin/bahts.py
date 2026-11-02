@@ -420,12 +420,15 @@ def ambil(nomor):
 
 def bendera_temukan(frasa, a):
     """Argumen `shamela.temukan` dari `temukan "<frasa>" [maks] [--mazhab m,…] [--kitab id,…] [--halaman n]`."""
-    maks, saring = 20, {"--mazhab": "", "--kitab": "", "--halaman": "1"}
+    maks, saring, tersebut = 20, {"--mazhab": "", "--kitab": "", "--halaman": "1"}, set()
     contoh = {"--mazhab": "hanbali", "--kitab": "8370", "--halaman": "2"}
     while a:
         if a[0] in saring:
-            if len(a) < 2:
+            if len(a) < 2 or not a[1].strip(" ,،"):
                 raise ValueError(f"{a[0]} butuh nilai, mis. {a[0]} {contoh[a[0]]}")
+            if a[0] in tersebut:
+                raise ValueError(f"{a[0]} disebut dua kali; nilai ganda ditulis dengan koma, mis. {a[0]} {contoh[a[0]]},…")
+            tersebut.add(a[0])
             saring[a[0]], a = a[1], a[2:]
         elif a[0].startswith("--"):
             raise ValueError(f"bendera «{a[0]}» tidak dikenal")

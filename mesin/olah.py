@@ -265,7 +265,7 @@ RENTANG_MAKS = 50  # halaman paling banyak satu bukti (dan satu rentang tercetak
 # `cek --jejak`, kutipan yang lafaznya sedikit berbeda dengan kitab; satuannya huruf `padat`
 MIRIP_BENIH = 14  # panjang potongan kutipan yang harus ada persis di kitab
 MIRIP_KUTIPAN = 30  # kutipan lebih pendek dari ini tidak dicari: yang pendek mirip di mana-mana
-MIRIP_PANJANG = 300  # kutipan lebih panjang dibandingkan awalnya saja: membandingkan makan waktu kuadrat panjangnya
+MIRIP_PANJANG = 300  # kutipan lebih panjang dari ini tidak dicari: waktu membandingkan = kuadrat panjangnya
 MIRIP_MIN = 0.9  # bagian huruf yang harus sama (lihat `_mirip_kitab`)
 MIRIP_CALON = 20  # tempat paling banyak tiap benih (benih umum, mis. basmalah, ada ribuan kali)
 MIRIP_LONGGAR = 12  # tempat yang berjarak kurang dari ini dibandingkan sekali
@@ -609,7 +609,6 @@ def _mirip_kitab(rangkaian, q):
     Benih = potongan pendek q yang harus ada persis; tiap tempat benihnya lalu dibandingkan huruf per huruf dengan q.
     Kemiripan = huruf yang sama, berurutan, dibagi panjang yang lebih besar antara q dan tempat itu: kata kitab yang
     tidak ada di kutipan (mis. kata nafi) ikut menurunkannya. Hanya petunjuk, sama seperti `_tempat_kitab`."""
-    q = q[:MIRIP_PANJANG]
     benih = [(k, q[k:k + MIRIP_BENIH]) for k in range(0, len(q) - MIRIP_BENIH + 1, MIRIP_BENIH)]
     terbaik = None
     for juz, tanda, teks, ruas in rangkaian:
@@ -639,7 +638,7 @@ def jejak(tertolak, maks=3):
     Kitab yang dirujuk satu kutipan tidak dicari untuk kutipan itu; kutipan yang dipotong ... hanya ditunjuk
     kalau semua bagiannya ada berurutan dalam satu rentang yang bisa diloloskan `cek`.
     Kutipan yang persisnya tidak ada di kitab mana pun: tempat yang lafaznya paling mirip ikut disebut, termasuk di
-    kitab yang dirujuk (kutipan yang satu huruf atau katanya meleset), kecuali kutipan ber-..."""
+    kitab yang dirujuk (kutipan yang satu huruf atau katanya meleset), kecuali kutipan ber-... dan yang sangat panjang."""
     cari = {}  # bagian `padat` (tuple) -> entri kutipan
     for sid, teks in tertolak:
         bagian = _bagian_cari(teks)
@@ -655,7 +654,9 @@ def jejak(tertolak, maks=3):
     for sid in semua:
         aktif = [e for e in cari.values() if len(e["dapat"]) < maks and str(sid) not in e["tertuju"]]
         # kutipan ber-... tidak: satu bagian yang mirip tidak berkata apa-apa tentang bagian lain (bisa karangan)
-        longgar = [e for e in cari.values() if not e["dapat"] and len(e["bagian"]) == 1 and len(e["bagian"][0]) >= MIRIP_KUTIPAN]
+        # kutipan panjang juga tidak: membandingkan seluruhnya terlalu lama, menilai sebagiannya menyesatkan
+        longgar = [e for e in cari.values() if not e["dapat"] and len(e["bagian"]) == 1
+                   and MIRIP_KUTIPAN <= len(e["bagian"][0]) <= MIRIP_PANJANG]
         if not aktif and not longgar:
             continue
         try:
@@ -689,7 +690,7 @@ def jejak(tertolak, maks=3):
             baris.append(f"  «{asli}» tidak ditemukan di {entri['dibaca']} kitab lain yang berhasil dibaca: "
                          "periksa ejaan dan sumber aslinya."
                          + (f" Paling mirip: kitab {mirip}. Lafaznya BERBEDA dan maknanya bisa terbalik: baca halamannya; "
-                            "yang tidak bermakna sama jangan disesuaikan, buang kutipannya." if mirip else ""))
+                            "maknanya sama: salin lafaz kitabnya; berbeda: buang kutipannya, jangan disesuaikan." if mirip else ""))
             continue
         rinci = "، ".join(f"{sid} {shamela.letak(juz, h)}{tanda}" for sid, juz, h, tanda in t[:maks])
         baris.append(f"  «{asli}» ketemu di kitab {rinci} (maksimal {maks} kitab per teks)")

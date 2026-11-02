@@ -6,7 +6,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 ## Belum dirilis
 
 - `temukan` kini bisa dipersempit tanpa akun: `--mazhab hanafi,maliki,syafii,hanbali` hanya kitab fikih mazhab itu, `--kitab <id>` hanya kitab itu walau belum diunduh, dan `--halaman 2` membuka hasil sesudah 20 pertama. Dulu hasilnya berhenti di 20.
-- `cek --jejak`: kutipan yang satu huruf atau katanya meleset kini ditunjuk ke tempat yang paling mirip («Paling mirip: kitab … (±98% huruf sama)»), kitab yang dirujuk lebih dulu. Dulu hanya «tidak ditemukan». Kutipan ber-`...` tidak dicari begini. Tetap petunjuk: putusan `cek` tidak berubah.
+- `cek --jejak`: kutipan yang satu huruf atau katanya meleset kini ditunjuk ke tempat yang paling mirip («Paling mirip: kitab … (±98% huruf sama)»), kitab yang dirujuk lebih dulu. Dulu hanya «tidak ditemukan». Kutipan ber-`...` dan yang lebih dari 300 huruf tidak dicari begini. Tetap petunjuk: putusan `cek` tidak berubah.
 - `cari`, `teks`, dan `bab` hanya mengurai rekaman yang memuat frasanya, jadi lebih cepat: `cari semua` di 289 kitab dari ±23 detik jadi ±12 detik. Hasilnya sama persis.
 - Layanan yang terlalu lama menjawab tidak lagi disebut masalah internet.
 - Memori komputer habis kini dijelaskan dengan satu kalimat, bukan pesan galat Python.

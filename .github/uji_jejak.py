@@ -17,7 +17,7 @@ Yang diuji:
   bendera di depan folder, jumlah kitab yang dicari, kutipan berawalan sama, sumber kitab lain yang rusak,
   kutipan lintas halaman, batas sambungan halaman, dan folder bergaris miring.
 """
-import gzip, json, os, shlex, shutil, subprocess, sys, tempfile
+import gzip, json, os, re, shlex, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")  # konsol Windows (cp1252) tidak bisa mencetak ✗ dan huruf Arab
@@ -285,6 +285,10 @@ try:
         assert "Paling mirip" not in jalan(folder, "--jejak")[1], "sama separuh bukan lafaz yang mirip"
         tulis(folder, "<<2348|-|5>>", KUTIPAN + " ... " + PALSU)
         assert "Paling mirip" not in jalan(folder, "--jejak")[1], "bagian yang karangan tidak boleh hilang dari penilaian"
+        rekaman = [json.loads(b) for b in gzip.open(AKAR / "kitab" / "11223" / "pages.jsonl.gz", "rt", encoding="utf8")]
+        asli = re.findall("[ء-ي]+", max((r.get("body") or "" for r in rekaman), key=len))[:110]
+        tulis(folder, "<<2348|-|5>>", " ".join(asli) + (" " + PALSU) * 12)  # awal asli, sisanya karangan
+        assert "Paling mirip" not in jalan(folder, "--jejak")[1], "kutipan panjang tidak boleh dinilai dari awalnya saja"
         tulis(folder, "<<2348|-|5>>", KUTIPAN.replace(" وهو ", " "))  # kata kitab dibuang: semua huruf kutipan tetap ada di kitab
         keluar = jalan(folder, "--jejak")[1]
         assert "Paling mirip: kitab 11223 ج- ص5" in keluar and "100%" not in keluar, "kata kitab yang dibuang bukan 100% sama"

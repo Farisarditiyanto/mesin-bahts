@@ -241,7 +241,7 @@ def temukan(frasa, maks=20, mazhab=(), kitab=(), halaman=1):
               "Coba frasa lebih pendek (2-4 kata inti), atau ejaan lain.")
         return 0
     if not d["data"]:
-        print(f"Halaman {halaman} melewati akhir hasil: {d['count']} tempat cocok di {tempat}, 20 tiap halaman.")
+        print(f"Halaman {halaman} melewati akhir hasil: {d['count']} tempat cocok di {tempat}, {TURATH_MAKS} tiap halaman.")
         return 0
     print(f"{d['count']} tempat cocok di {tempat}: {frasa}\n" + ada_keterangan())
     ada = set(punya())
@@ -256,8 +256,8 @@ def temukan(frasa, maks=20, mazhab=(), kitab=(), halaman=1):
     tampil = min(maks, len(d["data"]))
     lanjut = f"naikkan maks (paling banyak {TURATH_MAKS})" if tampil < len(d["data"]) else f"--halaman {halaman + 1}"
     if d["count"] > awal + tampil:
-        print(f"(ditampilkan {awal + 1}-{awal + tampil} dari {d['count']}; persempit dengan frasa, --mazhab, atau --kitab; "
-              f"hasil berikutnya: {lanjut})")
+        persempit = "frasanya" if mazhab or kitab else "dengan frasa, --mazhab, atau --kitab"
+        print(f"(ditampilkan {awal + 1}-{awal + tampil} dari {d['count']}; persempit {persempit}; hasil berikutnya: {lanjut})")
     return d["count"]
 
 
