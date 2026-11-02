@@ -370,30 +370,43 @@ def indeks(sid):
     rekaman halaman yang dirujuk, bukan seluruh kitab (bahts 32 kitab: ±8 detik -> ±2). Disimpan di kitab/<id>/indeks.json;
     tidak bergantung pada norm(), jadi tidak dibuat ulang saat mesin berubah. Yang rusak atau tidak cocok dengan berkasnya
     dibuat ulang."""
+    return _indeks(sid)[0]
+
+
+@functools.cache
+def _indeks(sid):
+    """(indeks, halaman cetak terkecil tiap rekaman atau None). Cocok tidaknya indeks.json dilihat dari sidik berkas .gz
+    (isi .gz sama = isi kitab sama), jadi indeks yang sah terbaca tanpa membuka seluruh kitab. Indeks lama tanpa sidik
+    itu diperiksa dengan isi kitab seperti dulu, lalu dibuat ulang sekali."""
     folder = _folder(sid)
     f = folder / INDEKS
-    sumber = hashlib.sha256(_isi(sid)).hexdigest()
+    with open(folder / "pages.jsonl.gz", "rb") as h:
+        gz = hashlib.file_digest(h, "sha256").hexdigest()
     try:
         d = json.loads(f.read_text(encoding="utf8"))
-        if (d["versi"] == INDEKS_VERSI and d["sumber"] == sumber and isinstance(d["rekaman"], list)
-                and all(isinstance(x, list) and len(x) == 4 and type(x[3]) is int
-                        and 0 <= x[3] < len(_isi(sid)) for x in d["rekaman"])):
-            return [tuple(x) for x in d["rekaman"]]
+        rek, awal, panjang = d["rekaman"], d["awal"], d["panjang"]
+        if (d["versi"] == INDEKS_VERSI and d["sumber_gz"] == gz and type(panjang) is int
+                and isinstance(rek, list) and isinstance(awal, list) and len(awal) == len(rek)
+                and all(x is None or type(x) is int for x in awal)
+                and all(isinstance(x, list) and len(x) == 4 and type(x[3]) is int and 0 <= x[3] < panjang for x in rek)):
+            return [tuple(x) for x in rek], awal
     except (OSError, ValueError, KeyError, TypeError):
         pass
-    isi, letak = [], 0
+    isi, awal, letak = [], [], 0
     for baris in _isi(sid).splitlines(keepends=True):
         if baris.strip():
             r = json.loads(baris)
-            isi.append((r.get("part"), r.get("page_num"),
-                        max([r.get("page_num") or 0] + [int(n) for n in PENANDA.findall(r.get("body") or "")]), letak))
+            nomor = [int(n) for n in PENANDA.findall(r.get("body") or "")]
+            isi.append((r.get("part"), r.get("page_num"), max([r.get("page_num") or 0] + nomor), letak))
+            awal.append(min([n for n in [r.get("page_num")] + nomor if n is not None], default=None))
         letak += len(baris)
     try:
         with sementara(f) as part:
-            part.write_text(json.dumps({"versi": INDEKS_VERSI, "sumber": sumber, "rekaman": isi}, ensure_ascii=False), encoding="utf8")
+            part.write_text(json.dumps({"versi": INDEKS_VERSI, "sumber": hashlib.sha256(_isi(sid)).hexdigest(), "sumber_gz": gz,
+                                        "panjang": len(_isi(sid)), "rekaman": isi, "awal": awal}, ensure_ascii=False), encoding="utf8")
     except OSError:
         pass
-    return isi
+    return isi, awal
 
 
 def _juz(p):
@@ -741,18 +754,28 @@ def scan(sid, juz, hal):
     return True
 
 
+def _rekaman_di(sid, nomor):
+    """Rekaman ke-n kitab sid untuk tiap n di `nomor` (urut berkas), dibaca bergeser maju di berkas .gz: kitab tidak
+    dibuka utuh ke memori dan bacaan berhenti di rekaman terakhir yang diminta (satu halaman kitab besar: ±3 detik -> ±0,5)."""
+    ix = indeks(sid)
+    with gzip.open(_folder(sid) / "pages.jsonl.gz") as g:
+        for i in sorted(nomor):
+            g.seek(ix[i][3])
+            yield json.loads(g.readline())
+
+
 def halaman(sid, juz, hal):
     """Isi satu halaman cetak (juz "-" untuk kitab satu jilid), dengan حاشية milik halaman itu. «05» dan «٥» = 5."""
-    ada, rentang = False, {}  # juz -> [halaman terkecil, terbesar], untuk pesan kalau halamannya tidak ada
     angka = lambda x: int(x) if str(x).isdigit() else x  # int() membaca angka Arab ٠-٩ juga
     juz, hal = angka(juz), angka(hal)
-    for p in _pages(sid):
-        hh = [h for h, _ in _potong(p) if h is not None]
-        if hh:
-            r = rentang.setdefault(_juz(p), [min(hh), max(hh)])
-            r[0], r[1] = min(r[0], *hh), max(r[1], *hh)
-        if angka(_juz(p)) != juz:
-            continue
+    if not (_folder(sid) / "pages.jsonl.gz").exists():
+        raise SystemExit(f"Kitab {sid} belum diunduh: " + perintah(f"ambil {sid}"))
+    # indeks: rekaman juz itu yang mungkin memuat halaman itu (halaman terkecil s.d. terbesar rekaman, termasuk penanda ⦗n⦘)
+    ix, awal = _indeks(sid)
+    calon = [i for i, (j, _, akhir, _) in enumerate(ix) if awal[i] is not None and awal[i] <= hal <= akhir
+             and angka("-" if j is None else j) == juz] if isinstance(hal, int) else []
+    ada = False
+    for p in _rekaman_di(sid, calon):
         bagian = [b for h, b in _potong(p) if h == hal]
         if bagian:
             ada = True
@@ -767,6 +790,11 @@ def halaman(sid, juz, hal):
             if isi.strip():
                 print("ـــــ" + catat + "\n" + TAGS.sub("", isi))
     if not ada:
+        rentang = {}  # juz -> [halaman terkecil, terbesar], dari indeks (rekaman tanpa nomor halaman dilewati)
+        for (j, _, z, _), a in zip(ix, awal):
+            if a is not None:
+                r = rentang.setdefault("-" if j is None else j, [a, z])
+                r[0], r[1] = min(r[0], a), max(r[1], z)
         print(f"[{sid}] TIDAK ADA halaman {juz}/{hal}. Yang ada: "
               + "، ".join(f"juz {j} ص{a}-{z}" for j, (a, z) in rentang.items()) + " (juz \"-\" = kitab satu jilid)")
     return ada

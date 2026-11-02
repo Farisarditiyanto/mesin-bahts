@@ -628,6 +628,7 @@ def jejak(tertolak, maks=3):
         finally:
             shamela._isi.cache_clear()  # isi kitab utuh tidak menumpuk, juga sesudah gagal dibaca
             shamela.indeks.cache_clear()
+            shamela._indeks.cache_clear()
             _rangkaian_kitab.cache_clear()
         if all(len(e["dapat"]) >= maks for e in cari.values()):
             break
