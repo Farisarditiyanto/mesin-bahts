@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `@pustaka: akhir`: daftar sumber dicetak sesudah فهرس الأحاديث dengan judul «فهرس المصادر والمراجع», untuk خطة dosen yang urutannya begitu. Naskah tanpa kunci ini tidak berubah.
 - `rakit` tidak lagi menaruh nama pengguna Word di data penulis `.docx`; dulu nama orang yang merakit tertulis di Word milik orang lain.
 - `baru` kini menerima `bahts/<orang>/<topik>` untuk yang mengerjakan bahts banyak orang. `cek`, `rakit`, dan `ambil` memakai jalur yang sama; nama yang salah menunjuk tempat bahts yang mirip.
 - `keluaran_saya.txt` (opsional): `rakit` menaruh salinan PDF di folder yang disebut berkas itu, dikelompokkan per orang.

@@ -45,6 +45,8 @@ def utama():
 
         for salah, benar in (("fromat", "format"), ("angka_ayta", "angka_ayat"), ("halaman_bru", "halaman_baru")):
             cek("salah ketik " + salah, f"@{salah}: latin\n" + dasar, True, "maksudnya @" + benar)
+        cek("@pustaka nilai salah", "@pustaka: awal\n" + dasar, True, "@pustaka: «awal» tidak dikenal")
+        cek("@pustaka: akhir diterima", "@pustaka: akhir\n" + dasar)
 
         kutipan = '«توحيد الربوبية وهو إفراد الله تعالى بالخلق والملك والتدبير»'
         catatan = '[^رسالة في القضاء والقدر، ابن عثيمين، ص5. <<11223|-|5>>]'

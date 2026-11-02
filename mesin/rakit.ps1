@@ -32,6 +32,7 @@ $adaHd = [bool]@($DATA.hadits).Count -and $TANPA -notcontains 'hadits'
 $adaTo = $TANPA -notcontains 'maudhuat'
 $KITAB = $M.bentuk -eq 'kitab'           # @bentuk: kitab = tanpa sampul bahts, judul di kepala halaman, hanya #K (dan @halaman_baru) halaman baru
 $adaPu = $TANPA -notcontains 'pustaka' -and (-not $KITAB -or @($DATA.pustaka).Count)   # @tanpa: pustaka = sumber cukup di catatan kaki
+$PUSTAKA_AKHIR = $M.pustaka -eq 'akhir'   # @pustaka: akhir = sumber sesudah فهرس الأحاديث, berjudul فهرس المصادر والمراجع
 $MERAH = 176; $COKLAT = 2772843           # warna Word (BGR): lafaz matn RGB(176,0,0); rumuz RGB(107,79,42)
 
 # satu rakit dalam satu waktu: rakit kedua berhenti di sini, sebelum mematikan Word milik rakit pertama (kunci lepas sendiri saat proses ini selesai)
@@ -520,8 +521,8 @@ try {
 
     # ---------- 3. المصادر والمراجع (tabel tanpa garis, urut abjad) ----------
     $bmSesudahIsi = "t_$($nT + 1)"   # judul pertama sesudah الخاتمة (المصادر, atau فهرس pertama): HALAMAN_ISI = halamannya - 1
-    if ($adaPu) {
-    $nT++; Judul 'المصادر والمراجع' "t_$nT" $true; [void]$toc.Add(@{ t = 'المصادر والمراجع'; bm = "t_$nT"; lvl = 0 })
+    function Tulis-Pustaka($judul) {
+    $script:nT++; Judul $judul "t_$script:nT" $true; [void]$toc.Add(@{ t = $judul; bm = "t_$script:nT"; lvl = 0 })
     $n = $DATA.pustaka.Count
     # baris القرآن الكريم (selalu paling atas kalau ada) bertanda «-», kitab lain bernomor 1, 2, ...; penandanya dari olah.py
     $adaQuran = [bool]$DATA.quran
@@ -534,6 +535,7 @@ try {
     }
     Sel-Akhir
     }
+    if ($adaPu -and -not $PUSTAKA_AKHIR) { Tulis-Pustaka 'المصادر والمراجع' }
 
     # ---------- 4. الفهارس ----------
     if ($adaAy) {
@@ -569,6 +571,7 @@ try {
     foreach ($h in $DATA.hadits) { $r++; Sel $tHd $r 1 ('«' + $h.t + '»') 3 0; Sel $tHd $r 2 $h.r 1 0; Sel $tHd $r 3 '00' 1 0 }
     Sel-Akhir
     }
+    if ($adaPu -and $PUSTAKA_AKHIR) { Tulis-Pustaka 'فهرس المصادر والمراجع' }
     if ($adaTo) {
     $nT++; Judul 'فهرس الموضوعات' "t_$nT" $true; [void]$toc.Add(@{ t = 'فهرس الموضوعات'; bm = "t_$nT"; lvl = 0 })
     $tTo = Tabel ($toc.Count + 1) @(13.0, 2.0) 1
