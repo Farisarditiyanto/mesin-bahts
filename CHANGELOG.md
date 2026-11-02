@@ -5,6 +5,9 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `halaman` kini langsung membaca halaman yang diminta lewat indeks kitab, tidak lagi seluruh kitab: di kitab besar (±190 MB teks) dari ±3 detik dan ±400 MB memori jadi ±0,2-0,5 detik dan ±40 MB. Isi yang tercetak sama persis. Indeks kitab dicocokkan lewat sidik berkas `.gz`-nya, jadi tidak perlu membuka seluruh kitab; indeks lama ditulis ulang sekali dengan sendirinya.
+- Linux/macOS: kitab yang diunduh, cache, indeks, dan PDF `dirasat-pdf` tidak lagi tersimpan dengan izin 0600 (hanya pemilik); izinnya kini seperti berkas biasa.
+
 ## 6.2.0 — 2026-11-02
 
 - `@templat` kembali dipakai: sejak `qism` jadi sampul bawaan, Word mahasiswa diam-diam diganti sampul bawaan.

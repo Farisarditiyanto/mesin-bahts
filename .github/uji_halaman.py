@@ -1,0 +1,114 @@
+"""`halaman` membaca rekaman lewat indeks, tidak lagi seluruh kitab. Hasilnya harus sama persis dengan membaca seluruh
+kitab (cara lama, disalin di sini sebagai pembanding) untuk tiap halaman tiap juz kitab yang sudah diunduh, juga
+halaman yang tidak ada, angka Arab, dan juz "-". Kitab buatan menambah penanda ⦗n⦘ yang menurun, rekaman tanpa nomor
+halaman, juz bernama, dan حاشية bertanda halaman. Di Linux/macOS berkas yang ditulis mesin harus terbaca seperti
+berkas biasa (umask), bukan 0600 bawaan mkstemp."""
+import contextlib, gzip, io, json, os, random, shutil, stat, sys, tempfile
+from pathlib import Path
+
+AKAR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(AKAR / "mesin"))
+import shamela
+from shamela import TAGS, _juz, _potong
+sys.stdout.reconfigure(encoding="utf-8")
+
+
+def halaman_lama(sid, juz, hal, semua):
+    """Pembanding: `halaman` sebelum memakai indeks (membaca tiap rekaman kitab; `semua` = rekamannya, dibaca sekali)."""
+    ada, rentang = False, {}
+    angka = lambda x: int(x) if str(x).isdigit() else x
+    juz, hal = angka(juz), angka(hal)
+    for p in semua:
+        hh = [h for h, _ in _potong(p) if h is not None]
+        if hh:
+            r = rentang.setdefault(_juz(p), [min(hh), max(hh)])
+            r[0], r[1] = min(r[0], *hh), max(r[1], *hh)
+        if angka(_juz(p)) != juz:
+            continue
+        bagian = [b for h, b in _potong(p) if h == hal]
+        if bagian:
+            ada = True
+            print(TAGS.sub("", "".join(bagian)))
+            fn = _potong(p, "footnotes")
+            if len(fn) > 1:
+                isi, catat = "".join(b for h, b in fn if h == hal), ""
+            else:
+                a, z = p.get("page_num"), _potong(p)[-1][0]
+                isi = fn[0][1]
+                catat = f" (حاشية rekaman ص{a}-{z}; halaman tiap catatan tidak tercatat)" if z != a else ""
+            if isi.strip():
+                print("ـــــ" + catat + "\n" + TAGS.sub("", isi))
+    if not ada:
+        print(f"[{sid}] TIDAK ADA halaman {juz}/{hal}. Yang ada: "
+              + "، ".join(f"juz {j} ص{a}-{z}" for j, (a, z) in rentang.items()) + " (juz \"-\" = kitab satu jilid)")
+    return ada
+
+
+def keluaran(f, *a):
+    b = io.StringIO()
+    with contextlib.redirect_stdout(b):
+        r = f(*a)
+    return r, b.getvalue()
+
+
+def bandingkan(sid, tambahan=(), contoh=60):
+    ix = shamela.indeks(sid)
+    semua = list(shamela.norma.rekaman(shamela._folder(sid) / "pages.jsonl.gz"))
+    juz = sorted({"-" if j is None else str(j) for j, *_ in ix})
+    juz = juz[:2] + juz[-2:] + ["-", "٠١", "x"]  # kitab berjilid banyak: cukup juz awal dan akhir
+    hal = sorted({h for _, p1, p2, _ in ix for h in (p1, p2) if h is not None})
+    hal = sorted(set(hal[:contoh // 3] + hal[-contoh // 3:] + random.sample(hal, min(len(hal), contoh)))) + [0, 99999, "٥", "05", "a", *tambahan]
+    n = 0
+    for j in juz:
+        for h in hal:
+            shamela._indeks.cache_clear(); shamela.indeks.cache_clear()
+            baru, lama = keluaran(shamela.halaman, str(sid), j, str(h)), keluaran(halaman_lama, str(sid), j, str(h), semua)
+            assert baru == lama, f"kitab {sid} juz {j} hal {h}:\nbaru={baru!r}\nlama={lama!r}"
+            n += 1
+    return n
+
+
+def kitab_buatan(root):
+    random.seed(7)
+    kata = "قال الشيخ العلم العمل النية <span>".split()
+    t = lambda: " ".join(random.choice(kata) for _ in range(6))
+    rek = []
+    for i in range(400):
+        body = t() + "".join(f" ⦗{random.choice(['٣', '12', str(random.randint(1, 60)), '٠٥'])}⦘ " + t()
+                             for _ in range(random.randint(0, 3)))
+        rek.append({"page_id": i, "part": random.choice([None, "1", "2", "المقدمة"]),
+                    "page_num": random.choice([None, i % 40 + 1, i % 40 + 1, random.randint(1, 60)]), "body": body,
+                    "footnotes": random.choice(["", "(1) " + t(), f"(1) {t()} ⦗{random.randint(1, 60)}⦘ (2) {t()}"])})
+    d = root / "990001"
+    d.mkdir(parents=True)
+    with gzip.open(d / "pages.jsonl.gz", "wt", encoding="utf8") as g:
+        g.writelines(json.dumps(r, ensure_ascii=False) + "\n" for r in rek)
+
+
+def utama():
+    random.seed(3)
+    n = sum(bandingkan(sid, contoh=12) for sid in shamela.punya())
+    asli = shamela.ROOT
+    with tempfile.TemporaryDirectory() as tmp:
+        shamela.ROOT = Path(tmp)
+        kitab_buatan(shamela.ROOT)
+        n += bandingkan(990001, range(1, 61))
+        # indeks lama (tanpa sidik .gz) tetap dipakai dengan benar, lalu ditulis ulang dengan sidiknya
+        f = shamela.ROOT / "990001" / shamela.INDEKS
+        d = json.loads(f.read_text(encoding="utf8"))
+        f.write_text(json.dumps({k: d[k] for k in ("versi", "sumber", "rekaman")}, ensure_ascii=False), encoding="utf8")
+        n += bandingkan(990001)
+        assert "sumber_gz" in json.loads(f.read_text(encoding="utf8")), "indeks lama tidak ditulis ulang"
+        if os.name != "nt":
+            umask = os.umask(0); os.umask(umask)
+            mode = stat.S_IMODE(f.stat().st_mode)
+            assert mode == 0o666 & ~umask, f"indeks.json {oct(mode)}, harusnya {oct(0o666 & ~umask)} (umask)"
+    shamela.ROOT = asli
+    if os.name != "nt":  # kitab yang diunduh `ambil` (lewat berkas sementara) juga mengikuti umask
+        for sid in shamela.punya():
+            mode = stat.S_IMODE((shamela._folder(sid) / "pages.jsonl.gz").stat().st_mode)
+            assert mode == 0o666 & ~umask, f"kitab {sid}: pages.jsonl.gz {oct(mode)}"
+    print(f"halaman: {n} panggilan sama dengan cara lama")
+
+
+utama()
