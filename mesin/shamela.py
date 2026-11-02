@@ -790,12 +790,11 @@ def halaman(sid, juz, hal):
             if isi.strip():
                 print("ـــــ" + catat + "\n" + TAGS.sub("", isi))
     if not ada:
-        rentang = {}  # juz -> [halaman terkecil, terbesar]; hanya di jalan gagal, jadi seluruh kitab boleh dibaca
-        for p in norma.rekaman(_folder(sid) / "pages.jsonl.gz"):
-            hh = [h for h, _ in _potong(p) if h is not None]
-            if hh:
-                r = rentang.setdefault(_juz(p), [min(hh), max(hh)])
-                r[0], r[1] = min(r[0], *hh), max(r[1], *hh)
+        rentang = {}  # juz -> [halaman terkecil, terbesar], dari indeks (rekaman tanpa nomor halaman dilewati)
+        for (j, _, z, _), a in zip(ix, awal):
+            if a is not None:
+                r = rentang.setdefault("-" if j is None else j, [a, z])
+                r[0], r[1] = min(r[0], a), max(r[1], z)
         print(f"[{sid}] TIDAK ADA halaman {juz}/{hal}. Yang ada: "
               + "، ".join(f"juz {j} ص{a}-{z}" for j, (a, z) in rentang.items()) + " (juz \"-\" = kitab satu jilid)")
     return ada
