@@ -16,6 +16,8 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       tanpa (yang tidak dicetak: فهرس ayat, hadits, maudhuat, dan pustaka = المصادر والمراجع
                       bila dosen minta sumber cukup di catatan kaki; mis. «@tanpa: ayat, hadits»).
                       فهرس الآيات dan فهرس الأحاديث yang kosong tidak dicetak dengan sendirinya
+                      pustaka (akhir = urutan خطة yang menaruh فهرس المصادر والمراجع sesudah فهرس الأحاديث, dengan judul itu;
+                      bawaan: المصادر والمراجع sebelum فهرس الآيات)
                       templat (berkas .docx di folder bahts): Word mahasiswa sendiri; halaman pertamanya jadi sampul
                       apa adanya (data sampul di naskah tidak dipakai), kepala halamannya (termasuk judul di dalamnya) dipakai
                       di tiap halaman isi; nomor halaman di kaki hanya kalau kepala itu tidak memuat nomor halaman
@@ -85,7 +87,7 @@ TANPA = ("ayat", "hadits", "maudhuat", "pustaka")  # فهرس dan المصادر
 # @angka: yang pertama = bawaan. Pedoman Jāmiʿat al-Imām tidak menyebut jenis angka; contoh resminya (pedoman 1443هـ,
 # مجلة العلوم الشرعية) memakai hindi di nomor halaman, catatan kaki, rujukan, tahun, ayat, dan فهرس
 ANGKA = ("hindi", "latin")
-META = frozenset("judul jenis nama nim fasl musyrif jabatan thalibah sampul tahun berkas format angka angka_ayat tanpa templat halaman_baru bentuk rumuz warna".split())
+META = frozenset("judul jenis nama nim fasl musyrif jabatan thalibah sampul tahun berkas format angka angka_ayat tanpa pustaka templat halaman_baru bentuk rumuz warna".split())
 # @warna: nama -> RGB. Biru tua: tetap nyaman dibaca untuk paragraf panjang dan jelas beda dari hitam serta merah lafaz matn
 WARNA = {"biru": (20, 60, 150)}
 # lambang hormat Unicode 14 (﵀-﵏ ﷾ ﷿) tidak ada di huruf cetak (Traditional Arabic, Sakkal Majalla): kotak kosong di PDF.
@@ -1786,6 +1788,8 @@ def utama(folder, keluar=None):
     # @templat: sampul diambil apa adanya dari Word mahasiswa; @sampul salah ketik: data wajib model mana pun belum pasti
     wajib = (("judul",) if meta.get("templat") or not sampul_dikenal else SAMPUL[sampul]) if bentuk == "bahts" else WAJIB[bentuk]
     galat += [di("@" + k) + f"data sampul belum diisi: @{k}" for k in wajib if not meta.get(k)]
+    if meta.get("pustaka", "akhir") != "akhir":
+        galat.append(di("@pustaka") + f"@pustaka: «{meta['pustaka']}» tidak dikenal (yang ada: akhir)")
     asing = [t for t in tanpa if t not in TANPA]
     if asing:
         galat.append(di("@tanpa") + f"@tanpa: «{'، '.join(asing)}» tidak dikenal (yang ada: {', '.join(TANPA)})")
