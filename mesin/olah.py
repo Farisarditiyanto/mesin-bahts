@@ -21,6 +21,7 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       templat (berkas .docx di folder bahts): Word mahasiswa sendiri; halaman pertamanya jadi sampul
                       apa adanya (data sampul di naskah tidak dipakai), kepala halamannya (termasuk judul di dalamnya) dipakai
                       di tiap halaman isi; nomor halaman di kaki hanya kalau kepala itu tidak memuat nomor halaman
+                      nomor (abjad = halaman sebelum #F pertama bernomor huruf أ ب ت, mulai #F pertama nomornya ١، ٢، ٣)
                       halaman_baru (B, M, atau keduanya): judul itu juga mulai halaman baru, mis. dosen minta
                       مبحث dan مطلب beda halaman, مبحث = #F dan مطلب = #B → «@halaman_baru: B»
   @bentuk: kitab      bukan bahts (mis. muqarrar gabungan dua syarah): tanpa sampul bahts, wajib hanya @judul (tercetak di
@@ -34,6 +35,9 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   #S teks             sub-judul kanan (tidak masuk فهرس)
   #H                  pindah halaman: baris sesudahnya (judul, sub-judul, atau paragraf) mulai halaman baru,
                       mis. pembuka المقدمة satu halaman sendiri, lalu «#H» sebelum «#S أهمية الدراسة»
+  #V teks             bait syair di tengah halaman (boleh memuat catatan kaki): « ... » = jarak antara dua paruh bait, « ...~ » = dua paruh yang berbagi satu kata digabung,
+                      « // » = bait berikutnya pada baris baru; kutipan bertanda petik boleh memuat keduanya
+  #L teks             paragraf bahasa Latin, kiri ke kanan (mis. الملخص bahasa Inggris); tanpa catatan kaki
   #T teks             kotak matn: paragraf dalam bingkai, seluruhnya merah (boleh memuat catatan kaki)
   #R teks             awal المصادر والمراجع; sesudahnya satu kitab per baris (diurutkan abjad otomatis, القرآن الكريم paling atas).
                       Wajib, kecuali «@tanpa: pustaka»; semua bagian isi harus sebelum #R (tidak boleh ada judul/#T/#H sesudahnya)
@@ -87,7 +91,7 @@ TANPA = ("ayat", "hadits", "maudhuat", "pustaka")  # فهرس dan المصادر
 # @angka: yang pertama = bawaan. Pedoman Jāmiʿat al-Imām tidak menyebut jenis angka; contoh resminya (pedoman 1443هـ,
 # مجلة العلوم الشرعية) memakai hindi di nomor halaman, catatan kaki, rujukan, tahun, ayat, dan فهرس
 ANGKA = ("hindi", "latin")
-META = frozenset("judul jenis nama nim fasl musyrif jabatan thalibah sampul tahun berkas format angka angka_ayat tanpa pustaka templat halaman_baru bentuk rumuz warna".split())
+META = frozenset("judul jenis nama nim fasl musyrif jabatan thalibah sampul tahun berkas format angka angka_ayat tanpa pustaka templat halaman_baru nomor bentuk rumuz warna".split())
 # @warna: nama -> RGB. Biru tua: tetap nyaman dibaca untuk paragraf panjang dan jelas beda dari hitam serta merah lafaz matn
 WARNA = {"biru": (20, 60, 150)}
 # lambang hormat Unicode 14 (﵀-﵏ ﷾ ﷿) tidak ada di huruf cetak (Traditional Arabic, Sakkal Majalla): kotak kosong di PDF.
@@ -1711,11 +1715,15 @@ def utama(folder, keluar=None):
             blok.append({"k": "H", "runs": [], "n": n})
         elif b.startswith("#"):
             k, _, t = b[1:].partition(" ")
-            if k not in ("K", "F", "B", "M", "S", "R", "T") or not t.strip():
-                galat.append(f"baris {n}: judul harus «#K/#F/#B/#M/#S/#R/#T teks» :: {b[:40]}"); continue
-            if k == "T":  # kotak matn: paragraf biasa (boleh bercatatan kaki), dicetak merah dalam bingkai
+            if k not in ("K", "F", "B", "M", "S", "R", "T", "V", "L") or not t.strip():
+                galat.append(f"baris {n}: judul harus «#K/#F/#B/#M/#S/#R/#T/#V/#L teks» :: {b[:40]}"); continue
+            if k == "L":  # tercetak apa adanya, kiri ke kanan; tanda naskah tidak diurai
+                if re.search(r"\[\^|<<|\{", t):
+                    galat.append(f"baris {n}: #L tidak boleh memuat catatan kaki, bukti, atau tanda {{Q:/{{H: :: {b[:40]}")
+                blok.append({"k": "L", "runs": [{"t": t}], "n": n})
+            elif k in ("T", "V"):  # kotak matn atau bait syair: paragraf biasa (boleh bercatatan kaki), dicetak rakit.ps1 menurut k
                 try:
-                    blok.append({"k": "T", "runs": urai(t, catatan, ayat_idx, hadits_idx, galat, perhatian, rumuz=rumuz, warna=warna, folder=folder)})
+                    blok.append({"k": k, "runs": urai(t, catatan, ayat_idx, hadits_idx, galat, perhatian, rumuz=rumuz, warna=warna, folder=folder)})
                 except TandaRusak as e:
                     galat.append(f"baris {n}: tanda rusak — {e}")
                 except (KeyError, IndexError, ValueError) as e:  # bukan salah tulis naskah: mesinnya yang keliru di baris ini
@@ -1819,6 +1827,10 @@ def utama(folder, keluar=None):
     if any(t not in HALAMAN_BARU for t in baru):
         galat.append(di("@halaman_baru") + f"@halaman_baru: «{meta['halaman_baru']}» tidak dikenal (yang ada: {', '.join(HALAMAN_BARU)})")
     meta["halaman_baru"] = [t for t in baru if t in HALAMAN_BARU]  # dibaca rakit.ps1 dan perkiraan_halaman
+    if meta.get("nomor", "abjad") != "abjad":
+        galat.append(di("@nomor") + f"@nomor: «{meta['nomor']}» tidak dikenal (yang ada: abjad)")
+    elif meta.get("nomor") and not any(b["k"] == "F" for b in blok):
+        galat.append(di("@nomor") + "@nomor: abjad memerlukan #F: nomor ١ mulai dari #F pertama")
     for a, b in zip(blok, blok[1:]):  # judul yang langsung disusul judul halaman baru tercetak sendirian di halamannya
         if a["k"] in ("K", "F", "B", "M") and b["k"] in ("K", "H", *("F",) * (bentuk != "kitab"), *meta["halaman_baru"]):
             perhatian.append(f"baris {a['n']}: judul «{a['judul'][:40]}» tercetak sendirian di halamannya, karena judul "
@@ -1839,7 +1851,7 @@ def utama(folder, keluar=None):
         for k in ("judul", "jenis", "nama", "nim", "fasl", "musyrif", "jabatan", "tahun"):
             if k in meta:
                 meta[k] = ubah(meta[k])
-        for r in [r for b in blok + catatan for r in b["runs"]] + hadits_idx:
+        for r in [r for b in blok + catatan if b.get("k") != "L" for r in b["runs"]] + hadits_idx:
             if "t" in r and not r.get("q"):
                 r["t"] = ubah(r["t"]).translate(HORMAT_CETAK)
         if angka_ayat != angka:  # rujukan ayat [^سورة …، آية: n.] saja; "al" = rakit.ps1 mencetak angkanya kiri-ke-kanan,
@@ -1855,6 +1867,11 @@ def utama(folder, keluar=None):
         for h in hadits_idx:
             h["r"] = ubah(h["r"])
         pustaka = [ubah(p) for p in pustaka]
+    for b in blok:  # bait syair: tanda tulis jadi jarak antarparuh dan pindah baris (\v = pindah baris dalam paragraf Word)
+        if b["k"] == "V":
+            for r in b["runs"]:
+                if "t" in r:
+                    r["t"] = re.sub(r"\s*//\s*", "\v", re.sub(r"\s*\.\.\.\s*", "\u2003\u2003\u2003", re.sub(r"\s*\.\.\.~\s*", "", r["t"])))
     sidik_naskah = hashlib.sha256(naskah).hexdigest()
     with sementara(keluar or bahan(folder)) as part:
         part.write_text(json.dumps({"meta": meta, "format": FORMAT.get(fmt), "blok": blok, "catatan": catatan,

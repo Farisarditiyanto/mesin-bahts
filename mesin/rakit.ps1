@@ -32,6 +32,7 @@ $adaHd = [bool]@($DATA.hadits).Count -and $TANPA -notcontains 'hadits'
 $adaTo = $TANPA -notcontains 'maudhuat'
 $KITAB = $M.bentuk -eq 'kitab'           # @bentuk: kitab = tanpa sampul bahts, judul di kepala halaman, hanya #K (dan @halaman_baru) halaman baru
 $adaPu = $TANPA -notcontains 'pustaka' -and (-not $KITAB -or @($DATA.pustaka).Count)   # @tanpa: pustaka = sumber cukup di catatan kaki
+$ABJAD = $M.nomor -eq 'abjad'             # @nomor: abjad = sebelum #F pertama nomor halaman huruf, mulai #F pertama ١، ٢، ٣
 $PUSTAKA_AKHIR = $M.pustaka -eq 'akhir'   # @pustaka: akhir = sumber sesudah فهرس الأحاديث, berjudul فهرس المصادر والمراجع
 $MERAH = 176; $COKLAT = 2772843           # warna Word (BGR): lafaz matn RGB(176,0,0); rumuz RGB(107,79,42)
 
@@ -108,7 +109,7 @@ try {
         }
     }
     if ($KITAB) { $doc = $word.Documents.Add(); $doc.SaveAs2($tmp, 16); Draft }
-    elseif ($M.sampul -eq 'qism') {
+    elseif ($M.sampul -eq 'qism' -and -not $M.templat) {   # @sampul bawaan selalu terisi: @templat didahulukan
     # @sampul: qism = model قسم الشريعة (logo, judul dalam kurung, العام الجامعي): teks penanda diganti, bentuknya dari templat
     $doc = $word.Documents.Open("$dir\sampul_qism.docx", $false, $true)
     $doc.SaveAs2($tmp, 16)
@@ -255,6 +256,8 @@ try {
     # pedoman: nomor halaman di tengah bawah, huruf dan ukuran sama dengan matan, dihitung mulai dari المقدمة
     $ft.Range.Font.Name = $TA; $ft.Range.Font.NameBi = $TA; $ft.Range.Font.Size = $uMatan; $ft.Range.Font.SizeBi = $uMatan
     $ft.PageNumbers.RestartNumberingAtSection = $true; $ft.PageNumbers.StartingNumber = 1
+    if ($ABJAD) { $ft.PageNumbers.NumberStyle = 46 }     # wdPageNumberStyleArabicLetter1: أ ب ت
+    $ftIsi = $null; $bagianDepan = $sec.Index
     if ($TPL) {                                          # kepala halaman @templat (nomor halamannya di situ): kaki halaman dikosongkan
         $hd = $sec.Headers(1); $sh0 = $TPL.Sections(1).Headers(1); $hd.Range.FormattedText = $sh0.Range.FormattedText
         # FormattedText membawa format langsung saja; arah, rata, dan garis dari gaya «Header» templat disalin per paragraf
@@ -460,6 +463,12 @@ try {
         if ($blk.k -in 'K', 'F', 'B', 'M') {
             $pb = ((($blk.k -in 'K', 'F' -and -not ($KITAB -and $blk.k -eq 'F')) -or $blk.k -in $M.halaman_baru) -and -not $pertama) -or $pbBerikut   # @halaman_baru: B/M juga halaman baru
             $pbBerikut = $false
+            if ($ABJAD -and $blk.k -eq 'F' -and -not $ftIsi) {   # #F pertama: bagian Word baru, nomor kembali ١
+                $sel.InsertBreak(2)
+                $ftIsi = $doc.Sections($doc.Sections.Count).Footers(1); $ftIsi.LinkToPrevious = $false
+                $ftIsi.PageNumbers.NumberStyle = 0; $ftIsi.PageNumbers.RestartNumberingAtSection = $true; $ftIsi.PageNumbers.StartingNumber = 1
+                $pb = $false
+            }
             $pertama = $false
             $nT++; $bm = "t_$nT"
             Judul $blk.judul $bm $pb
@@ -472,6 +481,22 @@ try {
             $awal = $sel.Start
             Runs $blk.runs $uMatan $false $true
             $nKotak++; [void]$doc.Bookmarks.Add("kotak_$nKotak", $doc.Range($awal, $sel.Start))   # bingkainya dipasang sesudah isi selesai
+            $sel.TypeParagraph()
+        }
+        elseif ($blk.k -eq 'V') {                         # bait syair: di tengah, tanpa awal alinea
+            Para 1 2 0
+            HalamanBaru
+            Runs $blk.runs $uMatan $false
+            $sel.TypeParagraph()
+        }
+        elseif ($blk.k -eq 'L') {                         # paragraf Latin: kiri ke kanan, rata kanan-kiri
+            Para 3 0 0
+            HalamanBaru
+            $sel.ParagraphFormat.ReadingOrder = 1
+            $sel.ParagraphFormat.Alignment = 3
+            $awal = $sel.Start
+            Tulis $blk.runs[0].t 'Times New Roman' $uMatan 0 0
+            $doc.Range($awal, $sel.Start).Select(); $word.Selection.LtrRun(); $sel.Collapse(0)
             $sel.TypeParagraph()
         }
         elseif ($blk.k -eq 'S') {
@@ -604,7 +629,12 @@ try {
 
     # ---------- 5. Isi nomor halaman ----------
     $doc.Repaginate()
-    function Hal($bm) { return $doc.Bookmarks.Item($bm).Range.Information(1) }   # 1 = nomor halaman seperti yang tercetak
+    $HURUF_NOMOR = 'أبتثجحخدذرزسشصضطظعغفقكلمنهوي'    # urutan nomor Word gaya 46; Information(1) tetap memberi angka
+    function Hal($bm) {                                  # 1 = nomor halaman seperti yang tercetak
+        $r = $doc.Bookmarks.Item($bm).Range; $n = $r.Information(1)
+        if ($ABJAD -and $r.Sections(1).Index -eq $bagianDepan) { return [string]$HURUF_NOMOR[$n - 1] }
+        return $n
+    }
     # {P:kunci} di catatan kaki: tiap ⟦h_…⟧ diganti nomor halaman hadits itu (satu catatan kaki bisa memuat beberapa)
     foreach ($fn in $doc.Footnotes) {
         foreach ($k in @([regex]::Matches($fn.Range.Text, '⟦(h_[^⟧]+)⟧') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)) {
@@ -630,6 +660,7 @@ try {
     # nomor halaman = teks kanan-ke-kiri, supaya ArabicNumeral 2 mencetaknya ٠-٩ (di akhir: memindah Selection ke kaki halaman)
     $ft.Range.Select(); $word.Selection.RtlRun()
     if ($KITAB) { $fg.Range.Select(); $word.Selection.RtlRun() }
+    if ($ftIsi) { $ftIsi.Range.Select(); $word.Selection.RtlRun() }
     # garis pemisah catatan kaki di kanan: ceritanya baru ada sesudah catatan kaki pertama; dokumen @templat berangkat dari
     # dokumen kosong yang gaya Normal-nya kiri-ke-kanan, jadi garisnya ikut ke kiri kalau tidak disetel di sini
     foreach ($g in @($doc.Footnotes.Separator, $doc.Footnotes.ContinuationSeparator)) {
@@ -637,7 +668,13 @@ try {
     }
     $pages = $doc.ComputeStatistics(2)
     # halaman isi = المقدمة s.d. الخاتمة (nomor halaman dihitung mulai dari المقدمة); tanpa المصادر dan فهرس = halaman terakhir
-    if ($doc.Bookmarks.Exists($bmSesudahIsi)) { $isi = (Hal $bmSesudahIsi) - 1 }
+    if ($ABJAD) {                                        # nomor tercetak dua jenis: halaman isi dihitung dari halaman fisik
+        $bmMuqaddimah = ($toc | Where-Object { $_.t -eq 'المقدمة' } | Select-Object -First 1).bm
+        $hAwal = if ($bmMuqaddimah) { $doc.Bookmarks.Item($bmMuqaddimah).Range.Information(3) } else { 1 }
+        $hAkhir = if ($doc.Bookmarks.Exists($bmSesudahIsi)) { $doc.Bookmarks.Item($bmSesudahIsi).Range.Information(3) } else { $pages + 1 }
+        $isi = $hAkhir - $hAwal
+    }
+    elseif ($doc.Bookmarks.Exists($bmSesudahIsi)) { $isi = (Hal $bmSesudahIsi) - 1 }
     else { $akhir = $doc.Content.End - 1; $isi = $doc.Range($akhir, $akhir).Information(1) }
     $lap = @("HALAMAN=$pages", "HALAMAN_ISI=$isi","CATATAN_KAKI=$($doc.Footnotes.Count)", "KATA(termasuk catatan kaki)=$($doc.ComputeStatistics(0, $true))")
     foreach ($e in $toc) { $lap += ("hal {0}: {1}" -f (Hal $e.bm), $e.t) }
