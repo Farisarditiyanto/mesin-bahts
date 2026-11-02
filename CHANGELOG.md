@@ -9,6 +9,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 - `rakit` tidak lagi menaruh nama pengguna Word di data penulis `.docx`; dulu nama orang yang merakit tertulis di Word milik orang lain.
 - `baru` kini menerima `bahts/<orang>/<topik>` untuk yang mengerjakan bahts banyak orang. `cek`, `rakit`, dan `ambil` memakai jalur yang sama; nama yang salah menunjuk tempat bahts yang mirip.
 - `keluaran_saya.txt` (opsional): `rakit` menaruh salinan PDF di folder yang disebut berkas itu, dikelompokkan per orang.
+- Agent memilih alat connector menurut kebutuhan (lafaz berharakat, sejarah, sebab turun, qiraat, i'rab) dan tahu batasnya: `quran` satu panggilan per detik, alat yang balasannya sangat panjang, serta status `differs` dari `shamela_verify_quote`.
 
 ## 6.1.0 — 2026-10-31
 
