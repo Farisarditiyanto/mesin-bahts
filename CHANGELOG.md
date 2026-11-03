@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `cek`: bagian nukilan yang isinya cuma angka di samping `...` atau ayat («… ٩٩», «٩٩ …», «{Q:22:70} ٧١») kini GAGAL. Dulu bagian itu dibuang diam-diam, jadi angka yang tidak ada di halaman bukti lolos tanpa perhatian. Tulis angkanya bersama lafaz kitab yang menempel padanya (mis. «[الحج:٧٠]») tanpa `...` atau ayat di antaranya, supaya dicocokkan di tempatnya. Naskah lama bisa mendapat GAGAL baru.
 - `cek`: angka dan ayat di dalam nukilan kini dicocokkan pada kemunculan berkata utuh di halaman bukti. Dulu hurufnya bisa cocok di halaman itu, tetapi angkanya diambil dari halaman tetangga dalam rekaman Shamela yang sama, atau dari kemunculan yang berakhir di tengah kata. Dua kasus kitab asli (رياض الصالحين, صحيح مسلم) yang salah halaman kini GAGAL; pasangan yang benar tetap lolos. Naskah lama bisa mendapat GAGAL baru.
 - `cek`: kemunculan setelah calon ke-50 tetap diperiksa; bila angka hanya cocok di حاشية المحقق, peringatannya tetap menyebut muhaqqiq dan ketidakpastian halamannya bila tidak tercatat. Konteks ayat tepat sebelum/sesudah halaman bukti tetap diperiksa.
 
