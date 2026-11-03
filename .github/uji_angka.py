@@ -1,7 +1,8 @@
 """Tes angka lewat pintu pemakai (`bahts.py cek`, lalu bahan yang dibaca rakit.ps1): naskah contoh mengetik
 «ص5», «1423هـ», nim «000000000», dan «آية: ٢». Tanpa @angka, semua angka di teks Arab bahan rakit harus ٠-٩
 (bug yang pernah terjadi: PDF mencetak «آية: ٢» di samping «ص5» dan «1423هـ»).
-Dengan «@angka_ayat: latin», hanya catatan kaki rujukan ayat yang 0-9 (dan ditandai "al" untuk rakit.ps1); sisanya tetap ٠-٩."""
+Dengan «@angka_ayat: latin», hanya catatan kaki rujukan ayat yang 0-9 (dan ditandai "al" untuk rakit.ps1); sisanya tetap ٠-٩.
+Dengan «@angka: latin», semua angka di teks Arab bahan rakit 0-9 (jalur else di mesin/olah.py ±1904: ubah = latin)."""
 import json, re, shutil, subprocess, sys
 from pathlib import Path
 
@@ -30,7 +31,7 @@ if b["meta"].get("angka") != "hindi" or latin:
     sys.exit(f"angka bawaan bukan ٠-٩: @angka={b['meta'].get('angka')}, masih 0-9 di: {latin}")
 print(f"uji angka: {len(teks)} teks, semua angka ٠-٩")
 
-uji = AKAR / "_uji_angka_ayat"  # di dalam folder mesin (syarat `cek`), diabaikan git
+uji = AKAR / "_uji_angka_ayat"  # akar repo = parent.parent uji_angka.py (folder bahts; syarat `cek`), diabaikan git
 uji.mkdir(exist_ok=True)
 try:
     naskah = (AKAR / "contoh" / "naskah.txt").read_text(encoding="utf-8")
@@ -45,5 +46,25 @@ try:
     if latin:
         sys.exit(f"@angka_ayat: latin ikut mengubah selain catatan kaki ayat: {latin}")
     print(f"uji angka_ayat: {len(ayat)} catatan kaki ayat 0-9, {len(teks)} teks lain tetap ٠-٩")
+finally:
+    shutil.rmtree(uji)
+
+uji = AKAR / "_uji_angka"  # folder bahts baru; diabaikan git
+uji.mkdir(exist_ok=True)
+try:
+    naskah = (AKAR / "contoh" / "naskah.txt").read_text(encoding="utf-8")
+    (uji / "naskah.txt").write_text("@angka: latin\n" + naskah, encoding="utf-8")
+    b = bahan(uji.name)
+    if b["meta"].get("angka") != "latin":
+        sys.exit(f"@angka: latin: meta.angka={b['meta'].get('angka')}, bukan latin")
+    teks = [b["meta"]["nim"], *b["pustaka"]]
+    teks += [r["t"] for x in b["blok"] + b["catatan"] for r in x["runs"] if "t" in r and not r.get("q")]
+    hindi = [t for t in teks if re.search(r"[٠-٩]", t)]
+    if hindi:
+        sys.exit(f"@angka: latin: masih ada angka hindi ٠-٩ di: {hindi}")
+    latin = sorted({t for t in teks if re.search(r"[0-9]", t)})
+    if not latin:
+        sys.exit("@angka: latin: tidak ada satu pun angka 0-9 di teks hasil (terlalu longgar?)")
+    print(f"uji angka: {len(latin)} teks berangka 0-9, ٠-٩ tidak ada")
 finally:
     shutil.rmtree(uji)

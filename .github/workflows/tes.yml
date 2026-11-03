@@ -7,11 +7,19 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest]  # pemakai Windows sampai `rakit`; Linux/macOS berhenti di `cek`
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20  # durasi riil CI 3-4 menit; 20 = aman buat putaran yang lambat
     steps:
       - uses: actions/checkout@v5
+      # cache kitab: unduhan Shamela ±18 MB dijamin antar putaran; `ambil` tetap fallback idempoten (sudah ada = skip)
+      - uses: actions/cache@v4
+        with:
+          path: kitab/
+          key: kitab-${{ runner.os }}-${{ hashFiles('.github/workflows/tes.yml') }}
+          restore-keys: kitab-${{ runner.os }}-
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+          cache: "pip"  # requirements.txt di akar; unduhan pip di-cache antar putaran
       - run: pip install -r requirements.txt
       - run: python mesin/bahts.py siapkan
       - run: python mesin/bahts.py periksa
@@ -34,7 +42,7 @@ jobs:
       - run: python .github/uji_halaman.py
       # opencode.json = salinan terpaksa .mcp.json (OpenCode tidak membaca .mcp.json): daftar connector harus sama
       - name: connector opencode.json sama dengan .mcp.json
-        run: python -c "import json; a={k:v['url'] for k,v in json.load(open('.mcp.json'))['mcpServers'].items()}; b={k:v['url'] for k,v in json.load(open('opencode.json'))['mcp'].items()}; assert a==b, (a,b)"
+        run: python -c "import json; a={k:v['url'] for k,v in json.load(open('.mcp.json', encoding='utf-8'))['mcpServers'].items()}; b={k:v['url'] for k,v in json.load(open('opencode.json', encoding='utf-8'))['mcp'].items()}; assert a==b, (a,b)"
       # rakit.ps1 tidak bisa dijalankan tanpa Word; minimal harus terurai oleh Windows PowerShell 5.1 milik pemakai
       - name: urai rakit.ps1
         if: runner.os == 'Windows'

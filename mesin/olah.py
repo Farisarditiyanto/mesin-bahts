@@ -118,12 +118,18 @@ def galat_mesin(n, e):
 
 def hindi(s):
     """Angka 0-9 -> ٠-٩, kecuali angka yang huruf atau tanda baca Arab terdekat sebelumnya (atau sesudahnya, kalau tidak
-    ada) huruf Latin: tautan, DOI, dan judul berbahasa Latin tetap 0-9; «مجلة X، 2020» tetap ٢٠٢٠."""
-    def ganti(m):
-        kiri = KUAT.findall(s[:m.start()])
-        c = kiri[-1] if kiri else next(iter(KUAT.findall(s[m.end():])), "")
-        return m.group() if re.match(f"[{HURUF_LATIN}]", c) else m.group().translate(AD)
-    return re.sub(r"[0-9]+", ganti, s)
+    ada) huruf Latin: tautan, DOI, dan judul berbahasa Latin tetap 0-9; «مجلة X، 2020» tetap ٢٠٢٠. Satu lintasan linear."""
+    keluar, pos, terakhir = [], 0, ""  # terakhir = huruf/tanda baca Arab terdekat sebelum posisi `pos`
+    for m in re.finditer(r"[0-9]+", s):
+        keluar.append(s[pos:m.start()])
+        for k in KUAT.finditer(s, pos, m.start()):
+            terakhir = k.group()
+        k = next(KUAT.finditer(s, m.end()), None)  # sesudah angka, kalau sebelumnya tidak ada
+        c = terakhir or (k.group() if k else "")
+        keluar.append(m.group() if re.match(f"[{HURUF_LATIN}]", c) else m.group().translate(AD))
+        pos = m.end()
+    keluar.append(s[pos:])
+    return "".join(keluar)
 AD = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
 KEPALA_HADITS = re.compile(r"^[ \t\u200e\u200f]*(?:(\d+)[ \t]*[-–][ \t]*\((\d+)\)|\((\d+)\)[ \t]*[-–][ \t]*(?=[^\d\s])"
                            r"|(\d+(?:[ \t]*[،,و–-][ \t]*\d+)*)[ \t]*[-–][ \t]*(?=[^\d\s]))", re.M)
@@ -343,7 +349,7 @@ def _akhir(r):
     return max([r.get("page_num") or 0] + [int(n) for n in shamela.PENANDA.findall(r.get("body") or "")])
 
 
-@functools.cache
+@functools.lru_cache(maxsize=4096)
 def gabung(sid, juz, p1, p2):
     """Rekaman-rekaman yang menyentuh halaman p1..p2 sebagai rangkaian rekaman: awal tiap rekaman diberi penanda
     halaman ⦗n⦘, jadi kutipan yang menyambung lintas rekaman tetap dicek per kata dan halamannya tetap tercatat.
@@ -1616,7 +1622,8 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                         galat.append(f"[tanpa kutipan] {isi[:50]}"); continue
                     e = cek(int(f[0]), f[1], f[2], nukilan, perhatian, kutipan=True)
                 else:
-                    e = cek(int(f[0]), f[1], f[2], f[3], perhatian)
+                    pot4 = re.sub(r"\{Q:([^}]*)\}", lambda m: " ﴿%s:%s﴾ " % ayat(m.group(1))[1:], f[3])
+                    e = cek(int(f[0]), f[1], f[2], pot4, perhatian)
                     if not e and mk is not None and not tiga:
                         p = []
                         kutipan_4.append((cek(int(f[0]), f[1], f[2], mk, p, kutipan=True), p))
@@ -1625,7 +1632,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                     sid_bersih = str(int(f[0]))  # «02348» dan «2348» kitab yang sama; pesan cek memakai bentuk tanpa nol
                     if e.startswith(f"teks TIDAK KETEMU di kitab {sid_bersih}"):
                         # yang dicek: kutipan sebelum catatan kaki, paragraf salinan (diam), atau potongan bukti itu sendiri
-                        t = (penggal if diam else mk) if (len(f) == 3 or diam) else f[3]
+                        t = (penggal if diam else mk) if (len(f) == 3 or diam) else pot4
                         if t:
                             TERTOLAK.append((sid_bersih, t))
             periksa_takhrij(isi, bukti, terbukti, mk, perhatian)
@@ -1717,6 +1724,11 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
     if re.search(r"\{(?:Q|H2|H|P):", polos):
         raise TandaRusak("tanda {Q:/{H:/{H2:/{P: tidak ditutup dengan }")
     return [r for r in runs if r.get("t", "x") != ""]
+
+
+def kata(runs):
+    """Jumlah kata Arab di runs naskah (untuk perkiraan jumlah halaman)."""
+    return sum(len(re.findall(r"[؀-ۿ]+", r.get("t", ""))) for r in runs)
 
 
 def utama(folder, keluar=None):
@@ -1834,7 +1846,6 @@ def utama(folder, keluar=None):
     hadits_idx.sort(key=lambda h: kunci_urut(h["t"]))
 
     # hitung kata
-    def kata(runs): return sum(len(re.findall(r"[؀-ۿ]+", r.get("t", ""))) for r in runs)
     n_matan = sum(kata(b["runs"]) for b in blok)
     n_fn = sum(kata(c["runs"]) for c in catatan)
     # rakit.ps1 hanya memakai salah satu: jangan ada yang diabaikan diam-diam (@sampul yang tidak dikenal sudah GAGAL di bawah)
