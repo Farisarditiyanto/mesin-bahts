@@ -5,6 +5,9 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `cek`: angka dan ayat di dalam nukilan kini dicocokkan pada kemunculan berkata utuh di halaman bukti. Dulu hurufnya bisa cocok di halaman itu, tetapi angkanya diambil dari halaman tetangga dalam rekaman Shamela yang sama, atau dari kemunculan yang berakhir di tengah kata. Dua kasus kitab asli (رياض الصالحين, صحيح مسلم) yang salah halaman kini GAGAL; pasangan yang benar tetap lolos. Naskah lama bisa mendapat GAGAL baru.
+- `cek`: kemunculan setelah calon ke-50 tetap diperiksa; bila angka hanya cocok di حاشية المحقق, peringatannya tetap menyebut muhaqqiq dan ketidakpastian halamannya bila tidak tercatat. Konteks ayat tepat sebelum/sesudah halaman bukti tetap diperiksa.
+
 ## 7.0.0 — 2026-11-03
 
 **Naskah lama bisa GAGAL di `cek`.** Dua celah kutipan palsu ditutup: tanda petik pembuka yang tidak ditutup, dan ayat yang diketik sendiri lalu dirujuk «سورة …». Dari 32 bahts nyata, tidak ada yang mendapat GAGAL baru.
