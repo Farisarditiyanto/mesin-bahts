@@ -1351,7 +1351,8 @@ AKHIR_NUKILAN = re.compile(r'(?<=["»])[\s.،؛]*(?:اهـ|انتهى(?:\s+كل�
 
 
 def kutipan_semua(teks):
-    """Isi tiap kutipan teratas "..." atau «...» di teks, urut dari depan; kutipan di dalam kutipan ikut induknya."""
+    """Isi tiap kutipan teratas "..." atau «...» di teks, urut dari depan; kutipan di dalam kutipan ikut induknya.
+    Pembuka yang tidak tertutup tidak menghentikan pencarian: dulu satu «« nyasar membuat kutipan sesudahnya tidak dicek."""
     teks, out, i = seragam(teks), [], 0
     while i < len(teks):
         if teks[i] == "«":
@@ -1362,8 +1363,8 @@ def kutipan_semua(teks):
             d, j = 0, teks.find('"', i + 1) + 1
         else:
             i += 1; continue
-        if d or j <= i:
-            break  # tidak tertutup
+        if d or j <= i:  # pembuka tanpa penutup: lewati tanda itu saja, kutipan sesudahnya tetap dicek
+            i += 1; continue
         out.append(teks[i + 1:j - 1]); i = j
     return out
 
