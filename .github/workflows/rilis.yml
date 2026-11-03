@@ -23,6 +23,6 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           versi="${VERSI:-${TAG#v}}"
-          awk -v v="$versi" '/^## /{ if (ada) exit; ada = index($0, "## " v " ") == 1; next } ada' CHANGELOG.md > catatan.md
-          if [ ! -s catatan.md ]; then echo "CHANGELOG.md tidak punya bagian «## $versi —»"; exit 1; fi
+          awk -v v="$versi" '/^## /{ if (ada) exit; ada = (index($0, "## " v " ") == 1 || $0 == "## " v); next } ada' CHANGELOG.md > catatan.md
+          if [ ! -s catatan.md ]; then echo "CHANGELOG.md tidak punya bagian «## $versi —» (baris «## $versi» polos tanpa tanggal juga dikenali)"; exit 1; fi
           gh release create "v$versi" --title "$versi" --notes-file catatan.md --target "$GITHUB_SHA"

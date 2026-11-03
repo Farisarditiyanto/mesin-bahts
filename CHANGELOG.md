@@ -5,6 +5,14 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- Potongan bukti `<<kitab|juz|hal|potongan>>` kini boleh memuat `{Q:…}`: tokennya diganti ayat mushaf sebelum dicek (seperti di kutipan matan). Dulu pasti GAGAL karena tokennya dibuang dan sisa potongannya jadi frasa yang tidak ada di kitab.
+- `hadits` yang ditolak layanannya (HTTP 429) kini menunggu sekali sesuai `Retry-After`, lalu menjelaskan jatah alminasa.ai dan alternatifnya (`temukan`, connector, `katalog`). Dulu langsung pesan umum «layanannya sedang menolak».
+- PDF `dirasat-pdf` ditulis lewat jalur sementara yang sama dengan unduhan kitab: nama sementaranya unik dan terhapus sendiri kalau prosesnya mati di tengah menulis.
+- Nama surah ke-34 di فهرس الآيات diperbaiki: «سبإ» → «سبأ».
+- `rakit` lebih tahan gagal: Word yang gagal dibuat atau dibersihkan tidak lagi bisa tertinggal menggantung (mengunci rakit berikutnya), kolom halaman فهرس memakai angka mode `@angka` sejak awal, dan penyusunan indeks yang belum tetap sesudah 5 putaran kini diberi PERINGATAN, tidak diam.
+- `cek` lebih cepat: pengubahan angka hindi di teks panjang dari O(n²) jadi linear (teks ±79 ribu huruf: ±14 detik → ±0,02 detik), cache gabungan rekaman kitab dibatasi (dulu tumbuh sepanjang proses), dan hasilnya sama persis.
+- CI lebih hemat dan aman: unduhan kitab dan pip di-cache antar putaran, job punya `timeout-minutes`, dan workflow rilis kini mengenali bagian CHANGELOG «## versi» tanpa tanggal.
+- Tes baru: `@angka: latin` kini diuji (dulu tidak tersentuh), dan jebakan baru untuk `{Q:…}` di potongan bukti.
 - `temukan` kini bisa dipersempit tanpa akun: `--mazhab hanafi,maliki,syafii,hanbali` hanya kitab fikih mazhab itu, `--kitab <id>` hanya kitab itu walau belum diunduh, dan `--halaman 2` membuka hasil sesudah 20 pertama. Dulu hasilnya berhenti di 20.
 - `cek --jejak`: kutipan yang satu huruf atau katanya meleset kini ditunjuk ke tempat yang paling mirip («Paling mirip: kitab … (±98% huruf sama)»), kitab yang dirujuk lebih dulu. Dulu hanya «tidak ditemukan». Kutipan ber-`...` dan yang lebih dari 300 huruf tidak dicari begini. Tetap petunjuk: putusan `cek` tidak berubah.
 - `cari`, `teks`, dan `bab` hanya mengurai rekaman yang memuat frasanya, jadi lebih cepat: `cari semua` di 289 kitab dari ±23 detik jadi ±12 detik. Hasilnya sama persis.

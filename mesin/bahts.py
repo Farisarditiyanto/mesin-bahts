@@ -240,7 +240,8 @@ def perkiraan_halaman(d):
     if not fmt:
         return None
     per_hal = KATA_PER_HALAMAN_18 * (18 / fmt["matan"]) ** 2
-    def kata(runs): return sum(len(re.findall(r"[؀-ۿ]+", r.get("t") or "")) for r in runs)
+    import olah
+    kata = olah.kata
     bagian = []
     blok = d["blok"]
     if d["meta"].get("nomor"):  # @nomor: abjad: الإهداء dst. sebelum المقدمة bukan halaman isi

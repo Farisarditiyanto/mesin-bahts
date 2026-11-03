@@ -8,6 +8,8 @@ lain (syaddah jadi «ن»). Yang diubah hanya peta glyph -> huruf (ToUnicode); t
 import os, re, unicodedata
 from pathlib import Path
 
+from berkas import sementara
+
 ARAB = re.compile(r"[\u0600-\u06ff\ufb50-\ufdff\ufe70-\ufeff]")
 HARAKAT = re.compile(r"[\u064b-\u065f\u0670]")
 
@@ -146,8 +148,7 @@ def betulkan(pdf):
                 ubah += s != lama[g]
                 baru[g] = s
             tu.get_object().set_data(_cmap(baru))
-    sementara = Path(str(pdf) + ".tmp")
-    with open(sementara, "wb") as h:
-        w.write(h)
-    os.replace(sementara, pdf)
+    with sementara(pdf) as part:
+        with open(part, "wb") as h:
+            w.write(h)
     return ubah

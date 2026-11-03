@@ -53,18 +53,18 @@ if (Test-Path -LiteralPath $CATATAN_WORD) {
     Remove-Item -LiteralPath $CATATAN_WORD -Force
 }
 $wordLain = @(Get-Process WINWORD -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
-$word = New-Object -ComObject Word.Application
-$wordIni = @(Get-Process WINWORD -ErrorAction SilentlyContinue | Where-Object { $_.Id -notin $wordLain } | ForEach-Object { $_.Id })
-if ($wordIni) { Set-Content -LiteralPath $CATATAN_WORD -Encoding ASCII -Value @(Get-Process -Id $wordIni -ErrorAction SilentlyContinue | ForEach-Object { "$($_.Id)|$($_.StartTime.Ticks)" }) }
-$word.Visible = $false; $word.ScreenUpdating = $false; $word.DisplayAlerts = 0
-# pengaturan Word pemakai (berlaku untuk semua dokumennya): dipinjam selama rakit, dikembalikan di finally.
-# 2 = angka di teks Arab dicetak ٠-٩, di teks Latin 0-9; 0 = selalu 0-9
-$numeralLama = $word.Options.ArabicNumeral
-$word.Options.ArabicNumeral = if ($HINDI) { 2 } else { 0 }
-# Alamat kerja Word berupa string biasa untuk COM.
 $tmp = "$Hasil\word\kerja.docx"
 try {
     [IO.Directory]::CreateDirectory((Split-Path -Parent $tmp)) | Out-Null
+    $word = New-Object -ComObject Word.Application
+    $wordIni = @(Get-Process WINWORD -ErrorAction SilentlyContinue | Where-Object { $_.Id -notin $wordLain } | ForEach-Object { $_.Id })
+    if ($wordIni) { Set-Content -LiteralPath $CATATAN_WORD -Encoding ASCII -Value @(Get-Process -Id $wordIni -ErrorAction SilentlyContinue | ForEach-Object { "$($_.Id)|$($_.StartTime.Ticks)" }) }
+    $word.Visible = $false; $word.ScreenUpdating = $false; $word.DisplayAlerts = 0
+    # pengaturan Word pemakai (berlaku untuk semua dokumennya): dipinjam selama rakit, dikembalikan di finally.
+    # 2 = angka di teks Arab dicetak ٠-٩, di teks Latin 0-9; 0 = selalu 0-9
+    $numeralLama = $word.Options.ArabicNumeral
+    $word.Options.ArabicNumeral = if ($HINDI) { 2 } else { 0 }
+    # Alamat kerja Word berupa string biasa untuk COM.
     # huruf profil yang tidak terpasang diganti Word diam-diam: berhenti di sini saja
     if (@($word.FontNames) -notcontains $TA) { throw "Huruf [$TA] belum terpasang di Windows. Jalankan: python mesin/bahts.py periksa" }
     # ---------- 1. Sampul: berangkat dari template sampul (bentuk kitab: dokumen kosong) ----------
@@ -584,7 +584,7 @@ try {
         # huruf mushaf hanya untuk kata-kata ayat; titik-titik « ...» tetap huruf matan (huruf mushaf tidak punya titik)
         $nq = if ($pot.EndsWith(' ...')) { $pot.Length - 4 } else { $pot.Length }
         $q = $tAy.Cell($r, 1).Range; $q.SetRange($rg.Start + 1, $rg.Start + 1 + $nq); $q.Font.Name = $QF; $q.Font.NameBi = $QF; $q.Font.Size = $uAyat; $q.Font.SizeBi = $uAyat
-        Sel $tAy $r 2 $a.surah 1 0; Sel $tAy $r 3 (Angka $a.a) 1 0; Sel $tAy $r 4 '00' 1 0
+        Sel $tAy $r 2 $a.surah 1 0; Sel $tAy $r 3 (Angka $a.a) 1 0; Sel $tAy $r 4 (Angka '00') 1 0
     }
     Sel-Akhir
     }
@@ -593,7 +593,7 @@ try {
     $tHd = Tabel ($DATA.hadits.Count + 1) @(8.6, 4.4, 2.0) 1
     Sel $tHd 1 1 'طرف الحديث أو الأثر' 1 1; Sel $tHd 1 2 'الراوي' 1 1; Sel $tHd 1 3 'الصفحة' 1 1
     $r = 1
-    foreach ($h in $DATA.hadits) { $r++; Sel $tHd $r 1 ('«' + $h.t + '»') 3 0; Sel $tHd $r 2 $h.r 1 0; Sel $tHd $r 3 '00' 1 0 }
+    foreach ($h in $DATA.hadits) { $r++; Sel $tHd $r 1 ('«' + $h.t + '»') 3 0; Sel $tHd $r 2 $h.r 1 0; Sel $tHd $r 3 (Angka '00') 1 0 }
     Sel-Akhir
     }
     if ($adaPu -and $PUSTAKA_AKHIR) { Tulis-Pustaka 'فهرس المصادر والمراجع' }
@@ -602,7 +602,7 @@ try {
     $tTo = Tabel ($toc.Count + 1) @(13.0, 2.0) 1
     Sel $tTo 1 1 'الموضوع' 1 1; Sel $tTo 1 2 'الصفحة' 1 1
     $r = 1
-    foreach ($e in $toc) { $r++; Sel $tTo $r 1 $e.t 3 ([int]($e.lvl -eq 0)); $tTo.Cell($r, 1).Range.ParagraphFormat.RightIndent = 0; $tTo.Cell($r, 1).Range.ParagraphFormat.LeftIndent = 0; if ($e.lvl -gt 0) { $tTo.Cell($r, 1).Range.ParagraphFormat.RightIndent = $word.CentimetersToPoints(0.7 * $e.lvl) }; Sel $tTo $r 2 '00' 1 0 }
+    foreach ($e in $toc) { $r++; Sel $tTo $r 1 $e.t 3 ([int]($e.lvl -eq 0)); $tTo.Cell($r, 1).Range.ParagraphFormat.RightIndent = 0; $tTo.Cell($r, 1).Range.ParagraphFormat.LeftIndent = 0; if ($e.lvl -gt 0) { $tTo.Cell($r, 1).Range.ParagraphFormat.RightIndent = $word.CentimetersToPoints(0.7 * $e.lvl) }; Sel $tTo $r 2 (Angka '00') 1 0 }
     Sel-Akhir
     }
 
@@ -655,6 +655,7 @@ try {
         $doc.Repaginate()
         if (-not $ubah) { break }
     }
+    if ($ubah) { Write-Output "PERINGATAN: nomor halaman فهرس belum tetap sesudah 5 putaran" }
 
     # ---------- 6. Simpan ----------
     # nomor halaman = teks kanan-ke-kiri, supaya ArabicNumeral 2 mencetaknya ٠-٩ (di akhir: memindah Selection ke kaki halaman)
@@ -694,10 +695,10 @@ finally {
     try { foreach ($d in @($word.Documents)) { $d.Close($false) } } catch {}
     try { $word.Options.ArabicNumeral = $numeralLama } catch {}
     try { $word.Quit([ref]0) } catch {}                   # Quit menerima argumen ref; Quit(0) selalu gagal
-    [void][Runtime.InteropServices.Marshal]::ReleaseComObject($word)
+    try { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($word) } catch {}
     # cadangan: Word buatan skrip ini yang belum mati sesudah Quit dimatikan (yang itu saja)
     Start-Sleep -Milliseconds 500
-    foreach ($id in $wordIni) { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue }
-    Remove-Item -LiteralPath $tmp, $CATATAN_WORD -Force -ErrorAction SilentlyContinue
-    $kunci.Close()
+    foreach ($id in $wordIni) { try { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue } catch {} }
+    try { Remove-Item -LiteralPath $tmp, $CATATAN_WORD -Force -ErrorAction SilentlyContinue } catch {}
+    try { $kunci.Close() } catch {}
 }

@@ -17,6 +17,10 @@ $buatWord = $ast.Find({
     $a.Left.Extent.Text -eq '$word' -and $a.Right.Extent.Text -match 'New-Object\s+-ComObject\s+Word.Application'
 }, $true)
 if (-not $buatWord) { throw 'Titik sebelum pembuatan Word tidak ditemukan; perbarui uji startup' }
+# Word dibuat di dalam try (supaya finally tetap membereskannya): potong sebelum try itu, bukan di tengahnya
+$potong = $buatWord
+for ($p = $buatWord.Parent; $p; $p = $p.Parent) { if ($p -is [System.Management.Automation.Language.TryStatementAst]) { $potong = $p } }
+$buatWord = $potong
 $asal = Get-Content -LiteralPath $rakit -Raw -Encoding UTF8
 $uji = Join-Path ([IO.Path]::GetTempPath()) ('bahts-word-startup-' + [guid]::NewGuid())
 New-Item -ItemType Directory -Path (Join-Path $uji '_tmp') -Force | Out-Null
