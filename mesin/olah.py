@@ -498,6 +498,7 @@ def cek(sid, juz, hal, pot, perhatian, kutipan=False, rinci=True):
                 "dihitung, bukan nomor ayat atau catatan; betulkan nomornya, atau pakai potongan lafaz dari halaman itu")
     bagian, celah, pisah = [], [], []  # celah[i] = pemisah (... atau ﴿s:a﴾) di antara bagian i dan i+1
     ujung = [[], []]  # pemisah sebelum bagian pertama dan sesudah bagian terakhir («"قال تعالى: {Q:…}"»)
+    angka_lepas = None  # bagian tanpa huruf Arab yang dipisah ... atau ayat dari lafaz («… ٩٩»): tak punya letak di kitab
     for k, x in enumerate(re.split(f"({ELIPSIS.pattern})", pot)):
         if k % 2:
             pisah.append(x)
@@ -507,9 +508,14 @@ def cek(sid, juz, hal, pot, perhatian, kutipan=False, rinci=True):
             else:
                 ujung[0] = pisah
             bagian.append(x); pisah = []
+        elif re.search(r"\d", x.translate(ANGKA_LATIN)):
+            angka_lepas = x.strip()
     ujung[1] = pisah
     if not bagian:
         return f"{'kutipan' if kutipan else 'potongan'} tanpa huruf Arab: {pot[:40]}"
+    if angka_lepas is not None:
+        return (f"bagian kutipan yang cuma angka tidak bisa dicek: tulis angka itu bersama lafaz kitab yang menempel padanya "
+                f"(«رقم (٨٥)», «[الحج:٧٠]»), tanpa ... atau ayat di antaranya (titik milik kitab pun dibuang) :: {angka_lepas}")
     minimal = KUTIPAN_MIN if kutipan else POTONGAN_MIN
     for i, b in enumerate(bagian):
         if len(shamela.padat(b)) < minimal:
