@@ -1826,7 +1826,8 @@ def utama(folder, keluar=None):
         if "#R" in di_baris:
             galat.append(di("#R") + "@tanpa: pustaka, tetapi ada #R: hapus #R beserta daftarnya, atau hapus «pustaka» dari @tanpa")
     elif "#R" not in di_baris and bentuk != "kitab":
-        galat.append("tidak ada #R (المصادر والمراجع) di akhir naskah")
+        galat.append("tidak ada #R (المصادر والمراجع) di akhir naskah: salin baris #R dari mesin/naskah_baru.txt, "
+                     "lalu tulis satu kitab per baris di bawahnya")
     elif "#R" in di_baris and not pustaka:
         galat.append(di("#R") + "المصادر والمراجع masih kosong: tulis satu kitab per baris sesudah #R")
     if not meta["berkas"]:

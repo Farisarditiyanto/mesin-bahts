@@ -281,10 +281,13 @@ def cek(nama, keluar=None, jejak=False):
     return f, galat, lap
 
 
+RAKIT_ANTRE = 30 * 60  # detik; rakit terlama yang tercatat ±10 menit: dua rakit di depan masih tertampung
+
+
 def rakit(nama):
     if os.name == "nt":
         try:
-            with kunci(MESIN / "_tmp" / "rakit.pekerjaan"):
+            with kunci(MESIN / "_tmp" / "rakit.pekerjaan", tunggu=RAKIT_ANTRE):
                 _rakit(nama)
         except PermissionError as e:  # hasil lama (atau yang baru) sedang dibuka aplikasi lain; hasil lama tetap utuh
             sys.exit(f"Perakitan GAGAL: {Path(e.filename or '').name or 'hasil'} sedang terbuka di aplikasi lain (Word "

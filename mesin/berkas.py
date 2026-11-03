@@ -1,5 +1,5 @@
 """Penulisan berkas utuh dan penerbitan hasil dengan cadangan; tanpa layanan luar."""
-import hashlib, os, re, shutil, tempfile, zipfile
+import hashlib, os, re, shutil, tempfile, time, zipfile
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -43,22 +43,31 @@ def bahan(folder):
 
 
 @contextmanager
-def kunci(f):
-    """Kunci antarproses yang dilepas OS saat proses mati, meliputi seluruh pekerjaan rakit."""
+def kunci(f, tunggu=0):
+    """Kunci antarproses yang dilepas OS saat proses mati, meliputi seluruh pekerjaan rakit.
+    Sedang dipegang proses lain: antre sampai `tunggu` detik (rakit dari beberapa sesi jalan bergiliran)."""
     f.parent.mkdir(parents=True, exist_ok=True)
     with open(f, "a+b") as h:
         if not h.tell():
             h.write(b"\0"); h.flush()
-        h.seek(0)
-        try:
-            if os.name == "nt":
-                import msvcrt
-                msvcrt.locking(h.fileno(), msvcrt.LK_NBLCK, 1)
-            else:
-                import fcntl
-                fcntl.flock(h, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError:
-            raise RuntimeError("Rakit lain sedang jalan: tunggu sampai selesai, lalu ulangi.") from None
+        batas, kabar = time.monotonic() + tunggu, False
+        while True:
+            h.seek(0)
+            try:
+                if os.name == "nt":
+                    import msvcrt
+                    msvcrt.locking(h.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(h, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                if time.monotonic() >= batas:
+                    raise RuntimeError("Rakit lain sedang jalan: tunggu sampai selesai, lalu ulangi.") from None
+                if not kabar:
+                    print("Rakit lain sedang jalan (memakai Word yang sama): menunggu giliran...", flush=True)
+                    kabar = True
+                time.sleep(2)
         try:
             yield
         finally:

@@ -66,7 +66,8 @@ def word(args, **kwargs):
         assert r.returncode == 0
     if mode == "lock":
         r = run([sys.executable, __file__, akar, nama, "ok", lain], capture_output=True, encoding="utf8")
-        assert r.returncode != 0 and "Rakit lain" in r.stderr, r.stdout + r.stderr
+        # rakit kedua antre dulu (kabar «menunggu giliran»), lalu berhenti sesudah RAKIT_ANTRE habis
+        assert r.returncode != 0 and "Rakit lain" in r.stderr and "menunggu giliran" in r.stdout, r.stdout + r.stderr
     d = json.loads(build.read_text(encoding="utf8"))
     assert d["meta"]["judul"] == "المطلوب", "Bahan rakit tertimpa cek lain"
     if mode == "save-fail": return types.SimpleNamespace(returncode=1)
@@ -85,6 +86,7 @@ def word(args, **kwargs):
         with open(folder / "naskah.txt", "a", encoding="utf8") as h: h.write("نص جديد.\n")
     return types.SimpleNamespace(returncode=0)
 bahts.subprocess.run = word
+bahts.RAKIT_ANTRE = 3  # antrean asli 30 menit; rakit di dalam rakit (mode lock) tidak boleh menunggu selama itu
 bahts.rakit(nama)
 '''
 
