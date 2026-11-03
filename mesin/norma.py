@@ -223,7 +223,7 @@ class Padat:
         crc = 0
         for x in isi:
             crc = zlib.crc32(x, crc)
-        if crc != kepala["crc32"]:
+        if crc != kepala.get("crc32"):  # kepala rusak tanpa kunci crc32 = berkas rusak, dibangun ulang
             return None
         teks_, deret, k = [], [], 0
         for _ in BAGIAN:

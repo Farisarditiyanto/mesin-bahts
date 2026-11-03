@@ -154,8 +154,9 @@ def utama():
             assert jalan(akar, "cari", "11223", "كلمات جديدة للبحث").returncode == 0
             utuh = f.read_bytes()
             kepala, _, isi = utuh.partition(b"\n")
-            # kepala bukan JSON / bentuk salah / sidik lain, isi terpotong / berlebih / satu byte berubah (crc32)
+            # kepala bukan JSON / bentuk salah / sidik lain / tanpa kunci crc32, isi terpotong / berlebih / satu byte berubah (crc32)
             for payload in (b"", b"null\n", b"[null]\n", b"{}\n" + isi, kepala.replace(b'"sumber": "', b'"sumber": "x') + b"\n" + isi,
+                            kepala.replace(b'"crc32"', b'"brc32"') + b"\n" + isi,
                             utuh[:len(utuh) // 2], utuh + b"\0", utuh[:-3] + bytes([utuh[-3] ^ 1]) + utuh[-2:]):
                 f.write_bytes(payload)
                 r = jalan(akar, "cari", "11223", "كلمات جديدة للبحث")
