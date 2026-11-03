@@ -140,6 +140,19 @@ def utama():
         for sid in shamela.punya():
             mode = stat.S_IMODE((shamela._folder(sid) / "pages.jsonl.gz").stat().st_mode)
             assert mode == 0o666 & ~umask, f"kitab {sid}: pages.jsonl.gz {oct(mode)}"
+    # rentang «a-b» = halaman tunggal berurutan, masing-masing diberi kepala; berhenti di halaman pertama yang tidak ada
+    import bahts
+    for sid in shamela.punya():
+        ix, awal = shamela._indeks(sid)
+        juz, hal = next(((e[0], a) for e, a in zip(ix, awal) if a is not None), (None, None))
+        if hal is None:
+            continue
+        juz = "-" if juz is None else juz
+        r, isi = keluaran(bahts.halaman, sid, juz, f"{hal}-{hal + 2}")
+        harus = "".join(f"===== [{sid}] {juz}/{h} =====\n" + keluaran(shamela.halaman, sid, juz, h)[1]
+                        for h in range(hal, hal + 3))
+        assert r and isi == harus, f"halaman rentang {sid} {juz}/{hal}-{hal + 2} beda dari halaman tunggal"
+        n += 1
     print(f"halaman: {n} panggilan sama dengan cara lama")
 
 
