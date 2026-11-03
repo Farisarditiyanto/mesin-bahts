@@ -1506,6 +1506,12 @@ TOKEN = re.compile(r"(\*\*|\(\(|\)\)|\{(?:Q|H2|H|P):[^}]*\}|\[\^|\])")
 KUNCI = re.compile(r"[a-z]+")
 
 
+def ayat_ketik(teks):
+    """﴿…﴾ berhuruf Arab pertama yang diketik di luar tanda petik (di dalam petik, kutipannya dicek ke kitab), atau None."""
+    dikutip = " ".join(kutipan_semua(teks))
+    return next((k for k in AYAT_KETIK.findall(teks) if k not in dikutip), None)
+
+
 def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False, rumuz=None, warna=None, folder=None):
     """Pecah satu baris jadi 'runs'. Catatan kaki ([^...]) diurai rekursif. rumuz = {sid: huruf} dari @rumuz;
     warna = {sid: warna Word (BGR)} dari @warna; folder = folder bahts (tempat PDF bukti <<luar|berkas|hal>>)."""
@@ -1591,13 +1597,13 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             penggal = polos[seg:]
             # ayat diketik sendiri lalu dirujuk «سورة …»: tidak pernah dicek ke mushaf, jadi bisa karangan
             # (di dalam tanda petik sudah ditolak di bawah: «سورة …» tidak membebaskan prosa di dalam kutipan)
-            ketik = None
-            if isi.startswith("سورة"):
-                dikutip = " ".join(kutipan_semua(penggal))
-                ketik = next((k for k in AYAT_KETIK.findall(penggal) if k not in dikutip), None)
-            if ketik:
+            ketik = ayat_ketik(penggal) if isi.startswith("سورة") or not (di_catatan or diam) else None
+            if ketik and isi.startswith("سورة"):
                 galat.append(f"ayat diketik langsung «{ketik[:40]}»: tidak dicek ke mushaf; tulis lewat {{Q:surah:ayat}} "
                              f"|| fn: {isi[:45]}")
+            elif ketik:  # di matan, tanpa rujukan «سورة …»: bisa ayat karangan; paragraf salinan berbukti (diam) dicek ke kitab
+                perhatian.append(f"ayat diketik langsung «{ketik[:40]}»: tidak dicek ke mushaf; tulis lewat {{Q:surah:ayat}} "
+                                 f"|| fn: {isi[:45]}")
             elif isi.startswith("سورة") and q_akhir:
                 s, a = q_akhir
                 nama = re.split(r"[،,:(]|\sآي", isi[4:])[0]  # «سورة الفاتحة، آية: 2.» -> «الفاتحة»
@@ -1756,6 +1762,9 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
         raise TandaRusak("bukti <<...>> hanya boleh di dalam catatan kaki [^...]; di luar itu ia ikut tercetak")
     if re.search(r"\{(?:Q|H2|H|P):", polos):
         raise TandaRusak("tanda {Q:/{H:/{H2:/{P: tidak ditutup dengan }")
+    ketik = None if di_catatan else ayat_ketik(polos[seg:])  # sesudah catatan kaki terakhir (atau baris tanpa catatan kaki)
+    if ketik:
+        perhatian.append(f"ayat diketik langsung «{ketik[:40]}»: tidak dicek ke mushaf; tulis lewat {{Q:surah:ayat}}")
     return [r for r in runs if r.get("t", "x") != ""]
 
 
