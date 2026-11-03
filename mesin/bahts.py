@@ -457,9 +457,7 @@ def halaman(sid, juz, hal):
     ada = False
     for h in range(a, z + 1):
         print(f"===== [{sid}] {juz}/{h} =====")
-        if not shamela.halaman(sid, juz, h):
-            break  # halaman sesudahnya juga di luar kitab; pesannya sudah menyebut rentang yang ada
-        ada = True
+        ada |= shamela.halaman(sid, juz, h)  # jangan berhenti di halaman bolong: kitab bisa melompati nomor di tengah
     return ada
 
 

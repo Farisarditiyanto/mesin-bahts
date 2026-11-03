@@ -140,7 +140,7 @@ def utama():
         for sid in shamela.punya():
             mode = stat.S_IMODE((shamela._folder(sid) / "pages.jsonl.gz").stat().st_mode)
             assert mode == 0o666 & ~umask, f"kitab {sid}: pages.jsonl.gz {oct(mode)}"
-    # rentang «a-b» = halaman tunggal berurutan, masing-masing diberi kepala; berhenti di halaman pertama yang tidak ada
+    # rentang «a-b» = halaman tunggal berurutan, masing-masing diberi kepala, termasuk halaman bolong di tengah kitab
     import bahts
     for sid in shamela.punya():
         ix, awal = shamela._indeks(sid)
