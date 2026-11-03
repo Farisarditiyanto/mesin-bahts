@@ -1728,7 +1728,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
 
 def kata(runs):
     """Jumlah kata Arab di runs naskah (untuk perkiraan jumlah halaman)."""
-    return sum(len(re.findall(r"[؀-ۿ]+", r.get("t", ""))) for r in runs)
+    return sum(len(re.findall(r"[؀-ۿ]+", r.get("t") or "")) for r in runs)
 
 
 def utama(folder, keluar=None):
