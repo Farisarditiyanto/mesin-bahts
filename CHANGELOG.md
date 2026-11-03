@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- Aturan agent: kuota `shamela` habis atau layanannya mati di tengah bahts → pencarian per mazhab lanjut lewat connector `turath` (`cat_id` 14–17), tanpa menyimpulkan «mazhab ini diam» dari situ.
 - Potongan bukti `<<kitab|juz|hal|potongan>>` kini boleh memuat `{Q:…}`: tokennya diganti ayat mushaf sebelum dicek (seperti di kutipan matan). Dulu pasti GAGAL karena tokennya dibuang dan sisa potongannya jadi frasa yang tidak ada di kitab.
 - `hadits` yang ditolak layanannya (HTTP 429) kini menunggu sekali sesuai `Retry-After`, lalu menjelaskan jatah alminasa.ai dan alternatifnya (`temukan`, connector, `katalog`). Dulu langsung pesan umum «layanannya sedang menolak».
 - PDF `dirasat-pdf` ditulis lewat jalur sementara yang sama dengan unduhan kitab: nama sementaranya unik dan terhapus sendiri kalau prosesnya mati di tengah menulis.
