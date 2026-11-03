@@ -23,7 +23,8 @@ Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
   cari <id|semua> "<frasa>"    cari frasa -> juz/halaman cetak
   teks <id> "<frasa>" [lebar] [maks]   teks asli di sekitar frasa, untuk disalin persis
   bab <id> "<frasa>"           rantai judul kitab/bab tempat frasa berada
-  halaman <id> <juz> <hal>     isi satu halaman (juz "-" untuk kitab satu jilid)
+  halaman <id> <juz> <hal>     isi satu halaman (juz "-" untuk kitab satu jilid); <hal> boleh rentang, mis. 10-14
+                               (paling banyak 20 halaman sekali panggil)
   scan <id> <juz> <hal>        alamat scan cetakan halaman itu (PDF di turath.io, butuh internet), untuk bacaan yang meragukan
 
 Takhrij (penunjuk jalan, «المنصة الحديثية», butuh internet):
@@ -281,10 +282,13 @@ def cek(nama, keluar=None, jejak=False):
     return f, galat, lap
 
 
+RAKIT_ANTRE = 30 * 60  # detik; rakit terlama yang tercatat ±10 menit: dua rakit di depan masih tertampung
+
+
 def rakit(nama):
     if os.name == "nt":
         try:
-            with kunci(MESIN / "_tmp" / "rakit.pekerjaan"):
+            with kunci(MESIN / "_tmp" / "rakit.pekerjaan", tunggu=RAKIT_ANTRE):
                 _rakit(nama)
         except PermissionError as e:  # hasil lama (atau yang baru) sedang dibuka aplikasi lain; hasil lama tetap utuh
             sys.exit(f"Perakitan GAGAL: {Path(e.filename or '').name or 'hasil'} sedang terbuka di aplikasi lain (Word "
@@ -439,6 +443,24 @@ def bendera_temukan(frasa, a):
     return frasa, maks, daftar(saring["--mazhab"]), daftar(saring["--kitab"]), angka(saring["--halaman"], "halaman")
 
 
+HALAMAN_MAKS = 20
+
+
+def halaman(sid, juz, hal):
+    """`halaman` satu halaman atau rentang «10-14» (angka Arab boleh): agent tidak perlu memanggilnya berkali-kali."""
+    m = re.fullmatch(r"(\d+)\s*-\s*(\d+)", str(hal))
+    if not m:
+        return shamela.halaman(sid, juz, hal)
+    a, z = int(m[1]), int(m[2])
+    if not a <= z < a + HALAMAN_MAKS:
+        sys.exit(f"Rentang halaman {hal}: tulis awal-akhir dengan awal ≤ akhir, paling banyak {HALAMAN_MAKS} halaman.")
+    ada = False
+    for h in range(a, z + 1):
+        print(f"===== [{sid}] {juz}/{h} =====")
+        ada |= shamela.halaman(sid, juz, h)  # jangan berhenti di halaman bolong: kitab bisa melompati nomor di tengah
+    return ada
+
+
 def ketemu(n):
     """Pencarian yang kosong keluar dengan kode 1, supaya skrip/agent tahu tanpa membaca pesannya."""
     if not n:
@@ -471,7 +493,7 @@ PERINTAH = {  # nama: (jumlah argumen minimal, pemanggil)
     "cari": (2, lambda a: ketemu(shamela.cari(a[0], a[1]))),
     "teks": (2, lambda a: ketemu(shamela.teks(a[0], a[1], *(angka(x, apa) for x, apa in zip(a[2:4], ("lebar", "maks")))))),
     "bab": (2, lambda a: ketemu(shamela.bab(a[0], a[1]))),
-    "halaman": (3, lambda a: ketemu(shamela.halaman(*a[:3]))),
+    "halaman": (3, lambda a: ketemu(halaman(*a[:3]))),
     "scan": (3, lambda a: ketemu(shamela.scan(*a[:3]))),
     "hadits": (1, lambda a: ketemu(hadits.cari(a[0], *(angka(x, "maks") for x in a[1:2])))),
     "dirasat": (1, lambda a: dirasat.cari(a[0], *(angka(x, "maks") for x in a[1:2]), *a[2:3])),

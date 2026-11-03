@@ -158,15 +158,6 @@ def rekaman(sid, juz, p1=0, p2=float("inf")):
     return [shamela.rekaman_ke(sid, i) for i in semua if ix[i][2] >= p1 and (ix[i][1] or 0) <= p2]
 
 
-@functools.cache
-def seluruh(sid):
-    """Semua rekaman kitab sid berurutan seperti rekaman(sid, "-"), dengan cache `padat` (untuk mencari di seluruh kitab)."""
-    juz = {}
-    for r in shamela._pages(sid):
-        juz.setdefault(r.get("part"), []).append(r)
-    return [r for rr in juz.values() for r in rr]
-
-
 def urut_juz(j):
     """Juz berangka dulu menurut angkanya, lalu yang bernama (mis. المقدمة)."""
     return (not str(j).isdigit(), str(j).zfill(4))
@@ -182,6 +173,7 @@ DIPOTONG = re.compile(r"\.{2,}|…")  # potongan oleh penulis: yang dilompati ti
 ELIPSIS = re.compile(f"{DIPOTONG.pattern}|{AYAT_DI_KUTIPAN.pattern}")  # pemisah bagian kutipan: tiap bagiannya dicek, berurutan
 JARAK_AYAT = 300  # huruf `padat` celah {Q:} yang ayatnya tanpa ﴿﴾ di kitab (dikenali dari teksnya) sebelum jadi perhatian
 SISA_AYAT = 20  # huruf `padat` kitab selain ayat dan rujukan [سورة: n] di celah {Q:} sebelum jadi perhatian
+AYAT_KETIK = re.compile(r"﴿[^﴾]*[ء-ي][^﴾]*﴾")  # ﴿…﴾ berhuruf Arab yang diketik di naskah; {Q:} jadi «﴿2:255﴾» (angka)
 AYAT_KITAB = re.compile(r"﴿[^﴾]*﴾|\{[^{}]*\}")  # ayat bertanda di teks kitab Shamela
 RUJUKAN_AYAT = re.compile(r"\[[^\]\n]*[ء-ي][^\]\n]*[0-9٠-٩][^\]\n]*\]")  # «[التكوير:٢٨]», «[آل عمران ١٥٢]»
 LUAR = "luar"  # <<luar>>: sumbernya bukan kitab Shamela (jurnal, PDF penelitian, kamus); tidak bisa dicek mesin
@@ -373,7 +365,10 @@ def gabung(sid, juz, p1, p2):
 def _petunjuk(sid, juz, q):
     """Tempat q di seluruh kitab untuk pesan kesalahan: matan dulu (juz yang ditulis didahulukan), baru حاشية."""
     tempat, hasyiah = [], None
-    for r in seluruh(sid):
+    padat_, ix = shamela._cache(sid), shamela.indeks(sid)
+    kena = set(padat_.kena(q))  # rekaman lain tidak memuat q: tidak menambah apa pun
+    # urutan rekaman(sid, "-"): per juz (urut kemunculan pertamanya), lalu urut berkas
+    for r in (padat_.isi({"part": ix[i][0]}, i) for ii in kitab(sid).values() for i in ii if i in kena):
         h = shamela.tempat(r, q)
         if h:
             t = (shamela._juz(r) != juz, shamela.letak(shamela._juz(r), h))
@@ -389,7 +384,7 @@ def _petunjuk(sid, juz, q):
         return "، ".join(tempat[:3]) + lagi
     if hasyiah:
         return hasyiah
-    t = _tempat_kitab(_rangkaian_kitab(sid), [q])  # kutipan yang menyambung ke halaman berikutnya
+    t = _tempat_kitab(_rangkaian_kitab(sid), [shamela.norma.bait(q)])  # kutipan yang menyambung ke halaman berikutnya
     return shamela.letak(t[0], t[1]) + t[2] if t else None
 
 
@@ -556,41 +551,51 @@ def _bagian_cari(teks):
     return [p for b in ELIPSIS.split(teks) if (p := shamela.padat(b))]
 
 
-def _rangkaian(isi, ix):
-    """Rangkaian rekaman kitab dari cache `padat`: [(juz, tanda, teks, ruas halaman)]. Aturannya sama dengan `gabung`:
-    urut halaman, dan hanya rekaman yang halamannya bersambung (sama atau +1) di juz yang sama yang dirangkai."""
+def _rangkaian(padat_, ix):
+    """Rangkaian rekaman kitab dari teks `padat`-nya (`norma.Padat`): [(juz, tanda, teks, ruas)], teks dalam `bait`.
+    Aturannya sama dengan `gabung`: urut halaman, dan hanya rekaman yang halamannya bersambung (sama atau +1) di juz
+    yang sama yang dirangkai. ruas = (padat_, bagian, awal tiap rekaman di teks, nomor rekamannya), dibaca `_halaman_di`."""
     hasil = []
     juz = {}
     for i, x in enumerate(ix):
         juz.setdefault(x[0], []).append(i)
     for j, ii in juz.items():
+        urut = sorted(ii, key=lambda i: ix[i][1] or 0)
         for s, (_, tanda) in enumerate(shamela.BAGIAN):
-            teks, ruas, panjang, akhir = [], [], 0, 0
-            for i in sorted(ii, key=lambda i: ix[i][1] or 0):
+            t, mulai = padat_.teks[s], padat_.deret[s]["mulai"]
+            rek, awal, panjang, akhir = [], [], 0, 0
+            for i in urut:
                 n = ix[i][1]
                 if panjang and not (n and akhir <= n <= akhir + 1):
-                    hasil.append((j, tanda, "".join(teks), ruas))
-                    teks, ruas, panjang, akhir = [], [], 0, 0
-                t, batas = isi[i][s]
-                teks.append(t)
-                ruas += [(lo + panjang, hi + panjang, h1, h2) for lo, hi, h1, h2 in batas]
-                panjang += len(t)
+                    hasil.append((j, tanda, b"".join(t[mulai[r]:mulai[r + 1]] for r in rek), (padat_, s, awal, rek)))
+                    rek, awal, panjang, akhir = [], [], 0, 0
+                rek.append(i); awal.append(panjang)
+                panjang += mulai[i + 1] - mulai[i]
                 akhir = max(akhir, ix[i][2])
             if panjang:
-                hasil.append((j, tanda, "".join(teks), ruas))
+                hasil.append((j, tanda, b"".join(t[mulai[r]:mulai[r + 1]] for r in rek), (padat_, s, awal, rek)))
     return hasil
 
 
 @functools.lru_cache(maxsize=4)  # banyak GAGAL di kitab yang sama tidak membaca ulang; memori tetap kecil
 def _rangkaian_kitab(sid):
     """`_rangkaian` kitab sid; `jejak` melepasnya tiap kitab."""
-    return _rangkaian(shamela.norma.cache(shamela._folder(sid)), shamela.indeks(sid))
+    return _rangkaian(shamela._cache(sid), shamela.indeks(sid))
 
 
 def _halaman_di(ruas, a, z):
-    """Rentang halaman cetak (kecil-besar) potongan teks[a:z] rangkaian yang ruas halamannya `ruas`."""
-    h1 = ruas[bisect.bisect_right(ruas, a, key=lambda r: r[1])][2]
-    h2 = ruas[bisect.bisect_left(ruas, z, key=lambda r: r[1])][3]
+    """Rentang halaman cetak (kecil-besar) potongan teks[a:z] rangkaian yang ruasnya `ruas` (lihat `_rangkaian`):
+    halaman awal ruas pertama yang berakhir sesudah a, halaman akhir ruas pertama yang berakhir di z atau sesudahnya."""
+    padat_, s, awal, rek = ruas
+    d = padat_.deret[s]
+
+    def ruas_di(x, cari):  # ruas rekaman yang memuat letak x (rekaman kosong tidak memuat apa pun)
+        k = bisect.bisect_right(awal, x) - 1
+        i = rek[k]
+        return d["h1"], d["h2"], cari(d["akhir"], x - awal[k], d["ruas"][i], d["ruas"][i + 1])
+    h1s, _, k1 = ruas_di(a, bisect.bisect_right)
+    _, h2s, k2 = ruas_di(z - 1, lambda deret, x, lo, hi: bisect.bisect_left(deret, x + 1, lo, hi))
+    h1, h2 = (None if x == shamela.norma.TANPA_HAL else x for x in (h1s[k1], h2s[k2]))
     return (h2, h1) if (h1 or 0) > (h2 or 0) else (h1, h2)  # penanda halaman yang menurun di satu rekaman
 
 
@@ -650,8 +655,8 @@ def jejak(tertolak, maks=3):
         bagian = _bagian_cari(teks)
         if not bagian:
             continue
-        entri = cari.setdefault(tuple(bagian), {"teks": teks, "bagian": bagian, "tertuju": set(), "dapat": [], "dibaca": 0,
-                                                "mirip": []})
+        entri = cari.setdefault(tuple(bagian), {"teks": teks, "bagian": [shamela.norma.bait(b) for b in bagian],
+                                                "tertuju": set(), "dapat": [], "dibaca": 0, "mirip": []})
         entri["tertuju"].add(str(sid))
     if not cari:
         return []
@@ -680,9 +685,7 @@ def jejak(tertolak, maks=3):
             # Pencarian hanya petunjuk: sumber lain yang rusak tidak boleh menutup hasil kitab yang sehat.
             rusak.append(f"kitab {sid} ({type(e).__name__})")
         finally:
-            shamela._isi.cache_clear()  # isi kitab utuh tidak menumpuk, juga sesudah gagal dibaca
-            shamela.indeks.cache_clear()
-            shamela._indeks.cache_clear()
+            shamela.lepas()  # isi kitab tidak menumpuk, juga sesudah gagal dibaca
             _rangkaian_kitab.cache_clear()
         if all(len(e["dapat"]) >= maks for e in cari.values()):
             break
@@ -791,15 +794,35 @@ def _salah_ketik(a, b):
 
 def _jarak(a, b, batas=None):
     """Jumlah huruf yang diganti, dibuang, atau ditambah dari a ke b (Levenshtein). Dengan batas: berhenti begitu
-    pasti lebih dari batas, dan mengembalikan batas + 1."""
-    baris = list(range(len(b) + 1))
-    for i, x in enumerate(a, 1):
-        lalu, baris[0] = baris[0], i
-        for j, y in enumerate(b, 1):
-            lalu, baris[j] = baris[j], min(baris[j] + 1, baris[j - 1] + 1, lalu + (x != y))
-        if batas is not None and min(baris) > batas:
-            return batas + 1
-    return baris[-1]
+    pasti lebih dari batas, dan mengembalikan batas + 1.
+    Per bit (Myers/Hyyrö): satu kolom tabel jarak = dua bilangan bulat selebar a, satu langkah per huruf b."""
+    if a == b:
+        return 0
+    if batas is not None and (batas <= 0 or abs(len(a) - len(b)) > batas):  # beda panjang = paling sedikit sejarak itu
+        return batas + 1
+    if not a or not b:
+        n = len(a) + len(b)
+        return batas + 1 if batas is not None and n > batas else n
+    sama = {}  # huruf -> bit letaknya di a
+    for i, x in enumerate(a):
+        sama[x] = sama.get(x, 0) | 1 << i
+    penuh, atas = (1 << len(a)) - 1, 1 << len(a) - 1
+    naik, turun, n = penuh, 0, len(a)  # beda jarak tegak antarbaris: +1 / -1; n = jarak a dengan awalan b sejauh ini
+    for y in b:
+        eq = sama.get(y, 0)
+        xv = eq | turun
+        xh = (((eq & naik) + naik) ^ naik) | eq
+        ph = turun | ~(xh | naik)
+        mh = naik & xh
+        if ph & atas:
+            n += 1
+        elif mh & atas:
+            n -= 1
+        ph = ph << 1 | 1
+        mh <<= 1
+        naik = (mh | ~(xv | ph)) & penuh
+        turun = ph & xv & penuh
+    return batas + 1 if batas is not None and n > batas else n
 
 
 def _calon(x, b, beda):
@@ -1351,7 +1374,8 @@ AKHIR_NUKILAN = re.compile(r'(?<=["»])[\s.،؛]*(?:اهـ|انتهى(?:\s+كل�
 
 
 def kutipan_semua(teks):
-    """Isi tiap kutipan teratas "..." atau «...» di teks, urut dari depan; kutipan di dalam kutipan ikut induknya."""
+    """Isi tiap kutipan teratas "..." atau «...» di teks, urut dari depan; kutipan di dalam kutipan ikut induknya.
+    Pembuka yang tidak tertutup tidak menghentikan pencarian: dulu satu «« nyasar membuat kutipan sesudahnya tidak dicek."""
     teks, out, i = seragam(teks), [], 0
     while i < len(teks):
         if teks[i] == "«":
@@ -1362,8 +1386,8 @@ def kutipan_semua(teks):
             d, j = 0, teks.find('"', i + 1) + 1
         else:
             i += 1; continue
-        if d or j <= i:
-            break  # tidak tertutup
+        if d or j <= i:  # pembuka tanpa penutup: lewati tanda itu saja, kutipan sesudahnya tetap dicek
+            i += 1; continue
         out.append(teks[i + 1:j - 1]); i = j
     return out
 
@@ -1565,7 +1589,16 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             diam = not isi and rumuz is not None and bool(sid_bukti) and all(x in rumuz for x in sid_bukti)
             zz = [z for z in dict.fromkeys((rumuz or {}).get(x) for x in sid_bukti) if z and z != "-"]
             penggal = polos[seg:]
-            if isi.startswith("سورة") and q_akhir:
+            # ayat diketik sendiri lalu dirujuk «سورة …»: tidak pernah dicek ke mushaf, jadi bisa karangan
+            # (di dalam tanda petik sudah ditolak di bawah: «سورة …» tidak membebaskan prosa di dalam kutipan)
+            ketik = None
+            if isi.startswith("سورة"):
+                dikutip = " ".join(kutipan_semua(penggal))
+                ketik = next((k for k in AYAT_KETIK.findall(penggal) if k not in dikutip), None)
+            if ketik:
+                galat.append(f"ayat diketik langsung «{ketik[:40]}»: tidak dicek ke mushaf; tulis lewat {{Q:surah:ayat}} "
+                             f"|| fn: {isi[:45]}")
+            elif isi.startswith("سورة") and q_akhir:
                 s, a = q_akhir
                 nama = re.split(r"[،,:(]|\sآي", isi[4:])[0]  # «سورة الفاتحة، آية: 2.» -> «الفاتحة»
                 angka = isi.translate(ANGKA_LATIN)
@@ -1825,7 +1858,8 @@ def utama(folder, keluar=None):
         if "#R" in di_baris:
             galat.append(di("#R") + "@tanpa: pustaka, tetapi ada #R: hapus #R beserta daftarnya, atau hapus «pustaka» dari @tanpa")
     elif "#R" not in di_baris and bentuk != "kitab":
-        galat.append("tidak ada #R (المصادر والمراجع) di akhir naskah")
+        galat.append("tidak ada #R (المصادر والمراجع) di akhir naskah: salin baris #R dari mesin/naskah_baru.txt, "
+                     "lalu tulis satu kitab per baris di bawahnya")
     elif "#R" in di_baris and not pustaka:
         galat.append(di("#R") + "المصادر والمراجع masih kosong: tulis satu kitab per baris sesudah #R")
     if not meta["berkas"]:

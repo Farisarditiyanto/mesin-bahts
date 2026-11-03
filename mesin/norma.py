@@ -3,7 +3,7 @@
 Hanya berkas ini yang menentukan isi cache: sidiknya (VERSI) jadi nama berkas cache. Aturan penyamaan yang diubah di
 sini membuat cache baru; perubahan di berkas lain tidak. Modul berkas hanya menangani penulisan, bukan isi normalisasi.
 """
-import gzip, hashlib, json, re, unicodedata, zlib
+import array, bisect, gzip, hashlib, json, re, sys, unicodedata, zlib
 from pathlib import Path
 from berkas import sementara
 
@@ -100,10 +100,11 @@ def _ruas(p, bagian):
     return p[kunci]
 
 
-# cache teks `padat` tiap kitab (kitab/<id>/padat-<VERSI>.json.gz): menormalisasi seluruh kitab tiap `cari`/`teks`
-# makan detik-an untuk kitab besar. VERSI = sidik isi berkas INI (bukan shamela.py): yang menentukan isi cache hanya
+# Teks `padat` seluruh kitab (kitab/<id>/padat-<VERSI>.bin): menormalisasi seluruh kitab tiap `cari`/`teks` makan
+# detik-an untuk kitab besar. VERSI = sidik isi berkas INI (bukan shamela.py): yang menentukan isi berkas itu hanya
 # berkas ini, jadi perubahan mesin di luarnya tidak membuat seluruh perpustakaan dihitung ulang (154 kitab: ±2,5 menit).
 VERSI = hashlib.sha1(Path(__file__).read_bytes()).hexdigest()[:12]
+TANPA_HAL = -(1 << 63)  # halaman None di deret halaman (rekaman/penanda tanpa nomor)
 
 
 def rekaman(f):
@@ -112,32 +113,158 @@ def rekaman(f):
             yield json.loads(line)
 
 
-def cache(folder):
-    """Teks `padat` + ruas halaman tiap rekaman kitab di `folder` ([[body, footnotes], …]); dibuat sekali kalau belum ada.
-    Cache yang rusak atau tidak bisa ditulis tidak menghentikan apa pun: dihitung biasa."""
-    f = folder / f"padat-{VERSI}.json.gz"
-    with open(folder / "pages.jsonl.gz", "rb") as h:
-        sumber = hashlib.file_digest(h, "sha256").hexdigest()
-    try:
-        with gzip.open(f, "rt", encoding="utf8") as g:
-            d = json.load(g)
-        if (isinstance(d, dict) and d.get("sumber") == sumber and isinstance(d.get("rekaman"), list)
-                and all(isinstance(r, list) and len(r) == len(BAGIAN)
-                        and all(isinstance(b, list) and len(b) == 2 and isinstance(b[0], str)
-                                and isinstance(b[1], list) and all(isinstance(x, list) and len(x) == 4
-                                and type(x[0]) is int and type(x[1]) is int and 0 <= x[0] <= x[1] <= len(b[0])
-                                for x in b[1]) for b in r) for r in d["rekaman"])):
-            return d["rekaman"]
-    except (OSError, ValueError, EOFError, TypeError, zlib.error):
-        pass
-    isi = [[_ruas(p, b) for b, _ in BAGIAN] for p in rekaman(folder / "pages.jsonl.gz")]
-    try:
+def bait(s):
+    """Teks `padat` -> satu byte per huruf: huruf ء-ي (U+0621-U+064A) semuanya berbait tinggi 06, jadi cukup bait rendahnya.
+    Letak di bait = letak di teks; `find` di bait = `find` di teks."""
+    b = s.encode("utf-16-le")
+    if b[1::2].strip(b"\x06"):
+        raise ValueError("bukan teks padat")
+    return b[::2]
+
+
+def teks(b):
+    """Kebalikan `bait`."""
+    x = bytearray(2 * len(b))
+    x[::2] = b
+    x[1::2] = b"\x06" * len(b)
+    return x.decode("utf-16-le")
+
+
+class Padat:
+    """Teks `padat` seluruh kitab, satu deret per bagian (BAGIAN), bukan satu objek per rekaman:
+    bagian s rekaman i = teks[s][mulai[s][i]:mulai[s][i+1]] (`bait`); ruasnya [(awal, akhir, h1, h2)] (letak relatif
+    terhadap awal rekaman) = baris ruas[s][i]..ruas[s][i+1] deret awal/akhir/h1/h2. Sama dengan `_ruas` tiap rekaman."""
+    DERET = ("mulai", "ruas", "awal", "akhir", "h1", "h2")
+    JENIS = {"mulai": "Q", "ruas": "Q", "awal": "Q", "akhir": "Q", "h1": "q", "h2": "q"}
+
+    def __init__(self, teks, deret):
+        self.teks, self.deret = teks, deret  # teks[s]: bytes; deret[s][nama]: array (atau list, lihat `buat`)
+
+    def bagian(self, i, s):
+        """(teks padat, ruas) bagian s rekaman i, seperti `_ruas`."""
+        d = self.deret[s]
+        a, z = d["mulai"][i], d["mulai"][i + 1]
+        r = range(d["ruas"][i], d["ruas"][i + 1])
+        h = lambda x: None if x == TANPA_HAL else x
+        return teks(self.teks[s][a:z]), [(d["awal"][k], d["akhir"][k], h(d["h1"][k]), h(d["h2"][k])) for k in r]
+
+    def isi(self, p, i):
+        """Pasang teks padat rekaman i ke rekaman p (yang dibaca `_ruas`); kembalikan p."""
+        for s, (b, _) in enumerate(BAGIAN):
+            p["_padat_" + b] = self.bagian(i, s)
+        return p
+
+    def kena(self, q):
+        """Nomor rekaman (urut) yang salah satu bagiannya memuat q (teks padat). Kecocokan yang melintasi batas dua
+        rekaman tidak dihitung: sama dengan mencari di tiap rekaman sendiri-sendiri."""
+        qb, out = bait(q), set()
+        for s in range(len(BAGIAN)):
+            t, mulai = self.teks[s], self.deret[s]["mulai"]
+            j = t.find(qb)
+            while j >= 0:
+                i = bisect.bisect_right(mulai, j) - 1
+                if j + len(qb) <= mulai[i + 1]:
+                    out.add(i)
+                    j = t.find(qb, mulai[i + 1])
+                else:
+                    j = t.find(qb, j + 1)
+        return sorted(out)
+
+    @classmethod
+    def buat(cls, semua):
+        """Dari rekaman-rekaman kitab (urut berkas). Halaman di luar 64 bit tetap terbaca (list), hanya tidak disimpan."""
+        potong = [[] for _ in BAGIAN]
+        deret = [{n: [] for n in cls.DERET} for _ in BAGIAN]
+        panjang = [0] * len(BAGIAN)
+        for p in semua:
+            for s, (b, _) in enumerate(BAGIAN):
+                t, batas = _ruas(p, b)
+                d = deret[s]
+                d["mulai"].append(panjang[s]); d["ruas"].append(len(d["awal"]))
+                potong[s].append(bait(t)); panjang[s] += len(t)
+                for a, z, h1, h2 in batas:
+                    d["awal"].append(a); d["akhir"].append(z)
+                    d["h1"].append(TANPA_HAL if h1 is None else h1); d["h2"].append(TANPA_HAL if h2 is None else h2)
+        for s, d in enumerate(deret):
+            d["mulai"].append(panjang[s]); d["ruas"].append(len(d["awal"]))
+            try:
+                deret[s] = {n: array.array(cls.JENIS[n], x) for n, x in d.items()}
+            except (OverflowError, TypeError):  # halaman yang bukan bilangan 64 bit: tetap list
+                pass
+        return cls([b"".join(x) for x in potong], deret)
+
+    def tulis(self, f, sumber):
+        """Simpan: satu baris kepala JSON (sidik sumber, panjang tiap deret, crc32 isi), lalu isi apa adanya."""
+        isi = [x for s in range(len(BAGIAN)) for x in [self.teks[s]] + [self.deret[s][n].tobytes() for n in self.DERET]]
+        crc = 0
+        for x in isi:
+            crc = zlib.crc32(x, crc)
+        kepala = {"sumber": sumber, "urutan": sys.byteorder, "panjang": [len(x) for x in isi], "crc32": crc}
         with sementara(f) as part:
-            with gzip.open(part, "wt", encoding="utf8", compresslevel=6) as g:
-                json.dump({"sumber": sumber, "rekaman": isi}, g, ensure_ascii=False, separators=(",", ":"))
-        for lama in folder.glob("padat-*.json.gz"):  # cache versi norma.py lama tidak terpakai lagi
-            if lama != f:
+            with open(part, "wb") as h:
+                h.write(json.dumps(kepala).encode() + b"\n")
+                h.writelines(isi)
+
+    @classmethod
+    def baca(cls, f, sumber):
+        """Berkas `tulis` yang sidik sumbernya `sumber` dan isinya utuh (crc32); None kalau tidak ada, usang, atau rusak."""
+        try:
+            with open(f, "rb") as h:
+                kepala = json.loads(h.readline(1 << 16))
+                panjang = kepala["panjang"]
+                if (kepala["sumber"] != sumber or kepala["urutan"] != sys.byteorder
+                        or len(panjang) != len(BAGIAN) * (1 + len(cls.DERET)) or not all(type(n) is int and n >= 0 for n in panjang)):
+                    return None
+                isi = [h.read(n) for n in panjang]
+                if h.read(1) or [len(x) for x in isi] != panjang:
+                    return None
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            return None
+        crc = 0
+        for x in isi:
+            crc = zlib.crc32(x, crc)
+        if crc != kepala.get("crc32"):  # kepala rusak tanpa kunci crc32 = berkas rusak, dibangun ulang
+            return None
+        teks_, deret, k = [], [], 0
+        for _ in BAGIAN:
+            teks_.append(isi[k]); k += 1
+            d = {}
+            for n in cls.DERET:
+                d[n] = array.array(cls.JENIS[n])
+                if len(isi[k]) % d[n].itemsize:
+                    return None
+                d[n].frombytes(isi[k]); k += 1
+            # isinya utuh (crc32), tetapi bentuknya tetap dicocokkan: jumlah rekaman, ujung teks, dan ujung ruas
+            n = len(d["mulai"])
+            if not (n == len(d["ruas"]) == len(deret[0]["mulai"] if deret else d["mulai"]) and n
+                    and d["mulai"][-1] == len(teks_[-1]) and d["ruas"][-1] == len(d["awal"])
+                    and all(len(d[x]) == len(d["awal"]) for x in ("akhir", "h1", "h2"))):
+                return None
+            deret.append(d)
+        return cls(teks_, deret)
+
+
+def sidik(f):
+    """sha256 berkas f (pages.jsonl.gz): isi .gz sama = isi kitab sama."""
+    with open(f, "rb") as h:
+        return hashlib.file_digest(h, "sha256").hexdigest()
+
+
+def cache(folder, sumber=None):
+    """`Padat` kitab di `folder`; dibuat sekali kalau belum ada. sumber = `sidik` pages.jsonl.gz (dihitung kalau None).
+    Berkas yang rusak, usang, atau tidak bisa ditulis tidak menghentikan apa pun: dihitung biasa."""
+    f = folder / f"padat-{VERSI}.bin"
+    sumber = sumber or sidik(folder / "pages.jsonl.gz")
+    hasil = Padat.baca(f, sumber)
+    if hasil is not None:
+        return hasil
+    hasil = Padat.buat(rekaman(folder / "pages.jsonl.gz"))
+    try:
+        if all(isinstance(x, array.array) for d in hasil.deret for x in d.values()):
+            hasil.tulis(f, sumber)
+        for lama in folder.glob("padat-*"):  # versi norma.py lama (juga bentuk lama .json.gz) tidak terpakai lagi
+            if lama != f and not lama.name.endswith(".part"):
                 lama.unlink()
     except OSError:
         pass
-    return isi
+    return hasil

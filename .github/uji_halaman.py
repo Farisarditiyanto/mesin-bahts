@@ -69,11 +69,12 @@ def bandingkan(sid, tambahan=(), contoh=60):
     return n
 
 
-def sama_cari(sid, frasa):
-    """`cari`, `teks`, `bab` lewat `_berisi` = lewat seluruh rekaman kitab (`_pages`, tiap rekaman diperiksa)."""
+def sama_cari(sid, frasa, semua):
+    """`cari`, `teks`, `bab` lewat `_berisi` = lewat seluruh rekaman kitab (`semua`: tiap rekaman diperiksa, teks
+    `padat`-nya dihitung di tempat dari teksnya, tanpa berkas padat)."""
     baru = [keluaran(f, sid, frasa) for f in (shamela.cari, shamela.teks, shamela.bab)]
     asli = shamela._berisi
-    shamela._berisi = lambda s, q: shamela._pages(s)
+    shamela._berisi = lambda s, q: iter(semua)
     try:
         lama = [keluaran(f, sid, frasa) for f in (shamela.cari, shamela.teks, shamela.bab)]
     finally:
@@ -84,14 +85,14 @@ def sama_cari(sid, frasa):
 
 def bandingkan_cari(sid, n=25):
     """Frasa = potongan teks matan dan حاشية kitab itu sendiri (ketemu, ketemu banyak, dan lintas penanda ⦗n⦘), plus frasa yang tidak ada."""
-    teks = [t for r in shamela.norma.rekaman(shamela._folder(sid) / "pages.jsonl.gz")
-            for t in (r.get("body"), r.get("footnotes")) if t and shamela.padat(t)]
+    semua = list(shamela.norma.rekaman(shamela._folder(sid) / "pages.jsonl.gz"))
+    teks = [t for r in semua for t in (r.get("body"), r.get("footnotes")) if t and shamela.padat(t)]
     frasa = ["قال", "والله أعلم", "قولا لا يوجد مثله في كتاب من الكتب"]
     for t in random.sample(teks, min(len(teks), n)):
         kata = shamela.TAGS.sub("", t).split()
         k = random.randrange(max(1, len(kata) - 4))
         frasa.append(" ".join(kata[k:k + 4]))
-    return sum(sama_cari(sid, x) for x in frasa if shamela.padat(x))
+    return sum(sama_cari(sid, x, semua) for x in frasa if shamela.padat(x))
 
 
 def kitab_buatan(root):
@@ -123,10 +124,11 @@ def utama():
         shamela.ROOT = Path(tmp)
         kitab_buatan(shamela.ROOT)
         n += bandingkan(990001, range(1, 61)) + bandingkan_cari(990001)
-        # indeks lama (tanpa sidik .gz) tetap dipakai dengan benar, lalu ditulis ulang dengan sidiknya
+        # indeks lama (versi 1: satu daftar per rekaman, tanpa sidik .gz) tetap dipakai dengan benar, lalu ditulis ulang
         f = shamela.ROOT / "990001" / shamela.INDEKS
         d = json.loads(f.read_text(encoding="utf8"))
-        f.write_text(json.dumps({k: d[k] for k in ("versi", "sumber", "rekaman")}, ensure_ascii=False), encoding="utf8")
+        lama = {"versi": 1, "sumber": d["sumber"], "rekaman": [list(x) for x in zip(d["juz"], d["hal"], d["akhir"], d["letak"])]}
+        f.write_text(json.dumps(lama, ensure_ascii=False), encoding="utf8")
         n += bandingkan(990001)
         assert "sumber_gz" in json.loads(f.read_text(encoding="utf8")), "indeks lama tidak ditulis ulang"
         if os.name != "nt":
@@ -138,6 +140,19 @@ def utama():
         for sid in shamela.punya():
             mode = stat.S_IMODE((shamela._folder(sid) / "pages.jsonl.gz").stat().st_mode)
             assert mode == 0o666 & ~umask, f"kitab {sid}: pages.jsonl.gz {oct(mode)}"
+    # rentang «a-b» = halaman tunggal berurutan, masing-masing diberi kepala, termasuk halaman bolong di tengah kitab
+    import bahts
+    for sid in shamela.punya():
+        ix, awal = shamela._indeks(sid)
+        juz, hal = next(((e[0], a) for e, a in zip(ix, awal) if a is not None), (None, None))
+        if hal is None:
+            continue
+        juz = "-" if juz is None else juz
+        r, isi = keluaran(bahts.halaman, sid, juz, f"{hal}-{hal + 2}")
+        harus = "".join(f"===== [{sid}] {juz}/{h} =====\n" + keluaran(shamela.halaman, sid, juz, h)[1]
+                        for h in range(hal, hal + 3))
+        assert r and isi == harus, f"halaman rentang {sid} {juz}/{hal}-{hal + 2} beda dari halaman tunggal"
+        n += 1
     print(f"halaman: {n} panggilan sama dengan cara lama")
 
 
