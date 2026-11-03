@@ -1,7 +1,7 @@
 """Regresi berkas melalui cek/cari/halaman/rakit asli, pada salinan TEMP.
 Word/COM dan kegagalan filesystem disimulasikan; rakit Word sungguhan tetap diuji lokal.
 """
-import gzip, hashlib, json, os, shutil, subprocess, sys, tempfile, zipfile
+import gzip, hashlib, json, os, random, shutil, subprocess, sys, tempfile, zipfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -103,9 +103,10 @@ def utama():
         pages = kitab / "pages.jsonl.gz"
         runner = akar / "word_fixture.py"
         runner.write_text(WORD, encoding="utf8")
-        gagal = []
+        gagal, diuji = [], []
 
         def uji(nama, fn):
+            diuji.append(nama)
             try:
                 fn()
                 print("lolos:", nama)
@@ -162,6 +163,88 @@ def utama():
                 r = jalan(akar, "cari", "11223", "كلمات جديدة للبحث")
                 assert r.returncode == 0, repr(payload[:80]) + r.stdout + r.stderr
                 assert f.read_bytes() == utuh, "berkas padat rusak tidak dibuat ulang"
+
+        def angka_ayat_sehalaman():
+            f = akar / "uji-angka-ayat"
+            sebelum = pages.read_bytes()
+            meleset = []
+
+            def cek(body, kutipan, halaman, salah=False, footnotes="", hasyiah=False, samar=False):
+                with gzip.open(pages, "wt", encoding="utf8") as h:
+                    h.write(json.dumps({"part": None, "page_num": 5, "body": body,
+                                        "footnotes": footnotes}, ensure_ascii=False) + "\n")
+                naskah(f)
+                with open(f / "naskah.txt", "a", encoding="utf8") as h:
+                    h.write(f'قال: «{kutipan}»[^رسالة في القضاء والقدر، ص{halaman}. <<11223|-|{halaman}>>].\n')
+                r = jalan(akar, "cek", f)
+                out = r.stdout + r.stderr
+                assert "GALAT MESIN" not in out and "Traceback" not in out, out
+                if (r.returncode != 0) != salah or hasyiah and "bukti ada di حاشية المحقق" not in out:
+                    meleset.append(f"hal {halaman}, «{kutipan}»: keluar={r.returncode}, harus gagal={salah}, hasyiah={hasyiah}")
+                if samar and "halaman tiap catatan di rekaman ini tidak tercatat" not in out:
+                    meleset.append("Ketidakpastian halaman حاشية tidak disebut")
+
+            try:
+                angka = "عدد أبواب هذا الكتاب {} أبواب"
+                body = angka.format(10) + ". ⦗٦⦘ " + angka.format(20) + "."
+                for halaman, benar, keliru in ((5, 10, 20), (6, 20, 10)):
+                    cek(body, angka.format(benar), halaman)
+                    cek(body, angka.format(keliru), halaman, salah=True)
+                ayat = "قال الله تعالى: {} ثم انتهى الكلام"
+                body = ayat.format("﴿الحمد لله رب العالمين﴾ [الفاتحة:٢]") + ". ⦗٦⦘ " + ayat.format(
+                    "﴿قل هو الله أحد﴾ [الإخلاص:١]") + "."
+                for halaman, benar, keliru in ((5, "1:2", "112:1"), (6, "112:1", "1:2")):
+                    cek(body, ayat.format("{Q:" + benar + "}"), halaman)
+                    cek(body, ayat.format("{Q:" + keliru + "}"), halaman, salah=True)
+                # Angka yang benar hanya di kemunculan yang berakhir di tengah kata tidak boleh dipakai.
+                cek(angka.format(10) + ". " + angka.format(20) + "نا.", angka.format(20), 5, salah=True)
+                cek("قال العلماء هذا الكلام ثم " + angka.format(20) + "نا ثم " + angka.format(20),
+                    "قال العلماء هذا الكلام ... " + angka.format(20), 5)
+                # Kemunculan sah setelah 50 calon tetap harus diperiksa.
+                cek((angka.format(20) + ". ") * 60 + angka.format(10), angka.format(10), 5)
+                # Angka yang hanya cocok di حاشية tetap harus menyebut sumbernya, walau hurufnya cocok di matan.
+                cek(angka.format(10), angka.format(20), 5, footnotes=angka.format(20), hasyiah=True)
+                cek(angka.format(10) + " ⦗٦⦘ " + angka.format(10), angka.format(20), 6,
+                    footnotes=angka.format(20), hasyiah=True, samar=True)
+                # Kepala/ekor angka ikut terikat halaman, bukan hanya posisi huruf Arabnya.
+                for body, kutipan, halaman in (("عدد أبواب هذا الكتاب ⦗٦⦘ 20 خاتمة", "عدد أبواب هذا الكتاب 20", 5),
+                                               ("20 ⦗٦⦘ عدد أبواب هذا الكتاب", "20 عدد أبواب هذا الكتاب", 6)):
+                    cek(body, kutipan, halaman, salah=True)
+                    cek(body, kutipan, "5-6")
+                cek("عدد أبواب هذا الكتاب 10 ⦗٦⦘ خاتمة", "عدد أبواب هذا الكتاب 20", 5, salah=True,
+                    footnotes="عدد أبواب هذا الكتاب ⦗٦⦘ 20 خاتمة")
+                # Konteks ayat di luar halaman bukti tetap dibaca; membatasi calon tidak boleh membuang konteksnya.
+                for spec, salah in (("1:2", False), ("112:1", True)):
+                    cek("قال الله تعالى ⦗٦⦘ ﴿الحمد لله رب العالمين﴾ [الفاتحة:٢]",
+                        "قال الله تعالى {Q:" + spec + "}", 5, salah=salah)
+                    cek("﴿الحمد لله رب العالمين﴾ [الفاتحة:٢] ⦗٦⦘ وفي الآية بيان واضح",
+                        "{Q:" + spec + "} وفي الآية بيان واضح", 6, salah=salah)
+                # Properti: angka dari halaman tetangga tidak boleh membuktikan 100 kutipan acak (benih tetap).
+                rng = random.Random(17)
+                potong, sampel = [], []
+                for i in range(100):
+                    kata = " ".join(rng.choices("باب فصل علم عمل كتاب دليل حكم قول شرط أصل بيان سبب".split(), k=6))
+                    a, b = rng.sample(range(100, 10000), 2)
+                    frasa = lambda n: f"في {kata} العدد {n} مسائل"
+                    for hal, teks in ((5 + 2 * i, frasa(a)), (6 + 2 * i, frasa(b))):
+                        potong.append((f" ⦗{str(hal).translate(str.maketrans('0123456789', '٠١٢٣٤٥٦٧٨٩'))}⦘ " if potong else "") + teks)
+                    sampel.append((5 + 2 * i, frasa(a), frasa(b)))
+                with gzip.open(pages, "wt", encoding="utf8") as h:
+                    h.write(json.dumps({"part": None, "page_num": 5, "body": ". ".join(potong),
+                                        "footnotes": ""}, ensure_ascii=False) + "\n")
+                for salah in (False, True):
+                    naskah(f)
+                    with open(f / "naskah.txt", "a", encoding="utf8") as h:
+                        for hal, benar, keliru in sampel:
+                            h.write(f'قال: «{keliru if salah else benar}»[^رسالة في القضاء والقدر، ص{hal}. <<11223|-|{hal}>>].\n')
+                    r = jalan(akar, "cek", f)
+                    out = r.stdout + r.stderr
+                    assert "GALAT MESIN" not in out and "Traceback" not in out, out
+                    if f"| GAGAL: {len(sampel) if salah else 0}\n" not in out:
+                        meleset.append(f"100 kutipan acak, harus gagal={salah}: " + out.splitlines()[1])
+                assert not meleset, "\n".join(meleset)
+            finally:
+                pages.write_bytes(sebelum)
 
         def bahan_terlindungi():
             f = akar / "uji-bahan"
@@ -302,6 +385,7 @@ def utama():
         uji("cache mengikuti perubahan isi meski ukuran dan mtime sama", cache_usang)
         uji("indeks mengikuti isi/offset baru meski ukuran dan mtime sama", indeks_usang)
         uji("berkas padat rusak/terpotong/bentuk salah dihitung ulang", cache_rusak)
+        uji("angka dan ayat terikat halaman, batas kata, dan bagian kitab", angka_ayat_sehalaman)
         uji("templat/PDF sumber tidak ditimpa hasil rakit", bahan_terlindungi)
         uji("PDF rusak dan penulisan putus tidak meninggalkan hasil", pdf_utuh)
         uji("katalog tanpa pandas dan regex salah tidak crash", katalog_ringan)
@@ -352,7 +436,7 @@ def utama():
             uji("rakit " + mode, lambda mode=mode: rakit(mode))
         if gagal:
             sys.exit(f"{len(gagal)} uji integritas gagal: " + ", ".join(gagal))
-        print("uji integritas: 18 skenario sesuai; Word disimulasikan")
+        print(f"uji integritas: {len(diuji)} skenario sesuai; Word disimulasikan")
 
 
 if __name__ == "__main__":
