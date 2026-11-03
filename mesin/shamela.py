@@ -2,7 +2,7 @@
 AuthenticIlm/Shamela4_Full_DB ke folder kitab/, lalu cari kutipan secara offline
 (tanpa kredit, tanpa internet). `temukan` dan `scan` memakai turath.io sebagai penunjuk jalan. Dipanggil lewat bahts.py.
 """
-import functools, gzip, hashlib, html, http.client, json, os, re, shutil, sys, time, urllib.error, urllib.parse, urllib.request
+import bisect, functools, gzip, hashlib, html, http.client, json, os, re, shutil, sys, time, urllib.error, urllib.parse, urllib.request, zlib
 from pathlib import Path
 
 import norma
@@ -355,37 +355,105 @@ def _ambil(sid):
 
 
 def _cache(sid):
-    return norma.cache(_folder(sid))
-
-
-def _pages(sid):
-    f = _folder(sid) / "pages.jsonl.gz"
-    if not f.exists():
-        raise SystemExit(f"Kitab {sid} belum diunduh: " + perintah(f"ambil {sid}"))
-    cache = _cache(sid)
-    for i, p in enumerate(norma.rekaman(f)):
-        if i < len(cache):
-            for (bagian, _), (teks, batas) in zip(BAGIAN, cache[i]):
-                p["_padat_" + bagian] = teks, batas
-        yield p
-
-
-INDEKS = "indeks.json"  # di folder tiap kitab
-INDEKS_VERSI = 1  # naikkan kalau isi indeks (lihat `indeks`) berubah cara hitungnya
+    """`norma.Padat` kitab sid: teks `padat` seluruh kitab, dibaca dari berkasnya (atau dibuat sekali)."""
+    return norma.cache(_folder(sid), _sidik(sid))
 
 
 @functools.cache
+def _sidik(sid):
+    """Sidik pages.jsonl.gz kitab sid, sekali per perintah: indeks dan teks `padat` sama-sama mencocokkan diri dengannya."""
+    return norma.sidik(_folder(sid) / "pages.jsonl.gz")
+
+
+INDEKS = "indeks.json"  # di folder tiap kitab
+INDEKS_VERSI = 2  # naikkan kalau isi indeks (lihat `indeks`) berubah cara hitungnya atau bentuknya
+
+
 def _isi(sid):
-    """Isi pages.jsonl.gz yang sudah dibuka (satu rekaman per baris), sekali per perintah."""
+    """Isi pages.jsonl.gz yang sudah dibuka (satu rekaman per baris), utuh: hanya untuk membuat indeks."""
     with gzip.open(_folder(sid) / "pages.jsonl.gz") as g:
         return g.read()
+
+
+class _Lompat:
+    """Isi berkas .gz yang dibaca per potongan [a, z) tanpa membuka seluruhnya ke memori. Selama dibaca maju, tiap
+    ±LANGKAH byte isi dicatat titik lanjutnya (letak isi, letak di .gz, salinan keadaan zlib ±42 KB); bacaan berikutnya
+    mulai dari titik terdekat sebelum a. Blok (isi antara dua titik) yang terakhir dibuka, dari kitab mana pun, disimpan
+    sebentar (BLOK_MAKS).
+    Berkas .gz yang anggotanya lebih dari satu (bukan buatan `ambil`) dibuka utuh sekali, seperti dulu."""
+    LANGKAH = 1 << 19  # 512 KB isi: satu rekaman yang diminta = membuka paling banyak sebanyak ini lebih dulu
+    POTONG = 1 << 16  # byte .gz yang diberikan ke zlib sekali jalan
+    BLOK_MAKS = 32
+    blok = {}  # (pembaca, nomor titik) -> isi blok itu, urut terakhir dipakai; bersama semua kitab
+
+    def __init__(self, f):
+        self.f = f
+        self.titik = [(0, 0, zlib.decompressobj(31))]  # urut letak isi; titik terakhir = sejauh mana sudah dibaca
+        self.ujung = False  # akhir berkas sudah tercapai
+        self.utuh = None  # isi utuh, hanya untuk .gz beranggota banyak
+
+    def _buka(self, k):
+        """Isi dari titik k sampai titik k+1 (titik k+1 dibuat dulu kalau belum ada); b"" kalau k = akhir berkas."""
+        if (self, k) in self.blok:
+            self.blok[self, k] = self.blok.pop((self, k))
+            return self.blok[self, k]
+        isi, letak, z = self.titik[k]
+        z, keluar, n = z.copy(), [], 0
+        with open(self.f, "rb") as h:
+            h.seek(letak)
+            if k + 1 < len(self.titik):  # blok lama: masukannya tepat sampai titik berikutnya
+                keluar.append(z.decompress(h.read(self.titik[k + 1][1] - letak)))
+            elif not self.ujung:
+                while n < self.LANGKAH and not z.eof:
+                    masuk = h.read(self.POTONG)
+                    if not masuk:
+                        raise EOFError(f"{self.f} terpotong")
+                    keluar.append(z.decompress(masuk)); n += len(keluar[-1]); letak += len(masuk)
+                if z.eof:
+                    if (z.unused_data + h.read()).strip(b"\0"):  # anggota gzip berikutnya: gzip.open yang membacanya
+                        with gzip.open(self.f) as g:
+                            self.utuh = g.read()
+                    self.ujung = True
+                if n:
+                    self.titik.append((isi + n, letak, z.copy()))
+        hasil = b"".join(keluar)
+        self.blok[self, k] = hasil
+        if len(self.blok) > self.BLOK_MAKS:
+            del self.blok[next(iter(self.blok))]
+        return hasil
+
+    def baca(self, a, z=None):
+        """Isi [a, z); z None = sampai akhir."""
+        if self.utuh is not None:
+            return self.utuh[a:z]
+        out = []
+        k = bisect.bisect_right(self.titik, a, key=lambda t: t[0]) - 1
+        while True:
+            mulai = self.titik[k][0]
+            blok = self._buka(k)
+            if self.utuh is not None:
+                return self.utuh[a:z]
+            out.append(blok[max(0, a - mulai):None if z is None else max(0, z - mulai)])
+            k += 1
+            if not blok or z is not None and mulai + len(blok) >= z or k >= len(self.titik):
+                return b"".join(out)
+
+
+@functools.lru_cache(maxsize=64)
+def _lompat(sid):
+    return _Lompat(_folder(sid) / "pages.jsonl.gz")
+
+
+def lepas():
+    """Lepas semua yang dibaca dari kitab (titik baca, blok, indeks): untuk perintah yang membaca kitab satu per satu."""
+    _lompat.cache_clear(); _Lompat.blok.clear(); indeks.cache_clear(); _indeks.cache_clear()
 
 
 @functools.cache
 def rekaman_ke(sid, i):
     """Rekaman ke-i kitab sid (urutan berkas), tanpa cache `padat`: dihitung `_ruas` hanya untuk rekaman yang disentuh."""
     ix = indeks(sid)
-    return json.loads(_isi(sid)[ix[i][3]:ix[i + 1][3] if i + 1 < len(ix) else None])
+    return json.loads(_lompat(sid).baca(ix[i][3], ix[i + 1][3] if i + 1 < len(ix) else None))
 
 
 @functools.cache
@@ -401,22 +469,23 @@ def indeks(sid):
 def _indeks(sid):
     """(indeks, halaman cetak terkecil tiap rekaman atau None). Cocok tidaknya indeks.json dilihat dari sidik berkas .gz
     (isi .gz sama = isi kitab sama), jadi indeks yang sah terbaca tanpa membuka seluruh kitab. Indeks lama tanpa sidik
-    itu dibuat ulang sekali."""
+    itu dibuat ulang sekali. Di berkas, tiap kolom satu daftar (juz, hal, akhir, letak, awal), bukan satu daftar per
+    rekaman: dibaca dan diperiksa per kolom, tanpa satu objek per rekaman."""
     folder = _folder(sid)
     f = folder / INDEKS
-    with open(folder / "pages.jsonl.gz", "rb") as h:
-        gz = hashlib.file_digest(h, "sha256").hexdigest()
+    gz = _sidik(sid)
     try:
         d = json.loads(f.read_text(encoding="utf8"))
-        rek, awal, panjang = d["rekaman"], d["awal"], d["panjang"]
+        kolom, awal, panjang = [d["juz"], d["hal"], d["akhir"], d["letak"]], d["awal"], d["panjang"]
+        letak = kolom[3]
         if (d["versi"] == INDEKS_VERSI and d["sumber_gz"] == gz and type(panjang) is int
-                and isinstance(rek, list) and isinstance(awal, list) and len(awal) == len(rek)
-                and all(x is None or type(x) is int for x in awal)
-                and all(isinstance(x, list) and len(x) == 4 and type(x[3]) is int and 0 <= x[3] < panjang for x in rek)):
-            return [tuple(x) for x in rek], awal
+                and all(type(x) is list and len(x) == len(awal) for x in kolom + [awal])
+                and set(map(type, awal)) <= {int, type(None)} and set(map(type, letak)) <= {int}
+                and (not letak or 0 <= min(letak) and max(letak) < panjang)):
+            return list(zip(*kolom)), awal
     except (OSError, ValueError, KeyError, TypeError):
         pass
-    mentah = _isi.__wrapped__(sid)  # tanpa cache: `cari semua` membuat indeks banyak kitab, isinya tidak boleh menumpuk
+    mentah = _isi(sid)
     isi, awal, letak = [], [], 0
     for baris in mentah.splitlines(keepends=True):
         if baris.strip():
@@ -427,8 +496,9 @@ def _indeks(sid):
         letak += len(baris)
     try:
         with sementara(f) as part:
+            kolom = dict(zip(("juz", "hal", "akhir", "letak"), map(list, zip(*isi)))) if isi else dict.fromkeys(("juz", "hal", "akhir", "letak"), [])
             part.write_text(json.dumps({"versi": INDEKS_VERSI, "sumber": hashlib.sha256(mentah).hexdigest(), "sumber_gz": gz,
-                                        "panjang": len(mentah), "rekaman": isi, "awal": awal}, ensure_ascii=False), encoding="utf8")
+                                        "panjang": len(mentah), **kolom, "awal": awal}, ensure_ascii=False), encoding="utf8")
     except OSError:
         pass
     return isi, awal
@@ -541,7 +611,10 @@ def tempat(p, q, bagian="body", utuh=False, kata=(), dalam=None):
 def cari(sid, frasa, konteks=90, maks=15, diam=False):
     """Cari frasa di satu kitab; sid "semua" = di semua kitab yang sudah diunduh. Kembalikan jumlah temuan."""
     if sid == "semua":
-        n = sum(cari(s, frasa, konteks, 4, diam=True) for s in punya())
+        n = 0
+        for s in punya():
+            n += cari(s, frasa, konteks, 4, diam=True)
+            lepas()  # yang dibaca dari kitab yang sudah selesai tidak menumpuk
         if not n:
             print("TIDAK KETEMU di kitab mana pun:", frasa)
         return n
@@ -782,23 +855,19 @@ def scan(sid, juz, hal):
 def _rekaman_di(sid, nomor):
     """Rekaman ke-n kitab sid untuk tiap n di `nomor` (urut berkas), dibaca bergeser maju di berkas .gz: kitab tidak
     dibuka utuh ke memori dan bacaan berhenti di rekaman terakhir yang diminta (satu halaman kitab besar: ±3 detik -> ±0,5)."""
-    ix = indeks(sid)
-    with gzip.open(_folder(sid) / "pages.jsonl.gz") as g:
-        for i in sorted(nomor):
-            g.seek(ix[i][3])
-            yield json.loads(g.readline())
+    ix, isi = indeks(sid), _lompat(sid)
+    for i in sorted(nomor):
+        yield json.loads(isi.baca(ix[i][3], ix[i + 1][3] if i + 1 < len(ix) else None))
 
 
 def _berisi(sid, q):
     """Rekaman kitab sid yang memuat q (sudah `padat`), urut berkas, dengan cache `padat`-nya. Rekaman lain tidak diurai."""
     if not (_folder(sid) / "pages.jsonl.gz").exists():
         raise SystemExit(f"Kitab {sid} belum diunduh: " + perintah(f"ambil {sid}"))
-    cache = _cache(sid)
-    kena = [i for i, r in enumerate(cache) if any(q in b[0] for b in r)]
+    padat_ = _cache(sid)
+    kena = padat_.kena(q)
     for i, p in zip(kena, _rekaman_di(sid, kena)):
-        for (bagian, _), (isi, batas) in zip(BAGIAN, cache[i]):
-            p["_padat_" + bagian] = isi, batas
-        yield p
+        yield padat_.isi(p, i)
 
 
 def halaman(sid, juz, hal):

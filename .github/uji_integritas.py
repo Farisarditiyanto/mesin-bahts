@@ -150,18 +150,17 @@ def utama():
 
         def cache_rusak():
             sumber(pages, True)
-            for payload in (None, {}, [None], {"sumber": "salah", "rekaman": []}):
-                with gzip.open(kitab / f"padat-{norma.VERSI}.json.gz", "wt", encoding="utf8") as h:
-                    json.dump(payload, h)
+            f = kitab / f"padat-{norma.VERSI}.bin"
+            assert jalan(akar, "cari", "11223", "كلمات جديدة للبحث").returncode == 0
+            utuh = f.read_bytes()
+            kepala, _, isi = utuh.partition(b"\n")
+            # kepala bukan JSON / bentuk salah / sidik lain, isi terpotong / berlebih / satu byte berubah (crc32)
+            for payload in (b"", b"null\n", b"[null]\n", b"{}\n" + isi, kepala.replace(b'"sumber": "', b'"sumber": "x') + b"\n" + isi,
+                            utuh[:len(utuh) // 2], utuh + b"\0", utuh[:-3] + bytes([utuh[-3] ^ 1]) + utuh[-2:]):
+                f.write_bytes(payload)
                 r = jalan(akar, "cari", "11223", "كلمات جديدة للبحث")
-                assert r.returncode == 0, repr(payload) + r.stdout + r.stderr
-
-        def cache_deflate_rusak():
-            sumber(pages, True)
-            # Header gzip sah, tetapi blok DEFLATE tidak sah: zlib.error, bukan BadGzipFile.
-            (kitab / f"padat-{norma.VERSI}.json.gz").write_bytes(bytes.fromhex("1f8b08000000000000030600") + b"\0" * 8)
-            r = jalan(akar, "cari", "11223", "كلمات جديدة للبحث")
-            assert r.returncode == 0, r.stdout + r.stderr
+                assert r.returncode == 0, repr(payload[:80]) + r.stdout + r.stderr
+                assert f.read_bytes() == utuh, "berkas padat rusak tidak dibuat ulang"
 
         def bahan_terlindungi():
             f = akar / "uji-bahan"
@@ -301,8 +300,7 @@ def utama():
         uji("bahan dua folder bernama sama terpisah", terpisah)
         uji("cache mengikuti perubahan isi meski ukuran dan mtime sama", cache_usang)
         uji("indeks mengikuti isi/offset baru meski ukuran dan mtime sama", indeks_usang)
-        uji("cache JSON null/bentuk salah dihitung ulang", cache_rusak)
-        uji("cache DEFLATE rusak dihitung ulang", cache_deflate_rusak)
+        uji("berkas padat rusak/terpotong/bentuk salah dihitung ulang", cache_rusak)
         uji("templat/PDF sumber tidak ditimpa hasil rakit", bahan_terlindungi)
         uji("PDF rusak dan penulisan putus tidak meninggalkan hasil", pdf_utuh)
         uji("katalog tanpa pandas dan regex salah tidak crash", katalog_ringan)
