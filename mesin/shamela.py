@@ -594,14 +594,45 @@ def _cocok(p, q, bagian="body", utuh=False, kata=()):
     return next(_letak(p, q, bagian, utuh, kata), None)
 
 
-def tempat(p, q, bagian="body", utuh=False, kata=(), dalam=None):
+# Garis pemisah matan dan حاشية di cetakan. Sebagian kitab Shamela menaruh حاشية المحقق di body sesudah garis ini
+# (footnotes kosong): teks sesudahnya sampai halaman cetak berikutnya bukan matan.
+PEMISAH_CATATAN = re.compile(r"_{5,}")
+
+
+def catatan_body(t):
+    """Ruas [(awal, akhir)] teks asli body t yang sebenarnya حاشية: dari garis pemisah sampai penanda halaman ⦗n⦘
+    berikutnya atau akhir teks."""
+    out = []
+    for m in PEMISAH_CATATAN.finditer(t):
+        if not out or m.start() >= out[-1][1]:
+            n = PENANDA.search(t, m.end())
+            out.append((m.start(), n.start() if n else len(t)))
+    return out
+
+
+def _catatan_padat(p):
+    """`catatan_body` rekaman p dalam letak teks `padat` body-nya; dihitung sekali per rekaman."""
+    if "_catatan_padat" not in p:
+        t = p.get("body") or ""
+        p["_catatan_padat"] = [(len(padat(t[:a])), len(padat(t[:z]))) for a, z in catatan_body(t)] if "_" in t else []
+    return p["_catatan_padat"]
+
+
+def tempat(p, q, bagian="body", utuh=False, kata=(), dalam=None, catatan=None):
     """Halaman cetak (awal, akhir) tempat q (sudah `padat`) berada di rekaman p; None kalau tidak ada.
     bagian "footnotes" = حاشية, dihitung per penanda halaman seperti matan.
     utuh=True: q harus mulai dan berakhir di batas kata kitab (kutipan yang terpotong di tengah kata tidak dihitung).
     dalam=(p1, p2): q yang muncul lebih dari sekali di rekaman ini: yang di halaman p1..p2 didahulukan.
+    catatan (body saja): False = hanya letak di luar `catatan_body` (matan), True = hanya yang menyentuhnya (حاشية).
     Halamannya None kalau rekaman itu tidak bernomor halaman."""
     batas, pertama = _ruas(p, bagian)[1], None
+    pilah = catatan is not None and bagian == "body"
+    ruas = _catatan_padat(p) if pilah else []
+    if pilah and catatan and not ruas:
+        return None
     for c in _letak(p, q, bagian, utuh, kata):
+        if pilah and catatan != any(a < c[1] and c[0] < z for a, z in ruas):
+            continue
         h = (next(h for a, z, h, _ in batas if a <= c[0] < z), next(h for a, z, _, h in batas if a <= c[1] - 1 < z))
         if dalam is None or dalam[0] <= (h[0] or 0) and (h[1] or 0) <= dalam[1]:
             return h

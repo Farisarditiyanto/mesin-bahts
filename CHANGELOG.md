@@ -5,6 +5,9 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `cek`: حاشية المحقق yang di Shamela tertulis di body sesudah garis `_____` (footnotes kosong; mis. شرح ابن عقيل 9904) kini diperlakukan seperti حاشية: kutipan yang hanya ada di situ lolos dengan perhatian «bukti ada di حاشية المحقق … itu kalimat muhaqqiq, bukan pengarang». Dulu dihitung matan, jadi kalimat muhaqqiq («كما فعل الشارح هنا») lolos bersih sebagai perkataan pengarang. Matan sebelum garis itu tetap matan. Naskah lama bisa mendapat perhatian baru, tidak ada GAGAL baru.
+- `cek`: paragraf salinan berbukti saja (`[^<<sid|…>>]`, sid di `@rumuz`) kini dicek sejak catatan kaki *berbukti* sebelumnya. Catatan penjelasan tanpa bukti (`[^توضيح.]`) di tengah paragraf tidak lagi memotongnya. Dulu kalimat karangan sebelum catatan penjelasan tidak ikut dicek, padahal tercetak sebagai nukilan kitab itu. Naskah lama bisa mendapat GAGAL baru di tempat seperti itu.
+- `cek`: `...~` di `#V` (dua paruh bait berbagi satu kata) disambung dulu sebelum dicek, seperti cetakannya. Dulu kutipan bait yang memakainya GAGAL «kutipan mulai atau berakhir di tengah kata» walau lafaznya benar.
 - `@format: tatbiqi_mulakhas`: sama dengan `tatbiqi` (satu spasi), tetapi bagian `#K الملخص`/`ملخص البحث` dan `الملخص باللغة الأجنبية` 1,5 spasi, paragraf الملخص berjarak tanpa menjorok. Kunci profil baru: `spasi_mulakhas`.
 - `@format: tatbiqi_15`: sama dengan `tatbiqi`, tetapi matan dan judul 1,5 spasi (catatan kaki dan فهرس tetap satu spasi), dan paragraf di bawah `#K الملخص`/`#K ملخص البحث` berjarak 6 pt tanpa awal alinea menjorok. Profil baru di `format.json` bisa memakai `spasi` dan `mulakhas_berjarak`.
 - `#L **Abstract**` (satu baris `#L` diapit `**`): judul Latin tebal di tengah. Paragraf `#L` sesudahnya diberi jarak 6 pt antarparagraf, seperti contoh الملخص باللغة الأجنبية yang memakai judul «Abstract». Dulu `**` di `#L` tercetak apa adanya.
