@@ -456,7 +456,7 @@ try {
     $toc = New-Object System.Collections.ArrayList
     $nKotak = 0
     $garis = New-Object System.Collections.ArrayList   # paragraf @warna: garis tegak di sisi awal (tetap terlihat di fotokopi hitam putih)
-    $nT = 0; $pertama = $true; $iR = -1; $pbBerikut = $false
+    $nT = 0; $pertama = $true; $iR = -1; $pbBerikut = $false; $berjarakL = $false
     function HalamanBaru { if ($script:pbBerikut) { $sel.ParagraphFormat.PageBreakBefore = -1; $sel.ParagraphFormat.SpaceBefore = 0; $script:pbBerikut = $false } }
     for ($i = 0; $i -lt $DATA.blok.Count; $i++) {
         $blk = $DATA.blok[$i]
@@ -493,12 +493,16 @@ try {
             $sel.TypeParagraph()
         }
         elseif ($blk.k -eq 'L') {                         # paragraf Latin: kiri ke kanan, rata kanan-kiri
-            Para 3 0 0
+            $judulL = [bool]$blk.tengah                    # «#L **Abstract**»: judul tebal di tengah, paragraf #L sesudahnya berjarak
+            $jarakL = if ($judulL) { 6 } elseif ($i -gt 0 -and $DATA.blok[$i - 1].k -eq 'L' -and $script:berjarakL) { 6 } else { 0 }
+            $script:berjarakL = $judulL -or ($jarakL -gt 0)
+            Para 3 $jarakL 0
             HalamanBaru
             $sel.ParagraphFormat.ReadingOrder = 1
-            $sel.ParagraphFormat.Alignment = 3
+            $sel.ParagraphFormat.Alignment = if ($judulL) { 1 } else { 3 }
+            if ($judulL) { $sel.ParagraphFormat.KeepWithNext = -1 }
             $awal = $sel.Start
-            Tulis $blk.runs[0].t 'Times New Roman' $uMatan 0 0
+            Tulis $blk.runs[0].t 'Times New Roman' $uMatan ([int]$judulL) 0
             $doc.Range($awal, $sel.Start).Select(); $word.Selection.LtrRun(); $sel.Collapse(0)
             $sel.TypeParagraph()
         }

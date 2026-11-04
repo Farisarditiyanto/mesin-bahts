@@ -40,6 +40,8 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   #V teks             bait syair di tengah halaman (boleh memuat catatan kaki): « ... » = jarak antara dua paruh bait, « ...~ » = dua paruh yang berbagi satu kata digabung,
                       « // » = bait berikutnya pada baris baru; kutipan bertanda petik boleh memuat keduanya
   #L teks             paragraf bahasa Latin, kiri ke kanan (mis. الملخص bahasa Inggris); tanpa catatan kaki
+                      «#L **Abstract**» (satu baris penuh diapit **) = judul Latin tebal di tengah; paragraf #L
+                      sesudahnya diberi jarak antar paragraf (6 pt) sampai blok bukan #L
   #T teks             kotak matn: paragraf dalam bingkai, seluruhnya merah (boleh memuat catatan kaki)
   #R teks             awal المصادر والمراجع; sesudahnya satu kitab per baris (diurutkan abjad otomatis, القرآن الكريم paling atas).
                       Wajib, kecuali «@tanpa: pustaka»; semua bagian isi harus sebelum #R (tidak boleh ada judul/#T/#H sesudahnya)
@@ -1990,7 +1992,8 @@ def utama(folder, keluar=None):
             if k == "L":  # tercetak apa adanya, kiri ke kanan; tanda naskah tidak diurai
                 if re.search(r"\[\^|<<|\{", t):
                     galat.append(f"baris {n}: #L tidak boleh memuat catatan kaki, bukti, atau tanda {{Q:/{{H: :: {b[:40]}")
-                blok.append({"k": "L", "runs": [{"t": t}], "n": n})
+                m = re.fullmatch(r"\*\*([^*]+)\*\*", t.strip())  # «#L **Abstract**»: judul Latin tebal di tengah
+                blok.append({"k": "L", "runs": [{"t": m[1].strip() if m else t}], "n": n, **({"tengah": True} if m else {})})
             elif k in ("T", "V"):  # kotak matn atau bait syair: paragraf biasa (boleh bercatatan kaki), dicetak rakit.ps1 menurut k
                 try:
                     blok.append({"k": k, "runs": urai(t, catatan, ayat_idx, hadits_idx, galat, perhatian, rumuz=rumuz, warna=warna, folder=folder)})
