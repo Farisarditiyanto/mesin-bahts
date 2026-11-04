@@ -3,7 +3,8 @@
 yang sudah diunduh. Kitab yang dipakai sama dengan `tes.yml` (11223 dan 2348).
 
 Yang diuji:
-- tanpa `--jejak`, putusan `cek` dan pesan GAGAL-nya tetap seperti sekarang (GAGAL 1, «TIDAK KETEMU di kitab 2348»);
+- tanpa `--jejak`, putusan `cek` dan pesan GAGAL-nya tetap seperti sekarang («TIDAK KETEMU di kitab 2348», ditambah
+  GAGAL «catatan kaki menyebut» karena judul di catatan kakinya kitab 11223);
   yang bertambah hanya satu baris perintah untuk mencari di kitab lain;
 - dengan `--jejak`, teks yang sebenarnya ada di kitab 11223 halaman 5 ditunjuk di sana (juz "-" kitab satu jilid);
 - ID kitab berawalan nol («02348») tidak mematikan jejak;
@@ -35,6 +36,9 @@ ASLI = AKAR / "contoh" / "naskah.txt"
 KUTIPAN = "توحيد الربوبية وهو إفراد الله تعالى بالخلق والملك والتدبير"
 KUTIPAN_NU = "فإنها دار نفاد لا محل إخلاد، ومركب عبور لا منزل حبور"
 PALSU = "هذا نص مخترع لا يوجد في أي كتاب من كتب الشاملة التي نزلت"
+# catatan kaki contoh menyebut «رسالة في القضاء والقدر» (11223); bukti 2348 = dua GAGAL: teks TIDAK KETEMU, dan
+# catatan kaki menyebut kitab lain dari buktinya
+GAGAL_KITAB_SALAH = "GAGAL: 2"
 KUTIPAN_LINTAS = "إننا في هذا اللقاء الذي نرجو أن يفتح الله علينا فيه من"  # 11223 akhir ص3 + awal ص4
 
 
@@ -65,7 +69,7 @@ try:
     kode, keluar = jalan(folder)
     print(keluar)
     assert kode == 1, kode
-    assert "GAGAL: 1" in keluar, keluar
+    assert GAGAL_KITAB_SALAH in keluar and "catatan kaki menyebut" in keluar, keluar
     assert "teks TIDAK KETEMU di kitab 2348" in keluar, keluar
     assert "--jejak" in keluar, "tanpa --jejak pemakai tidak diberi tahu cara mencari di kitab lain"
     assert "ketemu di kitab" not in keluar, "penunjuk lintas kitab tidak boleh muncul tanpa --jejak"
@@ -147,7 +151,7 @@ try:
         # Cek mengizinkan bagian pendek yang menempel ayat; jejak wajib tetap mencarinya.
         tulis(folder, "<<2348|-|5>>", KUTIPAN + " {Q:1:2} ززز")
         kode, keluar = jalan(folder, "--jejak")
-        assert kode == 1 and "GAGAL: 1" in keluar, keluar
+        assert kode == 1 and GAGAL_KITAB_SALAH in keluar, keluar
         assert "tidak ditemukan di" in keluar and "ketemu di kitab" not in keluar, keluar
 
     def petunjuk_spasi():
@@ -196,7 +200,7 @@ try:
             halaman.write_bytes(data)
             tulis(folder, "<<2348|-|5>>")
             kode, keluar = jalan(folder, "--jejak")
-            assert kode == 1 and "GAGAL: 1" in keluar, keluar
+            assert kode == 1 and GAGAL_KITAB_SALAH in keluar, keluar
             assert "11223 ج- ص5" in keluar and "Traceback" not in keluar, keluar
             assert "jejak belum lengkap" in keluar and "kitab 1" in keluar, keluar
             tulis(folder, "<<2348|-|5>>", PALSU)

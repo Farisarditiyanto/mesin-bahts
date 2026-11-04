@@ -120,10 +120,10 @@ def _meta():
         import pyarrow.parquet as pq
     except ImportError:
         raise SystemExit("Pustaka Python belum terpasang; cara memasangnya disebut oleh: " + perintah("periksa"))
-    # Katalog hanya perlu tujuh kolom ini; kartu lengkap dibaca dari kitab lokal.
+    # Katalog hanya perlu delapan kolom ini; kartu lengkap dibaca dari kitab lokal.
     with pq.ParquetFile(ROOT / KATALOG) as f:
         return f.read(columns=["shamela_id", "book_id", "category_id", "title_ar",
-                               "main_author_name_ar", "category_name_ar", "has_multi_part"]).to_pylist()
+                               "main_author_id", "main_author_name_ar", "category_name_ar", "has_multi_part"]).to_pylist()
 
 
 def ada_keterangan():
@@ -188,6 +188,58 @@ def nomor_judul(judul):
         return [], []
     semua = _judul_padat()
     return semua.get(q, []), [s for j, ss in semua.items() if j != q and j.startswith(q) for s in ss]
+
+
+def judul_pokok(judul):
+    """Judul katalog tanpa keterangan edisi sesudah « - » («صحيح مسلم - ت عبد الباقي»), dipecah di « = » (judul lain:
+    «تفسير السعدي = تيسير الكريم الرحمن»)."""
+    return [b for b in re.split(r"\s+=\s+", re.split(r"\s+-\s+", judul or "")[0].strip()) if b]
+
+
+@functools.cache
+def _judul_pokok_padat():
+    """{judul_pokok `padat`: {nomor kitab}}: «صحيح مسلم» = semua edisinya."""
+    try:
+        daftar = _meta()
+    except SystemExit:
+        return {}
+    out = {}
+    for r in daftar:
+        for b in judul_pokok(r["title_ar"]):
+            out.setdefault(padat(b), set()).add(int(r["shamela_id"]))
+    return out
+
+
+def nomor_pengarang(nama):
+    """main_author_id pengarang katalog yang namanya `nama`, atau diawali `nama` utuh sekata («ابن حجر» = ابن حجر
+    العسقلاني dan ابن حجر الهيتمي). Nama satu kata hanya nisbah ber-«ال» yang persis sama («النووي»): «مسلم», «مالك»,
+    «أحمد» juga kata biasa, dan satu kata tidak boleh jadi awalan nama orang lain."""
+    awal = norm(nama)
+    if not awal or " " not in awal:
+        return set(_pengarang_kata().get(awal, ())) if awal.startswith("ال") and len(awal) >= 5 else set()
+    return {i for j, ii in _pengarang_kata().items() if j == awal or j.startswith(awal + " ") for i in ii}
+
+
+@functools.cache
+def _pengarang_kata():
+    """{nama pengarang `norm` (berspasi, supaya «ابن حجر» tidak cocok dengan «ابن حجرة»): {main_author_id}}."""
+    try:
+        daftar = _meta()
+    except SystemExit:
+        return {}
+    out = {}
+    for r in daftar:
+        nama = r["main_author_name_ar"] or ""
+        for b in {nama, *nama.split("،")}:
+            if norm(b):
+                out.setdefault(norm(b), set()).add(str(r["main_author_id"]))
+    return out
+
+
+def nomor_judul_pokok(judul):
+    """Nomor kitab yang salah satu judul_pokok-nya persis `judul` («صحيح البخاري», «تيسير الكريم الرحمن»)."""
+    q = padat(judul)
+    return sorted(_judul_pokok_padat().get(q, ())) if len(q) >= 6 else []
 
 
 TURATH = "https://api.turath.io/search"  # pencarian isi seluruh Shamela; nomor kitabnya = shamela_id (sama dengan `ambil`)
