@@ -1277,13 +1277,15 @@ def tercetak(isi, juz):
     """Rentang halaman yang tercetak di catatan kaki untuk juz ini: [(awal, akhir)]. Angka ٠-٩ dibaca seperti 0-9.
     «ص» harus berdiri sebagai kata («النص 5» bukan halaman), boleh disambung و/ف («وص6»). Rentang boleh «-» atau «–»;
     «ص5، 7», «ص5 و7», «1/5، 7» = halaman 5 dan 7 (angka sesudah koma atau و yang bukan tahun atau juz/halaman).
-    Halaman bahts sendiri («ص3 من هذا البحث», «ص3 من البحث») bukan halaman kitab."""
-    isi = re.sub(r"\d+(?:\s*(?:[-–]|[،,]\s*و?|\s+و)\s*\d+)*\s*(?=من\s+(?:هذا\s+)?البحث)", " ", isi.translate(ANGKA_LATIN))
+    «ص: 5» dan «الصفحة 5» sama dengan «ص5».
+    Halaman bahts sendiri («ص3 من هذا البحث», «ص3 من البحث», «ص3 من هذه الرسالة/المذكرة») bukan halaman kitab."""
+    isi = re.sub(r"\d+(?:\s*(?:[-–]|[،,]\s*و?|\s+و)\s*\d+)*\s*(?=من\s+(?:(?:هذا\s+)?البحث|هذه\s+(?:الرسالة|المذكرة)))",
+                 " ", isi.translate(ANGKA_LATIN))
     rentang = r"\d+(?:\s*[-–]\s*\d+)?"
     tahun = r"(?:1[34]|19|20)\d\d(?!\d|\s*[-–])"  # «ص5، 1423»: tahun cetak tanpa هـ, bukan halaman kedua
     daftar = rf"(?:\s*(?:[،,]\s*و?|\s+و)\s*(?!{tahun}){rentang}(?![\d/]|\s*/|\s*(?:هـ|ه(?!\w)|م(?!\w))))*"
     if juz == "-":
-        pola = rf"(?<![\wـ])[وف]?ص\s*({rentang}{daftar})"
+        pola = rf"(?<![\wـ])(?:[وف]?ص|الصفحة)\s*:?\s*({rentang}{daftar})"
     else:
         pola = rf"(?<![\d/]){re.escape(juz)}\s*/\s*({rentang}{daftar})"
     return [(int(a), int(b or a)) for m in re.findall(pola, isi) for a, b in re.findall(r"(\d+)(?:\s*[-–]\s*(\d+))?", m)]
@@ -1293,8 +1295,15 @@ def tercetak(isi, juz):
 # nomor hadits «رقم (5/ 103)», «الحديث 5/103» (nomor bab/hadits seperti cetakan سبل السلام) bukan juz/halaman
 NOMOR_HADITS = re.compile(r"(?:رقم|حديث)(?:\s*الحديث)?\s*:?\s*\(?\s*\d+\s*/\s*\d+\s*\)?")
 JUZ_TERCETAK = re.compile(r"(?<![\w/])(\d{1,2})\s*/\s*\d+(?![\d/])(?!\s*(?:هـ|م(?!\w)))")
-# «ج1، ص55», «ج1/ص55», «ج ١ ص ٥٥» (sesudah ANGKA_LATIN) = juz/halaman «1/55»; diganti dengan r"\1/"
-JUZ_ARAB = re.compile(r"(?<![\wـ])ج\s*:?\s*(\d{1,2})\s*[،,/]?\s*ص\s*:?\s*(?=\d)")
+# «ج1، ص55», «ج1/ص55», «ج ١ ص ٥٥», «الجزء 1، ص55», «الجزء الأول، الصفحة 55» (sesudah ANGKA_LATIN) = «1/55»
+URUTAN = {"الأول": 1, "الاول": 1, "الثاني": 2, "الثالث": 3, "الرابع": 4, "الخامس": 5, "السادس": 6, "السابع": 7,
+          "الثامن": 8, "التاسع": 9, "العاشر": 10}
+JUZ_ARAB = re.compile(rf"(?<![\wـ])(?:ج|الجزء)\s*:?\s*(\d{{1,2}}|{'|'.join(URUTAN)})\s*[،,/]?\s*(?:ص|الصفحة)\s*:?\s*(?=\d)")
+
+
+def juz_arab(t):
+    """«ج1، ص55» dan kawan-kawannya -> «1/55» (t sudah lewat ANGKA_LATIN)."""
+    return JUZ_ARAB.sub(lambda m: f"{URUTAN.get(m[1], m[1])}/", t)
 # rujukan ke halaman bahts sendiri, bukan kitab: «تقدم تخريجه ص5», «سيأتي في ص{P:x}», «ينظر: المبحث الثاني، ص 12»,
 # «ينظر: التمهيد، ص 3». «الفصل في الملل» judul kitab: sesudah المبحث/المطلب/الفصل harus urutan «الثاني» atau angka;
 # «المقدمة الحضرمية» juga: التمهيد/المقدمة/الخاتمة harus langsung disusul ص. «ص5 من (هذا) البحث» di tercetak().
@@ -1305,9 +1314,11 @@ RUJUKAN_DALAM = re.compile(r"(?:(?:(?<!\w)(?:سبق|تقدم|سيأتي|يأتي
 
 def rujukan_halaman(isi):
     """Catatan kaki yang mencetak juz/halaman kitab («1/55», «ص55», «ج1، ص55») atau nomor hadits («رقم الحديث»):
-    rujukan kitab, jadi buktinya bisa ditulis. Rujukan ke halaman bahts sendiri tidak dihitung."""
-    t = JUZ_ARAB.sub(r"\1/", RUJUKAN_DALAM.sub(" ", isi.translate(ANGKA_LATIN)))
-    return bool(re.search(r"رقم\s+الحديث", t) or tercetak(t, "-") or JUZ_TERCETAK.search(NOMOR_HADITS.sub(" ", t)))
+    rujukan kitab, jadi buktinya bisa ditulis. Takhrij bernomor tanpa halaman juga: «أخرجه البخاري، رقم (1901)»,
+    «أخرجه البخاري (1901)», «صحيح البخاري، حديث رقم: 1901». Rujukan ke halaman bahts sendiri tidak dihitung."""
+    t = juz_arab(RUJUKAN_DALAM.sub(" ", isi.translate(ANGKA_LATIN)))
+    takhrij = re.search(r"أخرج|رواه|حديث|صحيح|سنن|مسند|البخاري|مسلم", t) and re.search(r"رقم\s*:?\s*\(?\s*\d|\(\s*\d+\s*\)", t)
+    return bool(re.search(r"رقم\s+الحديث", t) or takhrij or tercetak(t, "-") or JUZ_TERCETAK.search(NOMOR_HADITS.sub(" ", t)))
 
 
 def _bagian_kitab(isi, bukti):
@@ -1376,7 +1387,7 @@ def cocok_halaman(isi, bukti, perhatian=None):
         # juz yang tidak punya bukti sama sekali («3/77» di kitab satu jilid, «ص900» di kitab berjilid)
         utuh = teks.translate(ANGKA_LATIN)  # «عند شرحه للحديث (1/ 222)»: bukti yang tercetak di sini tetap terbaca
         if juz_bukti - {"-"}:  # kitab satu jilid (juz «-»): «ج1، ص55» tetap dibaca «ص55» seperti dulu
-            utuh = JUZ_ARAB.sub(r"\1/", utuh)
+            utuh = juz_arab(utuh)
         teks = NOMOR_HADITS.sub(" ", utuh)
         lain = {j for j in JUZ_TERCETAK.findall(teks)} | {"-"}
         for juz in juz_bukti | (lain - juz_bukti):
