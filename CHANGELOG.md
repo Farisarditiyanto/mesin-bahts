@@ -5,6 +5,10 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `rakit` yang gagal di Word kini selalu menyebut sebabnya di baris «Perakitan GAGAL» itu sendiri: pesan galat `rakit.ps1` beserta barisnya, atau «rakit.ps1 berhenti tanpa pesan (kode keluar …)» kalau PowerShell/Word-nya dimatikan dari luar. Dulu pesannya «lihat pesan di atas» padahal di atasnya bisa kosong (PowerShell dimatikan) atau terpotong `tail`/`grep`.
+- `rakit` yang antre kini menyebut rakit yang sedang jalan: folder bahts, nomor proses, jam mulai, dan sudah berapa menit, plus pesan agar rakit itu tidak dimatikan. Dulu hanya «Rakit lain sedang jalan», sehingga agent mengira rakit itu macet lalu mematikannya.
+- `rakit` membersihkan sendiri folder `.rakit-*` sisa rakit yang dimatikan di folder bahts itu, dan lebih dulu menunggu `rakit.ps1` sisa rakit itu berhenti (Word-nya masih dipakai). Folder berisi hasil baru yang belum terpasang (pemulihan gagal) diberi `JANGAN_DIHAPUS.txt` dan tidak dibuang. Dulu sisa itu harus dihapus atau dipindahkan dengan tangan.
+
 - `@format: tatbiqi_mulakhas`: sama dengan `tatbiqi` (satu spasi), tetapi bagian `#K الملخص`/`ملخص البحث` dan `الملخص باللغة الأجنبية` 1,5 spasi, paragraf الملخص berjarak tanpa menjorok. Kunci profil baru: `spasi_mulakhas`.
 - `@format: tatbiqi_15`: sama dengan `tatbiqi`, tetapi matan dan judul 1,5 spasi (catatan kaki dan فهرس tetap satu spasi), dan paragraf di bawah `#K الملخص`/`#K ملخص البحث` berjarak 6 pt tanpa awal alinea menjorok. Profil baru di `format.json` bisa memakai `spasi` dan `mulakhas_berjarak`.
 - `#L **Abstract**` (satu baris `#L` diapit `**`): judul Latin tebal di tengah. Paragraf `#L` sesudahnya diberi jarak 6 pt antarparagraf, seperti contoh الملخص باللغة الأجنبية yang memakai judul «Abstract». Dulu `**` di `#L` tercetak apa adanya.

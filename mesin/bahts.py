@@ -36,7 +36,7 @@ Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex dan DOAJ
                                dan menurut makna. Saringan OpenAlex, mis. language:ar,type:dissertation
   dirasat-pdf <W…> <folder>    unduh PDF penelitian (nomor OpenAlex dari `dirasat`) ke folder bahts; butuh kunci OpenAlex
 """
-import difflib, hashlib, json, math, os, re, shutil, subprocess, sys, sysconfig, tempfile, urllib.error, zipfile
+import difflib, hashlib, json, math, os, re, shutil, subprocess, sys, sysconfig, tempfile, time, urllib.error, zipfile
 from pathlib import Path
 
 import dirasat, hadits, shamela  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
@@ -291,12 +291,17 @@ def cek(nama, keluar=None, jejak=False):
 
 
 RAKIT_ANTRE = 30 * 60  # detik; rakit terlama yang tercatat ±10 menit: dua rakit di depan masih tertampung
+RAKIT_PS_KUNCI = MESIN / "_tmp" / "rakit.kunci"  # dibuka rakit.ps1 tanpa berbagi selama ia hidup (dilepas OS saat mati)
+RAKIT_GALAT = "rakit.galat"  # di folder kerja: pesan galat rakit.ps1 (UTF-8), ditulis sebelum PowerShell berhenti
+RAKIT_SIMPAN = "JANGAN_DIHAPUS.txt"  # penanda folder .rakit-* berisi hasil baru yang belum terpasang (PemulihanGagal)
 
 
 def rakit(nama):
     if os.name == "nt":
         try:
-            with kunci(MESIN / "_tmp" / "rakit.pekerjaan", tunggu=RAKIT_ANTRE):
+            apa = folder_bahts(nama).relative_to(AKAR).as_posix()
+            with kunci(MESIN / "_tmp" / "rakit.pekerjaan", tunggu=RAKIT_ANTRE, apa=apa):
+                _tunggu_ps_yatim()
                 _rakit(nama)
         except PermissionError as e:  # hasil lama (atau yang baru) sedang dibuka aplikasi lain; hasil lama tetap utuh
             sys.exit(f"Perakitan GAGAL: {Path(e.filename or '').name or 'hasil'} sedang terbuka di aplikasi lain (Word "
@@ -309,22 +314,67 @@ def rakit(nama):
                  "`rakit` butuh Windows + Microsoft Word. Naskahnya sudah lolos `cek`.")
 
 
+def _tunggu_ps_yatim():
+    """rakit.ps1 milik rakit yang dimatikan (Python-nya mati, PowerShell-nya belum) masih memakai Word dan folder
+    kerjanya: tunggu sampai ia berhenti sendiri, supaya Word tidak dipakai berdua dan foldernya tidak dibuang saat masih
+    ditulisi. Word-nya dibereskan rakit.ps1 itu sendiri (atau rakit.ps1 berikutnya, lewat catatan Word yatim)."""
+    batas, kabar = time.monotonic() + RAKIT_ANTRE, False
+    while True:
+        try:
+            with open(RAKIT_PS_KUNCI, "ab"):
+                return
+        except PermissionError:
+            if time.monotonic() >= batas:
+                raise RuntimeError("rakit.ps1 dari rakit yang dimatikan masih jalan: tunggu sampai berhenti, lalu ulangi.") from None
+            if not kabar:
+                print("rakit.ps1 dari rakit sebelumnya yang dimatikan masih memakai Word: menunggu sampai berhenti sendiri "
+                      "(jangan matikan Word atau PowerShell-nya)...", flush=True)
+                kabar = True
+            time.sleep(2)
+
+
+def _buang_sisa(f, kerja):
+    """Buang folder kerja rakit ini dan folder .rakit-* yang tertinggal rakit yang dimatikan (Python-nya mati sebelum
+    membersihkannya). Aman: kunci rakit dipegang rakit ini dan rakit.ps1 sisa rakit lain sudah berhenti (_tunggu_ps_yatim),
+    jadi tidak ada rakit lain yang masih memakainya. Dipanggil sesudah rakit.ps1, yang menghentikan Word yatim rakit lama
+    (Word itu masih membuka berkas di foldernya). Folder bertanda RAKIT_SIMPAN = hasil baru yang belum terpasang: dibiarkan."""
+    for sisa in sorted(f.glob(".rakit-*")):
+        if not sisa.is_dir() or (sisa / RAKIT_SIMPAN).exists():
+            continue
+        shutil.rmtree(sisa, ignore_errors=True)
+        if sisa.exists():
+            print(f"Bahan sementara rakit belum bisa dibuang (ada berkas yang masih terbuka; `rakit` berikutnya mencoba lagi): {sisa}")
+        elif sisa != kerja:
+            print(f"Sisa rakit yang terhenti dibuang: {sisa.name}")
+
+
+def _word_gagal(kode, galat):
+    """Pesan rakit.ps1 yang gagal. Pesannya diambil dari berkas `galat` (ditulis trap rakit.ps1), bukan dari layar: layar
+    bisa dipotong `tail`/`grep` pemanggil. Tanpa berkas itu PowerShell mati sebelum sempat menulis apa pun."""
+    try:
+        isi = galat.read_text(encoding="utf8").strip()
+    except OSError:
+        isi = ""
+    if isi:
+        return f"Perakitan Word gagal (rakit.ps1, kode keluar {kode}): {isi}. Hasil lama belum diganti."
+    return (f"Perakitan Word gagal: rakit.ps1 berhenti tanpa pesan (kode keluar {kode}). Artinya PowerShell atau Word-nya "
+            "dimatikan dari luar (Stop-Process, Task Manager, batas waktu alat, terminal ditutup) atau mati mendadak. "
+            "Hasil lama belum diganti; ulangi `rakit`. Rakit yang sedang jalan jangan dimatikan: rakit berikutnya antre sendiri.")
+
+
 def _rakit(nama):
     f = folder_bahts(nama)
     kerja = Path(tempfile.mkdtemp(prefix=".rakit-", dir=f))
     try:
         _rakit_di(nama, f, kerja)
-    except PemulihanGagal:  # hasil baru masih di folder kerja: jangan dibuang
+    except PemulihanGagal:  # hasil baru masih di folder kerja: jangan dibuang, juga oleh rakit berikutnya
+        (kerja / RAKIT_SIMPAN).write_text("Hasil baru yang belum terpasang (pemulihan rakit gagal; lihat pesan rakit).\n"
+                                          "`rakit` tidak membuang folder ini: selamatkan isinya, lalu hapus sendiri.\n",
+                                          encoding="utf8")
         print(f"Bahan percobaan disimpan: {kerja}")
         raise
-    except BaseException:  # galat cek, Word gagal, berkas terkunci: hasil lama utuh, bahan sementara tidak dibutuhkan
-        shutil.rmtree(kerja, ignore_errors=True)
-        raise
-    else:
-        try:
-            shutil.rmtree(kerja)
-        except OSError:
-            print(f"Hasil sudah terbit; bahan sementara belum dibersihkan: {kerja}")
+    finally:  # berhasil, atau galat cek, Word gagal, berkas terkunci: hasil lama utuh, bahan sementara tidak dibutuhkan
+        _buang_sisa(f, kerja)
 
 
 def _rakit_di(nama, f, kerja):
@@ -347,9 +397,10 @@ def _rakit_di(nama, f, kerja):
         ps1.write_bytes(b"\xef\xbb\xbf" + ps1.read_bytes())
     (kerja / "laporan.txt").write_text("\n".join(lap) + "\n", encoding="utf8")
     r = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(ps1),
-                        "-Build", str(build), "-Folder", str(f), "-Hasil", str(kerja)])
+                        "-Build", str(build), "-Folder", str(f), "-Hasil", str(kerja),
+                        "-Kunci", str(RAKIT_PS_KUNCI), "-Galat", str(kerja / RAKIT_GALAT)])
     if r.returncode:
-        raise RuntimeError("Perakitan Word gagal; hasil lama belum diganti (lihat pesan di atas).")
+        raise RuntimeError(_word_gagal(r.returncode, kerja / RAKIT_GALAT))
     berkas = d["meta"]["berkas"]
     import teks_pdf
     try:  # supaya teks Arab PDF tersalin dan tercari dengan benar; tampilannya tidak berubah
