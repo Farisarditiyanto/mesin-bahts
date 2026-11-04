@@ -44,13 +44,20 @@ run = subprocess.run
 if mode == "pdf-fail":
     def gagal(*a): raise RuntimeError("injeksi pembetulan PDF gagal")
     teks_pdf.betulkan = gagal
-if mode in ("publish-fail", "rollback-blocked"):
+if mode == "simpan-unlink-gagal":  # penanda bahan sementara tidak bisa dicabut (mis. terkunci antivirus)
+    unlink = Path.unlink
+    def cabut(self, *a, **k):
+        if self.name == bahts.RAKIT_SEMENTARA and ditolak:  # hanya sesudah penggantian hasil gagal
+            raise PermissionError("injeksi penanda tidak bisa dicabut")
+        return unlink(self, *a, **k)
+    Path.unlink = cabut
+if mode in ("publish-fail", "rollback-blocked", "simpan-unlink-gagal"):
     replace = Path.replace
     ditolak = False
     def ganti(self, target):
         global ditolak
         target = Path(target)
-        if mode == "rollback-blocked" and ditolak and self == Path(akar)/nama/"hasil.docx":
+        if mode in ("rollback-blocked", "simpan-unlink-gagal") and ditolak and self == Path(akar)/nama/"hasil.docx":
             raise PermissionError("injeksi DOCX baru terkunci saat ditarik")
         if not ditolak and self.name == "hasil.pdf" and self.parent != Path(akar)/nama and target.parent == Path(akar)/nama:
             ditolak = True
@@ -69,9 +76,15 @@ def word(args, **kwargs):
         r = run([sys.executable, __file__, akar, nama, "ok", lain], capture_output=True, encoding="utf8")
         # rakit kedua antre dulu (kabar «menunggu giliran»), lalu berhenti sesudah RAKIT_ANTRE habis
         assert r.returncode != 0 and "Rakit lain" in r.stderr and "menunggu giliran" in r.stdout, r.stdout + r.stderr
+        # yang antre menyebut pemegang kunci (folder, proses, jam mulai), supaya rakit yang bekerja tidak dimatikan
+        assert f"{nama}, proses {os.getpid()}, mulai " in r.stdout and f"({nama}, proses {os.getpid()}" in r.stderr, r.stdout + r.stderr
     d = json.loads(build.read_text(encoding="utf8"))
     assert d["meta"]["judul"] == "المطلوب", "Bahan rakit tertimpa cek lain"
     if mode == "save-fail": return types.SimpleNamespace(returncode=1)
+    if mode == "ps-mati": return types.SimpleNamespace(returncode=4294967295)  # Stop-Process -Force: tanpa pesan apa pun
+    if mode == "ps-asli":  # rakit.ps1 asli gagal sebelum Word dibuat: kuncinya sedang dibuka proses lain
+        with open(args[args.index("-Kunci") + 1], "ab"):
+            return run(args, **kwargs)
     with zipfile.ZipFile(out / "hasil.docx", "w") as z:
         z.writestr("[Content_Types].xml", "<Types/>")
         z.writestr("word/document.xml", "<document/>")
@@ -88,7 +101,18 @@ def word(args, **kwargs):
     return types.SimpleNamespace(returncode=0)
 bahts.subprocess.run = word
 bahts.RAKIT_ANTRE = 3  # antrean asli 30 menit; rakit di dalam rakit (mode lock) tidak boleh menunggu selama itu
-bahts.rakit(nama)
+if mode == "ps-yatim":  # rakit.ps1 yang Python-nya dimatikan masih hidup dan memegang kuncinya, seperti di rakit.ps1
+    bahts.RAKIT_PS_KUNCI.parent.mkdir(parents=True, exist_ok=True)
+    yatim = subprocess.Popen(["powershell", "-NoProfile", "-Command", f"$k = [IO.File]::Open('{bahts.RAKIT_PS_KUNCI}', "
+                              "'OpenOrCreate', 'ReadWrite', 'None'); 'pegang'; Start-Sleep 60"],
+                             stdout=subprocess.PIPE, text=True)
+    assert yatim.stdout.readline().strip() == "pegang"
+    try:
+        bahts.rakit(nama)
+    finally:
+        yatim.kill()
+else:
+    bahts.rakit(nama)
 '''
 
 
@@ -399,13 +423,25 @@ def utama():
             sebelum = {"hasil.docx": b"DOCX-LAMA", "hasil.pdf": b"PDF-LAMA", "laporan.txt": b"LAPORAN-LAMA"}
             for n, isi in sebelum.items(): (folder / n).write_bytes(isi)
             arsip_awal = set((folder / "_arsip").iterdir()) if (folder / "_arsip").exists() else set()
+            yatim = folder / ".rakit-yatim"  # tertinggal rakit versi ini yang Python-nya dimatikan
+            lama = folder / ".rakit-lama"  # disimpan versi lama («Bahan percobaan disimpan») tanpa penanda apa pun
+            if mode in ("sisa", "ps-yatim"):
+                yatim.mkdir(exist_ok=True); (yatim / "bahan.json").write_text("{}")
+                (yatim / bahts.RAKIT_SEMENTARA).write_text("")
+                lama.mkdir(exist_ok=True); (lama / "hasil.pdf").write_bytes(b"%PDF-HASIL-BARU")
             kerja_awal = set(folder.glob(".rakit-*"))
             r = subprocess.run([sys.executable, str(runner), str(akar), "a/sama", mode, "b/sama"],
                                cwd=akar, capture_output=True, encoding="utf8")
             # bahan sementara tidak tertinggal, kecuali hasil baru yang belum bisa dipulihkan (rollback-blocked)
-            if mode != "rollback-blocked":
-                assert set(folder.glob(".rakit-*")) == kerja_awal, "Rakit meninggalkan folder .rakit-* di folder bahts"
-            if mode in ("snapshot", "lock", "ok", "pdf-fail"):
+            if mode == "sisa":  # sisa rakit mati dibuang; hasil baru rollback-blocked (bertanda) dibiarkan
+                assert set(folder.glob(".rakit-*")) == kerja_awal - {yatim}, "Sisa .rakit-* salah dibersihkan"
+                assert "Sisa rakit yang terhenti dibuang: .rakit-yatim" in r.stdout, r.stdout + r.stderr
+                assert (lama / "hasil.pdf").read_bytes() == b"%PDF-HASIL-BARU", "Folder versi lama tanpa penanda dibuang"
+                assert "Folder .rakit-lama dibiarkan" in r.stdout, r.stdout + r.stderr
+                assert any((k / bahts.RAKIT_SIMPAN).is_file() for k in kerja_awal), "Hasil baru rollback-blocked tidak bertanda"
+            elif mode not in ("rollback-blocked", "simpan-unlink-gagal"):
+                assert set(folder.glob(".rakit-*")) == kerja_awal, "Rakit meninggalkan atau membuang folder .rakit-* di folder bahts"
+            if mode in ("snapshot", "lock", "ok", "pdf-fail", "sisa"):
                 assert r.returncode == 0, r.stdout + r.stderr
                 if mode == "pdf-fail":  # PDF tetap jadi; hanya teks salin/cari yang belum dibetulkan
                     assert "PERINGATAN: PDF jadi" in r.stdout, r.stdout + r.stderr
@@ -419,21 +455,30 @@ def utama():
                 assert arsip_akhir == arsip_awal, "Rakit yang berhasil meninggalkan cadangan di folder bahts"
             else:
                 assert r.returncode != 0, r.stdout + r.stderr
-                if mode == "rollback-blocked":
+                if mode in ("rollback-blocked", "simpan-unlink-gagal"):
                     assert "Pemulihan hasil belum lengkap" in r.stderr, r.stdout + r.stderr
+                    simpanan = set(folder.glob(".rakit-*")) - kerja_awal  # hasil baru yang belum terpasang
+                    assert simpanan and all((k / bahts.RAKIT_SIMPAN).is_file() for k in simpanan), "Hasil baru tidak disimpan bertanda"
                     assert (folder / "hasil.docx").read_bytes().startswith(b"PK")
                     assert not (folder / "hasil.pdf").exists(), "DOCX baru dipasangkan dengan PDF lama"
                     assert not (folder / "laporan.txt").exists(), "DOCX baru dipasangkan dengan laporan lama"
                     assert any(all((p / n).is_file() and (p / n).read_bytes() == isi for n, isi in sebelum.items())
                                for p in (folder / "_arsip").iterdir())
                     return
-                pesan = {"save-fail": "Perakitan Word gagal", "export-fail": "Perakitan Word gagal",
+                tanpa_pesan = "Perakitan Word gagal: rakit.ps1 berhenti tanpa pesan (kode keluar {})"
+                pesan = {"save-fail": tanpa_pesan.format(1), "export-fail": tanpa_pesan.format(1),
+                         "ps-mati": tanpa_pesan.format(4294967295),
+                         "ps-asli": "Perakitan Word gagal (rakit.ps1, kode keluar 1): Rakit lain sedang jalan (memakai Word yang sama)",
+                         "ps-yatim": "rakit.ps1 dari rakit yang dimatikan masih jalan",
                          "pages-fail": "PDF dan laporan halaman tidak cocok",
                          "publish-fail": "sedang terbuka di aplikasi lain", "changed": "Naskah berubah"}
-                assert pesan[mode] in r.stderr, r.stdout + r.stderr
+                # dicari di baris GAGAL itu sendiri: pemanggil sering hanya melihat ekornya (tail/grep)
+                akhir = [b for b in r.stderr.splitlines() if b.startswith("Perakitan GAGAL")]
+                assert akhir and pesan[mode] in akhir[-1], r.stdout + r.stderr
                 assert all((folder / n).read_bytes() == isi for n, isi in sebelum.items()), "Hasil lama berubah atau berbeda generasi"
 
-        for mode in ("save-fail", "export-fail", "pdf-fail", "pages-fail", "publish-fail", "rollback-blocked", "changed", "snapshot", "lock"):
+        for mode in ("save-fail", "export-fail", "ps-mati", "pdf-fail", "pages-fail", "publish-fail", "rollback-blocked", "simpan-unlink-gagal",
+                     "changed", "snapshot", "lock", "sisa", *(("ps-asli", "ps-yatim") if os.name == "nt" else ())):
             uji("rakit " + mode, lambda mode=mode: rakit(mode))
         if gagal:
             sys.exit(f"{len(gagal)} uji integritas gagal: " + ", ".join(gagal))

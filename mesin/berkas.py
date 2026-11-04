@@ -43,15 +43,28 @@ def bahan(folder):
     return Path(__file__).parent / "_tmp" / (sidik + ".json")
 
 
+def _pemegang(h):
+    """Siapa yang memegang kunci, dari byte sesudah byte kunci: «proses 123, bahts/a/b, mulai 19:19 (3 menit lalu)»."""
+    h.seek(1)
+    try:
+        pid, mulai, apa = h.read(1000).decode("utf8").split("|", 2)
+        menit = int((time.time() - float(mulai)) // 60)
+        return f"{apa}, proses {pid}, mulai {time.strftime('%H:%M', time.localtime(float(mulai)))} ({menit} menit lalu)"
+    except (OSError, ValueError):  # pemegang belum sempat menulis, atau kunci versi lama tanpa keterangan
+        return ""
+
+
 @contextmanager
-def kunci(f, tunggu=0):
+def kunci(f, tunggu=0, apa=""):
     """Kunci antarproses yang dilepas OS saat proses mati, meliputi seluruh pekerjaan rakit.
-    Sedang dipegang proses lain: antre sampai `tunggu` detik (rakit dari beberapa sesi jalan bergiliran)."""
+    Sedang dipegang proses lain: antre sampai `tunggu` detik (rakit dari beberapa sesi jalan bergiliran).
+    Pemegang menulis `apa` (mis. folder bahts), nomor prosesnya, dan jam mulainya sesudah byte kunci; yang antre
+    menyebutnya, supaya rakit yang masih bekerja tidak disangka macet lalu dimatikan."""
     f.parent.mkdir(parents=True, exist_ok=True)
     with open(f, "a+b") as h:
         if not h.tell():
             h.write(b"\0"); h.flush()
-        batas, kabar = time.monotonic() + tunggu, False
+        batas, kabar = time.monotonic() + tunggu, None
         while True:
             h.seek(0)
             try:
@@ -63,15 +76,22 @@ def kunci(f, tunggu=0):
                     fcntl.flock(h, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 break
             except OSError:
+                siapa = _pemegang(h)
                 if time.monotonic() >= batas:
-                    raise RuntimeError("Rakit lain sedang jalan: tunggu sampai selesai, lalu ulangi.") from None
-                if not kabar:
-                    print("Rakit lain sedang jalan (memakai Word yang sama): menunggu giliran...", flush=True)
-                    kabar = True
+                    raise RuntimeError(f"Rakit lain sedang jalan{f' ({siapa})' if siapa else ''}: tunggu sampai selesai, "
+                                       "lalu ulangi.") from None
+                if siapa != kabar:  # sekali per pemegang: rakit berikutnya yang mendapat giliran disebut lagi
+                    lama = f"{tunggu // 60} menit" if tunggu >= 60 else f"{tunggu} detik"
+                    print(f"Rakit lain sedang jalan (memakai Word yang sama){f': {siapa}' if siapa else ''}; menunggu "
+                          f"giliran (paling lama {lama}). Jangan matikan rakit itu: ia masih bekerja.", flush=True)
+                    kabar = siapa
                 time.sleep(2)
+        h.truncate(1)  # mode a: tulisan selalu masuk di akhir berkas, jadi tepat sesudah byte kunci
+        h.write(f"{os.getpid()}|{time.time()}|{apa}".encode("utf8")); h.flush()
         try:
             yield
         finally:
+            h.truncate(1)
             h.seek(0)
             if os.name == "nt":
                 msvcrt.locking(h.fileno(), msvcrt.LK_UNLCK, 1)
