@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tes `cek --jejak` lewat pintu pemakai: kutipan yang tidak ada di kitab yang dirujuk dicari di kitab lain
 yang sudah diunduh. Kitab yang dipakai sama dengan `tes.yml` (11223 dan 2348).
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Penyamaan tulisan Arab (`norm`, `padat`) dan cache teks `padat` tiap kitab. Dipakai lewat shamela.py.
 
 Hanya berkas ini yang menentukan isi cache: sidiknya (VERSI) jadi nama berkas cache. Aturan penyamaan yang diubah di

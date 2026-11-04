@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Teks PDF buatan Word supaya bisa disalin dan dicari (Ctrl+F) dengan benar. Dipanggil `rakit` sesudah Word menyimpan PDF.
 
 Word menulis huruf Arab di PDF dalam urutan tampak (kiri ke kanan); pembaca PDF (Chrome/Edge, Firefox, SumatraPDF)

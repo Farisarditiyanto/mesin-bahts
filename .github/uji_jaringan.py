@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Regresi jaringan: kunci layanan tidak boleh ikut ke asal lain saat dialihkan."""
 import contextlib, io, json, runpy, sys, threading, unittest, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer

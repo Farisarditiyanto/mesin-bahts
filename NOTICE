@@ -2,11 +2,20 @@ Mesin Bahts
 Copyright (C) 2026 Farisarditiyanto
 
 This program is free software: you can redistribute it and/or modify it under
-the terms of the GNU Affero General Public License, version 3, as published by
-the Free Software Foundation (SPDX: AGPL-3.0-only; full text in LICENSE).
-It is distributed WITHOUT ANY WARRANTY; see LICENSE for details.
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version (SPDX: AGPL-3.0-or-later; full text of version 3 in LICENSE).
+Each .py and .ps1 file carries the line «SPDX-License-Identifier: AGPL-3.0-or-later».
 
-The AGPLv3 covers the scripts in mesin/ (.py, .ps1, format.json, nama_surah.json,
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+The AGPL (version 3 or later) covers the scripts in mesin/ (.py, .ps1, format.json, nama_surah.json,
 naskah_baru.txt, riset_baru.txt), contoh/, and the documentation of this repository.
 Every version before this license change (up to commit 94d62d3, including release
 7.0.0) was published under the MIT license; copies of those versions keep that license.
