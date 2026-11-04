@@ -199,7 +199,9 @@ AYAT_KETIK = re.compile(r"﴿[^﴾]*[ء-ي][^﴾]*﴾|(?<![0-9٠-٩])﴾[^﴿﴾
 # «كما قال الله تعالى في سورة …»)
 PENGANTAR_AYAT = re.compile(r"(?:قال|يقول|قوله)\s+(?:الله\s+|ربنا\s+)?(?:تعالى|سبحانه(?:\s+وتعالى)?|عز\s+وجل|جل\s+وعلا)"
                             r"(?:\s+في\s+كتابه(?:\s+العزيز)?)?(?!\s*في\s)"
-                            r"|(?:قال|يقول|قوله|تعالى|سبحانه|وجل)\s*:|\((?![^()]*(?:رحم|رضي|عليه|صلى|ت\s*:|هـ))[^()]*[ء-ي]\S*\s+[^()]*\)[\s.،,:؛]*$")
+                            r"|(?:قال|يقول|قوله|تعالى|سبحانه|وجل)\s*:")
+# kurung itu hanya dihitung kalau kalimatnya belum memuat {Q:}: sesudah {Q:}, kurung = tafsiran («أي: … (بجميع المحامد)»)
+KURUNG_AYAT = re.compile(r"\((?![^()]*(?:رحم|رضي|عليه|صلى|ت\s*:|هـ))[^()]*[ء-ي]\S*\s+[^()]*\)[\s.،,:؛]*$")
 AYAT_TIDAK_COCOK = "catatan kaki ayat tidak cocok dengan {{Q:{0}:{1}}} (سورة {2}) || fn: {3}"
 # rujukan ayat yang tidak diawali «سورة»: «انظر: سورة الفاتحة، آية: 7», «الفاتحة، آية: 5», «[الفاتحة: 6]»
 RUJUKAN_LAIN = re.compile(r"^(?:(?:انظر|ينظر)\s*:\s*)?[\[(]?\s*(?:سورة\s+)?([^،,:/()\[\]]+?)\s*(?:[،,:/]|\sآي)")
@@ -1710,7 +1712,8 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 perhatian.append(f"ayat diketik langsung «{ketik[:40]}»: tidak dicek ke mushaf; tulis lewat {{Q:surah:ayat}} "
                                  f"|| fn: {isi[:45]}")
             elif ((isi.startswith("سورة") and re.search(r"[0-9٠-٩۰-۹]", isi) or rujukan_ayat(isi))
-                  and PENGANTAR_AYAT.search(re.split(r"﴿\d+:\d+(?:-\d+)?﴾", dirujuk)[-1]) and not bukti and mk is None):
+                  and (PENGANTAR_AYAT.search(re.split(r"﴿\d+:\d+(?:-\d+)?﴾", dirujuk)[-1])
+                       or not re.search(r"﴿\d", dirujuk) and KURUNG_AYAT.search(dirujuk)) and not bukti and mk is None):
                 # rujukan ayat bernomor, padahal teks sesudah {Q:} terakhir (atau seluruh teks yang dirujuk) mengutip ayat
                 # («قال الله تعالى», «وقال:», atau berkurung): ayatnya diketik tanpa ﴿﴾ dan tidak pernah dicek ke mushaf.
                 # Tidak kena: «سورة مكية…» (tanpa nomor) dan penyebutan tanpa kutipan («في سورة طه», «في آيات كثيرة»).
