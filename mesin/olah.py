@@ -1330,6 +1330,15 @@ def tercetak(isi, juz):
 # nomor hadits «رقم (5/ 103)», «الحديث 5/103» (nomor bab/hadits seperti cetakan سبل السلام) bukan juz/halaman
 NOMOR_HADITS = re.compile(r"(?:رقم|حديث)(?:\s*الحديث)?\s*:?\s*\(?\s*\d+\s*/\s*\d+\s*\)?")
 JUZ_TERCETAK = re.compile(r"(?<![\w/])(\d{1,2})\s*/\s*\d+(?![\d/])(?!\s*(?:هـ|م(?!\w)))")
+# «ج1، ص55», «ج1/ص55», «ج ١ ص ٥٥» (sesudah ANGKA_LATIN) = juz/halaman «1/55»; diganti dengan r"\1/"
+JUZ_ARAB = re.compile(r"(?<![\wـ])ج\s*:?\s*(\d{1,2})\s*[،,/]?\s*ص\s*:?\s*(?=\d)")
+
+
+def rujukan_halaman(isi):
+    """Catatan kaki yang mencetak juz/halaman kitab («1/55», «ص55», «ج1، ص55») atau nomor hadits («رقم الحديث»):
+    rujukan kitab, jadi buktinya bisa ditulis."""
+    t = JUZ_ARAB.sub(r"\1/", isi.translate(ANGKA_LATIN))
+    return bool(re.search(r"رقم\s+الحديث", t) or tercetak(t, "-") or JUZ_TERCETAK.search(NOMOR_HADITS.sub(" ", t)))
 
 
 def _bagian_kitab(isi, bukti):
@@ -1397,6 +1406,8 @@ def cocok_halaman(isi, bukti, perhatian=None):
         juz_bukti = {b[1] for b in bb}
         # juz yang tidak punya bukti sama sekali («3/77» di kitab satu jilid, «ص900» di kitab berjilid)
         utuh = teks.translate(ANGKA_LATIN)  # «عند شرحه للحديث (1/ 222)»: bukti yang tercetak di sini tetap terbaca
+        if juz_bukti - {"-"}:  # kitab satu jilid (juz «-»): «ج1، ص55» tetap dibaca «ص55» seperti dulu
+            utuh = JUZ_ARAB.sub(r"\1/", utuh)
         teks = NOMOR_HADITS.sub(" ", utuh)
         lain = {j for j in JUZ_TERCETAK.findall(teks)} | {"-"}
         for juz in juz_bukti | (lain - juz_bukti):
@@ -1854,6 +1865,10 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 else:
                     galat.append(f"kutipan «{mk[:30]}» tanpa bukti: tambahkan <<sid|juz|hal>> di catatan kakinya; "
                                  f"sumber yang tidak ada di Shamela (jurnal, PDF penelitian): tulis <<{LUAR}>>  || fn: {isi[:45]}")
+            elif not bukti and not luar and not isi.startswith(("سورة", "سبق تخريجه")) and rujukan_halaman(isi):
+                # rujukan kitab (juz/halaman, رقم الحديث) tanpa kutipan bertanda petik: penisbatan yang belum dibuktikan
+                perhatian.append(f"rujukan kitab tanpa bukti (halaman atau nomor hadits tercetak, tetapi tidak ada <<…>>): "
+                                 f"tambahkan <<sid|juz|hal>>; sumber yang tidak ada di Shamela: tulis <<{LUAR}>>  || fn: {isi[:45]}")
             if not diam:
                 galat += cocok_halaman(isi, terbukti, perhatian)
             sub = urai(isi, None, ayat_idx, hadits_idx, galat, perhatian, di_catatan=True)
@@ -2203,8 +2218,10 @@ def utama(folder, keluar=None):
     n_bukti = sum(c["bukti"] for c in catatan)
     n_luar = sum(c["luar"] for c in catatan)  # disebut di ringkasan: tanda yang bisa menyembunyikan kutipan karangan
     n_pdf = sum(c["pdf"] for c in catatan)
-    fn_tanpa = [HARAKAT.sub("", "".join(r.get("t", "") for r in c["runs"]))[:60] for c in catatan
-                if c["bukti"] == 0 and not c["pdf"] and not "".join(r.get("t", "") for r in c["runs"]).startswith(("سورة", "سبق تخريجه"))]
+    # rujukan kitab tanpa bukti sudah jadi GAGAL atau perhatian di atas: daftar ini sisanya (catatan penjelasan, <<luar>>)
+    fn_teks = [(c, "".join(r.get("t", "") for r in c["runs"])) for c in catatan]
+    fn_tanpa = [HARAKAT.sub("", t)[:60] for c, t in fn_teks if c["bukti"] == 0 and not c["pdf"]
+                and not t.startswith(("سورة", "سبق تخريجه")) and (c["luar"] or not rujukan_halaman(t))]
     lap = [f"blok={len(blok)} | kata matan={n_matan} | catatan kaki={len(catatan)} ({n_fn} kata) | ayat={len(ayat_idx)} | hadits={len(hadits_idx)} | pustaka={len(pustaka)}",
            f"bukti dicek ke Shamela lokal: {n_bukti}{f' | ditunjuk di PDF (bukan bukti): {n_pdf}' if n_pdf else ''}"
            f"{f' | <<{LUAR}>> (tidak dicek mesin): {n_luar}' if n_luar else ''} | GAGAL: {len(galat)}"]
@@ -2216,7 +2233,7 @@ def utama(folder, keluar=None):
     lap += [f"  ✗ {g}" for g in galat]
     lap.append(f"perhatian (lolos, tetapi lihat sendiri): {len(perhatian)}")
     lap += [f"  ! {p}" for p in perhatian]
-    lap.append(f"catatan kaki tanpa bukti (selain rujukan ayat): {len(fn_tanpa)}")
+    lap.append(f"catatan kaki tanpa bukti (selain rujukan ayat dan rujukan kitab di atas): {len(fn_tanpa)}")
     lap += [f"  - {f}" for f in fn_tanpa]
     lap.append(f"NASKAH_SHA256={sidik_naskah}")
     return len(galat), lap
