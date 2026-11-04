@@ -2117,7 +2117,7 @@ def utama(folder, keluar=None):
             # فصل/مبحث yang langsung disusul مبحث/مطلب-nya: judul bertumpuk tanpa تمهيد (dikeluhkan dosen)
             perhatian.append(f"baris {a['n']}: judul «{a['judul'][:40]}» langsung disusul judul «{b['judul'][:40]}» "
                              f"tanpa paragraf pengantar: tulis pengantar di bawahnya (isinya dan pembagiannya: "
-                             f"{'وفيه مبحثان' if a['k'] == 'F' else 'وفيه مطلبان'}…)")
+                             f"{'وفيه مبحثان' if a['judul'].startswith('الفصل') or (a['k'] == 'F' and not a['judul'].startswith('المبحث')) else 'وفيه مطلبان'}…)")
     if meta.get("thalibah", "ya") != "ya":
         galat.append(di("@thalibah") + f"@thalibah: «{meta['thalibah']}» tidak dikenal: tulis «ya», atau hapus barisnya")
     fmt = meta.get("format", "imam")
