@@ -53,6 +53,7 @@ FONT_SHA256 = "aa68bffce289b4c0ebac68e90502eb69e42356abcd1603cb2b8e99c2c723f145"
 FONT_NAMA = "KFGQPC HAFS Uthmanic Script (TrueType)"
 FONT_PEMAKAI = Path(os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Windows\Fonts"))
 SAMPUL_SAYA = AKAR / "sampul_saya.txt"  # data sampul pemakai (@kunci: nilai); mengisi @kunci yang kosong di naskah baru
+DATA_DIRI = ("nama", "nim", "jenis", "fasl", "thalibah")  # milik satu orang: tidak disalin dari SAMPUL_SAYA ke bahts/<orang>/…
 NAMA_FOLDER = r"[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+){0,2}"  # nama folder bahts yang diterima `baru`: «ikhlas» atau «bahts/<orang>/<topik>»
 BUKAN_BAHTS = {"mesin", "kitab"}  # folder akar yang bukan tempat bahts
 KELUARAN_SAYA = AKAR / "keluaran_saya.txt"  # opsional, satu baris: folder tempat `rakit` menaruh salinan PDF
@@ -215,12 +216,23 @@ def baru(nama, judul):
     if kembar:  # di Windows «Ikhlas» dan «ikhlas» satu folder
         sys.exit(f"Folder {kembar[0]} sudah ada.")
     isi = (MESIN / "naskah_baru.txt").read_text(encoding="utf8").replace("{judul}", judul).replace("{folder}", f.name)
+    data, asal = [], None
     if SAMPUL_SAYA.exists():
         try:
-            saya = SAMPUL_SAYA.read_text(encoding="utf-8-sig")
+            data = re.findall(r"^@(\w+):[ \t]*(\S.*)$", SAMPUL_SAYA.read_text(encoding="utf-8-sig"), re.M)
         except UnicodeDecodeError:
             sys.exit(f"{SAMPUL_SAYA.name} harus disimpan sebagai UTF-8. Simpan ulang, lalu ulangi.")
-        for k, v in re.findall(r"^@(\w+):[ \t]*(\S.*)$", saya, re.M):
+    bagian = nama.split("/")
+    orang_lain = len(bagian) == 3 and bagian[0] == "bahts"  # bahts/<orang>/<topik>: data diri pemilik repo bukan miliknya
+    if orang_lain:
+        data = [(k, v) for k, v in data if k not in DATA_DIRI]
+        lama = sorted(f.parent.glob("*/naskah.txt"), key=lambda x: x.stat().st_mtime)  # bahts terakhir orang yang sama
+        if lama:
+            asal = lama[-1]
+            data += [(k, v) for k, v in re.findall(r"^@(\w+):[ \t]*(\S.*)$", asal.read_text(encoding="utf-8-sig"), re.M)
+                     if k in DATA_DIRI]
+    if data:
+        for k, v in data:
             if re.search(rf"^@{k}:", isi, re.M):
                 isi = re.sub(rf"^@{k}:[ \t]*$", lambda m: f"@{k}: {v.strip()}", isi, flags=re.M)
             else:  # kunci yang tidak ada di kerangka (mis. @thalibah) ikut ditulis
@@ -230,6 +242,10 @@ def baru(nama, judul):
     (f / "riset.txt").write_text(riset, encoding="utf8")
     (f / "naskah.txt").write_text(isi, encoding="utf8")
     print(f"Siap: {f / 'naskah.txt'} (dan riset.txt untuk jejak langkah riset)")
+    if orang_lain:
+        print(f"Data diri ({', '.join('@' + k for k in DATA_DIRI)}) " + (
+            f"disalin dari bahts «{bagian[1]}» sebelumnya: {asal.relative_to(AKAR).as_posix()}; pastikan masih benar."
+            if asal else f"tidak diambil dari {SAMPUL_SAYA.name} (itu data pemilik repo): isi data «{bagian[1]}» di naskahnya."))
     sub = re.match(r"^(.+?)\s+[-–—]\s*(.+)$", judul.strip())  # pemisah yang sama dengan rakit.ps1 ($JUDUL2)
     if sub:
         print(f"Sub-judul sampul «{sub.group(2)}» akan tercetak di sampul. Tulis hanya kalau dosen, خطة, "
