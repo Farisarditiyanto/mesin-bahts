@@ -4,7 +4,7 @@
 
 [![tes](https://github.com/Farisarditiyanto/mesin-bahts/actions/workflows/tes.yml/badge.svg)](https://github.com/Farisarditiyanto/mesin-bahts/actions/workflows/tes.yml)
 [![rilis](https://img.shields.io/github/v/release/Farisarditiyanto/mesin-bahts?label=rilis)](https://github.com/Farisarditiyanto/mesin-bahts/releases)
-[![lisensi](https://img.shields.io/badge/lisensi-MIT-blue)](LICENSE)
+[![lisensi](https://img.shields.io/badge/lisensi-AGPLv3-blue)](LICENSE)
 
 Mesin untuk menulis **بحث** (makalah syar'i berbahasa Arab) bersama agent AI. Agent AI bisa mengarang kutipan, jadi tiap kutipan dicocokkan ke halaman kitabnya sebelum jadi Word dan PDF.
 
@@ -130,5 +130,5 @@ Coba contohnya: `python mesin/bahts.py ambil 11223`, lalu `python mesin/bahts.py
 ## Lain-lain
 
 - Naskah, PDF, `sampul_saya.txt`, dan `kitab/` tetap di komputer pemakai, tidak ikut repo.
-- Lisensi kode: MIT ([`LICENSE`](LICENSE)). Teks mushaf, font, logo, dan teks kitab: [`NOTICE`](NOTICE).
+- Lisensi kode: GNU AGPLv3 ([`LICENSE`](LICENSE)); versi sebelum perubahan ini (sampai 94d62d3, termasuk rilis 7.0.0) tetap MIT. Bahts hasil mesin milik penulisnya; templat yang tersalin ke bahts boleh dipakai tanpa syarat (izin tambahan di `NOTICE`). Teks mushaf, font, logo, dan teks kitab: [`NOTICE`](NOTICE).
 - Masalah: buka issue dengan keluaran `periksa`, perintahnya, dan pesannya. Perubahan: pull request dengan tes hijau. Riwayat: [`CHANGELOG.md`](CHANGELOG.md).
