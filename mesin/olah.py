@@ -569,7 +569,8 @@ def cek(sid, juz, hal, pot, perhatian, kutipan=False, rinci=True):
                          f"baca yang dilompati, pastikan makna dan pembicaranya tetap :: {pot[:40]}")
     if kutipan:
         perhatian += [f"{p} ({sid} {juz}/{hal}) :: {pot[:40]}"
-                      for p in ragu_kutipan(rr, bagian[0], pot, angka and not diperiksa, lambda: rekaman_dulu(sid, juz, p1, p2))]
+                      for p in ragu_kutipan(rr, bagian[0], pot, angka and not diperiksa, lambda: rekaman_dulu(sid, juz, p1, p2))
+                      + ragu_akhir(rr, bagian[-1])]
     return ""
 
 
@@ -1251,6 +1252,23 @@ def henti(r, n):
                 if d > n:
                     break
     return False
+
+
+def ragu_akhir(rr, akhir):
+    """Kutipan yang menafikan («لا إله», «ليس من») tetapi berhenti tepat sebelum «إلا» di kitab: pengecualiannya terpotong,
+    jadi maknanya bisa terbalik («أشهد أن لا إله» dari «أن لا إله إلا الله»)."""
+    if not any(shamela.padat(w) in NAFI for w in akhir.split()[-5:]):  # nafi jauh sebelum ujung: «إلا»-nya milik kalimat lain
+        return []
+    q = shamela.padat(akhir)
+    for r in rr:
+        c = shamela._cocok(r, q, "body", True)
+        if c:
+            teks, (_, ujung) = shamela._ruas(r, "body")[0], shamela._batas_kata(r, "body")
+            sesudah = teks[c[1]:min((u for u in ujung if u > c[1]), default=c[1])]
+            if sesudah == "الا" and not henti(r, c[1]):
+                return ["di kitab kutipan ini disambung «إلا» (pengecualiannya terpotong): pastikan maknanya tidak terbalik"]
+            return []
+    return []
 
 
 def ragu_kutipan(rr, awal, pot, periksa_angka=True, dulu=lambda: None):
