@@ -720,9 +720,10 @@ try {
         try { $g.ParagraphFormat.ReadingOrder = 0; $g.ParagraphFormat.Alignment = 0 } catch {}
     }
     $pages = $doc.ComputeStatistics(2)
-    # halaman isi = المقدمة s.d. الخاتمة (nomor halaman dihitung mulai dari المقدمة); tanpa المصادر dan فهرس = halaman terakhir
-    if ($ABJAD) {                                        # nomor tercetak dua jenis: halaman isi dihitung dari halaman fisik
-        $bmMuqaddimah = ($toc | Where-Object { $_.t -eq 'المقدمة' } | Select-Object -First 1).bm
+    # halaman isi = المقدمة s.d. الخاتمة; tanpa المصادر dan فهرس = halaman terakhir. Ada المقدمة atau nomor tercetak dua
+    # jenis (@nomor): dihitung dari halaman fisik, supaya #K sebelum المقدمة (الإهداء، الملخص) tidak ikut terhitung
+    $bmMuqaddimah = ($toc | Where-Object { $_.t -eq 'المقدمة' } | Select-Object -First 1).bm
+    if ($ABJAD -or $bmMuqaddimah) {
         $hAwal = if ($bmMuqaddimah) { $doc.Bookmarks.Item($bmMuqaddimah).Range.Information(3) } else { 1 }
         $hAkhir = if ($doc.Bookmarks.Exists($bmSesudahIsi)) { $doc.Bookmarks.Item($bmSesudahIsi).Range.Information(3) } else { $pages + 1 }
         $isi = $hAkhir - $hAwal

@@ -293,8 +293,9 @@ def perkiraan_halaman(d):
 
     blok = d["blok"]
     blok = blok[:next((i for i, b in enumerate(blok) if b["k"] == "R"), len(blok))]
-    mula = next((i for i, b in enumerate(blok) if b.get("judul") == "المقدمة"), 0) if meta.get("nomor") else 0
-    isi = halaman(blok[mula:])  # @nomor: abjad: الإهداء dst. sebelum المقدمة bukan halaman isi
+    # الإهداء dst. sebelum المقدمة bukan halaman isi, dengan atau tanpa @nomor (sama dengan HALAMAN_ISI di rakit.ps1)
+    mula = next((i for i, b in enumerate(blok) if b.get("judul") == "المقدمة"), 0)
+    isi = halaman(blok[mula:])
     tanpa = set(re.split(r"[,، ]+", meta.get("tanpa", "")))
     kitab = meta.get("bentuk") == "kitab"
     rinci = {"sampul": 0 if kitab else 1, "sebelum المقدمة": halaman(blok[:mula]) if mula else 0}
