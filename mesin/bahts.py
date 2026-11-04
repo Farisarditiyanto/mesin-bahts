@@ -265,10 +265,17 @@ def perkiraan_halaman(d):
     return sum(max(1, math.ceil(x / per_hal)) for x in bagian)
 
 
-def cek(nama, keluar=None, jejak=False):
+def cek(nama, keluar=None, jejak=False, ringkas=False):
+    """ringkas (dipakai `rakit`): naskah yang lolos dicetak satu baris; rinciannya tetap di laporan yang dikembalikan."""
     import olah
     f = folder_bahts(nama)
     galat, lap = olah.utama(f, keluar)
+    jalur = nama.rstrip("/\\") or nama  # «"folder\"»: garis miring menelan tanda petik penutupnya
+    if ringkas and not galat:
+        n = sum(b.startswith("  ! ") for b in lap)
+        print(f"cek: GAGAL 0, perhatian {n} (rinciannya: laporan.txt sesudah rakit jadi, atau "
+              + perintah(f'cek "{jalur}"') + ")")
+        return f, galat, lap
     print("\n".join(lap))
     if olah.TERTOLAK:
         if jejak:
@@ -276,7 +283,6 @@ def cek(nama, keluar=None, jejak=False):
             print("\n".join(olah.jejak(olah.TERTOLAK)))
         else:
             n = len({shamela.padat(t) for _, t in olah.TERTOLAK})
-            jalur = nama.rstrip("/\\") or nama  # «"folder\"»: garis miring menelan tanda petik penutupnya
             print(f"{n} teks tidak ditemukan di kitab yang dirujuk; cari di kitab lain yang sudah diunduh: "
                   + perintah(f'cek "{jalur}" --jejak'))
     elif jejak:
@@ -329,7 +335,7 @@ def _rakit(nama):
 
 def _rakit_di(nama, f, kerja):
     build = kerja / "bahan.json"
-    f, galat, lap = cek(nama, build)
+    f, galat, lap = cek(nama, build, ringkas=True)
     if galat:
         sys.exit(f"Belum dirakit: {galat} galat di atas harus beres dulu.")
     if os.name != "nt":

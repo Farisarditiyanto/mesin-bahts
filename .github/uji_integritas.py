@@ -393,6 +393,28 @@ def utama():
         uji("temukan: saringan mazhab, kitab, dan halaman sampai ke turath", temukan_saring)
         uji("ambil/temukan memakai metadata judul dan jilid yang benar", konsumen_katalog)
 
+        def rakit_ringkas():
+            folder = akar / "a" / "ringkas"
+            naskah(folder)
+            luar = 'قال الباحث: "القدر من أعظم أبواب الاعتقاد"[^بحث وهمي، ص5. <<luar>>].\n'  # lolos + satu perhatian
+            with open(folder / "naskah.txt", "a", encoding="utf8") as h: h.write(luar)
+            r = subprocess.run([sys.executable, str(runner), str(akar), "a/ringkas", "ok", "-"],
+                               cwd=akar, capture_output=True, encoding="utf8")
+            assert r.returncode == 0, r.stdout + r.stderr
+            lap = (folder / "laporan.txt").read_text(encoding="utf8")
+            rinci = [b for b in lap.splitlines() if b.startswith("  ! ")]
+            # cek lolos: laporan.txt tetap lengkap, layar rakit hanya satu baris cek lalu hasil rakit
+            assert rinci and "GAGAL: 0" in lap, lap
+            assert f"cek: GAGAL 0, perhatian {len(rinci)} " in r.stdout and not any(b in r.stdout for b in rinci), r.stdout
+            assert "HALAMAN=1" in r.stdout and "Jadi:" in r.stdout, r.stdout
+            # cek GAGAL: rinciannya tetap tercetak lengkap (agent perlu baris ✗-nya)
+            with open(folder / "naskah.txt", "a", encoding="utf8") as h:
+                h.write('قال الشيخ: "نص لا يوجد في الكتاب أصلا ألبتة"[^رسالة، ص5. <<11223|-|5>>].\n')
+            r = subprocess.run([sys.executable, str(runner), str(akar), "a/ringkas", "ok", "-"],
+                               cwd=akar, capture_output=True, encoding="utf8")
+            assert r.returncode != 0 and "  ✗ " in r.stdout and "  ! " in r.stdout and "cek: GAGAL" not in r.stdout, r.stdout + r.stderr
+        uji("rakit: cek lolos dicetak satu baris, cek GAGAL dicetak lengkap", rakit_ringkas)
+
         def rakit(mode):
             folder = akar / "a" / "sama"
             naskah(folder)
