@@ -82,6 +82,14 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   Judul (#K/#F/#B/#M/#S/#R) tidak boleh memuat [^, <<, {Q:/{H: atau **
   Contoh: قال ابن القيم: "…"[^مدارج السالكين، ابن القيم، 2/15. <<8370|2|15>>].
 
+Bahts dikumpulkan bertahap per فصل: tetap SATU naskah; tiap potongan dirakit dengan «rakit <folder> --fasl n» (#F ke-n;
+                      rentang 1-2 = #F ke-1 dan ke-2). Yang sebelum #F pertama (المقدمة) ikut potongan pertama, yang
+                      sesudah #F terakhir (الخاتمة) ikut potongan terakhir. Sampul hanya di potongan pertama; المصادر
+                      dan الفهارس hanya di potongan terakhir (فهرس berisi isi potongan itu saja); nomor halaman tiap
+                      potongan mulai ١. Hasil: «<@berkas> - المقدمة والفصل الأول.pdf» dst. dan laporan-fasl<n>.txt;
+                      `cek` tetap memeriksa seluruh naskah. {P:kunci} yang menunjuk hadits di potongan lain = berhenti
+                      sebelum Word: tulis takhrij lengkap di catatan kaki itu
+
 riset.txt (di folder bahts, di samping naskah.txt): jejak langkah riset yang tidak meninggalkan bukti di kitab lokal.
   takhrij8 <kunci>    `shamela_search_phrase` kategori 8 (التخريج والأطراف) sudah dijalankan untuk {H:…|kunci}
   tafsir <s:a>        tafsir ayat sudah dibaca lewat connector `tafsir` (boleh rentang s:a-b)
@@ -2576,6 +2584,54 @@ def periksa_riset(folder, baris, perhatian):
     for kunci, n in tercatat["takhrij8"].items():
         if kunci not in sudah_h:
             perhatian.append(f"{RISET} baris {n}: takhrij8 «{kunci}»: tidak ada {{H:…|{kunci}}} di naskah (salah ketik kunci?)")
+
+
+def potong(d, fasl):
+    """`rakit <folder> --fasl n` (atau a-b): bahan rakit `d` (hasil utama, seluruh naskah sudah dicek) dipangkas jadi
+    #F ke-n saja, untuk dosen yang meminta bahts dikumpulkan bertahap per فصل. Bentuknya mengikuti potongan yang dulu
+    diterima dosen (tiap potongan dulu naskah sendiri): sampul hanya di potongan yang memuat #F pertama (bersama yang
+    sebelumnya, mis. المقدمة); المصادر dan الفهارس hanya di potongan yang memuat #F terakhir (bersama yang sesudahnya,
+    mis. الخاتمة), dan فهرسnya hanya berisi isi potongan itu; nomor halaman tiap potongan mulai ١.
+    Kembalikan label potongan (mis. «المقدمة والفصل الأول»), yang juga ditambahkan ke nama berkas hasil."""
+    m = re.fullmatch(r"([1-9][0-9]*)(?:-([1-9][0-9]*))?", fasl)
+    if not m or (m[2] and int(m[2]) < int(m[1])):
+        raise TandaRusak(f"--fasl «{fasl}»: tulis nomor #F, mis. «--fasl 2», atau rentang dari kecil ke besar, mis. «--fasl 1-2»")
+    dari, sampai = int(m[1]), int(m[2] or m[1])
+    blok = d["blok"]
+    awal_f = [i for i, b in enumerate(blok) if b["k"] == "F"]
+    if sampai > len(awal_f):
+        raise TandaRusak(f"--fasl {fasl}: naskah ini hanya punya {len(awal_f)} #F")
+    mulai = 0 if dari == 1 else awal_f[dari - 1]
+    akhir = len(blok) if sampai == len(awal_f) else awal_f[sampai]
+    d["blok"] = blok = blok[mulai:akhir]
+    meta = d["meta"]
+    label = [b["judul"].split(":")[0].strip() for b in blok if b["k"] in ("K", "F")]
+    label = label[0] + "".join(" و" + x for x in label[1:])
+    meta["berkas"] = f"{meta['berkas']} - {label}"
+    if dari > 1:  # sampul dan halaman bernomor huruf (@nomor) hanya di potongan pertama
+        meta["tanpa_sampul"] = True
+        meta.pop("nomor", None)
+    if sampai < len(awal_f):  # المصادر dan الفهارس hanya di potongan terakhir
+        meta["tanpa"] = ", ".join(TANPA)
+
+    def runs(rr):
+        return [r for x in rr for r in x["runs"]]
+    fn = {r["fn"] for r in runs(blok) if "fn" in r}
+    di_sini = runs(blok) + runs(c for i, c in enumerate(d["catatan"]) if i in fn)
+    bm = {r["bm"] for r in di_sini if "bm" in r}
+    luar = [r["pg"] for r in di_sini if "pg" in r and r["pg"] not in bm]
+    if luar:
+        raise TandaRusak(f"--fasl {fasl}: catatan kaki {{P:{luar[0][2:]}}} (سبق تخريجه) menunjuk hadits yang ditakhrij di "
+                         f"luar potongan ini, jadi nomor halamannya tidak ada di sini: ganti catatan kaki itu dengan "
+                         f"takhrij lengkapnya")
+    d["ayat"] = [a for a in d["ayat"] if a["k"] in bm]
+    hadits = []
+    for h in d["hadits"]:
+        ks = [k for k in [h["k"], *h.get("lagi", [])] if k in bm]
+        if ks:  # {H:} di potongan lain, {H2:} di sini: halaman di فهرس hanya yang di sini
+            hadits.append({**h, "k": ks[0], "lagi": ks[1:]})
+    d["hadits"] = hadits
+    return label
 
 
 def utama(folder, keluar=None):

@@ -85,7 +85,10 @@ def word(args, **kwargs):
     if mode == "ps-asli":  # rakit.ps1 asli gagal sebelum Word dibuat: kuncinya sedang dibuka proses lain
         with open(args[args.index("-Kunci") + 1], "ab"):
             return run(args, **kwargs)
-    with zipfile.ZipFile(out / "hasil.docx", "w") as z:
+    hasil = d["meta"]["berkas"]
+    if mode.startswith("fasl"):  # bahan yang diterima perakit, untuk diperiksa uji
+        (Path(akar) / "bahan-fasl.json").write_text(json.dumps(d, ensure_ascii=False), encoding="utf8")
+    with zipfile.ZipFile(out / f"{hasil}.docx", "w") as z:
         z.writestr("[Content_Types].xml", "<Types/>")
         z.writestr("word/document.xml", "<document/>")
         z.writestr("docProps/core.xml", "<cp:coreProperties><dc:creator>Nama Orang</dc:creator>"
@@ -93,7 +96,7 @@ def word(args, **kwargs):
     if mode == "export-fail": return types.SimpleNamespace(returncode=1)
     from pypdf import PdfWriter
     w = PdfWriter(); w.add_blank_page(width=100, height=100)
-    with open(out / "hasil.pdf", "wb") as h: w.write(h)
+    with open(out / f"{hasil}.pdf", "wb") as h: w.write(h)
     with open(out / "laporan.txt", "a", encoding="utf8") as h:
         h.write("HALAMAN=99\n" if mode == "pages-fail" else "HALAMAN=1\n")
     if mode == "changed":
@@ -101,6 +104,7 @@ def word(args, **kwargs):
     return types.SimpleNamespace(returncode=0)
 bahts.subprocess.run = word
 bahts.RAKIT_ANTRE = 3  # antrean asli 30 menit; rakit di dalam rakit (mode lock) tidak boleh menunggu selama itu
+fasl = mode[5:] if mode.startswith("fasl:") else None
 if mode == "ps-yatim":  # rakit.ps1 yang Python-nya dimatikan masih hidup dan memegang kuncinya, seperti di rakit.ps1
     bahts.RAKIT_PS_KUNCI.parent.mkdir(parents=True, exist_ok=True)
     yatim = subprocess.Popen(["powershell", "-NoProfile", "-Command", f"$k = [IO.File]::Open('{bahts.RAKIT_PS_KUNCI}', "
@@ -108,11 +112,11 @@ if mode == "ps-yatim":  # rakit.ps1 yang Python-nya dimatikan masih hidup dan me
                              stdout=subprocess.PIPE, text=True)
     assert yatim.stdout.readline().strip() == "pegang"
     try:
-        bahts.rakit(nama)
+        bahts.rakit(nama, fasl)
     finally:
         yatim.kill()
 else:
-    bahts.rakit(nama)
+    bahts.rakit(nama, fasl)
 '''
 
 
@@ -477,6 +481,56 @@ def utama():
                 assert akhir and pesan[mode] in akhir[-1], r.stdout + r.stderr
                 assert all((folder / n).read_bytes() == isi for n, isi in sebelum.items()), "Hasil lama berubah atau berbeda generasi"
 
+        def per_fasl():
+            folder = akar / "a" / "fasl"
+            folder.mkdir(parents=True)
+            isi = "نص الفصل للتجربة."
+            teks = ("@judul: المطلوب\n@nama: اسم\n@berkas: hasil\n#K المقدمة\n" + isi + "\n"
+                    "#F الفصل الأول: أ\nقال تعالى: {Q:1:2}[^سورة الفاتحة، آية: ٢.].\n"
+                    "{H:إنما الأعمال بالنيات|عمر|niyya}قال[^أخرجه البخاري.].\n"
+                    "#F الفصل الثاني: ب\nقال تعالى: {Q:1:5}[^سورة الفاتحة، آية: ٥.].\n{H2:niyya}قال[^PG].\n"
+                    "#F الفصل الثالث: ج\nقال تعالى: {Q:1:4}[^سورة الفاتحة، آية: ٤.].\n"
+                    "{H:الدين النصيحة|تميم|nasiha}قال[^أخرجه مسلم.].\n{H2:nasiha}قال[^سبق تخريجه، ص{P:nasiha}.].\n"
+                    "#K الخاتمة\n" + isi + "\n#R المصادر والمراجع\nالقرآن الكريم.\n")
+            (folder / "laporan.txt").write_text("LAPORAN-UTUH", encoding="utf8")
+
+            def rakit_fasl(n, pg="أخرجه البخاري."):
+                (folder / "naskah.txt").write_text(teks.replace("PG", pg), encoding="utf8")
+                (akar / "bahan-fasl.json").unlink(missing_ok=True)
+                r = subprocess.run([sys.executable, str(runner), str(akar), "a/fasl", "fasl:" + n, "-"],
+                                   cwd=akar, capture_output=True, encoding="utf8")
+                b = json.loads((akar / "bahan-fasl.json").read_text(encoding="utf8")) if r.returncode == 0 else None
+                return r, b
+
+            def judul(b):
+                return [x["judul"] for x in b["blok"] if x["k"] in ("K", "F", "B", "M")]
+            r, b = rakit_fasl("1")
+            assert r.returncode == 0, r.stdout + r.stderr
+            assert judul(b) == ["المقدمة", "الفصل الأول: أ"], judul(b)
+            assert not b["meta"].get("tanpa_sampul") and b["meta"]["tanpa"] == "ayat, hadits, maudhuat, pustaka", b["meta"]
+            assert b["meta"]["berkas"] == "hasil - المقدمة والفصل الأول" and (folder / "hasil - المقدمة والفصل الأول.pdf").is_file()
+            assert [a["a"] for a in b["ayat"]] == ["2"] and [h["k"] for h in b["hadits"]] == ["h_niyya"], (b["ayat"], b["hadits"])
+            assert (folder / "laporan-fasl1.txt").read_text(encoding="utf8").startswith("POTONGAN=--fasl 1: المقدمة والفصل الأول")
+            assert (folder / "laporan.txt").read_text(encoding="utf8") == "LAPORAN-UTUH", "laporan seluruh naskah tertimpa"
+            r, b = rakit_fasl("2")  # {H2:} di sini, {H:}-nya di potongan 1: halaman فهرسnya hanya yang di sini
+            assert r.returncode == 0, r.stdout + r.stderr
+            assert judul(b) == ["الفصل الثاني: ب"] and b["meta"]["tanpa_sampul"], (judul(b), b["meta"])
+            assert [h["k"] for h in b["hadits"]] == ["h_niyya_1"] and b["meta"]["tanpa"] == "ayat, hadits, maudhuat, pustaka"
+            r, b = rakit_fasl("3")
+            assert r.returncode == 0, r.stdout + r.stderr
+            assert judul(b) == ["الفصل الثالث: ج", "الخاتمة"] and b["meta"]["tanpa_sampul"] and not b["meta"].get("tanpa"), b["meta"]
+            assert b["meta"]["berkas"] == "hasil - الفصل الثالث والخاتمة" and b["pustaka"] == ["القرآن الكريم."]
+            assert [a["a"] for a in b["ayat"]] == ["4"] and [h["k"] for h in b["hadits"]] == ["h_nasiha"], (b["ayat"], b["hadits"])
+            r, b = rakit_fasl("1-3")
+            assert r.returncode == 0 and len(judul(b)) == 5 and not b["meta"].get("tanpa_sampul") and not b["meta"].get("tanpa")
+            # {P:} ke hadits di potongan lain: nomor halamannya tidak ada di PDF potongan itu; berhenti sebelum Word
+            r, _ = rakit_fasl("2", "سبق تخريجه، ص{P:niyya}.")
+            assert r.returncode != 0 and "{P:niyya}" in r.stderr and "takhrij lengkap" in r.stderr, r.stdout + r.stderr
+            assert not (akar / "bahan-fasl.json").exists(), "Word dipanggil untuk potongan yang rusak"
+            for salah, pesan in (("4", "hanya punya 3 #F"), ("3-1", "dari kecil ke besar"), ("x", "tulis nomor #F")):
+                r, _ = rakit_fasl(salah)
+                assert r.returncode != 0 and pesan in r.stderr, (salah, r.stdout + r.stderr)
+        uji("rakit --fasl: satu naskah, potongan per فصل", per_fasl)
         for mode in ("save-fail", "export-fail", "ps-mati", "pdf-fail", "pages-fail", "publish-fail", "rollback-blocked", "simpan-unlink-gagal",
                      "changed", "snapshot", "lock", "sisa", *(("ps-asli", "ps-yatim") if os.name == "nt" else ())):
             uji("rakit " + mode, lambda mode=mode: rakit(mode))

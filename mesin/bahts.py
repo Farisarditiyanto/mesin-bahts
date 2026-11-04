@@ -13,7 +13,9 @@ Bahts (tiap bahts = satu folder berisi naskah.txt):
                                dibuktikan, isi catatan kaki, nama kitab, bab, dan teks halaman itu di sekitar kutipan)
                                dan teks tiap ayat {Q:} persis seperti tercetak; tiap baris keluaran diawali «baris n».
                                Penunjuk saja, putusan tetap `cek`
-  rakit <folder>               cek, lalu rakit .docx + .pdf (Word) ke dalam folder itu
+  rakit <folder> [--fasl n]    cek, lalu rakit .docx + .pdf (Word) ke dalam folder itu; --fasl 2 (atau 1-2): hanya #F
+                               ke-2, untuk bahts yang dikumpulkan bertahap per فصل (lihat `tanda`); `cek` tetap
+                               memeriksa seluruh naskah
   tanda                        daftar tanda yang dipakai di naskah.txt
 
 Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
@@ -343,13 +345,13 @@ RAKIT_SEMENTARA = "rakit.sementara"  # penanda folder .rakit-* bahan sementara r
 RAKIT_SIMPAN = "JANGAN_DIHAPUS.txt"  # pengganti penanda di atas bila folder itu berisi hasil baru yang belum terpasang (PemulihanGagal)
 
 
-def rakit(nama):
+def rakit(nama, fasl=None):
     if os.name == "nt":
         try:
             apa = folder_bahts(nama).relative_to(AKAR).as_posix()
             with kunci(MESIN / "_tmp" / "rakit.pekerjaan", tunggu=RAKIT_ANTRE, apa=apa):
                 _tunggu_ps_yatim()
-                _rakit(nama)
+                _rakit(nama, fasl)
         except PermissionError as e:  # hasil lama (atau yang baru) sedang dibuka aplikasi lain; hasil lama tetap utuh
             sys.exit(f"Perakitan GAGAL: {Path(e.filename or '').name or 'hasil'} sedang terbuka di aplikasi lain (Word "
                      f"atau pembaca PDF). Tutup dulu, lalu ulangi `rakit`. Hasil lama tidak berubah.")
@@ -414,12 +416,12 @@ def _word_gagal(kode, galat):
             "Hasil lama belum diganti; ulangi `rakit`. Rakit yang sedang jalan jangan dimatikan: rakit berikutnya antre sendiri.")
 
 
-def _rakit(nama):
+def _rakit(nama, fasl=None):
     f = folder_bahts(nama)
     kerja = Path(tempfile.mkdtemp(prefix=".rakit-", dir=f))
     (kerja / RAKIT_SEMENTARA).write_text("Bahan sementara `rakit`; dibuang sendiri oleh rakit berikutnya.\n", encoding="utf8")
     try:
-        _rakit_di(nama, f, kerja)
+        _rakit_di(nama, f, kerja, fasl)
     except PemulihanGagal:  # hasil baru masih di folder kerja: jangan dibuang, juga oleh rakit berikutnya
         (kerja / RAKIT_SIMPAN).write_text("Hasil baru yang belum terpasang (pemulihan rakit gagal; lihat pesan rakit).\n"
                                           "`rakit` tidak membuang folder ini: selamatkan isinya, lalu hapus sendiri.\n",
@@ -434,7 +436,7 @@ def _rakit(nama):
         _buang_sisa(f, kerja)
 
 
-def _rakit_di(nama, f, kerja):
+def _rakit_di(nama, f, kerja, fasl=None):
     build = kerja / "bahan.json"
     f, galat, lap = cek(nama, build)
     if galat:
@@ -444,6 +446,15 @@ def _rakit_di(nama, f, kerja):
     if not font_terpasang():
         sys.exit(f"Font mushaf belum terpasang: {perintah('siapkan')}, lalu ulangi.")
     d = json.loads(build.read_text(encoding="utf8"))
+    laporan = "laporan.txt"
+    if fasl:  # seluruh naskah sudah dicek di atas; yang dirakit hanya potongannya
+        import olah
+        try:
+            lap = [f"POTONGAN=--fasl {fasl}: {olah.potong(d, fasl)}"] + lap
+        except olah.TandaRusak as e:
+            sys.exit(f"Belum dirakit: {e}")
+        build.write_text(json.dumps(d, ensure_ascii=False), encoding="utf8")
+        laporan = f"laporan-fasl{fasl}.txt"  # laporan seluruh naskah (rakit tanpa --fasl) tidak tertimpa
     huruf = d["format"]["huruf"]
     if not huruf_ada(huruf):  # tanpa huruf profil, Word diam-diam memakai huruf lain
         sys.exit(f"Huruf {huruf} (dipakai @format naskah ini) belum terpasang di Windows.\n       -> {HURUF_SARAN}\n"
@@ -458,6 +469,8 @@ def _rakit_di(nama, f, kerja):
                         "-Kunci", str(RAKIT_PS_KUNCI), "-Galat", str(kerja / RAKIT_GALAT)])
     if r.returncode:
         raise RuntimeError(_word_gagal(r.returncode, kerja / RAKIT_GALAT))
+    if laporan != "laporan.txt":
+        (kerja / "laporan.txt").replace(kerja / laporan)
     berkas = d["meta"]["berkas"]
     import teks_pdf
     try:  # supaya teks Arab PDF tersalin dan tercari dengan benar; tampilannya tidak berubah
@@ -475,13 +488,12 @@ def _rakit_di(nama, f, kerja):
     kosongkan_penulis(kerja / f"{berkas}.docx")
     from pypdf import PdfReader
     halaman = len(PdfReader(kerja / f"{berkas}.pdf").pages)
-    laporan = (kerja / "laporan.txt").read_text(encoding="utf8")
-    if f"HALAMAN={halaman}" not in laporan.splitlines() or not halaman:
+    if f"HALAMAN={halaman}" not in (kerja / laporan).read_text(encoding="utf8").splitlines() or not halaman:
         raise RuntimeError("PDF dan laporan halaman tidak cocok; hasil lama belum diganti.")
     if hashlib.sha256((f / "naskah.txt").read_bytes()).hexdigest() != d["naskah_sha256"]:
         raise RuntimeError("Naskah berubah selama rakit; hasil lama belum diganti. Ulangi rakit.")
-    terbitkan(kerja, f, [f"{berkas}.docx", f"{berkas}.pdf", "laporan.txt"])
-    for baris in (f / "laporan.txt").read_text(encoding="utf8").splitlines():
+    terbitkan(kerja, f, [f"{berkas}.docx", f"{berkas}.pdf", laporan])
+    for baris in (f / laporan).read_text(encoding="utf8").splitlines():
         if baris.startswith(("HALAMAN", "CATATAN_KAKI", "KATA")):
             print(baris)
     print(f"Jadi: {f / berkas}.docx dan .pdf")
@@ -613,12 +625,27 @@ def perintah_bukti(a):
     ketemu(olah.bukti(folder_bahts(a[0]), dari, sampai))
 
 
+def perintah_rakit(a):
+    """`rakit <folder> [--fasl n]`: bendera boleh sebelum/sesudah folder."""
+    a = list(a)
+    fasl = None
+    if "--fasl" in a:
+        i = a.index("--fasl")
+        if i + 1 >= len(a):
+            raise ValueError("--fasl perlu nomor #F, mis. --fasl 2")
+        fasl = a.pop(i + 1)
+        a.pop(i)
+    if len(a) != 1 or a[0].startswith("--"):
+        raise ValueError(f"argumen tidak dikenal atau berlebih: {a}")
+    rakit(a[0], fasl)
+
+
 PERINTAH = {  # nama: (jumlah argumen minimal, maksimal (None = diperiksa pemanggilnya), pemanggil)
     "periksa": (0, 0, lambda a: periksa()),
     "siapkan": (0, 0, lambda a: siapkan()),
     "baru": (2, 2, lambda a: baru(a[0], a[1])),
     "cek": (0, None, perintah_cek),
-    "rakit": (1, 1, lambda a: rakit(a[0])),
+    "rakit": (1, None, perintah_rakit),
     "bukti": (1, 2, perintah_bukti),
     "tanda": (0, 0, lambda a: print(tanda())),
     "kitab": (0, 0, lambda a: shamela.daftar()),
