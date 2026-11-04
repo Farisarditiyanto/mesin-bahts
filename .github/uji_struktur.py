@@ -36,7 +36,7 @@ def utama():
         # riset.txt: jejak langkah connector hanya pernah jadi perhatian, apa pun isinya (olah.periksa_riset)
         riset = f / "riset.txt"
         for nama, isi, pesan in (
-                ("tanpa riset.txt", None, "ayat {Q:1:2} belum tercatat"),
+                ("tanpa riset.txt", None, "tafsir belum tercatat di riset.txt untuk 1 ayat: 1:2 →"),
                 ("riset tercatat", "﻿tafsir 1:2\r\n# catatan\r\n", "perhatian (lolos, tetapi lihat sendiri): 0"),
                 ("riset rentang", "tafsir 1:1-7\n", "perhatian (lolos, tetapi lihat sendiri): 0"),
                 ("riset langkah asing", "ngaco 1:2\ntafsir 1:2\n", "riset.txt baris 1: «ngaco 1:2» tidak dikenal"),
@@ -62,17 +62,17 @@ def utama():
         riset.unlink()
         out = cek("khilaf dua masalah", dasar.replace("#K الخاتمة", "#B مسألة\nالقول الأول: يجوز.\n#B مسألة أخرى\n"
                                                       "القَوْلُ الأوَّلُ: يجوز.\n#K الخاتمة"))
-        assert out.count("masalah khilaf ke-") == 2, out
+        assert "untuk 2 masalah khilaf («القول الأول»): ke-1, ke-2 →" in out, out
         riset.write_text("tafsir 1:2\nkhilaf مسألة\n", encoding="utf8")
         out = cek("khilaf satu tercatat", dasar.replace("#K الخاتمة", "#B مسألة\nالقول الأول: يجوز.\n#B مسألة أخرى\n"
                                                         "الرأي الأول: يجوز.\n#K الخاتمة"))
-        assert out.count("masalah khilaf ke-") == 1 and "masalah khilaf ke-2" in out, out
+        assert "untuk 1 masalah khilaf («القول الأول»): ke-2 →" in out, out
         riset.unlink()
         # di tengah kalimat (المناقشة, nukilan) bukan masalah baru; «#S القول الأول» lalu «#B أدلة القول الأول» = satu
         out = cek("khilaf bukan masalah baru", dasar.replace("#K الخاتمة", "#S القول الأول\nيجوز.\n#B أدلة القول الأول ومناقشتها\n"
                                                              "اختار القول الأول جماعة، ثم قال: \"والصحيح هو القول الأول\".\n"
                                                              "#K الخاتمة"))
-        assert out.count("masalah khilaf ke-") == 1, out
+        assert "untuk 1 masalah khilaf («القول الأول»): ke-1 →" in out, out
         out = cek("riset {Q:} di bawah #R", dasar + "مرجع {Q:1:1}.\n")
         assert "{Q:1:1}" not in out, out
         for tanda in ("#K", "#F", "#B", "#M", "#S", "#T", "#R", "#H"):
@@ -111,7 +111,7 @@ def utama():
             cek("kutipan palsu dengan tanda baca " + repr(akhir), sisip(
                 'قال الشيخ: «القدر سر مكشوف»' + akhir +
                 '[^رسالة في القضاء والقدر، ابن عثيمين، ص5. <<11223|-|5|توحيد الربوبية وهو إفراد الله>>].'),
-                True, "kutipan sebelum catatan kaki tidak ada")
+                True, "kutipan sebelum catatan kaki: teks TIDAK KETEMU")
             cek("kutipan sah dengan tanda baca " + repr(akhir), sisip('قال الشيخ: ' + kutipan + akhir + catatan + '.'))
 
         # Beban besar dengan teks/rujukan asli, tanpa jaringan atau Word.

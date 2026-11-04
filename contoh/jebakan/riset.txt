@@ -1,5 +1,5 @@
 # Berkas uji untuk contoh/jebakan (bukan jejak riset sungguhan): menutup semua {H:} dan {Q:} jebakan lain,
-# supaya hanya baris jebakan riset di bawah «#S perhatian» (ayat 1:4, hadits hijrahr, القول الأول) yang ditandai.
+# supaya hanya baris jebakan riset di bawah «#S perhatian» (ayat 1:4 dan 1:7 sebaris: satu perhatian, hadits hijrahr, القول الأول) yang ditandai.
 tafsir 1:1
 tafsir 1:2-3
 tafsir 1:6
