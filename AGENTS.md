@@ -70,7 +70,8 @@ Anggap pemakai baru pertama kali memakai agent, tidak membaca README, dan hanya 
 ## Aturan penulisan (tidak dijaga mesin)
 
 - Ayat selalu lewat `{Q:…}`; catatan kakinya: `سورة …، آية: n.`
-- Mencari tempat hadits dan siapa yang menghukuminya: `hadits "<طرف>"`. Itu penunjuk jalan dan datanya bisa salah: كتاب, باب, nomor, juz/halaman, dan derajat tetap ditulis dari kitab yang dibaca sendiri.
+- Mencari tempat hadits dan siapa yang menghukuminya: `hadits "<طرف>"`. Itu penunjuk jalan dan datanya bisa salah: كتاب, باب, nomor, juz/halaman, dan derajat tetap ditulis dari kitab yang dibaca sendiri. Juz/halaman layanan bisa dari edisi lain; kitab yang sudah diunduh diberi baris «edisi lokal <id>: juz/hal»: buka halaman itu, jangan menyalin juz/halaman layanan.
+- `cari`, `teks`, dan `bab` mencocokkan kata utuh; baris «N tempat lain hanya cocok sebagai potongan kata» = tempat yang menyeberang batas kata («العرب ان» untuk «العربان»), tidak perlu dibaca. Mencari awal kata («مسح الخف» untuk «مسح الخفين») → `--potongan`.
 - Takhrij hadits: `أخرجه البخاري، كتاب …، باب …، رقم الحديث (n)، juz/hal.`; di luar Shahihain wajib sebut derajatnya beserta siapa yang menghukumi. Catatan kaki hadits cukup takhrij itu; data cetak kitab haditsnya (muhaqqiq, penerbit, cetakan) ditulis di المصادر والمراجع.
 - Rujukan pertama sebuah kitab selain kitab hadits yang ditakhrij: data lengkap (judul, pengarang, muhaqqiq, penerbit-kota, cetakan-tahun, juz/hal) — ambil dari `kartu`. Berikutnya ringkas: `judul، pengarang، juz/hal.`
 - Masalah khilaf: cari di kitab mu'tamad tiap mazhab, bukan satu atau dua saja (daftar awal: `dok/mutamad.md`). Susun per pendapat, bukan per mazhab: «القول الأول: … وبه قال الشافعية والحنابلة», lalu dalilnya. Pendapat mazhab yang hanya ditemukan di kitab mazhab lain → sebut perantaranya dan tulis di laporan akhir; begitu juga mazhab yang tidak ditemukan.

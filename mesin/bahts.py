@@ -21,15 +21,20 @@ Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
                                diunduh; --halaman 2: hasil ke-21 dan seterusnya
   ambil <id|folder> [...]      unduh kitab (sekali saja); nama folder bahts = semua kitab yang dirujuk naskahnya
   kartu <id>                   data cetak kitab (untuk rujukan pertama & daftar pustaka)
-  cari <id|semua> "<frasa>"    cari frasa -> juz/halaman cetak; semua: paling banyak 40 baris, lalu jumlah kitab yang cocok
-  teks <id> "<frasa>" [lebar] [maks]   teks asli di sekitar frasa, untuk disalin persis
-  bab <id> "<frasa>"           rantai judul kitab/bab tempat frasa berada
+  cari <id|semua> "<frasa>" [--potongan]
+                               cari frasa -> juz/halaman cetak; semua: paling banyak 40 baris, lalu jumlah kitab yang cocok.
+                               Frasa dicocokkan sebagai kata utuh (huruf sambung و ف ب ل ك dan «ال» di depan kata pertama
+                               boleh): «العربان» tidak cocok dengan «العرب ان». Yang hanya cocok sebagai potongan kata
+                               disebut jumlahnya; --potongan: ikut ditampilkan (mis. mencari awal kata)
+  teks <id> "<frasa>" [lebar] [maks] [--potongan]   teks asli di sekitar frasa, untuk disalin persis
+  bab <id> "<frasa>" [--potongan]   rantai judul kitab/bab tempat frasa berada
   halaman <id> <juz> <hal>     isi satu halaman (juz "-" untuk kitab satu jilid); <hal> boleh rentang, mis. 10-14
                                (paling banyak 20 halaman sekali panggil)
   scan <id> <juz> <hal>        alamat scan cetakan halaman itu (PDF di turath.io, butuh internet), untuk bacaan yang meragukan
 
 Takhrij (penunjuk jalan, «المنصة الحديثية», butuh internet):
-  hadits "<طرف>" [maks]        tempat hadits di 12 kitab hadits + hukum ulama; tetap dibaca di kitabnya sendiri
+  hadits "<طرف>" [maks]        tempat hadits di 12 kitab hadits + hukum ulama; tetap dibaca di kitabnya sendiri. Kitab yang
+                               sudah diunduh: juz/halaman edisi lokal ikut dicetak (juz/halaman layanan bisa edisi lain)
 
 Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex dan DOAJ, butuh internet):
   dirasat "<kata kunci>" [maks] [saringan]   judul, peneliti, tahun, jurnal, tautan, dan ringkasan; dicari menurut kata
@@ -507,15 +512,17 @@ PERINTAH = {  # nama: (jumlah argumen minimal, maksimal (None = diperiksa pemang
     "temukan": (1, None, lambda a: ketemu(shamela.temukan(*bendera_temukan(a[0], a[1:])))),
     "ambil": (1, None, lambda a: ambil(a)),
     "kartu": (1, 1, lambda a: shamela.kartu(a[0])),
-    "cari": (2, 2, lambda a: ketemu(shamela.cari(a[0], a[1]))),
-    "teks": (2, 4, lambda a: ketemu(shamela.teks(a[0], a[1], *(angka(x, apa) for x, apa in zip(a[2:], ("lebar", "maks")))))),
-    "bab": (2, 2, lambda a: ketemu(shamela.bab(a[0], a[1]))),
+    "cari": (2, 2, lambda a, **k: ketemu(shamela.cari(a[0], a[1], **k))),
+    "teks": (2, 4, lambda a, **k: ketemu(shamela.teks(a[0], a[1], *(angka(x, apa) for x, apa in zip(a[2:], ("lebar", "maks"))), **k))),
+    "bab": (2, 2, lambda a, **k: ketemu(shamela.bab(a[0], a[1], **k))),
     "halaman": (3, 3, lambda a: ketemu(halaman(*a))),
     "scan": (3, 3, lambda a: ketemu(shamela.scan(*a))),
     "hadits": (1, 2, lambda a: ketemu(hadits.cari(a[0], *(angka(x, "maks") for x in a[1:])))),
     "dirasat": (1, 3, lambda a: dirasat.cari(a[0], *(angka(x, "maks") for x in a[1:2]), *a[2:])),
     "dirasat-pdf": (2, 2, lambda a: dirasat.pdf(a[0], folder_bahts(a[1]))),
 }
+
+POTONGAN = ("cari", "teks", "bab")  # perintah yang menerima --potongan (frasa boleh cocok di tengah kata)
 
 
 def tanda():
@@ -538,6 +545,9 @@ if __name__ == "__main__":
     bantu = re.search(rf"^  {re.escape(cmd)}\s.*(?:\n {{20,}}\S.*)*", __doc__, re.M)
     bentuk = bantu.group(0) if bantu else cmd
     paling_sedikit, paling_banyak, jalankan = PERINTAH[cmd]
+    k = {}
+    if cmd in POTONGAN and "--potongan" in a:  # bendera boleh di mana saja; tidak dihitung sebagai argumen
+        a, k = [x for x in a if x != "--potongan"], {"potongan": True}
     if len(a) < paling_sedikit:
         sys.exit(f"Perintah «{cmd}» kurang argumen. Bentuknya:\n{bentuk}")
     if paling_banyak is not None and len(a) > paling_banyak:
@@ -547,7 +557,7 @@ if __name__ == "__main__":
                  + (f" (perintah «{cmd}» tidak punya bendera {', '.join(bendera)})" if bendera else "")
                  + f"\nBentuknya:\n{bentuk}")
     try:
-        jalankan(a)
+        jalankan(a, **k)
     except urllib.error.HTTPError as e:
         if not 400 <= e.code < 500 or e.code == 429:
             sys.exit(f"Perintah '{cmd}': layanannya sedang menolak atau sibuk (HTTP {e.code}). Ulangi sebentar lagi.")
