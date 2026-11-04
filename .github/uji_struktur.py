@@ -79,6 +79,9 @@ def utama():
         out = cek("judul berpengantar", dasar.replace("#K الخاتمة", "#F الفصل الثاني\nوفيه مبحث.\n#B المبحث الأول\n"
                                                       "وفيه مطلب.\n#M المطلب الأول\nنص.\n#K الخاتمة"))
         assert "langsung disusul judul" not in out, out
+        # «#B تمهيد» di bawah فصل adalah pengantarnya sendiri
+        out = cek("judul tamhid", dasar.replace("#K الخاتمة", "#F الفصل الثاني\n#B تمهيد\nهذا تمهيد الفصل، وفيه مبحثان.\n#K الخاتمة"))
+        assert "langsung disusul judul" not in out, out
         out = cek("riset {Q:} di bawah #R", dasar + "مرجع {Q:1:1}.\n")
         assert "{Q:1:1}" not in out, out
         for tanda in ("#K", "#F", "#B", "#M", "#S", "#T", "#R", "#H"):
