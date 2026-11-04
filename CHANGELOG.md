@@ -5,6 +5,8 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `cek`: catatan kaki yang mencetak juz/halaman kitab («1/55», «ص55», «ج1، ص55») atau «رقم الحديث» tetapi tidak punya bukti `<<…>>` sama sekali kini jadi perhatian per catatan kaki («rujukan kitab tanpa bukti»): tambahkan `<<sid|juz|hal>>`, atau `<<luar>>` untuk sumber di luar Shamela. Dulu ia lolos tanpa GAGAL dan tanpa perhatian, hanya masuk daftar «catatan kaki tanpa bukti». Daftar itu kini hanya memuat sisanya (catatan penjelasan, `<<luar>>`). Rujukan ayat («سورة …») tidak termasuk. Di 37 bahts nyata (6159 catatan kaki) tidak ada perhatian baru.
+- `cek`: juz/halaman bergaya Arab «ج1، ص55», «ج1/ص55», «ج ١ ص ٥٥» (juga rentang «ص54-55») kini dibaca 1/55. Dulu ditolak dengan GAGAL palsu «halaman tercetak -/55 tidak punya bukti; juz/halaman bukti … tidak tercetak». Bukti kitab satu jilid (juz «-») tetap membaca «ص55» seperti dulu.
 - `@format: tatbiqi_mulakhas`: sama dengan `tatbiqi` (satu spasi), tetapi bagian `#K الملخص`/`ملخص البحث` dan `الملخص باللغة الأجنبية` 1,5 spasi, paragraf الملخص berjarak tanpa menjorok. Kunci profil baru: `spasi_mulakhas`.
 - `@format: tatbiqi_15`: sama dengan `tatbiqi`, tetapi matan dan judul 1,5 spasi (catatan kaki dan فهرس tetap satu spasi), dan paragraf di bawah `#K الملخص`/`#K ملخص البحث` berjarak 6 pt tanpa awal alinea menjorok. Profil baru di `format.json` bisa memakai `spasi` dan `mulakhas_berjarak`.
 - `#L **Abstract**` (satu baris `#L` diapit `**`): judul Latin tebal di tengah. Paragraf `#L` sesudahnya diberi jarak 6 pt antarparagraf, seperti contoh الملخص باللغة الأجنبية yang memakai judul «Abstract». Dulu `**` di `#L` tercetak apa adanya.
