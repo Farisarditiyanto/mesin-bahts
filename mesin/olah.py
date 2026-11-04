@@ -193,6 +193,7 @@ RUJUKAN_AYAT = re.compile(r"\[[^\]\n]*[ء-ي][^\]\n]*[0-9٠-٩][^\]\n]*\]")  # �
 LUAR = "luar"  # <<luar>>: sumbernya bukan kitab Shamela (jurnal, PDF penelitian, kamus); tidak bisa dicek mesin
 NAFI = {"لا", "فلا", "ولا", "ما", "فما", "وما", "ليس", "وليس", "فليس", "ليست", "وليست", "فليست",
         "لم", "ولم", "فلم", "لن", "ولن", "فلن", "بلا", "وبلا", "فبلا"}  # kata tepat sebelum kutipan di kitab yang bisa membalik maknanya
+HENTI = re.compile(r"[.،,؛;؟?!:]")  # tanda akhir kalimat di teks kitab: kata nafi di depannya milik kalimat sebelumnya
 BELUM_DIUNDUH = "kitab {} belum diunduh"  # pesan GAGAL per bukti; ringkasan di `utama` mengumpulkan nomornya dari pesan ini
 BELUM_DIUNDUH_RE = re.compile(re.escape(BELUM_DIUNDUH).replace(r"\{\}", r"(\d+)"))
 TERTOLAK = []  # (sid, kutipan) yang GAGAL «teks TIDAK KETEMU di kitab»; dibaca `cek --jejak`, dikosongkan tiap `utama`
@@ -1237,6 +1238,21 @@ def periksa_takhrij(isi, bukti, terbukti, kutipan, perhatian):
                 perhatian.append(f"{pesan}  || fn: {isi[:45]}")
 
 
+def henti(r, n):
+    """Teks asli matan rekaman r memuat tanda akhir kalimat (HENTI) tepat di letak `padat` n, yaitu sesudah kata yang
+    berakhir di n. Kata nafi yang menutup kalimat sebelumnya («أو لا.»، «وإلا فلا، ولعله») tidak menafikan kutipan."""
+    teks, ruas = shamela._ruas(r, "body")
+    for (a, b, _, _), (_, asli) in zip(ruas, shamela._potong(r, "body")):
+        if a <= n <= b:
+            for m in HENTI.finditer(asli):
+                d = a + len(shamela.padat(asli[:m.start()]))
+                if d == n:
+                    return True
+                if d > n:
+                    break
+    return False
+
+
 def ragu_kutipan(rr, awal, pot, periksa_angka=True, dulu=lambda: None):
     """Yang tidak diperiksa pencocokan huruf: angka di kutipan (kalau belum dicocokkan di tempatnya oleh susunan_kitab),
     dan kata nafi tepat sebelum kutipan di matan kitab, juga di akhir halaman sebelumnya (dulu() = rekaman sebelum rr)."""
@@ -1267,7 +1283,7 @@ def ragu_kutipan(rr, awal, pot, periksa_angka=True, dulu=lambda: None):
             if lalu:  # kutipan mulai di awal rekaman: kata terakhir rekaman sebelumnya
                 awal_lalu = shamela._batas_kata(lalu, "body")[0]
                 kata = shamela._ruas(lalu, "body")[0][max(awal_lalu):] if awal_lalu else None
-            if kata in NAFI:
+            if kata in NAFI and not henti(lalu or r, len(shamela._ruas(lalu, "body")[0]) if lalu else sebelum[-1]):
                 ragu.append(f"di kitab tepat sebelum kutipan ada «{kata}»: pastikan maknanya tidak terbalik")
             break
     return ragu
