@@ -1,0 +1,4 @@
+# Jejak langkah riset yang tidak meninggalkan bukti di kitab lokal (dibaca `cek`, lihat `python mesin/bahts.py tanda`).
+# Satu baris satu langkah: takhrij8 <kunci {H:}>, tafsir <surat:ayat>, khilaf <istilah>.
+# Langkah yang tidak bisa dijalankan: «belum <langkah> <objek> <alasan>», lalu sebut di laporan akhir.
+tafsir 1:2 تيسير الكريم الرحمن للسعدي lewat connector tafsir

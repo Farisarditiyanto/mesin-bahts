@@ -1,0 +1,28 @@
+# Berkas uji untuk contoh/jebakan (bukan jejak riset sungguhan): menutup semua {H:} dan {Q:} jebakan lain,
+# supaya hanya baris jebakan riset di bawah «#S perhatian» (ayat 1:4, hadits hijrahr, القول الأول) yang ditandai.
+tafsir 1:1
+tafsir 1:2-3
+tafsir 1:6
+tafsir 2:28
+tafsir 2:184
+tafsir 2:185
+tafsir 2:255
+tafsir 4:29
+tafsir 14:34
+tafsir 15:9
+tafsir 22:70
+tafsir 36:1
+tafsir 39:4
+tafsir 50:24-27
+tafsir 50:30
+tafsir 81:27
+tafsir 81:28
+tafsir 112:1
+takhrij8 hijrahb
+takhrij8 hijrahm
+takhrij8 hijrahn
+takhrij8 niatfn
+takhrij8 qadar
+takhrij8 zina
+# «belum»: langkah yang tidak bisa dijalankan dicatat dengan alasannya, lalu tidak ditandai lagi
+belum tafsir 1:5 connector tafsir sedang mati
