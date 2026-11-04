@@ -14,6 +14,8 @@ $uAyat = if ($FMT.ayat) { [single]$FMT.ayat } else { $uMatan }   # ukuran ayat d
 $ULANG = if ($FMT.catatan_ulang_tiap_halaman) { 2 } else { 0 }   # nomor catatan kaki: 2 = mulai ulang tiap halaman, 0 = bersambung
 $SPASI = if ($FMT.spasi) { [single]$FMT.spasi } else { 1 }   # jarak baris matan dan judul (kali satu baris); catatan kaki dan فهرس tetap satu spasi
 $MULAKHAS_JARAK = [bool]$FMT.mulakhas_berjarak   # paragraf di bawah #K الملخص/ملخص البحث: berjarak 6 pt, tanpa awal alinea menjorok
+$SPASI_MULAKHAS = if ($FMT.spasi_mulakhas) { [single]$FMT.spasi_mulakhas } else { $SPASI }   # jarak baris bagian #K الملخص… (termasuk الملخص باللغة الأجنبية)
+$spasiAktif = $SPASI
 # @angka hindi: teks naskah sudah diubah olah.py; nomor yang dihitung di sini (فهرس, المصادر, {P:}) diubah Angka;
 # nomor halaman dicetak Word menurut Options.ArabicNumeral (gaya nomor Word «Hindi» = angka India २, bukan ٢)
 $HINDI = $M.angka -eq 'hindi'
@@ -302,7 +304,7 @@ try {
         $pf.Reset()
         $pf.ReadingOrder = 0; $pf.Alignment = [int]$align
         $pf.SpaceBefore = [single]$before; $pf.SpaceAfter = 0; $pf.LineSpacingRule = 0
-        if ($SPASI -ne 1) { $pf.LineSpacingRule = 5; $pf.LineSpacing = $word.LinesToPoints($SPASI) }   # 5 = wdLineSpaceMultiple
+        if ($spasiAktif -ne 1) { $pf.LineSpacingRule = 5; $pf.LineSpacing = $word.LinesToPoints($spasiAktif) }   # 5 = wdLineSpaceMultiple
         $pf.LeftIndent = 0; $pf.RightIndent = 0; $pf.FirstLineIndent = [single]$indent
         $pf.KeepWithNext = 0; $pf.PageBreakBefore = 0; $pf.WidowControl = -1
     }
@@ -477,6 +479,7 @@ try {
             }
             $pertama = $false
             $diMulakhas = $MULAKHAS_JARAK -and $blk.k -eq 'K' -and $blk.judul -match '^(ال)?ملخص' -and $blk.judul -notmatch 'الأجنبية|الإنجليزية'
+            $spasiAktif = if ($blk.k -eq 'K' -and $blk.judul -match '^(ال)?ملخص') { $SPASI_MULAKHAS } else { $SPASI }
             $nT++; $bm = "t_$nT"
             Judul $blk.judul $bm $pb
             $lvl = @{ K = 0; F = 0; B = 1; M = 2 }[$blk.k]
