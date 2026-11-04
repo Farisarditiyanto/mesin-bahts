@@ -53,6 +53,12 @@ def utama():
             cek(nama, dasar, pesan=pesan)
         riset.write_bytes("tafsir 1:2".encode("utf-16"))
         cek("riset bukan UTF-8", dasar, pesan="riset.txt bukan UTF-8")
+        riset.write_text("tafsir 1:" + "9" * 5000 + "\n", encoding="utf8")
+        cek("riset angka melampaui batas konversi", dasar, pesan="surat/ayat itu tidak ada")
+        riset.write_text("tafsir 1:2\n", encoding="utf8")
+        out = cek("riset melewati rentang ayat yang ditolak", dasar.replace("{Q:1:2}", "{Q:1:1-10000}"),
+                  True, "surat/ayat itu tidak ada")
+        assert "belum tercatat" not in out, out
         riset.unlink()
         out = cek("khilaf dua masalah", dasar.replace("#K الخاتمة", "#B مسألة\nالقول الأول: يجوز.\n#B مسألة أخرى\n"
                                                       "القَوْلُ الأوَّلُ: يجوز.\n#K الخاتمة"))
