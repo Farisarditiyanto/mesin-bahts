@@ -147,9 +147,9 @@ ANGKA = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
 
 def _ada(kata, teks):
     """`kata` (padat) ada di `teks`, boleh dengan urutan huruf yang tertukar: teks PDF Word membalik huruf glyph
-    sambungan («بين» tersalin «بني», «الإسلام» «اإلسالم») dan kadang memindah ujung baris ke awalnya («…عند الأصوليين»
-    tersalin «نيدلالة … عند األصولي»), jadi tiap baris juga dicoba diputar. Huruf yang kurang atau lebih tetap tidak ada
-    («تصرف» bukan «التصرف»)."""
+    sambungan («بين» tersalin «بني», «الإسلام» «اإلسالم») dan kadang memindah ujung baris ke awalnya («…عند الفقهاء»
+    tersalin «ءاحكم … عند الفقه»), jadi tiap baris juga dicoba diputar. Huruf yang kurang atau lebih tetap tidak ada
+    («بيع» bukan «البيع»)."""
     calon = [padat(teks)] + [p[i:] + p[:i] for p in map(padat, teks.splitlines()) for i in range(1, len(p))]
     urut, n = sorted(kata), len(kata)
     return any(kata in c or any(sorted(c[i:i + n]) == urut for i in range(len(c) - n + 1)) for c in calon)

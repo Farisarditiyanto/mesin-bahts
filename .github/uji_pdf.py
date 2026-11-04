@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Pemeriksaan PDF sesudah rakit (`teks_pdf.periksa`, dipanggil `rakit` sesudah Word menyimpan PDF) pada PDF Word asli
 `contoh/jebakan/sumber_word.pdf` (= `rakit contoh`: sampul qism, nomor halaman ٠١٢٣, nim «000000000»). Yang pernah
-terjadi: PDF tercetak 0123 tanpa @angka, sampul templat «تصرف في الوقف» padahal @judul «التصرف في الوقف», sampul
+terjadi: PDF tercetak 0123 tanpa @angka, sampul templat «بيع العربون» padahal @judul «حكم بيع العربون», sampul
 templat mencetak «المجموعة (......)», dan pengantar «أدلة القول الأول:» sendirian di dasar halaman. Teks PDF Word tidak
 tersalin persis, jadi yang diuji juga bahwa PDF yang benar tidak diperingatkan."""
 import json, sys, tempfile
