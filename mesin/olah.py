@@ -2113,7 +2113,7 @@ def utama(folder, keluar=None):
             perhatian.append(f"baris {a['n']}: judul «{a['judul'][:40]}» tercetak sendirian di halamannya, karena judul "
                              f"sesudahnya mulai halaman baru: tulis paragraf pengantar di bawahnya")
         elif (a["k"] in ("F", "B") and b["k"] in ("B", "M") and "FBM".index(b["k"]) > "FBM".index(a["k"])
-              and not re.match(r"(?:ال)?تمهيد|مدخل", b["judul"])):  # judul «تمهيد» di bawahnya = pengantar itu sendiri
+              and not re.search(r"تمهيد|مدخل", b["judul"])):  # judul «تمهيد» di bawahnya = pengantar itu sendiri
             # فصل/مبحث yang langsung disusul مبحث/مطلب-nya: judul bertumpuk tanpa تمهيد (dikeluhkan dosen)
             perhatian.append(f"baris {a['n']}: judul «{a['judul'][:40]}» langsung disusul judul «{b['judul'][:40]}» "
                              f"tanpa paragraf pengantar: tulis pengantar di bawahnya (isinya dan pembagiannya: "
