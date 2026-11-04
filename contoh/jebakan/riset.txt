@@ -25,5 +25,7 @@ takhrij8 niatfn
 takhrij8 qadar
 takhrij8 siyam
 takhrij8 zina
+takhrij8 niatkurung
+takhrij8 niatkurungb
 # «belum»: langkah yang tidak bisa dijalankan dicatat dengan alasannya, lalu tidak ditandai lagi
 belum tafsir 1:5 connector tafsir sedang mati
