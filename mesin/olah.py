@@ -191,6 +191,8 @@ SISA_AYAT = 20  # huruf `padat` kitab selain ayat dan rujukan [سورة: n] di c
 # ﴿…﴾ (atau terbalik ﴾…﴿) berhuruf Arab yang diketik di naskah; {Q:} jadi «﴿2:255﴾» (angka), jadi ﴾ sesudah angka
 # dan ﴿ sebelum angka = batas dua {Q:}, bukan kurung ayat terbalik
 AYAT_KETIK = re.compile(r"﴿[^﴾]*[ء-ي][^﴾]*﴾|(?<![0-9٠-٩])﴾[^﴿﴾]*[ء-ي][^﴿﴾]*﴿(?![0-9٠-٩])")
+# teks yang mengutip ayat, bukan sekadar menyebutnya: pengantar «قال الله تعالى:»/«قوله:», atau kurung berhuruf Arab
+PENGANTAR_AYAT = re.compile(r"(?:قال|يقول|قوله|تعالى|سبحانه|وجل)\s*:|\([^()]*[ء-ي][^()]*\)")
 AYAT_KITAB = re.compile(r"﴿[^﴾]*﴾|\{[^{}]*\}")  # ayat bertanda di teks kitab Shamela
 RUJUKAN_AYAT = re.compile(r"\[[^\]\n]*[ء-ي][^\]\n]*[0-9٠-٩][^\]\n]*\]")  # «[التكوير:٢٨]», «[آل عمران ١٥٢]»
 LUAR = "luar"  # <<luar>>: sumbernya bukan kitab Shamela (jurnal, PDF penelitian, kamus); tidak bisa dicek mesin
@@ -1588,6 +1590,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
     q_akhir = None  # ayat terakhir di baris ini (untuk mencocokkan catatan kaki «سورة …»)
     polos = ""  # teks polos berjalan (untuk mencari kutipan sebelum catatan kaki)
     seg = 0  # awal teks polos sesudah catatan kaki terakhir
+    penggal_lalu = ""  # teks yang dirujuk catatan kaki sebelumnya (catatan kaki berurutan merujuk teks yang sama)
     seg_run = 0  # awal runs sesudah catatan kaki terakhir
     seg_h = len(hadits_idx)  # {H:} pertama sesudah catatan kaki terakhir
     while i < len(teks):
@@ -1664,6 +1667,8 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             diam = not isi and rumuz is not None and bool(sid_bukti) and all(x in rumuz for x in sid_bukti)
             zz = [z for z in dict.fromkeys((rumuz or {}).get(x) for x in sid_bukti) if z and z != "-"]
             penggal = polos[seg:]
+            # catatan kaki tepat sesudah catatan kaki lain («[^…][^…]») merujuk teks yang sama dengan catatan kaki itu
+            dirujuk = penggal_lalu = penggal if re.search(r"\w", penggal) else penggal_lalu
             # ayat diketik sendiri lalu dirujuk «سورة …»: tidak pernah dicek ke mushaf, jadi bisa karangan
             # (di dalam tanda petik sudah ditolak di bawah: «سورة …» tidak membebaskan prosa di dalam kutipan)
             ketik = ayat_ketik(penggal) if isi.startswith("سورة") or not (di_catatan or diam) else None
@@ -1678,10 +1683,11 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             elif ketik:  # di matan, tanpa rujukan «سورة …»: bisa ayat karangan; paragraf salinan berbukti (diam) dicek ke kitab
                 perhatian.append(f"ayat diketik langsung «{ketik[:40]}»: tidak dicek ke mushaf; tulis lewat {{Q:surah:ayat}} "
                                  f"|| fn: {isi[:45]}")
-            elif (isi.startswith("سورة") and re.search(r"[0-9٠-٩۰-۹]", isi) and not re.search(r"﴿\d", penggal)
-                  and not bukti and mk is None):
-                # rujukan ayat bernomor tanpa {Q:} sejak catatan kaki sebelumnya: ayatnya diketik tanpa ﴿﴾ (atau berkurung
-                # lain) dan tidak pernah dicek ke mushaf. Bukan rujukan ayat: «انظر: سورة …», «سورة مكية…» (tanpa nomor).
+            elif (isi.startswith("سورة") and re.search(r"[0-9٠-٩۰-۹]", isi) and not re.search(r"﴿\d", dirujuk)
+                  and PENGANTAR_AYAT.search(dirujuk) and not bukti and mk is None):
+                # rujukan ayat bernomor tanpa {Q:} di teks yang dirujuknya, padahal teks itu mengutip ayat («قال الله تعالى:»
+                # atau berkurung): ayatnya diketik tanpa ﴿﴾ dan tidak pernah dicek ke mushaf. Tidak kena: «انظر: سورة …»,
+                # «سورة مكية…» (tanpa nomor), dan penyebutan tanpa kutipan («في سورة طه», «في آيات كثيرة»).
                 # Kutipan bertanda petik sudah GAGAL «tanpa bukti» di bawah; yang berbukti <<…>> dicek ke sumbernya.
                 galat.append(f"rujukan ayat «سورة …» tanpa {{Q:}} di kalimatnya: ayatnya tidak dicek ke mushaf; tulis ayatnya "
                              f"lewat {{Q:surah:ayat}} || fn: {isi[:45]}")
