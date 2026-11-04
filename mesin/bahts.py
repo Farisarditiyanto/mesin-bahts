@@ -293,7 +293,8 @@ def cek(nama, keluar=None, jejak=False):
 RAKIT_ANTRE = 30 * 60  # detik; rakit terlama yang tercatat ±10 menit: dua rakit di depan masih tertampung
 RAKIT_PS_KUNCI = MESIN / "_tmp" / "rakit.kunci"  # dibuka rakit.ps1 tanpa berbagi selama ia hidup (dilepas OS saat mati)
 RAKIT_GALAT = "rakit.galat"  # di folder kerja: pesan galat rakit.ps1 (UTF-8), ditulis sebelum PowerShell berhenti
-RAKIT_SIMPAN = "JANGAN_DIHAPUS.txt"  # penanda folder .rakit-* berisi hasil baru yang belum terpasang (PemulihanGagal)
+RAKIT_SEMENTARA = "rakit.sementara"  # penanda folder .rakit-* bahan sementara rakit versi ini: boleh dibuang rakit berikutnya
+RAKIT_SIMPAN = "JANGAN_DIHAPUS.txt"  # pengganti penanda di atas bila folder itu berisi hasil baru yang belum terpasang (PemulihanGagal)
 
 
 def rakit(nama):
@@ -337,9 +338,14 @@ def _buang_sisa(f, kerja):
     """Buang folder kerja rakit ini dan folder .rakit-* yang tertinggal rakit yang dimatikan (Python-nya mati sebelum
     membersihkannya). Aman: kunci rakit dipegang rakit ini dan rakit.ps1 sisa rakit lain sudah berhenti (_tunggu_ps_yatim),
     jadi tidak ada rakit lain yang masih memakainya. Dipanggil sesudah rakit.ps1, yang menghentikan Word yatim rakit lama
-    (Word itu masih membuka berkas di foldernya). Folder bertanda RAKIT_SIMPAN = hasil baru yang belum terpasang: dibiarkan."""
+    (Word itu masih membuka berkas di foldernya). Yang dibuang hanya folder bertanda RAKIT_SEMENTARA (bahan sementara versi
+    ini). Tanpa penanda itu (hasil baru yang belum terpasang, atau folder dari versi lama yang mungkin sengaja disimpan)
+    hanya disebut, tidak pernah dibuang."""
     for sisa in sorted(f.glob(".rakit-*")):
-        if not sisa.is_dir() or (sisa / RAKIT_SIMPAN).exists():
+        if not sisa.is_dir():
+            continue
+        if not (sisa / RAKIT_SEMENTARA).exists():
+            print(f"Folder {sisa.name} dibiarkan: mungkin berisi hasil yang sengaja disimpan; periksa isinya, lalu hapus sendiri.")
             continue
         shutil.rmtree(sisa, ignore_errors=True)
         if sisa.exists():
@@ -365,9 +371,11 @@ def _word_gagal(kode, galat):
 def _rakit(nama):
     f = folder_bahts(nama)
     kerja = Path(tempfile.mkdtemp(prefix=".rakit-", dir=f))
+    (kerja / RAKIT_SEMENTARA).write_text("Bahan sementara `rakit`; dibuang sendiri oleh rakit berikutnya.\n", encoding="utf8")
     try:
         _rakit_di(nama, f, kerja)
     except PemulihanGagal:  # hasil baru masih di folder kerja: jangan dibuang, juga oleh rakit berikutnya
+        (kerja / RAKIT_SEMENTARA).unlink()
         (kerja / RAKIT_SIMPAN).write_text("Hasil baru yang belum terpasang (pemulihan rakit gagal; lihat pesan rakit).\n"
                                           "`rakit` tidak membuang folder ini: selamatkan isinya, lalu hapus sendiri.\n",
                                           encoding="utf8")

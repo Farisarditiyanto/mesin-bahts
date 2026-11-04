@@ -416,9 +416,12 @@ def utama():
             sebelum = {"hasil.docx": b"DOCX-LAMA", "hasil.pdf": b"PDF-LAMA", "laporan.txt": b"LAPORAN-LAMA"}
             for n, isi in sebelum.items(): (folder / n).write_bytes(isi)
             arsip_awal = set((folder / "_arsip").iterdir()) if (folder / "_arsip").exists() else set()
-            yatim = folder / ".rakit-yatim"  # tertinggal rakit yang Python-nya dimatikan
+            yatim = folder / ".rakit-yatim"  # tertinggal rakit versi ini yang Python-nya dimatikan
+            lama = folder / ".rakit-lama"  # disimpan versi lama («Bahan percobaan disimpan») tanpa penanda apa pun
             if mode in ("sisa", "ps-yatim"):
                 yatim.mkdir(exist_ok=True); (yatim / "bahan.json").write_text("{}")
+                (yatim / bahts.RAKIT_SEMENTARA).write_text("")
+                lama.mkdir(exist_ok=True); (lama / "hasil.pdf").write_bytes(b"%PDF-HASIL-BARU")
             kerja_awal = set(folder.glob(".rakit-*"))
             r = subprocess.run([sys.executable, str(runner), str(akar), "a/sama", mode, "b/sama"],
                                cwd=akar, capture_output=True, encoding="utf8")
@@ -426,6 +429,8 @@ def utama():
             if mode == "sisa":  # sisa rakit mati dibuang; hasil baru rollback-blocked (bertanda) dibiarkan
                 assert set(folder.glob(".rakit-*")) == kerja_awal - {yatim}, "Sisa .rakit-* salah dibersihkan"
                 assert "Sisa rakit yang terhenti dibuang: .rakit-yatim" in r.stdout, r.stdout + r.stderr
+                assert (lama / "hasil.pdf").read_bytes() == b"%PDF-HASIL-BARU", "Folder versi lama tanpa penanda dibuang"
+                assert "Folder .rakit-lama dibiarkan" in r.stdout, r.stdout + r.stderr
                 assert any((k / bahts.RAKIT_SIMPAN).is_file() for k in kerja_awal), "Hasil baru rollback-blocked tidak bertanda"
             elif mode != "rollback-blocked":
                 assert set(folder.glob(".rakit-*")) == kerja_awal, "Rakit meninggalkan atau membuang folder .rakit-* di folder bahts"
