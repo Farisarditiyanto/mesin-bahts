@@ -2,7 +2,7 @@
 """Regresi struktur lewat CLI asli di salinan TEMP, memakai contoh dan kitab asli.
 Tidak menjalankan Word: naskah yang kehilangan isi harus ditolak sebelum perakit dipanggil.
 """
-import os, shutil, subprocess, sys, tempfile
+import os, re, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
 AKAR = Path(__file__).resolve().parent.parent
@@ -79,6 +79,15 @@ def utama():
         out = cek("judul berpengantar", dasar.replace("#K الخاتمة", "#F الفصل الثاني\nوفيه مبحث.\n#B المبحث الأول\n"
                                                       "وفيه مطلب.\n#M المطلب الأول\nنص.\n#K الخاتمة"))
         assert "langsung disusul judul" not in out, out
+        # bagian kosong (judul tanpa paragraf isi sebelum judul setingkat/lebih tinggi; #H bukan isi) = satu perhatian per
+        # judul, menggantikan «tercetak sendirian»; judul yang membawahi judul lebih rendah bukan kosong; kitab tidak diperiksa
+        kosong = dasar.replace("#K المقدمة", "#K الإهداء\n#K المقدمة").replace(
+            "#K الخاتمة", "#B المبحث الأول\n#S الأول\n#S الثاني\nنص.\n#M المطلب\n#H\n#B المبحث الثاني\nنص.\n#K الخاتمة")
+        out = cek("bagian kosong", kosong)
+        assert re.findall(r"bagian «(.+?)» masih kosong", out) == ["الإهداء", "الأول", "المطلب"], out
+        assert "tercetak sendirian" not in out, out
+        out = cek("bagian kosong di kitab", "@bentuk: kitab\n" + kosong)
+        assert "masih kosong" not in out, out
         out = cek("riset {Q:} di bawah #R", dasar + "مرجع {Q:1:1}.\n")
         assert "{Q:1:1}" not in out, out
         for tanda in ("#K", "#F", "#B", "#M", "#S", "#T", "#R", "#H"):
