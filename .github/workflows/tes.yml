@@ -30,6 +30,8 @@ jobs:
       - run: python .github/uji_jebakan.py
       # cek --jejak: kutipan yang salah kitab ditunjuk di kitab lain yang sudah diunduh, tanpa mengubah putusan cek
       - run: python .github/uji_jejak.py
+      # bukti: teks kitab yang dicetak dari halaman yang dirujuk (bukan halaman lain), ayat persis, hanya baris yang diminta
+      - run: python .github/uji_bukti.py
       # tanpa @angka, angka di teks Arab bahan rakit ٠-٩ (dulu PDF mencetak «آية: ٢» di samping «ص5»)
       - run: python .github/uji_angka.py
       # Pengalihan HTTP harus menjaga kunci di asal yang sama, tanpa membocorkannya ke asal lain (peladen lokal).

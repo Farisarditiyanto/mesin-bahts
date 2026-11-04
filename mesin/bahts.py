@@ -9,6 +9,10 @@ Bahts (tiap bahts = satu folder berisi naskah.txt):
   baru <folder> "<judul>"      buat folder bahts baru + kerangka naskah.txt; <folder> boleh bahts/<orang>/<topik>
   cek <folder> [--jejak]       periksa naskah: tanda, ayat, dan semua bukti <<...>> ke kitab lokal;
                                --jejak: teks yang tidak ada di kitabnya dicari di kitab lain yang sudah diunduh
+  bukti <folder> [baris|awal-akhir]   untuk pemeriksa: tiap catatan kaki berbukti <<sid|juz|hal>> (kalimat yang
+                               dibuktikan, isi catatan kaki, nama kitab, bab, dan teks halaman itu di sekitar kutipan)
+                               dan teks tiap ayat {Q:} persis seperti tercetak; tiap baris keluaran diawali «baris n».
+                               Penunjuk saja, putusan tetap `cek`
   rakit <folder>               cek, lalu rakit .docx + .pdf (Word) ke dalam folder itu
   tanda                        daftar tanda yang dipakai di naskah.txt
 
@@ -486,12 +490,27 @@ def perintah_cek(a):
     sys.exit(1 if cek(folder, jejak="--jejak" in a)[1] else 0)
 
 
+def perintah_bukti(a):
+    """`bukti <folder> [baris|awal-akhir]`: penunjuk untuk pemeriksa (lihat olah.bukti); 0 yang dicetak = kode keluar 1."""
+    import olah
+    if len(a) > 2:
+        raise ValueError(f"argumen berlebih: {a}")
+    dari = sampai = None
+    if len(a) == 2:
+        m = re.fullmatch(r"(\d+)(?:\s*-\s*(\d+))?", a[1].strip())
+        if not m or int(m[2] or m[1]) < int(m[1]):
+            raise ValueError(f"baris ditulis angka (mis. 15) atau rentang awal-akhir (mis. 10-40), bukan «{a[1]}»")
+        dari, sampai = int(m[1]), int(m[2] or m[1])
+    ketemu(olah.bukti(folder_bahts(a[0]), dari, sampai))
+
+
 PERINTAH = {  # nama: (jumlah argumen minimal, pemanggil)
     "periksa": (0, lambda a: periksa()),
     "siapkan": (0, lambda a: siapkan()),
     "baru": (2, lambda a: baru(a[0], a[1])),
     "cek": (0, perintah_cek),
     "rakit": (1, lambda a: rakit(a[0])),
+    "bukti": (1, perintah_bukti),
     "tanda": (0, lambda a: print(tanda())),
     "kitab": (0, lambda a: shamela.daftar()),
     "katalog": (1, lambda a: ketemu(shamela.katalog(pola(a[0])))),
