@@ -344,7 +344,7 @@ def _buang_sisa(f, kerja):
     for sisa in sorted(f.glob(".rakit-*")):
         if not sisa.is_dir():
             continue
-        if not (sisa / RAKIT_SEMENTARA).exists():
+        if (sisa / RAKIT_SIMPAN).exists() or not (sisa / RAKIT_SEMENTARA).exists():
             print(f"Folder {sisa.name} dibiarkan: mungkin berisi hasil yang sengaja disimpan; periksa isinya, lalu hapus sendiri.")
             continue
         shutil.rmtree(sisa, ignore_errors=True)
@@ -375,10 +375,13 @@ def _rakit(nama):
     try:
         _rakit_di(nama, f, kerja)
     except PemulihanGagal:  # hasil baru masih di folder kerja: jangan dibuang, juga oleh rakit berikutnya
-        (kerja / RAKIT_SEMENTARA).unlink()
         (kerja / RAKIT_SIMPAN).write_text("Hasil baru yang belum terpasang (pemulihan rakit gagal; lihat pesan rakit).\n"
                                           "`rakit` tidak membuang folder ini: selamatkan isinya, lalu hapus sendiri.\n",
                                           encoding="utf8")
+        try:  # RAKIT_SIMPAN sudah melindunginya; penanda sementara dicabut supaya versi lain pun tidak membuangnya
+            (kerja / RAKIT_SEMENTARA).unlink()
+        except OSError:
+            pass
         print(f"Bahan percobaan disimpan: {kerja}")
         raise
     finally:  # berhasil, atau galat cek, Word gagal, berkas terkunci: hasil lama utuh, bahan sementara tidak dibutuhkan

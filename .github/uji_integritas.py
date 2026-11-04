@@ -44,13 +44,20 @@ run = subprocess.run
 if mode == "pdf-fail":
     def gagal(*a): raise RuntimeError("injeksi pembetulan PDF gagal")
     teks_pdf.betulkan = gagal
-if mode in ("publish-fail", "rollback-blocked"):
+if mode == "simpan-unlink-gagal":  # penanda bahan sementara tidak bisa dicabut (mis. terkunci antivirus)
+    unlink = Path.unlink
+    def cabut(self, *a, **k):
+        if self.name == bahts.RAKIT_SEMENTARA and ditolak:  # hanya sesudah penggantian hasil gagal
+            raise PermissionError("injeksi penanda tidak bisa dicabut")
+        return unlink(self, *a, **k)
+    Path.unlink = cabut
+if mode in ("publish-fail", "rollback-blocked", "simpan-unlink-gagal"):
     replace = Path.replace
     ditolak = False
     def ganti(self, target):
         global ditolak
         target = Path(target)
-        if mode == "rollback-blocked" and ditolak and self == Path(akar)/nama/"hasil.docx":
+        if mode in ("rollback-blocked", "simpan-unlink-gagal") and ditolak and self == Path(akar)/nama/"hasil.docx":
             raise PermissionError("injeksi DOCX baru terkunci saat ditarik")
         if not ditolak and self.name == "hasil.pdf" and self.parent != Path(akar)/nama and target.parent == Path(akar)/nama:
             ditolak = True
@@ -432,7 +439,7 @@ def utama():
                 assert (lama / "hasil.pdf").read_bytes() == b"%PDF-HASIL-BARU", "Folder versi lama tanpa penanda dibuang"
                 assert "Folder .rakit-lama dibiarkan" in r.stdout, r.stdout + r.stderr
                 assert any((k / bahts.RAKIT_SIMPAN).is_file() for k in kerja_awal), "Hasil baru rollback-blocked tidak bertanda"
-            elif mode != "rollback-blocked":
+            elif mode not in ("rollback-blocked", "simpan-unlink-gagal"):
                 assert set(folder.glob(".rakit-*")) == kerja_awal, "Rakit meninggalkan atau membuang folder .rakit-* di folder bahts"
             if mode in ("snapshot", "lock", "ok", "pdf-fail", "sisa"):
                 assert r.returncode == 0, r.stdout + r.stderr
@@ -448,8 +455,10 @@ def utama():
                 assert arsip_akhir == arsip_awal, "Rakit yang berhasil meninggalkan cadangan di folder bahts"
             else:
                 assert r.returncode != 0, r.stdout + r.stderr
-                if mode == "rollback-blocked":
+                if mode in ("rollback-blocked", "simpan-unlink-gagal"):
                     assert "Pemulihan hasil belum lengkap" in r.stderr, r.stdout + r.stderr
+                    simpanan = set(folder.glob(".rakit-*")) - kerja_awal  # hasil baru yang belum terpasang
+                    assert simpanan and all((k / bahts.RAKIT_SIMPAN).is_file() for k in simpanan), "Hasil baru tidak disimpan bertanda"
                     assert (folder / "hasil.docx").read_bytes().startswith(b"PK")
                     assert not (folder / "hasil.pdf").exists(), "DOCX baru dipasangkan dengan PDF lama"
                     assert not (folder / "laporan.txt").exists(), "DOCX baru dipasangkan dengan laporan lama"
@@ -468,7 +477,7 @@ def utama():
                 assert akhir and pesan[mode] in akhir[-1], r.stdout + r.stderr
                 assert all((folder / n).read_bytes() == isi for n, isi in sebelum.items()), "Hasil lama berubah atau berbeda generasi"
 
-        for mode in ("save-fail", "export-fail", "ps-mati", "pdf-fail", "pages-fail", "publish-fail", "rollback-blocked",
+        for mode in ("save-fail", "export-fail", "ps-mati", "pdf-fail", "pages-fail", "publish-fail", "rollback-blocked", "simpan-unlink-gagal",
                      "changed", "snapshot", "lock", "sisa", *(("ps-asli", "ps-yatim") if os.name == "nt" else ())):
             uji("rakit " + mode, lambda mode=mode: rakit(mode))
         if gagal:
