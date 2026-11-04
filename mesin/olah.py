@@ -66,7 +66,8 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       Kutipan bertanda petik sebelum catatan kaki tetap dicek ke halaman bukti itu
                       juz "-" = kitab tanpa juz di rekamannya; kitab berjilid walau halamannya bersambung tetap ditulis
                       juz-nya (bentuknya: baris «bukti:» di `kartu <id>`); hal boleh rentang 12-14. Kitab yang bagiannya
-                      bernama (المقدمة، الكتاب): tulis bagiannya, <<sid|المقدمة|5>>, tercetak «المقدمة، ص5» atau «المقدمة/5»
+                      bernama (المقدمة، الكتاب): "-" dibaca di bagian tempat kutipannya cocok; ada di dua bagian = tulis
+                      bagiannya, <<sid|الكتاب|5>>, tercetak «ص5»، «الكتاب، ص5», atau «الكتاب/5»
   Beberapa bukti      kutipan sebelum catatan kaki dicek ke TIAP bukti <<sid|juz|hal>> tanpa potongan di catatan kaki itu,
                       bukan cukup salah satunya. Takhrij dari beberapa kitab: kitab yang lafaznya dikutip tanpa potongan,
                       riwayat berlafaz lain dan derajat dari kitab lain berpotongan lafaz halaman itu, mis.
@@ -351,14 +352,6 @@ def salah_juz(sid, juz, hal):
         contoh = next((j for j, (a, z) in rentang.items() if a <= p1 <= z), sorted(juz_ada, key=urut_juz)[0])
         return (f"kitab {sid} berjilid: tulis juz-nya, mis. <<{sid}|{contoh}|{hal}>>; yang ada: {shamela.daftar_juz(sid)} "
                 f"(juz \"-\" hanya untuk kitab satu jilid; bentuk buktinya: `kartu {sid}`)")
-    if juz == "-" and len(juz_ada) > 1 and None not in juz_ada:
-        # bagiannya hanya bernama: «-» menggabung semuanya, jadi halaman yang ada di dua bagian (المقدمة tulisan muhaqqiq
-        # dan الكتاب) tidak tentu yang mana. Halaman yang hanya ada di satu bagian tetap sah (`halaman` membacanya sama).
-        p1, _, p2 = hal.partition("-")
-        di = shamela.bagian_halaman(sid, int(p1), int(p2 or p1))
-        if len(di) > 1:
-            pilih = " atau ".join(f"<<{sid}|{j}|{hal}>>" for j in sorted(di, key=urut_juz))
-            return f"halaman {hal} kitab {sid} ada di beberapa bagian ({'، '.join(sorted(di, key=urut_juz))}): sebut bagiannya ({pilih})"
     if juz != "-" and juz not in juz_ada:
         if juz_ada == {None}:
             return f"kitab {sid} satu jilid: tulis juz \"-\", mis. <<{sid}|-|{hal}>>"
@@ -577,6 +570,20 @@ def cek(sid, juz, hal, pot, perhatian, kutipan=False, rinci=True, pengantar=""):
     e = salah_juz(sid, juz, hal)
     if e:
         return e
+    if juz == "-" and None not in kitab(sid) and len(kitab(sid)) > 1:
+        # kitab yang bagiannya hanya bernama (المقدمة tulisan muhaqqiq + الكتاب): «-» digabung, jadi halaman yang ada di
+        # dua bagian dibaca di bagian tempat teksnya cocok. Cocok di satu bagian -> bagian itu (المقدمة -> perhatian
+        # muhaqqiq lewat toc); cocok di dua bagian -> tidak tentu yang mana.
+        a, _, z = hal.partition("-")
+        di = sorted(shamela.bagian_halaman(sid, int(a), int(z or a)), key=urut_juz) if not salah_halaman(hal) else []
+        if len(di) > 1:
+            kena = [j for j in di if not cek(sid, j, hal, pot, [], kutipan, None)]
+            if len(kena) == 1:
+                return cek(sid, kena[0], hal, pot, perhatian, kutipan, rinci, pengantar)
+            if kena:
+                pilih = " atau ".join(f"<<{sid}|{j}|{hal}>>" for j in kena)
+                return (f"teks ada di halaman {hal} beberapa bagian kitab {sid} ({'، '.join(kena)}): sebut bagiannya ({pilih}); "
+                        f"«ص{hal}» di catatan kaki tetap cukup :: {pot[:40]}")
     if shamela.OTOMATIS.search(shamela.info(sid)["betaka_text"]):
         pesan = (f"kitab {sid}: nomor halamannya buatan Shamela (مرقم آليا), bukan nomor cetakan — "
                  "pakai edisi yang «موافق للمطبوع», atau cocokkan ke cetakannya")
@@ -1907,9 +1914,11 @@ def cocok_halaman(isi, bukti, perhatian=None):
         utuh = teks.translate(ANGKA_LATIN)  # «عند شرحه للحديث (1/ 222)»: bukti yang tercetak di sini tetap terbaca
         if juz_bukti - {"-"}:  # kitab satu jilid (juz «-»): «ج1، ص55» tetap dibaca «ص55» seperti dulu
             utuh = juz_arab(utuh)
-        for j in juz_bukti - {"-"}:  # «المقدمة، ص1» = halaman 1 bagian المقدمة, sama dengan «المقدمة/1»
-            if not j.isdigit():
-                utuh = re.sub(rf"(?<!\w){re.escape(j)}\s*[،,:]?\s*ص\s*(?=\d)", f"{j}/", utuh)
+        bernama = [j for j in juz_bukti if j != "-" and not j.isdigit()]
+        for j in bernama:  # «المقدمة، ص1» = halaman 1 bagian المقدمة, sama dengan «المقدمة/1»
+            utuh = re.sub(rf"(?<!\w){re.escape(j)}\s*[،,:]?\s*ص\s*(?=\d)", f"{j}/", utuh)
+        if len(bernama) == 1 and "-" not in juz_bukti:  # «ص5» tanpa nama bagian = halaman bagian buktinya (<<id|الكتاب|5>>)
+            utuh = re.sub(r"(?<![\wـ])([وف]?)ص\s*(?=\d)", lambda m: f"{m.group(1)}{bernama[0]}/", utuh)
         teks = NOMOR_HADITS.sub(" ", utuh)
         lain = {j for j in JUZ_TERCETAK.findall(teks)} | {"-"}
         for juz in juz_bukti | (lain - juz_bukti):
