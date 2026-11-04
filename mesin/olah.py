@@ -86,7 +86,7 @@ riset.txt (di folder bahts, di samping naskah.txt): jejak langkah riset yang tid
                       belum tercatat = perhatian, juga baris riset.txt yang rusak atau kunci takhrij8 yang tidak ada di naskah.
                       Tidak pernah GAGAL: isinya ditulis agen sendiri, jadi mesin hanya menunjuk yang belum dicatat
 """
-import bisect, difflib, functools, hashlib, io, json, os, re, unicodedata, zlib
+import bisect, difflib, functools, hashlib, io, json, os, re, tempfile, unicodedata, zlib
 from pathlib import Path
 
 import shamela
@@ -200,6 +200,10 @@ HENTI = re.compile(r"[.،,؛;؟?!:]")  # tanda akhir kalimat di teks kitab: kata
 BELUM_DIUNDUH = "kitab {} belum diunduh"  # pesan GAGAL per bukti; ringkasan di `utama` mengumpulkan nomornya dari pesan ini
 BELUM_DIUNDUH_RE = re.compile(re.escape(BELUM_DIUNDUH).replace(r"\{\}", r"(\d+)"))
 TERTOLAK = []  # (sid, kutipan) yang GAGAL «teks TIDAK KETEMU di kitab»; dibaca `cek --jejak`, dikosongkan tiap `utama`
+# ayat {Q:} dan catatan kaki berbukti, urut naskah, dengan nomor barisnya: dibaca `bukti`, dikosongkan tiap `utama`
+#   {"n", "ayat": spec, "t": teks tercetak} atau {"n", "bukti": [sid|juz|hal…], "kutipan": teks yang dibuktikan, "catatan": isi}
+PENUNJUK = []
+SEKITAR = 300  # huruf teks kitab yang dicetak `bukti` sebelum dan sesudah letak kutipan
 
 
 BUKTI_SID = re.compile(r"<<(\d+)\|")  # nomor kitab di bukti <<sid|juz|hal>>
@@ -1676,6 +1680,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
         elif tok.startswith("{Q:"):
             t, s, a = ayat(tok[3:-1])
             q_akhir = (s, a)
+            PENUNJUK.append({"ayat": tok[3:-1], "t": t})
             polos += f" ﴿{s}:{a}﴾ "  # AYAT_DI_KUTIPAN bernomor
             runs.append({"t": "﴿", "b": False}); runs.append({"t": t, "q": True}); runs.append({"t": "﴾", "b": False})
             if not di_catatan:
@@ -1785,6 +1790,8 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 if len(f) != 2 or not f[0].strip() or not re.fullmatch(r"\d+(-\d+)?", f[1]):
                     raise TandaRusak(f"<<{LUAR}|{'|'.join(f)}>>: bentuknya <<{LUAR}|berkas.pdf|hal>>, hal = urutan halaman di berkas")
             bukti = [b for b in bukti if b.split("|")[0] != LUAR]
+            if bukti:
+                PENUNJUK.append({"bukti": bukti, "kutipan": penggal if diam else mk, "catatan": isi})
             terbukti = []  # (sid, juz, p1, p2) tiap bukti, untuk dicocokkan dengan yang tercetak
             kutipan_4 = []  # hasil cek kutipan ke tiap bukti berpotongan sendiri: (pesan, perhatian)
             tiga = any(b.count("|") == 2 for b in bukti)
@@ -2046,12 +2053,13 @@ def utama(folder, keluar=None):
             + ", lalu ulangi `cek`.") from None
     blok, catatan, ayat_idx, hadits_idx, galat, perhatian, pustaka = [], [], [], [], [], [], []
     TERTOLAK.clear()
+    PENUNJUK.clear()
     meta = {"berkas": folder.name}
     di_baris = {}  # @kunci dan #R -> nomor barisnya, untuk galat yang baru ketahuan sesudah semua baris dibaca
     rumuz = {}  # @rumuz: sid -> huruf
     warna = {}  # @warna: sid -> warna Word (BGR)
     for n, b in baris:
-        g0, p0 = len(galat), len(perhatian)
+        g0, p0, u0 = len(galat), len(perhatian), len(PENUNJUK)
         if b.startswith("@"):
             k, _, v = b[1:].partition(":")
             if k.strip() not in META:
@@ -2117,6 +2125,8 @@ def utama(folder, keluar=None):
         # tiap galat dan perhatian menyebut barisnya: pemakai langsung tahu tempatnya, tes jebakan mencocokkan per baris
         galat[g0:] = [g if g.startswith("baris ") else f"baris {n}: {g}" for g in galat[g0:]]
         perhatian[p0:] = [p if p.startswith("baris ") else f"baris {n}: {p}" for p in perhatian[p0:]]
+        for u in PENUNJUK[u0:]:
+            u["n"] = n
 
     def di(kunci):
         return f"baris {di_baris[kunci]}: " if kunci in di_baris else ""
@@ -2274,3 +2284,106 @@ def utama(folder, keluar=None):
     lap += [f"  - {f}" for f in fn_tanpa]
     lap.append(f"NASKAH_SHA256={sidik_naskah}")
     return len(galat), lap
+
+
+def _ringkas(t, maks=200):
+    t = re.sub(r"\s+", " ", t).strip()
+    return t if len(t) <= maks else f"{t[:maks // 2]} … {t[-maks // 2:]}"
+
+
+def _teks_halaman(sid, juz, p1, p2, bagian):
+    """Teks asli (tanpa tag dan harakat) bagian rekaman halaman p1..p2 saja, tiap halaman diawali ⦗n⦘.
+    حاشية tanpa penanda halaman di rekaman banyak halaman: seluruhnya, ditandai ⦗awal-akhir⦘ (seperti `halaman`)."""
+    out = []
+    for r in sorted(rekaman(sid, juz, p1, p2), key=lambda r: r.get("page_num") or 0):
+        pp = shamela._potong(r, bagian)
+        if len(pp) == 1:
+            a, z = r.get("page_num"), _akhir(r)
+            pp = [(f"{a}-{z}" if z != a else a, pp[0][1])]
+        else:
+            pp = [(h, b) for h, b in pp if h is not None and p1 <= h <= p2]
+        for h, b in pp:
+            b = re.sub(r"\s+", " ", HARAKAT.sub("", shamela.TAGS.sub("", b))).strip()
+            if b:
+                out.append(f"⦗{h}⦘ {b}")
+    return " ".join(out)
+
+
+def _penunjuk_bukti(sid, juz, hal, kutipan):
+    """Baris `bukti` untuk satu <<sid|juz|hal>>: nama kitab, rantai judul, dan teks halaman itu di sekitar kutipan."""
+    e = salah_juz(sid, juz, hal) or salah_halaman(hal)
+    if e:
+        return [e]
+    m = shamela.info(sid)
+    hasil = [f"kitab: {m['title_ar']} — {m.get('main_author_name_ar') or '?'}"]
+    p1, _, p2 = hal.partition("-")
+    p1 = int(p1); p2 = int(p2) if p2 else p1
+    bagian_q = [x for x in ELIPSIS.split(kutipan or "") if len(shamela.padat(x)) >= KUTIPAN_MIN]
+    q = shamela.padat(bagian_q[0]) if bagian_q else ""
+    rr = sorted(rekaman(sid, juz, p1, p2), key=lambda r: r.get("page_num") or 0)
+    # rantai judul di letak kutipan; kutipan tidak ketemu (atau melintasi rekaman) -> judul di awal halaman p1
+    letak_judul = None
+    for r in rr if q else ():
+        for bagian, _ in shamela.BAGIAN:
+            c, h = shamela._cocok(r, q, bagian), shamela.tempat(r, q, bagian, dalam=(p1, p2))
+            if c and h and p1 <= (h[0] or 0) and (h[1] or 0) <= p2:
+                letak_judul = letak_judul or (r, c, h, bagian)
+    if not letak_judul and rr:
+        batas = shamela._ruas(rr[0], "body")[1]
+        letak_judul = (rr[0], (next((a for a, _, h1, _ in batas if h1 == p1), 0),) * 2, (p1, p1), "body")
+    if letak_judul:
+        judul = shamela.rantai_judul(sid, *letak_judul)
+        hasil.append("bab: " + (judul[0] if len(judul) == 1 else "RAGU, salah satu dari: " + " | ".join(judul)))
+    # kutipan yang lafaznya meleset di tengah: letak awalnya tetap ditunjuk (kata-kata awal terpanjang yang ada di halaman)
+    kata_awal = bagian_q[0].split() if bagian_q else []
+    teks = {bagian: _teks_halaman(sid, juz, p1, p2, bagian) for bagian, _ in shamela.BAGIAN}
+    padat_ = {bagian: shamela.padat(raw) for bagian, raw in teks.items()}
+    for k in range(len(kata_awal), 0, -1):
+        qk = shamela.padat(" ".join(kata_awal[:k]))
+        if len(qk) < KUTIPAN_MIN:
+            break
+        for bagian, tanda in shamela.BAGIAN:
+            raw = teks[bagian]
+            if qk not in padat_[bagian]:
+                continue
+            i = shamela._letak_asli(raw, qk)
+            h = ([x[1] for x in re.finditer(r"⦗([\d-]+)⦘", raw[:i + 1])] or [hal])[-1]
+            a, z = max(0, i - SEKITAR), i + len(kutipan) + SEKITAR
+            sebagian = f" (hanya awal kutipan yang ada: «{' '.join(kata_awal[:k])}»)" if k < len(kata_awal) else ""
+            hasil.append(f"{shamela.letak(juz, h)}{tanda}{sebagian}: {'…' * (a > 0)}{raw[a:z]}{'…' * (z < len(raw))}")
+            return hasil
+    raw = teks["body"]
+    if not raw:
+        return hasil + [f"{shamela.letak(juz, (p1, p2))}: halaman itu tidak ada di kitab {sid} juz {juz}"]
+    sebab = "kutipan TIDAK ketemu di halaman itu" if q else "tanpa kutipan untuk dicari"
+    return hasil + [f"{shamela.letak(juz, (p1, p2))}: {sebab}; awal halaman: {raw[:2 * SEKITAR]}{'…' * (len(raw) > 2 * SEKITAR)}"]
+
+
+def bukti(folder, dari=None, sampai=None):
+    """`bukti`: untuk tiap catatan kaki berbukti <<sid|juz|hal…>> dan ayat {Q:} di baris dari..sampai (None = semua):
+    kalimat yang dibuktikan, isi catatan kakinya, lalu nama kitab, rantai judul, dan teks halaman kitab di sekitar letak
+    kutipan. Naskahnya diurai `utama` (sama dengan `cek`), tetapi laporan dan putusannya tidak dicetak.
+    Tiap baris keluaran diawali «baris n», supaya bisa disaring. Kembalikan jumlah yang dicetak."""
+    with tempfile.TemporaryDirectory() as d:
+        utama(folder, Path(d) / "bahan.json")
+    pilih = [u for u in PENUNJUK if (dari is None or dari <= u["n"]) and (sampai is None or u["n"] <= sampai)]
+    ke = {}
+    for u in pilih:
+        if "ayat" in u:
+            print(f"baris {u['n']} ayat {{Q:{u['ayat']}}}: ﴿{u['t']}﴾")
+            continue
+        ke[u["n"]] = ke.get(u["n"], 0) + 1
+        kepala = f"baris {u['n']} #{ke[u['n']]}"
+        print(f"{kepala} kutipan: " + (f"«{_ringkas(u['kutipan'])}»" if u["kutipan"] else "(tanpa kutipan bertanda petik)"))
+        print(f"{kepala} catatan: {_ringkas(u['catatan'], 300)}")
+        for b in u["bukti"]:
+            f = b.split("|")
+            if len(f) not in (3, 4) or not f[0].isdigit() or not re.fullmatch(r"\d+(-\d+)?", f[2]):
+                print(f"{kepala} <<{_ringkas(b, 80)}>>: bentuk bukti rusak (lihat `cek`)"); continue
+            pot = re.sub(r"\{Q:[^}]*\}", " ﴿﴾ ", f[3]) if len(f) == 4 and not f[3].startswith("#") else None
+            for x in _penunjuk_bukti(int(f[0]), f[1], f[2], pot or u["kutipan"]):
+                print(f"{kepala} <<{_ringkas(b, 80)}>> {x}")
+    if not pilih:
+        print("Tidak ada catatan kaki berbukti <<sid|juz|hal>> atau ayat {Q:} di " + (
+            "naskah ini." if dari is None else f"baris {dari}" + (f"-{sampai}" if sampai != dari else "") + "."))
+    return len(pilih)

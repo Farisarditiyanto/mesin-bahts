@@ -716,34 +716,46 @@ def _judul_calon(p, toc, c, h, bagian):
     return [naung] + calon
 
 
-def bab(sid, frasa):
-    """Tampilkan rantai judul (kitab > bab) tempat sebuah frasa berada, plus juz/halaman."""
-    q = _kunci(frasa)
-    info(sid)  # kitab belum diunduh -> pesan yang jelas
+@functools.cache  # `bukti` membacanya untuk tiap catatan kaki
+def _toc(sid):
+    """Daftar judul kitab sid (urut page_id, lalu title_id) dan judul menurut title_id."""
     with gzip.open(_folder(sid) / "toc.jsonl.gz", "rt", encoding="utf8") as f:
         toc = [json.loads(x) for x in f]
     byid = {t["title_id"]: t for t in toc}
     toc.sort(key=lambda t: (t["page_id"], t["title_id"]))
+    return toc, byid
+
+
+def rantai_judul(sid, p, c, h, bagian):
+    """Rantai judul (kitab > bab) tiap judul yang mungkin menaungi letak c (`padat`) di rekaman p: satu = pasti, lebih = ragu."""
+    toc, byid = _toc(sid)
 
     def rantai(t):
         r = []
         while t:
             r.append(HARAKAT.sub("", t["title_text"]).strip()); t = byid.get(t.get("parent_id"))
         return " < ".join(r[:3]) or "(sebelum judul pertama)"
+    return [rantai(t) for t in _judul_calon(p, toc, c, h, bagian)]
+
+
+def bab(sid, frasa):
+    """Tampilkan rantai judul (kitab > bab) tempat sebuah frasa berada, plus juz/halaman."""
+    q = _kunci(frasa)
+    info(sid)  # kitab belum diunduh -> pesan yang jelas
     for p in _berisi(sid, q):
         for bagian, tanda in BAGIAN:
             c = _cocok(p, q, bagian)
             if c is None:
                 continue
             h = tempat(p, q, bagian)
-            calon = _judul_calon(p, toc, c, h, bagian)
+            calon = rantai_judul(sid, p, c, h, bagian)
             kepala = f"[{sid}] {letak(_juz(p), h)}{tanda}: "
             if len(calon) == 1:
-                print(kepala + rantai(calon[0]))
+                print(kepala + calon[0])
             else:
                 print(kepala + "RAGU, judulnya salah satu dari ini (lihat sendiri dengan `halaman`):")
                 for t in calon:
-                    print("  - " + rantai(t))
+                    print("  - " + t)
             return True
     print(f"[{sid}] TIDAK KETEMU: {frasa}")
     return False
