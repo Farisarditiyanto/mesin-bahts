@@ -5,6 +5,8 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- Agent tidak lagi menambah sub-judul sendiri. AGENTS.md: `@judul` = judul persis dari dosen, خطة, atau pemakai; sub-judul hanya kalau sumber itu menulisnya, dan pemeriksa langkah 5 ikut mencocokkannya. `baru` mengingatkan kalau judulnya memuat sub-judul (« - …»). Dulu deskripsi sampul («sub-judul dalam kurung») terbaca seperti slot wajib, jadi agent mengisinya dengan «دراسة …» karangan sendiri.
+
 ## 8.0.0 — 2026-11-04
 
 **Naskah lama bisa GAGAL di `cek`.** Angka di dalam nukilan kini harus terbaca, berkata utuh, di halaman bukti itu sendiri, dan tidak boleh berdiri sendiri di samping `...` atau ayat. **Lisensi kode berganti dari MIT ke GNU AGPLv3 atau versi sesudahnya.**

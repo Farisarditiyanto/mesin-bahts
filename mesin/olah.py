@@ -5,7 +5,7 @@
 Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   @kunci: nilai       data sampul, di awal naskah; kunci tidak dikenal = GAGAL (salah ketik tidak diabaikan). Wajib: judul dan nama; @sampul: mahad juga jenis ("-" = tidak tercetak), nim, fasl.
                       Opsional: musyrif, jabatan (kosong atau "-" = tidak tercetak), thalibah (ya = sampul mencetak «اسم الطالبة»),
-                      sampul (qism = model قسم الشريعة, bawaan: logo, judul besar, sub-judul dalam kurung,
+                      sampul (qism = model قسم الشريعة, bawaan: logo, judul besar, sub-judul « - …» dalam kurung kalau ada,
                       العام الجامعي; jenis dan nim tercetak kalau diisi, fasl tidak; mahad = sampul معهد، كلية الشريعة),
                       tahun (العام الجامعي di sampul qism, mis. ١٤٤٨;
                       bawaan = tahun hijriah Umm al-Qura saat tahun ajaran mulai, 1 Agustus),
