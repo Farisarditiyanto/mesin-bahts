@@ -67,9 +67,16 @@ def utama():
                                         4: [(300, 120, 18, "qawlan.")]})
         uji("titik-titik isian di sampul, pengantar «:» di dasar halaman 3 (bukan «.» di halaman 4)", pdf, {},
             ["titik-titik isian", "PDF ke-3:"])
+        # `rakit --fasl 2`: potongan tanpa sampul, halaman 1 = isi (bukan sampul yang dicari @judul-nya)
+        w = PdfWriter(clone_from=str(PDF))
+        w.remove_page(0)
+        with open(tmp / "tanpa_sampul.pdf", "wb") as h:
+            w.write(h)
+        uji("potongan --fasl tanpa sampul: halaman 1 bukan sampul", tmp / "tanpa_sampul.pdf",
+            {"judul": "مثال: توحيد الألوهية", "tanpa_sampul": True}, [])
     if gagal:
         sys.exit(f"{len(gagal)} uji PDF gagal: " + "; ".join(gagal))
-    print("uji pdf: 7 skenario sesuai")
+    print("uji pdf: 8 skenario sesuai")
 
 
 if __name__ == "__main__":

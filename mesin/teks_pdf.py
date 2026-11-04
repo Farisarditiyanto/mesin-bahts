@@ -163,7 +163,7 @@ def periksa(pdf, bahan):
     meta, fmt = bahan["meta"], bahan["format"]
     halaman = pypdf.PdfReader(pdf).pages
     pesan = []
-    awal = 0 if meta.get("bentuk") == "kitab" else 1      # halaman 1 = sampul
+    awal = 0 if meta.get("bentuk") == "kitab" or meta.get("tanpa_sampul") else 1  # halaman 1 = sampul (bukan potongan --fasl)
     if awal and halaman:
         sampul = halaman[0].extract_text() or ""
         polos = re.sub(r"\s+", "", sampul.replace("…", "...")).translate(ANGKA)
