@@ -139,11 +139,13 @@ def utama():
         hasil.append("peringatan sub-judul di baru")
         # sampul_saya.txt = data pemilik repo: tidak boleh tercetak di sampul bahts/<orang lain>/…
         saya = akar / "sampul_saya.txt"
-        saya.write_text("@nama: صاحب المستودع\n@nim: 111\n@thalibah: ya\n@sampul: mahad\n", encoding="utf8")
+        saya.write_text("@nama: صاحب المستودع\n@nim: 111\n@thalibah: ya\n@sampul: mahad\n@angka: latin\n", encoding="utf8")
         r = bahts("baru", "bahts/umar/a", "الإخلاص")
         isi = (akar / "bahts" / "umar" / "a" / "naskah.txt").read_text(encoding="utf8")
         assert r.returncode == 0 and "صاحب" not in isi and "@nim: 111" not in isi and "thalibah" not in isi, isi
-        assert "@sampul: mahad" in isi and "tidak diambil dari sampul_saya.txt" in r.stdout, isi + r.stdout
+        assert "mahad" not in isi and "@angka: latin" in isi and "tidak diambil dari sampul_saya.txt" in r.stdout, isi + r.stdout
+        r = bahts("baru", "Bahts/zaid/a", "الإخلاص")  # huruf besar: di Windows folder yang sama
+        assert "صاحب" not in (akar / "Bahts" / "zaid" / "a" / "naskah.txt").read_text(encoding="utf8"), r.stdout
         (akar / "bahts" / "umar" / "a" / "naskah.txt").write_text(isi.replace("@nama:", "@nama: عمر", 1), encoding="utf8")
         r = bahts("baru", "bahts/umar/b", "الإخلاص")
         isi = (akar / "bahts" / "umar" / "b" / "naskah.txt").read_text(encoding="utf8")

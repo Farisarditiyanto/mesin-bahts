@@ -53,7 +53,7 @@ FONT_SHA256 = "aa68bffce289b4c0ebac68e90502eb69e42356abcd1603cb2b8e99c2c723f145"
 FONT_NAMA = "KFGQPC HAFS Uthmanic Script (TrueType)"
 FONT_PEMAKAI = Path(os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Windows\Fonts"))
 SAMPUL_SAYA = AKAR / "sampul_saya.txt"  # data sampul pemakai (@kunci: nilai); mengisi @kunci yang kosong di naskah baru
-DATA_DIRI = ("nama", "nim", "jenis", "fasl", "thalibah")  # milik satu orang: tidak disalin dari SAMPUL_SAYA ke bahts/<orang>/…
+DATA_DIRI = ("nama", "nim", "jenis", "fasl", "thalibah", "sampul")  # milik satu orang (sampul = kampusnya): tidak disalin dari SAMPUL_SAYA ke bahts/<orang>/…
 NAMA_FOLDER = r"[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+){0,2}"  # nama folder bahts yang diterima `baru`: «ikhlas» atau «bahts/<orang>/<topik>»
 BUKAN_BAHTS = {"mesin", "kitab"}  # folder akar yang bukan tempat bahts
 KELUARAN_SAYA = AKAR / "keluaran_saya.txt"  # opsional, satu baris: folder tempat `rakit` menaruh salinan PDF
@@ -223,7 +223,7 @@ def baru(nama, judul):
         except UnicodeDecodeError:
             sys.exit(f"{SAMPUL_SAYA.name} harus disimpan sebagai UTF-8. Simpan ulang, lalu ulangi.")
     bagian = nama.split("/")
-    orang_lain = len(bagian) == 3 and bagian[0] == "bahts"  # bahts/<orang>/<topik>: data diri pemilik repo bukan miliknya
+    orang_lain = len(bagian) == 3 and bagian[0].lower() == "bahts"  # bahts/<orang>/<topik>: data diri pemilik repo bukan miliknya
     if orang_lain:
         data = [(k, v) for k, v in data if k not in DATA_DIRI]
         lama = sorted(f.parent.glob("*/naskah.txt"), key=lambda x: x.stat().st_mtime)  # bahts terakhir orang yang sama
