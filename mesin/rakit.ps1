@@ -249,6 +249,9 @@ try {
     $sel = $word.Selection
     [void]$sel.EndKey(6)
     if (-not $KITAB) { $sel.InsertBreak(2) }             # section break (halaman baru) sesudah sampul
+    # potongan `rakit --fasl` selain yang pertama: sampul (bagian Word pertama, berikut pemisahnya) dibuang; tata halaman isi
+    # disetel sesudah ini, jadi isinya sama dengan potongan bersampul
+    if ($M.tanpa_sampul -and -not $KITAB) { [void]$doc.Sections(1).Range.Delete(); [void]$sel.EndKey(6) }
     $sec = $doc.Sections($doc.Sections.Count)
     $ps = $sec.PageSetup
     $ps.PaperSize = 7
