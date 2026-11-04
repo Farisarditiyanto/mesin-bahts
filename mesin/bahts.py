@@ -20,7 +20,7 @@ Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
                                tiap halaman. --mazhab: hanya kitab fikih mazhab itu; --kitab: hanya kitab itu, walau belum
                                diunduh; --halaman 2: hasil ke-21 dan seterusnya
   ambil <id|folder> [...]      unduh kitab (sekali saja); nama folder bahts = semua kitab yang dirujuk naskahnya
-  kartu <id>                   data cetak kitab (untuk rujukan pertama & daftar pustaka)
+  kartu <id>                   data cetak kitab (untuk rujukan pertama & daftar pustaka) + bentuk bukti <<…>> kitab itu
   cari <id|semua> "<frasa>"    cari frasa -> juz/halaman cetak
   teks <id> "<frasa>" [lebar] [maks]   teks asli di sekitar frasa, untuk disalin persis
   bab <id> "<frasa>"           rantai judul kitab/bab tempat frasa berada

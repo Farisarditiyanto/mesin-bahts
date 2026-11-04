@@ -58,7 +58,14 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   <<sid|juz|hal|potongan>>   bukti dengan potongan lafaz sendiri (untuk nukilan makna «انظر», tanpa tanda petik).
                       #123 = nomor hadits: harus berdiri sebagai kepala hadits di halaman itu («123 - حدثنا», «36 - (123)», «(123) - حدثنا»).
                       Kutipan bertanda petik sebelum catatan kaki tetap dicek ke halaman bukti itu
-                      juz "-" = kitab satu jilid; hal boleh rentang 12-14
+                      juz "-" = kitab tanpa juz di rekamannya; kitab berjilid walau halamannya bersambung tetap ditulis
+                      juz-nya (bentuknya: baris «bukti:» di `kartu <id>`); hal boleh rentang 12-14
+  Beberapa bukti      kutipan sebelum catatan kaki dicek ke TIAP bukti <<sid|juz|hal>> tanpa potongan di catatan kaki itu,
+                      bukan cukup salah satunya. Takhrij dari beberapa kitab: kitab yang lafaznya dikutip tanpa potongan,
+                      riwayat berlafaz lain dan derajat dari kitab lain berpotongan lafaz halaman itu, mis.
+                      [^أخرجه أبو داود، …، رقم الحديث (3502)، 3/283، وابن ماجه، …، رقم الحديث (2192)، 2/738، وهو حديث ضعيف،
+                      ضعفه النووي في المجموع، 9/335. <<1726|3|283>> <<1198|2|738|نهى عن بيع العربان>>
+                      <<2186|9|335|فالحاصل أن هذا الحديث ضعيف>>]
   [^<<sid|juz|hal>>]  catatan kaki berisi bukti saja, semua sid-nya ada di @rumuz: tidak dicetak; yang tercetak hanya
                       rumuznya ض (sid=- di @rumuz: tanpa rumuz, mis. kitab matn). Seluruh teks sejak catatan kaki
                       sebelumnya dicek sebagai nukilan utuh dari halaman itu (tanda ((…)) dan ** tidak ikut dicek)
@@ -276,8 +283,12 @@ def salah_juz(sid, juz, hal):
     juz_ada = set(kitab(sid))
     # kitab satu jilid = satu nilai juz saja, atau bagiannya hanya bernama (mis. المقدمة + الكتاب) tanpa juz berangka
     if juz == "-" and len(juz_ada) > 1 and any(str(j).isdigit() for j in juz_ada):
-        contoh = sorted(juz_ada, key=urut_juz)[0]
-        return f"kitab {sid} berjilid: tulis juz-nya, mis. <<{sid}|{contoh}|{hal}>> (juz \"-\" hanya untuk kitab satu jilid)"
+        rentang = shamela.rentang_juz(sid)
+        p1 = int(hal.partition("-")[0]) if hal.partition("-")[0].isdigit() else 0
+        # halaman bersambung antarjilid («متسلسلة الترقيم»): juz yang rentangnya memuat halaman itu
+        contoh = next((j for j, (a, z) in rentang.items() if a <= p1 <= z), sorted(juz_ada, key=urut_juz)[0])
+        return (f"kitab {sid} berjilid: tulis juz-nya, mis. <<{sid}|{contoh}|{hal}>>; yang ada: {shamela.daftar_juz(sid)} "
+                f"(juz \"-\" hanya untuk kitab satu jilid; bentuk buktinya: `kartu {sid}`)")
     if juz != "-" and juz not in juz_ada:
         if juz_ada == {None}:
             return f"kitab {sid} satu jilid: tulis juz \"-\", mis. <<{sid}|-|{hal}>>"
@@ -1786,6 +1797,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             bukti = [b for b in bukti if b.split("|")[0] != LUAR]
             terbukti = []  # (sid, juz, p1, p2) tiap bukti, untuk dicocokkan dengan yang tercetak
             kutipan_4 = []  # hasil cek kutipan ke tiap bukti berpotongan sendiri: (pesan, perhatian)
+            kutipan_3 = []  # hasil cek kutipan ke tiap bukti tanpa potongan: (bukti, pesan)
             tiga = any(b.count("|") == 2 for b in bukti)
             # kutipan bertanda petik di dalam catatan kaki itu sendiri (selain judul kitab; tiga kata atau kurang = istilah)
             kc = [k for k in kutipan_semua(isi) if len(k.split()) >= 4 and not any(shamela.nomor_judul(k.strip()))
@@ -1805,6 +1817,8 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                             continue
                         galat.append(f"[tanpa kutipan] {isi[:50]}"); continue
                     e = cek(int(f[0]), f[1], f[2], nukilan, perhatian, kutipan=True)
+                    if not diam:  # kutipan ke bukti tanpa potongan: diputus sesudah semua bukti catatan kaki ini dicek
+                        kutipan_3.append((b, e)); continue
                 else:
                     pot4 = re.sub(r"\{Q:([^}]*)\}", lambda m: " ﴿%s:%s﴾ " % ayat(m.group(1))[1:], f[3])
                     e = cek(int(f[0]), f[1], f[2], pot4, perhatian)
@@ -1819,6 +1833,24 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                         t = (penggal if diam else mk) if (len(f) == 3 or diam) else pot4
                         if t:
                             TERTOLAK.append((sid_bersih, t))
+            # Tiap bukti tanpa potongan harus memuat kutipannya, bukan cukup salah satunya: <<sid|juz|hal>> menyatakan
+            # «kutipan ini ada di sini», jadi kitab kedua yang tidak memuatnya (sumber salah, atau penisbatan palsu) tetap
+            # GAGAL. Kutipan yang terbukti di bukti lain catatan kaki ini: pesannya menunjuk bentuk untuk bukti takhrij
+            # berlafaz lain atau derajat dari kitab lain (<<sid|juz|hal|lafaz halaman itu>>), bukan «kutipannya salah».
+            ada_di = next((b for b, e in kutipan_3 if not e), None)
+            for b, e in kutipan_3:
+                if not e:
+                    continue
+                if ada_di:
+                    galat.append(f"kutipan sebelum catatan kaki ada di <<{ada_di}>>, tetapi tidak di <<{b}>> ({e.split(' :: ')[0]}): "
+                                 f"tiap bukti <<sid|juz|hal>> tanpa potongan harus memuat kutipan itu. Bukti lain di catatan kaki "
+                                 f"takhrij (riwayat berlafaz lain, derajat dari kitab lain) → tulis berpotongan "
+                                 f"<<{b}|lafaz yang ada di halaman itu>>, mis. kalimat derajatnya  || fn: {isi[:45]}")
+                    continue
+                galat.append(e + f"  || fn: {isi[:45]}")
+                sid_bersih = str(int(b.split("|")[0]))
+                if e.startswith(f"teks TIDAK KETEMU di kitab {sid_bersih}"):
+                    TERTOLAK.append((sid_bersih, mk))
             periksa_derajat(isi, terbukti, periksa_takhrij(isi, bukti, terbukti, mk, perhatian), galat, perhatian)
             # kutipan bertanda petik tetap dicek walau buktinya membawa potongan sendiri: cukup ada di salah satu bukti itu
             if kutipan_4 and all(e for e, _ in kutipan_4):
