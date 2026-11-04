@@ -121,8 +121,9 @@ HARAKAT = shamela.HARAKAT
 KUAT = re.compile(r"[^\W\d_]|[،؛؟]")  # huruf, atau tanda baca Arab (tanda teks Arab)
 # tautan/DOI di teks Arab: angkanya tetap 0-9 (hindi) dan rakit.ps1 mencetaknya kiri-ke-kanan apa adanya (bahan "tautan"),
 # karena Word (angka konteks) mencetak «10.21608» di teks kanan-ke-kiri sebagai «١٠,٢١٦٠٨». Tanda baca penutup kalimat
-# sesudahnya («….» «،» «)») bukan bagian tautan. Pola ini juga dipakai .NET (rakit.ps1): jangan pakai sintaks khusus Python
-TAUTAN = re.compile(r"(?:https?://|www\.|doi\.org/|(?<![\w.])10\.[0-9]{4,}/)[^\s،؛«»()\[\]]*[^\s.,،؛:«»()\[\]]")
+# sesudahnya («….» «،» «)») dan kata Arab yang menempel («…/1234وانظر», huruf/harakat/tanda baca ؀-ۿ) bukan bagian
+# tautan. Pola ini juga dipakai .NET (rakit.ps1): jangan pakai sintaks khusus Python
+TAUTAN = re.compile(r"(?:https?://|www\.|doi\.org/|(?<![\w.])10\.[0-9]{4,}/)[^\s؀-ۿ«»()\[\]]*[^\s.,:؀-ۿ«»()\[\]]")
 
 
 class TandaRusak(ValueError):

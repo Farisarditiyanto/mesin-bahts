@@ -76,16 +76,17 @@ finally:
 uji = AKAR / "_uji_tautan"  # folder bahts baru; diabaikan git
 uji.mkdir(exist_ok=True)
 try:
-    tautan = ["doi.org/10.21608/jasis.2021.183131", "10.1016/j.cell.2020.05.012", "https://dorar.net/aqadia/1234"]
+    tautan = ["doi.org/10.21608/jasis.2021.183131", "10.1016/j.cell.2020.05.012", "https://dorar.net/aqadia/1234",
+              "https://dorar.net/aqadia/5678"]   # yang terakhir menempel ke kata Arab sesudahnya: kata itu bukan tautan
     naskah = (AKAR / "contoh" / "naskah.txt").read_text(encoding="utf-8").replace(
         "#K الخاتمة\n", f"#K الخاتمة\nوانظر[^انظر ملخص البحث في موقع المجلة، {tautan[0]}.]، وانظر أيضًا[^انظر: {tautan[1]}، "
-                        f"ص 12.]، والموقع[^موقع الدرر السنية، {tautan[2]}، 1445هـ.].\n")
+                        f"ص 12.]، والموقع[^موقع الدرر السنية، {tautan[2]}، 1445هـ.]، وغيره[^انظر: {tautan[3]}وانظر ص 13.].\n")
     (uji / "naskah.txt").write_text(naskah, encoding="utf-8")
     b = bahan(uji.name)
     teks = ["".join(r.get("t", "") for r in c["runs"]) for c in b["catatan"]]
-    teks = [t for t in teks if "ص ١٢" in t or "١٤٤٥" in t or "المجلة" in t]   # ص/هـ di sekitarnya tetap ٠-٩
+    teks = [t for t in teks if "ص ١٢" in t or "ص ١٣" in t or "١٤٤٥" in t or "المجلة" in t]   # ص/هـ di sekitarnya tetap ٠-٩
     dapat = sorted(m.group() for t in teks for m in re.finditer(b["tautan"], t))
-    if len(teks) != 3 or dapat != sorted(tautan):
+    if len(teks) != 4 or dapat != sorted(tautan):
         sys.exit(f"tautan/DOI di catatan kaki harus tetap 0-9 dan tertangkap utuh {tautan}: dapat {dapat} dari {teks}")
     print(f"uji tautan: {len(dapat)} tautan/DOI di catatan kaki tetap 0-9, angka lain ٠-٩")
 finally:
