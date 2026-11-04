@@ -119,10 +119,10 @@ def _meta():
         import pyarrow.parquet as pq
     except ImportError:
         raise SystemExit("Pustaka Python belum terpasang; cara memasangnya disebut oleh: " + perintah("periksa"))
-    # Katalog hanya perlu delapan kolom ini; kartu lengkap dibaca dari kitab lokal.
+    # Katalog hanya perlu sembilan kolom ini; kartu lengkap dibaca dari kitab lokal.
     with pq.ParquetFile(ROOT / KATALOG) as f:
         return f.read(columns=["shamela_id", "book_id", "category_id", "title_ar",
-                               "main_author_id", "main_author_name_ar", "category_name_ar", "has_multi_part"]).to_pylist()
+                               "main_author_id", "main_author_name_ar", "category_name_ar", "has_multi_part", "group_id"]).to_pylist()
 
 
 def ada_keterangan():
@@ -189,10 +189,17 @@ def nomor_judul(judul):
     return semua.get(q, []), [s for j, ss in semua.items() if j != q and j.startswith(q) for s in ss]
 
 
+PENGARANG_SESUDAH = re.compile(r"^(?:للشيخ|للإمام|للعلامة|للحافظ|للقاضي|لابن|لأبي|لأبى)$")  # «المغني لابن قدامة»
+
+
 def judul_pokok(judul):
     """Judul katalog tanpa keterangan edisi sesudah « - » («صحيح مسلم - ت عبد الباقي»), dipecah di « = » (judul lain:
-    «تفسير السعدي = تيسير الكريم الرحمن»)."""
-    return [b for b in re.split(r"\s+=\s+", re.split(r"\s+-\s+", judul or "")[0].strip()) if b]
+    «تفسير السعدي = تيسير الكريم الرحمن»), juga tanpa pengarang yang ditempel («المغني لابن قدامة» → «المغني»)."""
+    out = []
+    for b in re.split(r"\s+=\s+", re.split(r"\s+-\s+", judul or "")[0].strip()):
+        kata = b.split()
+        out += [b, " ".join(kata[:next((i for i, w in enumerate(kata) if i and PENGARANG_SESUDAH.match(w)), len(kata))])]
+    return list(dict.fromkeys(x for x in out if x))
 
 
 @functools.cache
@@ -233,6 +240,20 @@ def _pengarang_kata():
             if norm(b):
                 out.setdefault(norm(b), set()).add(str(r["main_author_id"]))
     return out
+
+
+@functools.cache
+def _asal():
+    """{nomor kitab: (main_author_id, group_id)} dari katalog; group_id menyatukan edisi dan ringkasan satu kitab."""
+    try:
+        return {int(r["shamela_id"]): (str(r["main_author_id"]), r["group_id"]) for r in _meta()}
+    except SystemExit:
+        return {}
+
+
+def asal(sid):
+    """(main_author_id, group_id) kitab sid menurut katalog; (None, None) kalau tidak ada."""
+    return _asal().get(int(sid), (None, None))
 
 
 def nomor_judul_pokok(judul):

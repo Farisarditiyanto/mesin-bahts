@@ -1247,74 +1247,105 @@ TAKHRIJ_OLEH = re.compile(r"(?<!\w)(?:أخرج|خرج|رو[ىا])(?:ه|ها|هم
 
 
 def _nama_kitab(m):
-    """Bentuk `padat` yang menandai kitab bukti (metadata m) disebut di catatan kaki: dua kata awal tiap judulnya (judul
-    katalog bisa «تفسير السعدي = تيسير الكريم الرحمن»; pengarang yang ditempel di judul dibuang), nama pengarang
-    utuh, dan kata terakhirnya (nisbah: «أبو إسحاق الشاطبي» ditulis «الشاطبي»). Judul satu kata = kata itu."""
-    nama = []
-    for judul in shamela.judul_pokok(m["title_ar"]):
-        kata = judul.split()
+    """(judul, pengarang): bentuk `padat` yang menandai kitab bukti (metadata m) disebut di catatan kaki. Judul = dua kata
+    awal tiap judulnya (judul katalog bisa «تفسير السعدي = تيسير الكريم الرحمن»; pengarang yang ditempel di judul
+    dibuang; judul satu kata = kata itu). Pengarang = nama utuh dan kata terakhirnya (nisbah: «أبو إسحاق الشاطبي» ditulis
+    «الشاطبي»)."""
+    judul, pengarang = [], []
+    for j in shamela.judul_pokok(m["title_ar"]):
+        kata = j.split()
         kata = kata[:next((i for i, w in enumerate(kata) if i and PENGARANG_SESUDAH.match(w)), len(kata))]
-        nama.append(" ".join(kata[:2]))
+        judul.append(" ".join(kata[:2]))
     for p in (m.get("main_author_name_ar") or "").split("،"):
-        nama += [p, p.split()[-1]] if p.split() else []
-    return {x for x in map(shamela.padat, nama) if len(x) >= 3}
+        pengarang += [p, p.split()[-1]] if p.split() else []
+    rapi = lambda xx: {x for x in map(shamela.padat, xx) if len(x) >= 3}
+    return rapi(judul), rapi(pengarang)
 
 
 SYARAH = re.compile(r"شرح|حاشي|تعليق|(?<!\w)على(?!\w)")  # judul kitab bukti yang memuat matan kitab lain
 
 
 def kitab_lain(isi, sid_bukti):
-    """Catatan kaki yang hanya menyebut kitab lain: (galat, perhatian). Yang dikenali: judul katalog kitab lain di tempat
-    judul («مجموع الفتاوى، ابن تيمية» untuk bukti رسالة في القضاء والقدر) dan mukharrij lain sesudah «أخرجه/رواه»
-    («أخرجه البخاري» untuk bukti صحيح مسلم), dan pengarang katalog lain di tempat pengarang (dua bagian pertama:
-    «المغني، ابن قدامة» untuk bukti صحيح مسلم; judul satu kata/ringkas tidak dikenali katalog), sementara judul dan
-    pengarang kitab bukti tidak disebut sama sekali.
-    Tidak ditandai: rujukan ringkas tanpa judul («المرجع السابق»), perantara yang disebut («رواه البخاري، انظر: رياض
-    الصالحين»), dan matan yang namanya termuat di judul syarah/hasyiah buktinya («فتح الباري بشرح البخاري» memuat
-    «البخاري», «الشرح الممتع على زاد المستقنع» memuat «زاد المستقنع»). Judul lain dengan bukti syarah/hasyiah yang tidak
-    memuatnya («صحيح البخاري» untuk bukti فتح الباري) = perhatian: matan bisa dikutip dari syarahnya."""
+    """Catatan kaki yang menyebut kitab lain dari buktinya: (galat, perhatian).
+    GAGAL: judul katalog kitab lain di tempat judul (bagian pertama; juga satu kata: «المغني، ص5» untuk bukti رسالة في
+    القضاء والقدر), walau pengarangnya sama («شرح العقيدة الواسطية، ابن عثيمين»); dan, kalau judul maupun pengarang kitab
+    bukti tidak disebut sama sekali, mukharrij lain sesudah «أخرجه/رواه» («أخرجه البخاري» untuk bukti صحيح مسلم) atau
+    pengarang katalog lain di tempat pengarang («فتح الباري، ابن حجر» untuk bukti صحيح مسلم).
+    Perhatian: judul kitab bukti disebut tetapi pengarang katalog lain di tempat pengarang («رسالة في القضاء والقدر، ابن
+    تيمية»); dan bukti syarah/hasyiah yang judulnya memuat kata khas kitab lain itu («صحيح البخاري» untuk bukti فتح الباري
+    بشرح البخاري): matan bisa dikutip dari syarahnya.
+    Tidak ditandai: rujukan ringkas tanpa judul («المرجع السابق»), judul yang termuat di judul kitab bukti (disingkat,
+    atau matan di dalam syarahnya: «زاد المستقنع، الحجاوي» untuk bukti الشرح الممتع على زاد المستقنع), dan perantara yang
+    disebut («رواه البخاري، انظر: رياض الصالحين»)."""
     data = [shamela.info(int(s)) for s in dict.fromkeys(sid_bukti)]
-    pi = shamela.padat(isi)
-    if not data or any(x in pi for m in data for x in _nama_kitab(m)):
+    if not data:
         return None, None
-    milik = shamela.padat(" ".join(m["title_ar"] + " " + (m.get("main_author_name_ar") or "") for m in data))
-    lain = []
-    for g in TAKHRIJ_OLEH.findall(isi):
-        bentuk = next(bb for bb in MUKHARRIJ if g in bb)
-        if not any(shamela.padat(b) in milik for b in bentuk):
-            lain.append(f"«{g}»")
-    # judul hanya dicari di tempat judul (bagian pertama catatan kaki), dua kata atau lebih, utuh atau disusul pengarang:
-    # bagian lain bisa «كتاب الإيمان» (nama bab) yang kebetulan juga judul kitab
-    mukharrij = len(lain)
+    pi = shamela.padat(isi)
+    nama = [_nama_kitab(m) for m in data]
+    judul_disebut = any(x in pi for j, _ in nama for x in j)
+    pengarang_disebut = any(x in pi for _, p in nama for x in p)
+    milik_judul = shamela.padat(" ".join(m["title_ar"] for m in data))
+    milik = milik_judul + shamela.padat(" ".join(m.get("main_author_name_ar") or "" for m in data))
     bagian = [b.strip() for b in PEMISAH_RUJUKAN.split(AWALAN_RUJUKAN.sub("", isi.strip())) if b.strip()]
     awal = (bagian or [""])[0].split()
-    if len(awal) >= 2 and shamela.padat(" ".join(awal[:2])) in milik:  # matan di dalam syarahnya: «أوضح المسالك، ابن
-        return (pesan_lain(lain, data), None) if lain else (None, None)  # هشام» untuk bukti ضياء السالك إلى أوضح المسالك
-    for n in range(len(awal), 1, -1):
+    # pengarang di tempat pengarang (dua bagian pertama: «المغني، ابن قدامة», «ابن قدامة، المغني»); «أبو يعلى» = «القاضي
+    # أبو يعلى ، ابن الفراء» (nama katalog kitab bukti memuatnya utuh sekata)
+    bukti_pengarang = {str(m.get("main_author_id")) for m in data}
+    nama_bukti = " " + " ".join(shamela.norm(m.get("main_author_name_ar") or "") for m in data) + " "
+    pengarang_lain = [f"«{b}»" for b in bagian[:2] if (lambda n: n and not n & bukti_pengarang)(shamela.nomor_pengarang(b))
+                      and f" {shamela.norm(b)} " not in nama_bukti]
+    if judul_disebut:
+        # pengarang dinilai hanya kalau bagian pertama judul kitab bukti itu sendiri («رسالة في القضاء والقدر، ابن تيمية»),
+        # bukan matan yang disebut sebelum syarahnya («منهاج الطالبين، النووي، مع مغني المحتاج»), dan bukti bukan syarah
+        # («الكسب، الشيباني» untuk bukti الكسب بشرح السرخسي) atau majalah (pengarangnya penulis makalah)
+        pertama = shamela.padat((bagian or [""])[0])
+        dinilai = any(x in pertama for j, _ in nama for x in j) and not any(
+            SYARAH.search(m["title_ar"]) or m["title_ar"].startswith(MAJALAH) for m in data)
+        return None, (f"pengarang {' dan '.join(pengarang_lain)} di catatan kaki bukan pengarang kitab buktinya "
+                      f"({'، '.join(m['title_ar'] for m in data)}): betulkan nama pengarangnya") if pengarang_lain and dinilai else None
+    # matan di dalam syarahnya («أوضح المسالك، ابن هشام» untuk bukti ضياء السالك إلى أوضح المسالك, «زاد المستقنع في اختصار
+    # المقنع، الحجاوي» untuk bukti الشرح الممتع على زاد المستقنع): judul dan pengarang matan, bukan kitab lain
+    matan = len(awal) >= 2 and shamela.padat(" ".join(awal[:2])) in milik_judul
+    pengarang_lain = [] if matan else pengarang_lain
+    lain = []
+    # judul hanya dicari di tempat judul (bagian pertama catatan kaki), utuh atau disusul pengarang: bagian lain bisa
+    # «كتاب الإيمان» (nama bab) yang kebetulan juga judul kitab
+    for n in range(len(awal), 0, -1):
         judul = " ".join(awal[:n])
         nomor = shamela.nomor_judul_pokok(judul) if n == len(awal) or PENGARANG_SESUDAH.match(awal[n]) else []
         if nomor:
-            if not set(nomor) & {int(s) for s in sid_bukti}:
+            # pengarang bukti disebut: judul itu kitab lain kalau ada kitab berjudul itu karya pengarang bukti sendiri
+            # («شرح العقيدة الواسطية، ابن عثيمين» untuk bukti رسالة في القضاء والقدر). Judul yang hanya milik pengarang lain
+            # («تفسير القرآن العظيم، ابن كثير»: judul katalog itu milik السخاوي) = nama lain kitab bukti sendiri.
+            # Grup yang sama = edisi atau ringkasan kitab bukti.
+            asal = [shamela.asal(x) for x in nomor]
+            grup_bukti = {shamela.asal(x)[1] for x in sid_bukti} - {None}
+            if (not matan and not set(nomor) & {int(s) for s in sid_bukti} and shamela.padat(judul) not in milik_judul
+                    and not any(g in grup_bukti for _, g in asal)
+                    and (not pengarang_disebut or any(p in bukti_pengarang for p, _ in asal))):
                 lain.append(f"«{judul}»")
             break
-    # pengarang di tempat pengarang (bagian kedua: «المغني، ابن قدامة»; juga pertama: «ابن قدامة، المغني»): judul satu kata
-    # dan judul ringkas tidak dikenali katalog, tetapi nama pengarangnya dikenali
-    # «أبو يعلى» = «القاضي أبو يعلى ، ابن الفراء» (nama katalog kitab bukti memuatnya utuh sekata)
-    bukti_pengarang = {str(m.get("main_author_id")) for m in data}
-    nama_bukti = " " + " ".join(shamela.norm(m.get("main_author_name_ar") or "") for m in data) + " "
-    for b in bagian[:2]:
-        nomor = shamela.nomor_pengarang(b)
-        if nomor and not nomor & bukti_pengarang and f" {shamela.norm(b)} " not in nama_bukti:
-            lain.append(f"«{b}»")
+    mukharrij = []
+    if not pengarang_disebut:
+        for g in TAKHRIJ_OLEH.findall(isi):
+            bentuk = next(bb for bb in MUKHARRIJ if g in bb)
+            if not any(shamela.padat(b) in milik for b in bentuk):
+                mukharrij.append(f"«{g}»")
+        lain += mukharrij + pengarang_lain
     if not lain:
         return None, None
-    ragu = not mukharrij and any(SYARAH.search(m["title_ar"]) for m in data)  # syarah memuat matan kitab lain
+    # bukti syarah kitab hadits yang mukharrij-nya juga disebut kitab lain itu («صحيح البخاري» untuk bukti فتح الباري
+    # بشرح البخاري): matan dikutip dari syarahnya, cukup perhatian. Kitab lain apa pun untuk bukti syarah lain («المغني»
+    # untuk bukti الشرح الممتع) = GAGAL.
+    nama_mukharrij = {shamela.padat(b) for bb in MUKHARRIJ for b in bb}
+    khas = lambda t: {shamela.padat(w) for w in t.split()} & nama_mukharrij
+    ragu = not mukharrij and any(SYARAH.search(m["title_ar"]) and khas(m["title_ar"]) & khas(" ".join(lain)) for m in data)
     return (None, pesan_lain(lain, data)) if ragu else (pesan_lain(lain, data), None)
 
 
 def pesan_lain(lain, data):
     return (f"catatan kaki menyebut {' dan '.join(dict.fromkeys(lain))}, tetapi buktinya kitab lain "
-            f"({'، '.join(m['title_ar'] for m in data)}) yang judul dan pengarangnya tidak disebut: tulis kitab yang "
+            f"({'، '.join(m['title_ar'] for m in data)}) yang judulnya tidak disebut: tulis kitab yang "
             f"benar-benar dibaca, atau sebut perantaranya («…، انظر: <judul>»)")
 
 
@@ -1640,7 +1671,7 @@ MAJALAH = "مجلة"  # judul jurnal: terbitannya belum tentu ada di Shamela, ja
 
 
 QAUL = re.compile(r"(?:^|\s)[وف]?(?:قال|قالت|يقول|تقول)(?:\s+[^\s:]+){0,4}\s*:?\s*$")  # pengantar nukilan «قال الشيخ:»
-PENGARANG_SESUDAH = re.compile(r"^(?:للشيخ|للإمام|للعلامة|للحافظ|للقاضي|لابن|لأبي|لأبى)$")  # «… للشيخ ابن عثيمين»
+PENGARANG_SESUDAH = shamela.PENGARANG_SESUDAH  # «… للشيخ ابن عثيمين»
 
 
 def judul_shamela(isi):
