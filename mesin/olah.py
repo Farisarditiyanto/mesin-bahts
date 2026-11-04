@@ -47,7 +47,8 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       Wajib, kecuali «@tanpa: pustaka»; semua bagian isi harus sebelum #R (tidak boleh ada judul/#T/#H sesudahnya)
   **...**             tebal
   ((...))             lafaz matn yang disyarah: dicetak merah di dalam kurung, «((ليس بحجة))» -> (ليس بحجة)
-  {Q:s:a} {Q:s:a-b} {Q:s:a:i-j}   ayat surat s ayat a (atau a-b; atau kata ke-i s.d. j): teks resmi rasm Utsmani + masuk فهرس الآيات
+  {Q:s:a} {Q:s:a-b} {Q:s:a:i-j}   ayat surat s ayat a (atau a-b; atau kata ke-i s.d. j): teks resmi rasm Utsmani + masuk فهرس الآيات.
+                      Catatan kaki [^سورة …، آية: n.] tanpa {Q:} sebelumnya (sejak catatan kaki lalu) = GAGAL
   {H:طرف|راوٍ|kunci}   daftarkan hadits/atsar ke فهرس الأحاديث; taruh di matan, tepat sebelum «matan», bukan di catatan kaki. Kunci: huruf kecil a-z, satu kunci satu hadits
   {H2:kunci}          halaman tambahan untuk hadits yang sama
   {P:kunci}           nomor halaman {H:..|kunci}; hanya di dalam catatan kaki: [^سبق تخريجه، ص{P:kunci}.]
@@ -187,7 +188,9 @@ DIPOTONG = re.compile(r"\.{2,}|…")  # potongan oleh penulis: yang dilompati ti
 ELIPSIS = re.compile(f"{DIPOTONG.pattern}|{AYAT_DI_KUTIPAN.pattern}")  # pemisah bagian kutipan: tiap bagiannya dicek, berurutan
 JARAK_AYAT = 300  # huruf `padat` celah {Q:} yang ayatnya tanpa ﴿﴾ di kitab (dikenali dari teksnya) sebelum jadi perhatian
 SISA_AYAT = 20  # huruf `padat` kitab selain ayat dan rujukan [سورة: n] di celah {Q:} sebelum jadi perhatian
-AYAT_KETIK = re.compile(r"﴿[^﴾]*[ء-ي][^﴾]*﴾")  # ﴿…﴾ berhuruf Arab yang diketik di naskah; {Q:} jadi «﴿2:255﴾» (angka)
+# ﴿…﴾ (atau terbalik ﴾…﴿) berhuruf Arab yang diketik di naskah; {Q:} jadi «﴿2:255﴾» (angka), jadi ﴾ sesudah angka
+# dan ﴿ sebelum angka = batas dua {Q:}, bukan kurung ayat terbalik
+AYAT_KETIK = re.compile(r"﴿[^﴾]*[ء-ي][^﴾]*﴾|(?<![0-9٠-٩])﴾[^﴿﴾]*[ء-ي][^﴿﴾]*﴿(?![0-9٠-٩])")
 AYAT_KITAB = re.compile(r"﴿[^﴾]*﴾|\{[^{}]*\}")  # ayat bertanda di teks kitab Shamela
 RUJUKAN_AYAT = re.compile(r"\[[^\]\n]*[ء-ي][^\]\n]*[0-9٠-٩][^\]\n]*\]")  # «[التكوير:٢٨]», «[آل عمران ١٥٢]»
 LUAR = "luar"  # <<luar>>: sumbernya bukan kitab Shamela (jurnal, PDF penelitian, kamus); tidak bisa dicek mesin
@@ -1698,12 +1701,24 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             # ayat diketik sendiri lalu dirujuk «سورة …»: tidak pernah dicek ke mushaf, jadi bisa karangan
             # (di dalam tanda petik sudah ditolak di bawah: «سورة …» tidak membebaskan prosa di dalam kutipan)
             ketik = ayat_ketik(penggal) if isi.startswith("سورة") or not (di_catatan or diam) else None
+            # kutipan terakhir tepat sebelum catatan kaki; kutipan lain sejak catatan kaki sebelumnya tidak punya catatan kaki sendiri
+            # Catatan penjelasan boleh berada di tengah kutipan, jadi pembukanya dapat sebelum seg.
+            # Dua catatan sumber dapat membuktikan nukilan yang sama. Catatan penjelasan tanpa bukti
+            # tidak perlu mengulang buktinya, kecuali ada penutup petik baru sesudah catatan terakhir.
+            mk = kutipan_akhir(polos) if bukti or SISA_PETIK.search(seragam(penggal)) else None
             if ketik and isi.startswith("سورة"):
                 galat.append(f"ayat diketik langsung «{ketik[:40]}»: tidak dicek ke mushaf; tulis lewat {{Q:surah:ayat}} "
                              f"|| fn: {isi[:45]}")
             elif ketik:  # di matan, tanpa rujukan «سورة …»: bisa ayat karangan; paragraf salinan berbukti (diam) dicek ke kitab
                 perhatian.append(f"ayat diketik langsung «{ketik[:40]}»: tidak dicek ke mushaf; tulis lewat {{Q:surah:ayat}} "
                                  f"|| fn: {isi[:45]}")
+            elif (isi.startswith("سورة") and re.search(r"[0-9٠-٩۰-۹]", isi) and not re.search(r"﴿\d", penggal)
+                  and not bukti and mk is None):
+                # rujukan ayat bernomor tanpa {Q:} sejak catatan kaki sebelumnya: ayatnya diketik tanpa ﴿﴾ (atau berkurung
+                # lain) dan tidak pernah dicek ke mushaf. Bukan rujukan ayat: «انظر: سورة …», «سورة مكية…» (tanpa nomor).
+                # Kutipan bertanda petik sudah GAGAL «tanpa bukti» di bawah; yang berbukti <<…>> dicek ke sumbernya.
+                galat.append(f"rujukan ayat «سورة …» tanpa {{Q:}} di kalimatnya: ayatnya tidak dicek ke mushaf; tulis ayatnya "
+                             f"lewat {{Q:surah:ayat}} || fn: {isi[:45]}")
             elif isi.startswith("سورة") and q_akhir:
                 s, a = q_akhir
                 nama = re.split(r"[،,:(]|\sآي", isi[4:])[0]  # «سورة الفاتحة، آية: 2.» -> «الفاتحة»
@@ -1713,11 +1728,6 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 if (shamela.padat(nama) != shamela.padat(SURAH[s - 1]) or not all(re.search(rf"(?<!\d){x}(?!\d)", angka) for x in a.split("-"))
                         or ayat_sejak and tertulis and set(map(int, re.findall(r"\d+", tertulis[1]))) - ayat_sejak):
                     galat.append(f"catatan kaki ayat tidak cocok dengan {{Q:{s}:{a}}} (سورة {SURAH[s - 1]}) || fn: {isi[:45]}")
-            # kutipan terakhir tepat sebelum catatan kaki; kutipan lain sejak catatan kaki sebelumnya tidak punya catatan kaki sendiri
-            # Catatan penjelasan boleh berada di tengah kutipan, jadi pembukanya dapat sebelum seg.
-            # Dua catatan sumber dapat membuktikan nukilan yang sama. Catatan penjelasan tanpa bukti
-            # tidak perlu mengulang buktinya, kecuali ada penutup petik baru sesudah catatan terakhir.
-            mk = kutipan_akhir(polos) if bukti or SISA_PETIK.search(seragam(penggal)) else None
             mk_pdf = mk  # kutipan untuk bukti PDF: tetap dicek walau mk dikosongkan sesudah galat lain
             lain = kutipan_semua(polos[seg:])[:-1 if mk is not None else None]
             sisa = luar_petik(polos[seg:])  # teks sejak catatan kaki sebelumnya, kutipan-kutipannya dibuang
