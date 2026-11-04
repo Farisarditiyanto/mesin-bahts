@@ -48,7 +48,8 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   **...**             tebal
   ((...))             lafaz matn yang disyarah: dicetak merah di dalam kurung, «((ليس بحجة))» -> (ليس بحجة)
   {Q:s:a} {Q:s:a-b} {Q:s:a:i-j}   ayat surat s ayat a (atau a-b; atau kata ke-i s.d. j): teks resmi rasm Utsmani + masuk فهرس الآيات.
-                      Catatan kaki [^سورة …، آية: n.] tanpa {Q:} sebelumnya (sejak catatan kaki lalu) = GAGAL
+                      Ayat sesudah «قال الله تعالى»/«وقال:» yang dirujuk [^سورة …، آية: n.] tanpa {Q:} = GAGAL;
+                      nomor rujukan (juga «(الفاتحة: 5)», «الفاتحة/5», «الآية 5 من سورة الفاتحة») harus nomor {Q:}
   {H:طرف|راوٍ|kunci}   daftarkan hadits/atsar ke فهرس الأحاديث; taruh di matan, tepat sebelum «matan», bukan di catatan kaki. Kunci: huruf kecil a-z, satu kunci satu hadits
   {H2:kunci}          halaman tambahan untuk hadits yang sama
   {P:kunci}           nomor halaman {H:..|kunci}; hanya di dalam catatan kaki: [^سبق تخريجه، ص{P:kunci}.]
@@ -194,10 +195,30 @@ AYAT_KETIK = re.compile(r"﴿[^﴾]*[ء-ي][^﴾]*﴾|(?<![0-9٠-٩])﴾[^﴿﴾
 # teks yang mengutip ayat, bukan sekadar menyebutnya: pengantar «قال الله تعالى:»/«قوله:», atau kurung berhuruf Arab
 # minimal dua kata tepat sebelum catatan kaki («ومن ذلك (…)[^سورة …]»); kurung di tengah kalimat atau satu kata
 # («(رحمهم الله)», «ومعنى (الرحمن) …») = keterangan, bukan ayat
-PENGANTAR_AYAT = re.compile(r"(?:قال|يقول|قوله|تعالى|سبحانه|وجل)\s*:|\((?![^()]*(?:رحم|رضي|عليه|صلى|ت\s*:|هـ))[^()]*[ء-ي]\S*\s+[^()]*\)[\s.،,:؛]*$")
+# «قال الله تعالى», «يقول الله عز وجل في كتابه:», «قال تعالى -» (dengan atau tanpa «:»), kecuali disusul «في …» (penyebutan:
+# «كما قال الله تعالى في سورة …»)
+PENGANTAR_AYAT = re.compile(r"(?:قال|يقول|قوله)\s+(?:الله\s+|ربنا\s+)?(?:تعالى|سبحانه(?:\s+وتعالى)?|عز\s+وجل|جل\s+وعلا)"
+                            r"(?:\s+في\s+كتابه(?:\s+العزيز)?)?(?!\s*في\s)"
+                            r"|(?:قال|يقول|قوله|تعالى|سبحانه|وجل)\s*:|\((?![^()]*(?:رحم|رضي|عليه|صلى|ت\s*:|هـ))[^()]*[ء-ي]\S*\s+[^()]*\)[\s.،,:؛]*$")
 AYAT_TIDAK_COCOK = "catatan kaki ayat tidak cocok dengan {{Q:{0}:{1}}} (سورة {2}) || fn: {3}"
 # rujukan ayat yang tidak diawali «سورة»: «انظر: سورة الفاتحة، آية: 7», «الفاتحة، آية: 5», «[الفاتحة: 6]»
-RUJUKAN_LAIN = re.compile(r"^(?:(?:انظر|ينظر)\s*:\s*)?\[?\s*(?:سورة\s+)?([^،,:(\[\]]+?)\s*(?:[،,:]|\sآي)")
+RUJUKAN_LAIN = re.compile(r"^(?:(?:انظر|ينظر)\s*:\s*)?[\[(]?\s*(?:سورة\s+)?([^،,:/()\[\]]+?)\s*(?:[،,:/]|\sآي)")
+# «الآية ٥ من سورة الفاتحة»: nomor dulu, surat sesudahnya
+AYAT_DARI_SURAH = re.compile(r"^(?:(?:انظر|ينظر)\s*:\s*)?(?:الآية|الآيات|آية)\s*:?\s*([0-9٠-٩][^م]*?)\s*من\s+سورة\s+([^.،,؛()\[\]]+)")
+SURAH_PADAT = {shamela.padat(x) for x in SURAH}
+
+
+def rujukan_ayat(isi):
+    """(nama surat, teks nomornya) rujukan ayat di awal catatan kaki «سورة X، آية: n», «انظر: سورة X…», «X، آية: n»,
+    «X: n», «(X: n)», «[X: n]», «X/n», «الآية n من سورة X»; None kalau awalnya bukan nama surat atau tanpa nomor."""
+    m = RUJUKAN_LAIN.match(isi)
+    nama, angka = (m[1], isi[m.end():]) if m else (None, "")
+    if not m or shamela.padat(nama) not in SURAH_PADAT:
+        m = AYAT_DARI_SURAH.match(isi)
+        nama, angka = (m[2], m[1]) if m else (None, "")
+    if nama is None or shamela.padat(nama) not in SURAH_PADAT or not re.search(r"[0-9٠-٩۰-۹]", angka):
+        return None
+    return nama, angka.translate(ANGKA_LATIN)
 AYAT_KITAB = re.compile(r"﴿[^﴾]*﴾|\{[^{}]*\}")  # ayat bertanda di teks kitab Shamela
 RUJUKAN_AYAT = re.compile(r"\[[^\]\n]*[ء-ي][^\]\n]*[0-9٠-٩][^\]\n]*\]")  # «[التكوير:٢٨]», «[آل عمران ١٥٢]»
 LUAR = "luar"  # <<luar>>: sumbernya bukan kitab Shamela (jurnal, PDF penelitian, kamus); tidak bisa dicek mesin
@@ -1688,13 +1709,13 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             elif ketik:  # di matan, tanpa rujukan «سورة …»: bisa ayat karangan; paragraf salinan berbukti (diam) dicek ke kitab
                 perhatian.append(f"ayat diketik langsung «{ketik[:40]}»: tidak dicek ke mushaf; tulis lewat {{Q:surah:ayat}} "
                                  f"|| fn: {isi[:45]}")
-            elif (isi.startswith("سورة") and re.search(r"[0-9٠-٩۰-۹]", isi) and not re.search(r"﴿\d", dirujuk)
-                  and PENGANTAR_AYAT.search(dirujuk) and not bukti and mk is None):
-                # rujukan ayat bernomor tanpa {Q:} di teks yang dirujuknya, padahal teks itu mengutip ayat («قال الله تعالى:»
-                # atau berkurung): ayatnya diketik tanpa ﴿﴾ dan tidak pernah dicek ke mushaf. Tidak kena: «انظر: سورة …»,
-                # «سورة مكية…» (tanpa nomor), dan penyebutan tanpa kutipan («في سورة طه», «في آيات كثيرة»).
+            elif ((isi.startswith("سورة") and re.search(r"[0-9٠-٩۰-۹]", isi) or rujukan_ayat(isi))
+                  and PENGANTAR_AYAT.search(re.split(r"﴿\d+:\d+(?:-\d+)?﴾", dirujuk)[-1]) and not bukti and mk is None):
+                # rujukan ayat bernomor, padahal teks sesudah {Q:} terakhir (atau seluruh teks yang dirujuk) mengutip ayat
+                # («قال الله تعالى», «وقال:», atau berkurung): ayatnya diketik tanpa ﴿﴾ dan tidak pernah dicek ke mushaf.
+                # Tidak kena: «سورة مكية…» (tanpa nomor) dan penyebutan tanpa kutipan («في سورة طه», «في آيات كثيرة»).
                 # Kutipan bertanda petik sudah GAGAL «tanpa bukti» di bawah; yang berbukti <<…>> dicek ke sumbernya.
-                galat.append(f"rujukan ayat «سورة …» tanpa {{Q:}} di kalimatnya: ayatnya tidak dicek ke mushaf; tulis ayatnya "
+                galat.append(f"ayat sesudah pengantarnya tidak ditulis lewat {{Q:}}: tidak dicek ke mushaf; tulis ayatnya "
                              f"lewat {{Q:surah:ayat}} || fn: {isi[:45]}")
             elif isi.startswith("سورة") and q_akhir:
                 s, a = q_akhir
@@ -1705,13 +1726,12 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 if (shamela.padat(nama) != shamela.padat(SURAH[s - 1]) or not all(re.search(rf"(?<!\d){x}(?!\d)", angka) for x in a.split("-"))
                         or ayat_sejak and tertulis and set(map(int, re.findall(r"\d+", tertulis[1]))) - ayat_sejak):
                     galat.append(AYAT_TIDAK_COCOK.format(s, a, SURAH[s - 1], isi[:45]))
-            elif (q_akhir and re.search(r"﴿\d", dirujuk) and (rj := RUJUKAN_LAIN.match(isi))
-                  and shamela.padat(rj[1]) == shamela.padat(SURAH[q_akhir[0] - 1])):
+            elif (q_akhir and re.search(r"﴿\d", dirujuk) and (rj := rujukan_ayat(isi))
+                  and shamela.padat(rj[0]) == shamela.padat(SURAH[q_akhir[0] - 1])):
                 # rujukan surat yang sama dengan {Q:} di kalimatnya, tidak diawali «سورة»: nomornya tetap harus nomor {Q:}.
                 # Surat lain («انظر: سورة النساء، آية: 5») = rujukan silang, tidak dicocokkan.
                 s, a = q_akhir
-                angka = isi[rj.end():].translate(ANGKA_LATIN)
-                if not all(re.search(rf"(?<!\d){x}(?!\d)", angka) for x in a.split("-")):
+                if not all(re.search(rf"(?<!\d){x}(?!\d)", rj[1]) for x in a.split("-")):
                     galat.append(AYAT_TIDAK_COCOK.format(s, a, SURAH[s - 1], isi[:45]))
             mk_pdf = mk  # kutipan untuk bukti PDF: tetap dicek walau mk dikosongkan sesudah galat lain
             lain = kutipan_semua(polos[seg:])[:-1 if mk is not None else None]
