@@ -106,7 +106,7 @@ class AlihJaringan(unittest.TestCase):
         keluar = Keluaran()
         with patch.object(sys, "argv", [str(skrip), "dirasat", "اختبار"]), \
                 patch.object(dirasat, "OPENALEX", "https://api.openalex.org/cli"), \
-                patch.object(dirasat, "SUMBER", (("OpenAlex, menurut kata", dirasat._kata),)), \
+                patch.object(dirasat, "SUMBER", (("OpenAlex, menurut kata", dirasat._kata, False),)), \
                 patch.object(dirasat, "_kunci", return_value=KUNCI), \
                 patch.object(dirasat, "buka", side_effect=lokal), \
                 patch.dict("os.environ", {"no_proxy": "127.0.0.1,localhost"}), \
@@ -133,6 +133,28 @@ class AlihProtokol(unittest.TestCase):
     def test_port_bawaan_dan_huruf_host_tetap_asal_sama(self):
         req = self.alih("https://API.OPENALEX.ORG/a", "https://api.openalex.org:443/b")
         self.assertEqual(req.get_header("Authorization"), BEARER)
+
+
+class MaknaSaja(unittest.TestCase):
+    """Pencarian makna selalu mengembalikan sesuatu, juga untuk kata sampah: tanpa hasil menurut kata, ada peringatan."""
+    def cari(self, kata_cocok):
+        w = {"judul": "xcvz", "peneliti": [], "tahun": 2026, "jenis": "report", "wadah": None, "doi": None,
+             "tautan": None, "pdf": None, "ringkasan": ""}
+        sumber = (("kata", lambda *a: (kata_cocok, [dict(w, judul="kata", doi="10.1/a")] * bool(kata_cocok), None), False),
+                  ("makna", lambda *a: (45, [w], None), True), ("DOAJ", lambda *a: (0, [], None), False))
+        keluar = io.StringIO()
+        with patch.object(dirasat, "SUMBER", sumber), contextlib.redirect_stdout(keluar):
+            dirasat.cari("qwxzvqwxzv")
+        return keluar.getvalue()
+
+    def test_tanpa_hasil_menurut_kata_ada_peringatan(self):
+        out = self.cari(0)
+        self.assertIn("PERINGATAN: hasil di bawah ini hanya MIRIP MAKNANYA", out)
+        self.assertIn("PERINGATAN: semua hasil di atas hanya MIRIP MAKNANYA", out)
+        self.assertLess(out.index("PERINGATAN"), out.index("xcvz"))
+
+    def test_ada_hasil_menurut_kata_tanpa_peringatan(self):
+        self.assertNotIn("PERINGATAN", self.cari(1))
 
 
 if __name__ == "__main__":

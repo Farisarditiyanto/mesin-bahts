@@ -2327,8 +2327,17 @@ def utama(folder, keluar=None):
         galat.append(di("@nomor") + "@nomor: abjad memerlukan #F: nomor ١ mulai dari #F pertama")
     elif meta.get("nomor") == "mukadimah" and not any(b["k"] == "K" and b.get("judul") == "المقدمة" for b in blok):
         galat.append(di("@nomor") + "@nomor: mukadimah memerlukan «#K المقدمة»: nomor ١ mulai dari judul itu")
-    for a, b in zip(blok, blok[1:]):  # judul yang langsung disusul judul halaman baru tercetak sendirian di halamannya
-        if a["k"] in ("K", "F", "B", "M") and b["k"] in ("K", "H", *("F",) * (bentuk != "kitab"), *meta["halaman_baru"]):
+    # bagian kosong: judul bahts yang disusul judul setingkat/lebih tinggi (atau akhir naskah) tanpa paragraf isi di antaranya
+    # (#H bukan isi). Kitab tidak: di sana #K باب di atas #F فصل, dan #S الشرح boleh hanya membawahi #S lain.
+    tingkat = {"K": 0, "F": 0, "R": 0, "B": 1, "M": 2, "S": 3}
+    urut = [b for b in blok if b["k"] != "H"]
+    kosong = {id(a) for a, b in zip(urut, urut[1:] + [{"k": "R"}])
+              if bentuk != "kitab" and a["k"] in "KFBMS" and tingkat.get(b["k"], 9) <= tingkat[a["k"]]}
+    for a, b in zip(blok, blok[1:] + [{"k": ""}]):  # judul yang langsung disusul judul halaman baru tercetak sendirian di halamannya
+        if id(a) in kosong:  # sekaligus menggantikan «tercetak sendirian»: menulis isinya membereskan keduanya
+            perhatian.append(f"baris {a['n']}: bagian «{a['judul'][:40]}» masih kosong: belum ada paragraf isi sebelum "
+                             f"judul berikutnya yang setingkat atau lebih tinggi; tulis isinya, atau hapus judulnya")
+        elif a["k"] in ("K", "F", "B", "M") and b["k"] in ("K", "H", *("F",) * (bentuk != "kitab"), *meta["halaman_baru"]):
             perhatian.append(f"baris {a['n']}: judul «{a['judul'][:40]}» tercetak sendirian di halamannya, karena judul "
                              f"sesudahnya mulai halaman baru: tulis paragraf pengantar di bawahnya")
         elif (a["k"] in ("F", "B") and b["k"] in ("B", "M") and "FBM".index(b["k"]) > "FBM".index(a["k"])
