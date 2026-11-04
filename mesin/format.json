@@ -43,6 +43,16 @@
     "spasi": 1.5,
     "mulakhas_berjarak": true
   },
+  "tatbiqi_mulakhas": {
+    "_sumber": "sama dengan «tatbiqi» (satu spasi), kecuali bagian الملخص dan الملخص باللغة الأجنبية 1,5 spasi dengan paragraf berjarak tanpa awal alinea menjorok, seperti contoh البحث التطبيقي mahasiswa lain di المعهد",
+    "huruf": "Traditional Arabic",
+    "matan": 14,
+    "catatan": 12,
+    "judul": 16,
+    "catatan_ulang_tiap_halaman": true,
+    "spasi_mulakhas": 1.5,
+    "mulakhas_berjarak": true
+  },
   "dalil": {
     "_sumber": "دليل إعداد وكتابة الرسائل العلمية (ماجستير/دكتوراه) بجامعة الإمام، الطبعة الثانية — hanya huruf dan ukurannya; gaya rujukan tetap catatan kaki",
     "huruf": "Sakkal Majalla",

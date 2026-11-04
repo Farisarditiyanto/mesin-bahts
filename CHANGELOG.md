@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `@format: tatbiqi_mulakhas`: sama dengan `tatbiqi` (satu spasi), tetapi bagian `#K الملخص`/`ملخص البحث` dan `الملخص باللغة الأجنبية` 1,5 spasi, paragraf الملخص berjarak tanpa menjorok. Kunci profil baru: `spasi_mulakhas`.
 - `@format: tatbiqi_15`: sama dengan `tatbiqi`, tetapi matan dan judul 1,5 spasi (catatan kaki dan فهرس tetap satu spasi), dan paragraf di bawah `#K الملخص`/`#K ملخص البحث` berjarak 6 pt tanpa awal alinea menjorok. Profil baru di `format.json` bisa memakai `spasi` dan `mulakhas_berjarak`.
 - `#L **Abstract**` (satu baris `#L` diapit `**`): judul Latin tebal di tengah. Paragraf `#L` sesudahnya diberi jarak 6 pt antarparagraf, seperti contoh الملخص باللغة الأجنبية yang memakai judul «Abstract». Dulu `**` di `#L` tercetak apa adanya.
 - `@nomor: mukadimah`: seperti `@nomor: abjad`, tetapi nomor ١ mulai dari `#K المقدمة`, bukan dari `#F` pertama. الإهداء، الشكر، dan الملخص sebelumnya tetap bernomor huruf, jadi halaman terakhir isi sama dengan `HALAMAN_ISI`. Untuk dosen yang minta penomoran mulai المقدمة.
