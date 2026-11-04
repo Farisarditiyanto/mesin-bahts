@@ -253,8 +253,8 @@ def perkiraan_halaman(d):
     kata = olah.kata
     bagian = []
     blok = d["blok"]
-    if d["meta"].get("nomor"):  # @nomor: abjad: الإهداء dst. sebelum المقدمة bukan halaman isi
-        blok = blok[next((i for i, b in enumerate(blok) if b.get("judul") == "المقدمة"), 0):]
+    # الإهداء dst. sebelum المقدمة bukan halaman isi, dengan atau tanpa @nomor (sama dengan HALAMAN_ISI di rakit.ps1)
+    blok = blok[next((i for i, b in enumerate(blok) if b.get("judul") == "المقدمة"), 0):]
     for b in blok:
         if b["k"] == "R":
             break

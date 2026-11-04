@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `HALAMAN_ISI` dari `rakit` dan perkiraan halaman isi dari `cek` kini selalu mulai dari `#K المقدمة`, juga tanpa `@nomor`. Dulu tanpa `@nomor` halaman `#K` sebelum المقدمة (الإهداء، الشكر، الملخص) ikut terhitung: naskah contoh dengan الملخص ±600 kata di depan dicetak `HALAMAN_ISI=5`, padahal المقدمة sampai الخاتمة 3 halaman (perkiraan `cek` ±6). Nomor halaman yang tercetak tidak berubah; naskah tanpa المقدمة tetap dihitung seperti dulu.
 - `@format: tatbiqi_mulakhas`: sama dengan `tatbiqi` (satu spasi), tetapi bagian `#K الملخص`/`ملخص البحث` dan `الملخص باللغة الأجنبية` 1,5 spasi, paragraf الملخص berjarak tanpa menjorok. Kunci profil baru: `spasi_mulakhas`.
 - `@format: tatbiqi_15`: sama dengan `tatbiqi`, tetapi matan dan judul 1,5 spasi (catatan kaki dan فهرس tetap satu spasi), dan paragraf di bawah `#K الملخص`/`#K ملخص البحث` berjarak 6 pt tanpa awal alinea menjorok. Profil baru di `format.json` bisa memakai `spasi` dan `mulakhas_berjarak`.
 - `#L **Abstract**` (satu baris `#L` diapit `**`): judul Latin tebal di tengah. Paragraf `#L` sesudahnya diberi jarak 6 pt antarparagraf, seperti contoh الملخص باللغة الأجنبية yang memakai judul «Abstract». Dulu `**` di `#L` tercetak apa adanya.

@@ -2,7 +2,7 @@
 """Regresi struktur lewat CLI asli di salinan TEMP, memakai contoh dan kitab asli.
 Tidak menjalankan Word: naskah yang kehilangan isi harus ditolak sebelum perakit dipanggil.
 """
-import os, shutil, subprocess, sys, tempfile
+import os, re, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
 AKAR = Path(__file__).resolve().parent.parent
@@ -32,7 +32,12 @@ def utama():
             hasil.append(nama)
             return out
 
-        cek("contoh asli", dasar)
+        perkiraan = re.compile(r"perkiraan halaman isi .*: ±(\d+)")
+        isi_asli = perkiraan.search(cek("contoh asli", dasar)).group(1)
+        # #K sebelum المقدمة (الملخص dst.) bukan halaman isi, juga tanpa @nomor (HALAMAN_ISI rakit.ps1 sama)
+        mulakhas = dasar.replace("#K المقدمة", "#K الملخص\n" + "كلمة " * 600 + "\n#K المقدمة", 1)
+        isi = perkiraan.search(cek("الملخص panjang sebelum المقدمة", mulakhas)).group(1)
+        assert isi == isi_asli, f"perkiraan halaman isi ikut menghitung الملخص: ±{isi}, contoh ±{isi_asli}"
         # riset.txt: jejak langkah connector hanya pernah jadi perhatian, apa pun isinya (olah.periksa_riset)
         riset = f / "riset.txt"
         for nama, isi, pesan in (
