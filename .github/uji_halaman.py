@@ -35,6 +35,10 @@ def halaman_lama(sid, juz, hal, rekaman):
     """Pembanding: `halaman` sebelum memakai indeks (membaca tiap rekaman kitab; `rekaman` = hasil `urai`, dibaca sekali)."""
     ada, rentang = False, {}
     juz, hal = angka(juz), angka(hal)
+    if juz == "-" and not any(jz == "-" or isinstance(jz_angka, int) for _, jz, jz_angka, _, _ in rekaman):
+        # kitab yang bagiannya hanya bernama: «-» = satu-satunya bagian yang punya halaman itu
+        di = {jz_angka for _, _, jz_angka, pot, hh in rekaman if hal in hh}
+        juz = di.pop() if len(di) == 1 else juz
     for p, jz, jz_angka, pot, hh in rekaman:
         if hh:
             r = rentang.setdefault(jz, [min(hh), max(hh)])
