@@ -126,6 +126,11 @@ def utama():
         assert "bahts/ahmad/ikhlas" in bahts("cek", "ikhlas").stderr  # nama pendek menunjuk tempatnya
         assert bahts("baru", "mesin/ikhlas", "الإخلاص").returncode != 0 and not (akar / "mesin" / "ikhlas").exists()
         hasil.append("bahts bersarang per orang")
+        # sub-judul « - …» tercetak di sampul: `baru` mengingatkan supaya tidak ditambah sendiri
+        assert "Sub-judul" not in r.stdout, r.stdout
+        r = bahts("baru", "bahts/ahmad/sub", "الإخلاص - دراسة موضوعية")
+        assert r.returncode == 0 and "Sub-judul sampul «دراسة موضوعية»" in r.stdout, r.stdout + r.stderr
+        hasil.append("peringatan sub-judul di baru")
 
         # Salinan PDF: tanpa keluaran_saya.txt tidak ada apa-apa; dengan berkas itu tersalin per orang.
         salin = ("import sys; sys.argv=['bahts']; import bahts\n"
