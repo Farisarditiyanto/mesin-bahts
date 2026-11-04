@@ -95,6 +95,7 @@ def siapkan():
     f = ROOT / KATALOG
     if not f.exists():
         f.parent.mkdir(parents=True, exist_ok=True)
+        print("katalog kitab: mengunduh …", flush=True)
         _unduh(f"{RAW}/{KATALOG}", f, lambda q: open(q, "wb"))
     print(f"katalog kitab: {len(_meta())} judul")
 
@@ -242,7 +243,8 @@ def temukan(frasa, maks=20, mazhab=(), kitab=(), halaman=1):
               "Coba frasa lebih pendek (2-4 kata inti), atau ejaan lain.")
         return 0
     if not d["data"]:
-        print(f"Halaman {halaman} melewati akhir hasil: {d['count']} tempat cocok di {tempat}, {TURATH_MAKS} tiap halaman.")
+        print(f"Halaman {halaman} melewati akhir hasil: {d['count']} tempat cocok di {tempat}, {TURATH_MAKS} tiap halaman; "
+              f"halaman terakhir: --halaman {max(1, -(-d['count'] // TURATH_MAKS))}.")
         return 0
     print(f"{d['count']} tempat cocok di {tempat}: {frasa}\n" + ada_keterangan())
     ada = set(punya())
@@ -285,11 +287,22 @@ def _folder(sid):
     return ROOT / str(int(sid))
 
 
+def _belum(sid):
+    """Pesan kitab yang tidak ada di kitab/: nomor yang tidak ada di katalog tidak disuruh `ambil` (`ambil` akan menolaknya)."""
+    try:
+        dikenal = any(r["shamela_id"] == int(sid) for r in _meta())
+    except SystemExit:  # katalog/pyarrow belum ada: tidak bisa dipastikan
+        dikenal = True
+    if not dikenal:
+        return SystemExit(f"Kitab {sid} TIDAK ADA di katalog Shamela. Nomornya dari `kitab`, `katalog`, atau `temukan`.")
+    return SystemExit(f"Kitab {sid} belum diunduh: " + perintah(f"ambil {sid}"))
+
+
 @functools.cache  # `cek` membacanya untuk tiap bukti
 def info(sid):
     f = _folder(sid) / "book_metadata.json"
     if not f.exists():
-        raise SystemExit(f"Kitab {sid} belum diunduh: " + perintah(f"ambil {sid}"))
+        raise _belum(sid)
     return json.loads(f.read_text(encoding="utf8"))
 
 
@@ -342,6 +355,7 @@ def _ambil(sid):
     if not folder:
         raise LookupError("folder kitabnya tidak ketemu di dataset Shamela (mungkin belum tersedia di sana)")
     dst.mkdir(parents=True, exist_ok=True)
+    print(f"{sid}: mengunduh {r['title_ar']} …", flush=True)  # kitab besar: unduh + indeks makan belasan detik
     # isi kitab disimpan terkompres (.gz) supaya hemat disk: teks Arab menyusut ±5x
     # pages.jsonl terakhir: dialah tanda "sudah ada", jadi kitab yang unduhannya putus diunduh ulang
     for f in ("book_metadata.json", "toc.jsonl", "pages.jsonl"):
@@ -351,6 +365,7 @@ def _ambil(sid):
         else:
             _unduh(url, dst / f, lambda q: open(q, "wb"))
     mb = (dst / "pages.jsonl.gz").stat().st_size / 1e6
+    print(f"{sid}: menyiapkan indeks pencarian ({mb:.1f} MB) …", flush=True)
     _cache(sid)  # sekarang, bukan saat `cari` pertama: kitab besar makan belasan detik
     print(f"{sid} OK  {r['title_ar']}  ({mb:.1f} MB)")
 
@@ -609,16 +624,30 @@ def tempat(p, q, bagian="body", utuh=False, kata=(), dalam=None):
     return pertama
 
 
+CARI_SEMUA_MAKS = 40  # baris `cari semua` yang dicetak; frasa umum di ratusan kitab = ribuan baris
+CARI_SEMUA_PER_KITAB = 4
+
+
 def cari(sid, frasa, konteks=90, maks=15, diam=False):
-    """Cari frasa di satu kitab; sid "semua" = di semua kitab yang sudah diunduh. Kembalikan jumlah temuan."""
+    """Cari frasa di satu kitab; sid "semua" = di semua kitab yang sudah diunduh (paling banyak CARI_SEMUA_MAKS baris,
+    lalu ringkasan jumlah kitab dan rekaman yang cocok). Kembalikan jumlah temuan."""
     if sid == "semua":
-        n = 0
+        q = _kunci(frasa)
+        tampil = kitab_n = rekaman_n = 0
         for s in punya():
-            n += cari(s, frasa, konteks, 4, diam=True)
+            k = len(_cache(s).kena(q))  # rekaman yang memuat frasa; dihitung walau barisnya tidak dicetak lagi
+            if k:
+                kitab_n += 1; rekaman_n += k
+                if tampil < CARI_SEMUA_MAKS:
+                    tampil += cari(s, frasa, konteks, min(CARI_SEMUA_PER_KITAB, CARI_SEMUA_MAKS - tampil), diam=True)
             lepas()  # yang dibaca dari kitab yang sudah selesai tidak menumpuk
-        if not n:
+        if not kitab_n:
             print("TIDAK KETEMU di kitab mana pun:", frasa)
-        return n
+        elif rekaman_n > tampil:
+            print(f"({kitab_n} kitab cocok, {rekaman_n} tempat; ditampilkan {tampil} baris, paling banyak "
+                  f"{CARI_SEMUA_PER_KITAB} tiap kitab. Persempit frasanya, atau cari di satu kitab: "
+                  + perintah(f'cari <nomor> "{frasa}"') + ")")
+        return max(tampil, rekaman_n)
     q = _kunci(frasa)
     n = 0
     for p in _berisi(sid, q):
@@ -733,7 +762,7 @@ def rantai_judul(sid, p, c, h, bagian):
     def rantai(t):
         r = []
         while t:
-            r.append(HARAKAT.sub("", t["title_text"]).strip()); t = byid.get(t.get("parent_id"))
+            r.append(" ".join(HARAKAT.sub("", t["title_text"]).split())); t = byid.get(t.get("parent_id"))
         return " < ".join(r[:3]) or "(sebelum judul pertama)"
     return [rantai(t) for t in _judul_calon(p, toc, c, h, bagian)]
 
@@ -858,7 +887,7 @@ def scan(sid, juz, hal):
     if "archive.org" in jalur:
         jalur = "archive/" + jalur.replace("https://archive.org/download/", "").replace("/", "_=_", 1)
     print(f"[{sid}] {meta.get('name', '')} — juz {jilid_pdf or jilid}، ص{angka(hal)} = halaman PDF ke-{fisik}")
-    print(f"{TURATH_FILES}/pdf/{urllib.parse.quote(jalur)}#page={fisik}")
+    print(f"{TURATH_FILES}/pdf/{urllib.parse.quote(jalur.lstrip('/'))}#page={fisik}")  # root bisa diawali «/»: «pdf//…»
     if OTOMATIS.search(str(meta.get("info", ""))):
         print("perhatian: nomor halaman kitab ini buatan Shamela (مرقم آليا), jadi halaman scan bisa meleset; "
               "cari bacaannya di halaman sekitar.")
@@ -876,11 +905,17 @@ def _rekaman_di(sid, nomor):
 def _berisi(sid, q):
     """Rekaman kitab sid yang memuat q (sudah `padat`), urut berkas, dengan cache `padat`-nya. Rekaman lain tidak diurai."""
     if not (_folder(sid) / "pages.jsonl.gz").exists():
-        raise SystemExit(f"Kitab {sid} belum diunduh: " + perintah(f"ambil {sid}"))
+        raise _belum(sid)
     padat_ = _cache(sid)
     kena = padat_.kena(q)
     for i, p in zip(kena, _rekaman_di(sid, kena)):
         yield padat_.isi(p, i)
+
+
+def baris(teks):
+    """Teks kitab untuk dicetak: pemisah baris Shamela «\\r» jadi baris baru. «\\r» mentah di konsol menimpa baris atau
+    hilang saat disalin, sehingga dua kata tersambung («نستعينالحمد»)."""
+    return re.sub(r"\r\n?", "\n", teks)
 
 
 def halaman(sid, juz, hal):
@@ -888,7 +923,7 @@ def halaman(sid, juz, hal):
     angka = lambda x: int(x) if str(x).isdigit() else x  # int() membaca angka Arab ٠-٩ juga
     juz, hal = angka(juz), angka(hal)
     if not (_folder(sid) / "pages.jsonl.gz").exists():
-        raise SystemExit(f"Kitab {sid} belum diunduh: " + perintah(f"ambil {sid}"))
+        raise _belum(sid)
     # indeks: rekaman juz itu yang mungkin memuat halaman itu (halaman terkecil s.d. terbesar rekaman, termasuk penanda ⦗n⦘)
     ix, awal = _indeks(sid)
     calon = [i for i, (j, _, akhir, _) in enumerate(ix) if awal[i] is not None and awal[i] <= hal <= akhir
@@ -898,7 +933,7 @@ def halaman(sid, juz, hal):
         bagian = [b for h, b in _potong(p) if h == hal]
         if bagian:
             ada = True
-            print(TAGS.sub("", "".join(bagian)))
+            print(baris(TAGS.sub("", "".join(bagian))))
             fn = _potong(p, "footnotes")
             if len(fn) > 1:  # حاشية bertanda halaman: cetak yang milik halaman ini saja
                 isi, catat = "".join(b for h, b in fn if h == hal), ""
@@ -907,7 +942,7 @@ def halaman(sid, juz, hal):
                 isi = fn[0][1]
                 catat = f" (حاشية rekaman ص{a}-{z}; halaman tiap catatan tidak tercatat)" if z != a else ""
             if isi.strip():
-                print("ـــــ" + catat + "\n" + TAGS.sub("", isi))
+                print("ـــــ" + catat + "\n" + baris(TAGS.sub("", isi)))
     if not ada:
         rentang = {}  # juz -> [halaman terkecil, terbesar], dari indeks (rekaman tanpa nomor halaman dilewati)
         for (j, _, z, _), a in zip(ix, awal):
