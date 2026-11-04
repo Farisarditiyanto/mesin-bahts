@@ -69,7 +69,7 @@ try {
     # pengaturan Word pemakai (berlaku untuk semua dokumennya): dipinjam selama rakit, dikembalikan di finally.
     # 2 = angka di teks Arab dicetak ٠-٩, di teks Latin 0-9; 0 = selalu 0-9
     $numeralLama = $word.Options.ArabicNumeral
-    $word.Options.ArabicNumeral = if ($HINDI) { 2 } else { 0 }
+    $NUMERAL = if ($HINDI) { 2 } else { 0 }; $word.Options.ArabicNumeral = $NUMERAL
     # Alamat kerja Word berupa string biasa untuk COM.
     # huruf profil yang tidak terpasang diganti Word diam-diam: berhenti di sini saja
     if (@($word.FontNames) -notcontains $TA) { throw "Huruf [$TA] belum terpasang di Windows. Jalankan: python mesin/bahts.py periksa" }
@@ -463,6 +463,22 @@ try {
     $garis = New-Object System.Collections.ArrayList   # paragraf @warna: garis tegak di sisi awal (tetap terlihat di fotokopi hitam putih)
     $diMulakhas = $false; $nT = 0; $pertama = $true; $iR = -1; $pbBerikut = $false; $berjarakL = $false
     function HalamanBaru { if ($script:pbBerikut) { $sel.ParagraphFormat.PageBreakBefore = -1; $sel.ParagraphFormat.SpaceBefore = 0; $script:pbBerikut = $false } }
+    # paragraf pengantar = berakhir «:» (spasi dan nomor catatan kaki di ujung tidak dihitung, mis. «…وفيها قولان:»), atau
+    # seluruhnya tebal (**أدلة القول الأول:**): tidak boleh tertinggal sendirian di dasar halaman, daftar/dalilnya di
+    # halaman berikutnya. Seperti judul (#S): menempel ke paragraf sesudahnya (KeepWithNext), dan Word memecah paragraf
+    # panjangnya sendiri, jadi yang ikut pindah hanya baris terakhirnya. Rangkaian paragraf pengantar berturut-turut
+    # hanya dua yang terakhir yang menempel: rantai panjang bisa memindah hampir satu halaman dan menyisakan halaman kosong
+    function Pengantar($b) {
+        if (-not $b -or $b.k -ne 'P') { return $false }
+        $tk = @($b.runs | Where-Object { $null -ne $_.t -and $_.t.Trim() })
+        if (-not $tk.Count) { return $false }
+        return ($tk[-1].t.TrimEnd() -match ':$') -or (@($tk | Where-Object { -not $_.b }).Count -eq 0)
+    }
+    function Menempel($j) {
+        $nx = $DATA.blok[$j + 1]
+        if (-not $nx -or $nx.k -in 'K', 'F', 'B', 'M', 'H', 'R') { return $false }   # sesudahnya halaman/judul baru atau akhir isi
+        return -not ((Pengantar $nx) -and (Pengantar $DATA.blok[$j + 2]))
+    }
     for ($i = 0; $i -lt $DATA.blok.Count; $i++) {
         $blk = $DATA.blok[$i]
         if ($blk.k -eq 'R') { $iR = $i; break }
@@ -531,6 +547,7 @@ try {
             if ($biasa.Count -and $w.Count -eq 1 -and @($biasa | Where-Object { -not $_.w }).Count -eq 0) {
                 [void]$doc.Bookmarks.Add("garis_$($garis.Count + 1)", $doc.Range($awal, $sel.Start)); [void]$garis.Add($w[0])
             }
+            if ((Pengantar $blk) -and (Menempel $i)) { $sel.ParagraphFormat.KeepWithNext = -1 }
             $sel.TypeParagraph()
         }
     }
@@ -672,10 +689,23 @@ try {
     if ($ubah) { Write-Output "PERINGATAN: nomor halaman فهرس belum tetap sesudah 5 putaran" }
 
     # ---------- 6. Simpan ----------
-    # nomor halaman = teks kanan-ke-kiri, supaya ArabicNumeral 2 mencetaknya ٠-٩ (di akhir: memindah Selection ke kaki halaman)
-    $ft.Range.Select(); $word.Selection.RtlRun()
-    if ($KITAB) { $fg.Range.Select(); $word.Selection.RtlRun() }
-    if ($ftIsi) { $ftIsi.Range.Select(); $word.Selection.RtlRun() }
+    # nomor halaman = teks kanan-ke-kiri, supaya ArabicNumeral 2 mencetaknya ٠-٩ (di akhir: memindah Selection ke kaki
+    # halaman). RtlRun hanya ada di Selection, dan bisa diam-diam tidak berpengaruh: satu PDF pernah tercetak 0123 di
+    # semua kaki halamannya, <w:rtl/> tidak ada di kaki halaman .docx-nya, dan rakit ulang naskah yang sama benar
+    # (penyebabnya belum tahu). Jadi dikerjakan di Print Layout, lalu dibaca lagi dari XML-nya dan diulang sekali
+    $doc.ActiveWindow.View.Type = 3
+    function NomorRtl($hf) {
+        if (-not $hf -or -not $hf.Range.Fields.Count) { return }   # kaki halaman tanpa PAGE (@templat: nomor di kepala halaman)
+        for ($k = 1; $k -le 2; $k++) {
+            $doc.Activate(); $hf.Range.Select(); $word.Selection.RtlRun()
+            if ($hf.Range.WordOpenXML -match '<w:rtl/>') { return }
+        }
+        # nomor huruf (@nomor: abjad) tidak berangka
+        if ($HINDI -and $hf.PageNumbers.NumberStyle -ne 46) { Write-Output "PERINGATAN: Word tidak mau membuat nomor halaman kanan-ke-kiri: nomor halaman bisa tercetak 0123. Rakit lagi." }
+    }
+    NomorRtl $ft
+    if ($KITAB) { NomorRtl $fg }
+    if ($ftIsi) { NomorRtl $ftIsi }
     # garis pemisah catatan kaki di kanan: ceritanya baru ada sesudah catatan kaki pertama; dokumen @templat berangkat dari
     # dokumen kosong yang gaya Normal-nya kiri-ke-kanan, jadi garisnya ikut ke kiri kalau tidak disetel di sini
     foreach ($g in @($doc.Footnotes.Separator, $doc.Footnotes.ContinuationSeparator)) {
@@ -701,6 +731,7 @@ try {
     if ($kepalaTpl) { foreach ($sh in $kepalaTpl.Shapes) { if ($sh.TextFrame.HasText) { $sh.TextFrame.TextRange.Select(); $word.Selection.RtlRun() } } }
     $doc.SaveAs2("$Out.docx", 16)
     $word.ScreenUpdating = $true                         # tanpa ini garis bingkai/kepala halaman tidak ikut ke PDF
+    $word.Options.ArabicNumeral = $NUMERAL               # pengaturan milik seluruh Word pemakai: dipastikan lagi tepat sebelum PDF
     $doc.ExportAsFixedFormat("$Out.pdf", 17)
     $doc.Close($false)
 }
