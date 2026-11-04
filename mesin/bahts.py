@@ -248,7 +248,7 @@ def perkiraan_halaman(d):
     fmt = d.get("format")
     if not fmt:
         return None
-    per_hal = KATA_PER_HALAMAN_18 * (18 / fmt["matan"]) ** 2
+    per_hal = KATA_PER_HALAMAN_18 * (18 / fmt["matan"]) ** 2 / fmt.get("spasi", 1)  # 1,5 spasi = baris lebih sedikit
     import olah
     kata = olah.kata
     bagian = []

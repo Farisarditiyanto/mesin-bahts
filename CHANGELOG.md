@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `@format: tatbiqi_15`: sama dengan `tatbiqi`, tetapi matan dan judul 1,5 spasi (catatan kaki dan فهرس tetap satu spasi), dan paragraf di bawah `#K الملخص`/`#K ملخص البحث` berjarak 6 pt tanpa awal alinea menjorok. Profil baru di `format.json` bisa memakai `spasi` dan `mulakhas_berjarak`.
 - `#L **Abstract**` (satu baris `#L` diapit `**`): judul Latin tebal di tengah. Paragraf `#L` sesudahnya diberi jarak 6 pt antarparagraf, seperti contoh الملخص باللغة الأجنبية yang memakai judul «Abstract». Dulu `**` di `#L` tercetak apa adanya.
 - `@nomor: mukadimah`: seperti `@nomor: abjad`, tetapi nomor ١ mulai dari `#K المقدمة`, bukan dari `#F` pertama. الإهداء، الشكر، dan الملخص sebelumnya tetap bernomor huruf, jadi halaman terakhir isi sama dengan `HALAMAN_ISI`. Untuk dosen yang minta penomoran mulai المقدمة.
 - `cek`: pemeriksa `riset.txt` memakai pemeriksaan ayat yang sama dengan naskah. Rentang ayat yang sudah ditolak tidak lagi dikembangkan menjadi jutaan pasangan surat/ayat atau diberi saran tafsir yang mustahil. Angka yang terlalu panjang di `riset.txt` kini menjadi perhatian; dulu `cek` berhenti tanpa laporan. Putusan GAGAL/lolos tetap dari naskah dan kitab lokal.
