@@ -1295,12 +1295,16 @@ NOMOR_HADITS = re.compile(r"(?:رقم|حديث)(?:\s*الحديث)?\s*:?\s*\(?\s
 JUZ_TERCETAK = re.compile(r"(?<![\w/])(\d{1,2})\s*/\s*\d+(?![\d/])(?!\s*(?:هـ|م(?!\w)))")
 # «ج1، ص55», «ج1/ص55», «ج ١ ص ٥٥» (sesudah ANGKA_LATIN) = juz/halaman «1/55»; diganti dengan r"\1/"
 JUZ_ARAB = re.compile(r"(?<![\wـ])ج\s*:?\s*(\d{1,2})\s*[،,/]?\s*ص\s*:?\s*(?=\d)")
+# rujukan ke halaman bahts sendiri, bukan kitab: «تقدم تخريجه ص5», «سيأتي في ص{P:x}», «ينظر: المبحث الثاني، ص 12»
+# («الفصل في الملل» judul kitab: sesudah المبحث/المطلب/الفصل harus urutan «الثاني» atau angka). «ص5 من هذا البحث» di tercetak().
+RUJUKAN_DALAM = re.compile(r"(?:(?<!\w)(?:سبق|تقدم|سيأتي|يأتي)(?!\w)|(?<!\w)(?:المبحث|المطلب|الفصل)\s+(?:ال\w+|\d+))"
+                           r"[^.؛]*?(?<![\wـ])ص\s*(?:\{P:[a-z]+\}|\d+(?:\s*[-–]\s*\d+)?)")
 
 
 def rujukan_halaman(isi):
     """Catatan kaki yang mencetak juz/halaman kitab («1/55», «ص55», «ج1، ص55») atau nomor hadits («رقم الحديث»):
-    rujukan kitab, jadi buktinya bisa ditulis."""
-    t = JUZ_ARAB.sub(r"\1/", isi.translate(ANGKA_LATIN))
+    rujukan kitab, jadi buktinya bisa ditulis. Rujukan ke halaman bahts sendiri tidak dihitung."""
+    t = JUZ_ARAB.sub(r"\1/", RUJUKAN_DALAM.sub(" ", isi.translate(ANGKA_LATIN)))
     return bool(re.search(r"رقم\s+الحديث", t) or tercetak(t, "-") or JUZ_TERCETAK.search(NOMOR_HADITS.sub(" ", t)))
 
 
