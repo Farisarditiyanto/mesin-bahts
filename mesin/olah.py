@@ -2928,7 +2928,7 @@ def utama(folder, keluar=None):
             # فصل/مبحث yang langsung disusul مبحث/مطلب-nya: judul bertumpuk tanpa تمهيد (dikeluhkan dosen)
             perhatian.append(f"baris {a['n']}: judul «{a['judul'][:40]}» langsung disusul judul «{b['judul'][:40]}» "
                              f"tanpa paragraf pengantar: tulis pengantar di bawahnya (isinya dan pembagiannya: "
-                             f"{'وفيه مبحثان' if a['k'] == 'F' else 'وفيه مطلبان'}…)")
+                             f"{'وفيه مبحثان' if a['judul'].startswith('الفصل') or (a['k'] == 'F' and not a['judul'].startswith('المبحث')) else 'وفيه مطلبان'}…)")
     if re.fullmatch(r"0+", re.sub(r"\s", "", meta.get("nim", "").translate(ANGKA_LATIN))):  # isian contoh, bukan nomor
         galat.append(di("@nim") + f"@nim: «{meta['nim']}» tercetak di sampul sebagai nomor mahasiswa: tulis nomor asli, "
                                   "atau «-» kalau tidak ada")
