@@ -243,26 +243,41 @@ def baru(nama, judul):
 
 
 def perkiraan_halaman(d):
-    """Perkiraan kasar halaman isi (المقدمة s.d. الخاتمة) dari jumlah kata, untuk yang belum bisa `rakit`.
-    Tiap #K/#F (dan judul di @halaman_baru) mulai halaman baru; kata catatan kaki dihitung menurut perbandingan luas hurufnya."""
+    """Perkiraan kasar (isi, seluruh PDF, rincian) dari jumlah kata, untuk yang belum bisa `rakit`; None tanpa profil.
+    isi = المقدمة s.d. الخاتمة: tiap #K/#F (dan judul di @halaman_baru) mulai halaman baru; kata catatan kaki dihitung
+    menurut perbandingan luas hurufnya. Seluruh PDF = sampul + halaman sebelum المقدمة (@nomor) + isi + المصادر + فهرس,
+    yang dicetak sama dengan yang dicetak rakit.ps1 (@tanpa, @bentuk: kitab, فهرس kosong tidak dicetak)."""
     fmt = d.get("format")
     if not fmt:
         return None
-    per_hal = KATA_PER_HALAMAN_18 * (18 / fmt["matan"]) ** 2 / fmt.get("spasi", 1)  # 1,5 spasi = baris lebih sedikit
+    # huruf lebih kecil = lebih banyak kata, tetapi tidak sebanyak luasnya (pangkat 1,1, bukan 2: 3 PDF @format tatbiqi)
+    per_hal = KATA_PER_HALAMAN_18 * (18 / fmt["matan"]) ** 1.1 / fmt.get("spasi", 1)  # 1,5 spasi = baris lebih sedikit
     import olah
-    kata = olah.kata
-    bagian = []
+    kata, meta = olah.kata, d["meta"]
+
+    def halaman(blok):
+        bagian = []
+        for b in blok:
+            if b["k"] in ("K", "F", "H", *meta.get("halaman_baru", [])) or not bagian:
+                bagian.append(0.0)
+            fn = sum(kata(d["catatan"][r["fn"]]["runs"]) for r in b["runs"] if r.get("fn") is not None)
+            bagian[-1] += kata(b["runs"]) + fn * (fmt["catatan"] / fmt["matan"]) ** 2
+        return sum(max(1, math.ceil(x / per_hal)) for x in bagian)
+
     blok = d["blok"]
-    if d["meta"].get("nomor"):  # @nomor: abjad: الإهداء dst. sebelum المقدمة bukan halaman isi
-        blok = blok[next((i for i, b in enumerate(blok) if b.get("judul") == "المقدمة"), 0):]
-    for b in blok:
-        if b["k"] == "R":
-            break
-        if b["k"] in ("K", "F", "H", *d["meta"].get("halaman_baru", [])) or not bagian:
-            bagian.append(0.0)
-        fn = sum(kata(d["catatan"][r["fn"]]["runs"]) for r in b["runs"] if r.get("fn") is not None)
-        bagian[-1] += kata(b["runs"]) + fn * (fmt["catatan"] / fmt["matan"]) ** 2
-    return sum(max(1, math.ceil(x / per_hal)) for x in bagian)
+    blok = blok[:next((i for i, b in enumerate(blok) if b["k"] == "R"), len(blok))]
+    mula = next((i for i, b in enumerate(blok) if b.get("judul") == "المقدمة"), 0) if meta.get("nomor") else 0
+    isi = halaman(blok[mula:])  # @nomor: abjad: الإهداء dst. sebelum المقدمة bukan halaman isi
+    tanpa = set(re.split(r"[,، ]+", meta.get("tanpa", "")))
+    kitab = meta.get("bentuk") == "kitab"
+    rinci = {"sampul": 0 if kitab else 1, "sebelum المقدمة": halaman(blok[:mula]) if mula else 0}
+    judul = sum(b["k"] in ("K", "F", "B", "M") for b in blok)  # baris فهرس الموضوعات
+    for nama, n, per in (("المصادر", len(d["pustaka"]) if "pustaka" not in tanpa and (not kitab or d["pustaka"]) else 0, 12),
+                         ("فهرس الآيات", 0 if "ayat" in tanpa else len(d["ayat"]), 26),
+                         ("فهرس الأحاديث", 0 if "hadits" in tanpa else len(d["hadits"]), 20),
+                         ("فهرس الموضوعات", 0 if "maudhuat" in tanpa else max(judul, 1), 25)):
+        rinci[nama] = math.ceil(n / per)  # baris per halaman dari 30 PDF bahts nyata (selisih paling banyak 1 halaman)
+    return isi, isi + sum(rinci.values()), {k: v for k, v in rinci.items() if v}
 
 
 def cek(nama, keluar=None, jejak=False):
@@ -286,7 +301,10 @@ def cek(nama, keluar=None, jejak=False):
     except (OSError, ValueError, KeyError, IndexError, TypeError):
         n = None
     if n:
-        print(f"perkiraan halaman isi (المقدمة s.d. الخاتمة): ±{n} (kasar, dari jumlah kata; angka pasti = HALAMAN_ISI sesudah `rakit`)")
+        isi, total, rinci = n
+        print(f"perkiraan halaman isi (المقدمة s.d. الخاتمة): ±{isi}; seluruh PDF: ±{total} ("
+              + ", ".join(f"{k} {v}" for k, v in rinci.items()) + f", isi {isi}) "
+              "(kasar, dari jumlah kata; angka pasti = HALAMAN_ISI dan HALAMAN sesudah `rakit`)")
     return f, galat, lap
 
 
