@@ -10,6 +10,9 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       tahun (العام الجامعي di sampul qism, mis. ١٤٤٨;
                       bawaan = tahun hijriah Umm al-Qura saat tahun ajaran mulai, 1 Agustus),
                       berkas (nama file hasil), format (profil di format.json; bawaan imam),
+                      catatan_kaki (bersambung = nomor catatan kaki ١، ٢، ٣ … sampai akhir bahts; ulang = mulai ١ lagi tiap halaman)
+                      dan spasi (1 atau 1.5: jarak baris matan dan judul) menimpa nilai itu di profil @format; bawaan = nilai profil.
+                      Kombinasi permintaan dosen dibuat dengan keduanya, mis. «@format: tatbiqi» + «@catatan_kaki: bersambung»
                       angka (hindi = ٠١٢٣، bawaan; latin = 0123): angka yang tercetak di seluruh PDF,
                       termasuk nomor halaman, nomor catatan kaki, dan فهرس. Naskah boleh ditulis dengan angka mana saja
                       angka_ayat (bawaan = @angka): angka di catatan kaki rujukan ayat [^سورة …، آية: n.] saja,
@@ -127,7 +130,11 @@ TANPA = ("ayat", "hadits", "maudhuat", "pustaka")  # فهرس dan المصادر
 # @angka: yang pertama = bawaan. Pedoman Jāmiʿat al-Imām tidak menyebut jenis angka; contoh resminya (pedoman 1443هـ,
 # مجلة العلوم الشرعية) memakai hindi di nomor halaman, catatan kaki, rujukan, tahun, ayat, dan فهرس
 ANGKA = ("hindi", "latin")
-META = frozenset("judul jenis nama nim fasl musyrif jabatan thalibah sampul tahun berkas format angka angka_ayat tanpa pustaka templat halaman_baru nomor bentuk rumuz warna".split())
+# Kunci naskah yang menimpa satu nilai profil @format (kombinasi permintaan dosen tanpa profil baru):
+# @kunci -> (kunci di format.json yang dibaca rakit.ps1, {nilai di naskah: nilai di profil})
+TIMPA = {"catatan_kaki": ("catatan_ulang_tiap_halaman", {"bersambung": False, "ulang": True}),
+         "spasi": ("spasi", {"1": 1, "1.5": 1.5})}
+META = frozenset("judul jenis nama nim fasl musyrif jabatan thalibah sampul tahun berkas format angka angka_ayat tanpa pustaka templat halaman_baru nomor bentuk rumuz warna".split()) | TIMPA.keys()
 # @warna: nama -> RGB. Biru tua: tetap nyaman dibaca untuk paragraf panjang dan jelas beda dari hitam serta merah lafaz matn
 WARNA = {"biru": (20, 60, 150)}
 # lambang hormat Unicode 14 (﵀-﵏ ﷾ ﷿) tidak ada di huruf cetak (Traditional Arabic, Sakkal Majalla): kotak kosong di PDF.
@@ -2877,6 +2884,14 @@ def utama(folder, keluar=None):
     fmt = meta.get("format", "imam")
     if fmt not in FORMAT:
         galat.append(di("@format") + f"@format: «{fmt}» tidak ada di mesin/format.json (yang ada: {'، '.join(FORMAT)})")
+    profil = FORMAT.get(fmt)
+    for k, (kunci, nilai) in TIMPA.items():
+        if k not in meta:
+            continue
+        if meta[k] not in nilai:
+            galat.append(di("@" + k) + f"@{k}: «{meta[k]}» tidak dikenal (yang ada: {', '.join(nilai)})")
+        elif profil:
+            profil = {**profil, kunci: nilai[meta[k]]}  # salinan: profil di FORMAT tetap utuh
     angka = meta.setdefault("angka", ANGKA[0])
     angka_ayat = meta.get("angka_ayat", angka)
     if angka not in ANGKA:
@@ -2914,7 +2929,7 @@ def utama(folder, keluar=None):
     perhatian = gabung_kembar(perhatian)  # jumlah di ringkasan = baris yang dicetak
     sidik_naskah = hashlib.sha256(naskah).hexdigest()
     with sementara(keluar or bahan(folder)) as part:
-        part.write_text(json.dumps({"meta": meta, "format": FORMAT.get(fmt), "blok": blok, "catatan": catatan,
+        part.write_text(json.dumps({"meta": meta, "format": profil, "blok": blok, "catatan": catatan,
                                    "ayat": ayat_idx, "hadits": hadits_idx, "pustaka": pustaka,
                                    "quran": bool(quran), "naskah_sha256": sidik_naskah}, ensure_ascii=False), encoding="utf8")
     n_bukti = sum(c["bukti"] for c in catatan)

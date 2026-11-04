@@ -2,7 +2,7 @@
 """Regresi struktur lewat CLI asli di salinan TEMP, memakai contoh dan kitab asli.
 Tidak menjalankan Word: naskah yang kehilangan isi harus ditolak sebelum perakit dipanggil.
 """
-import os, re, shutil, subprocess, sys, tempfile
+import json, os, re, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
 AKAR = Path(__file__).resolve().parent.parent
@@ -118,6 +118,25 @@ def utama():
         for nol in ("000000000", "٠٠٠٠٠٠٠٠٠"):
             cek("@nim nol " + nol, dasar.replace("@nim: -", "@nim: " + nol), True, "tercetak di sampul sebagai nomor mahasiswa")
         cek("@nim asli diterima", dasar.replace("@nim: -", "@nim: 123456789"))
+
+        # @catatan_kaki/@spasi menimpa satu nilai profil @format di bahan yang dibaca rakit.ps1; profil lain tetap
+        sys.path.insert(0, str(akar / "mesin"))
+        from berkas import bahan
+        profil = json.loads((akar / "mesin" / "format.json").read_text(encoding="utf8"))
+        format_bahan = lambda: json.loads(bahan(f).read_text(encoding="utf8"))["format"]
+        dengan = lambda baris: dasar.replace("@format: imam_ayat16\n", baris)
+        cek("@catatan_kaki dan @spasi menimpa profil", dengan("@format: tatbiqi\n@catatan_kaki: bersambung\n@spasi: 1.5\n"))
+        assert format_bahan() == {**profil["tatbiqi"], "catatan_ulang_tiap_halaman": False, "spasi": 1.5}, format_bahan()
+        cek("@catatan_kaki: ulang", dengan("@format: imam_ayat16_bersambung\n@catatan_kaki: ulang\n"))
+        assert format_bahan() == {**profil["imam_ayat16_bersambung"], "catatan_ulang_tiap_halaman": True}, format_bahan()
+        cek("@spasi: 1", dengan("@format: tatbiqi_15\n@spasi: 1\n"))
+        assert format_bahan() == {**profil["tatbiqi_15"], "spasi": 1}, format_bahan()
+        cek("profil tanpa kunci timpa", dengan("@format: tatbiqi_15\n"))
+        assert format_bahan() == profil["tatbiqi_15"], format_bahan()
+        cek("@catatan_kaki nilai salah", dengan("@format: tatbiqi\n@catatan_kaki: bersambng\n"), True,
+            "@catatan_kaki: «bersambng» tidak dikenal (yang ada: bersambung, ulang)")
+        cek("@spasi nilai salah", dengan("@format: tatbiqi\n@spasi: 1,5\n"), True, "@spasi: «1,5» tidak dikenal (yang ada: 1, 1.5)")
+        cek("salah ketik catatan_kaki", "@catatan_kaky: bersambung\n" + dasar, True, "maksudnya @catatan_kaki")
 
         kutipan = '«توحيد الربوبية وهو إفراد الله تعالى بالخلق والملك والتدبير»'
         catatan = '[^رسالة في القضاء والقدر، ابن عثيمين، ص5. <<11223|-|5>>]'

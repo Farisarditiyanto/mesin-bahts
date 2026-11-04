@@ -14,7 +14,7 @@ $dir = $PSScriptRoot
 $DATA = Get-Content -LiteralPath $Build -Raw -Encoding UTF8 | ConvertFrom-Json
 $M = $DATA.meta
 $Out = Join-Path $Hasil $M.berkas; $Laporan = Join-Path $Hasil 'laporan.txt'
-$FMT = $DATA.format                                      # profil dari format.json (dipilih @format)
+$FMT = $DATA.format                                      # profil dari format.json (dipilih @format; @catatan_kaki/@spasi sudah ditimpakan olah.py)
 $TA = [string]$FMT.huruf; $QF = 'KFGQPC HAFS Uthmanic Script'
 $uMatan = [single]$FMT.matan; $uCatatan = [single]$FMT.catatan; $uJudul = [single]$FMT.judul   # ukuran huruf (Word minta angka pecahan)
 $uAyat = if ($FMT.ayat) { [single]$FMT.ayat } else { $uMatan }   # ukuran ayat di matan dan فهرس الآيات; profil tanpa "ayat" = sama dengan matan
