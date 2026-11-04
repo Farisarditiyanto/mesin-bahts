@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Tes angka lewat pintu pemakai (`bahts.py cek`, lalu bahan yang dibaca rakit.ps1): naskah contoh mengetik
-«ص5», «1423هـ», nim «000000000», dan «آية: ٢». Tanpa @angka, semua angka di teks Arab bahan rakit harus ٠-٩
+«ص5», «1423هـ», nim «123456789» (contoh sendiri «-»: tidak tercetak), dan «آية: ٢». Tanpa @angka, semua angka di teks Arab bahan rakit harus ٠-٩
 (bug yang pernah terjadi: PDF mencetak «آية: ٢» di samping «ص5» dan «1423هـ»).
 Dengan «@angka_ayat: latin», hanya catatan kaki rujukan ayat yang 0-9 (dan ditandai "al" untuk rakit.ps1); sisanya tetap ٠-٩.
 Dengan «@angka: latin», semua angka di teks Arab bahan rakit 0-9 (jalur else di mesin/olah.py ±1904: ubah = latin)."""
@@ -35,7 +35,7 @@ print(f"uji angka: {len(teks)} teks, semua angka ٠-٩")
 uji = AKAR / "_uji_angka_ayat"  # akar repo = parent.parent uji_angka.py (folder bahts; syarat `cek`), diabaikan git
 uji.mkdir(exist_ok=True)
 try:
-    naskah = (AKAR / "contoh" / "naskah.txt").read_text(encoding="utf-8")
+    naskah = (AKAR / "contoh" / "naskah.txt").read_text(encoding="utf-8").replace("@nim: -", "@nim: 123456789")
     (uji / "naskah.txt").write_text("@angka_ayat: latin\n" + naskah, encoding="utf-8")
     b = bahan(uji.name)
     ayat = [c for c in b["catatan"] if "".join(r.get("t", "") for r in c["runs"]).startswith("سورة")]
@@ -53,7 +53,7 @@ finally:
 uji = AKAR / "_uji_angka"  # folder bahts baru; diabaikan git
 uji.mkdir(exist_ok=True)
 try:
-    naskah = (AKAR / "contoh" / "naskah.txt").read_text(encoding="utf-8")
+    naskah = (AKAR / "contoh" / "naskah.txt").read_text(encoding="utf-8").replace("@nim: -", "@nim: 123456789")
     (uji / "naskah.txt").write_text("@angka: latin\n" + naskah, encoding="utf-8")
     b = bahan(uji.name)
     if b["meta"].get("angka") != "latin":

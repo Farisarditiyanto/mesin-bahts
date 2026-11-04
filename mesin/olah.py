@@ -2346,6 +2346,9 @@ def utama(folder, keluar=None):
             perhatian.append(f"baris {a['n']}: judul «{a['judul'][:40]}» langsung disusul judul «{b['judul'][:40]}» "
                              f"tanpa paragraf pengantar: tulis pengantar di bawahnya (isinya dan pembagiannya: "
                              f"{'وفيه مبحثان' if a['k'] == 'F' else 'وفيه مطلبان'}…)")
+    if re.fullmatch(r"0+", re.sub(r"\s", "", meta.get("nim", "").translate(ANGKA_LATIN))):  # isian contoh, bukan nomor
+        galat.append(di("@nim") + f"@nim: «{meta['nim']}» tercetak di sampul sebagai nomor mahasiswa: tulis nomor asli, "
+                                  "atau «-» kalau tidak ada")
     if meta.get("thalibah", "ya") != "ya":
         galat.append(di("@thalibah") + f"@thalibah: «{meta['thalibah']}» tidak dikenal: tulis «ya», atau hapus barisnya")
     fmt = meta.get("format", "imam")
