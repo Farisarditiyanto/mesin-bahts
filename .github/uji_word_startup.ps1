@@ -57,7 +57,7 @@ function Stop-Process {
     param($Id, [switch]$Force, $ErrorAction)
     $global:dihentikan += $Id
 }
-. $Startup -Build $Build -Folder $Folder
+. $Startup -Build $Build -Folder $Folder -Kunci (Join-Path $Folder '_tmp\rakit.kunci')
 if ("$global:dihentikan" -ne '999002') { throw "Startup menghentikan [$global:dihentikan]; seharusnya hanya Word yatim 999002" }
 if (Test-Path -LiteralPath (Join-Path $Folder '_tmp\rakit.word')) { throw 'Catatan Word rakit lama tidak dibuang' }
 '@ | Set-Content -LiteralPath $jalankan -Encoding UTF8

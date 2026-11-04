@@ -1,8 +1,15 @@
 ﻿# SPDX-License-Identifier: AGPL-3.0-or-later
 # Rakit <Hasil>\<berkas>.docx + .pdf dari bahan JSON -Build (hasil olah.py), memakai Word asli (COM).
 # Dipanggil oleh bahts.py; jangan dijalankan langsung.
-param([Parameter(Mandatory)][string]$Build, [Parameter(Mandatory)][string]$Folder, [string]$Hasil = $Folder)
+param([Parameter(Mandatory)][string]$Build, [Parameter(Mandatory)][string]$Folder, [string]$Hasil = $Folder,
+      [Parameter(Mandatory)][string]$Kunci, [string]$Galat)
 $ErrorActionPreference = 'Stop'
+# Galat yang menghentikan skrip ini ditulis juga ke -Galat (UTF-8): bahts.py mengutipnya di pesan GAGAL, karena layar
+# bisa dipotong pemanggil (tail/grep) dan huruf Arabnya rusak lewat pipa. Tanpa berkas itu = PowerShell dimatikan dari luar.
+trap {
+    if ($Galat) { [IO.File]::WriteAllText($Galat, "$($_.Exception.Message) (rakit.ps1 baris $($_.InvocationInfo.ScriptLineNumber))", (New-Object Text.UTF8Encoding $false)) }
+    break
+}
 $dir = $PSScriptRoot
 $DATA = Get-Content -LiteralPath $Build -Raw -Encoding UTF8 | ConvertFrom-Json
 $M = $DATA.meta
@@ -42,8 +49,9 @@ $NOMOR_MUQ = $M.nomor -eq 'mukadimah'      # @nomor: mukadimah = sama, tetapi ١
 $PUSTAKA_AKHIR = $M.pustaka -eq 'akhir'   # @pustaka: akhir = sumber sesudah فهرس الأحاديث, berjudul فهرس المصادر والمراجع
 $MERAH = 176; $COKLAT = 2772843           # warna Word (BGR): lafaz matn RGB(176,0,0); rumuz RGB(107,79,42)
 
-# satu rakit dalam satu waktu: rakit kedua berhenti di sini, sebelum mematikan Word milik rakit pertama (kunci lepas sendiri saat proses ini selesai)
-try { $kunci = [IO.File]::Open("$dir\_tmp\rakit.kunci", 'OpenOrCreate', 'ReadWrite', 'None') }
+# satu rakit dalam satu waktu: rakit kedua berhenti di sini, sebelum mematikan Word milik rakit pertama (kunci lepas sendiri saat proses ini selesai).
+# bahts.py menunggu kunci ini lepas sebelum rakit berikutnya (rakit.ps1 yang Python-nya dimatikan masih memegangnya).
+try { $pegangKunci = [IO.File]::Open($Kunci, 'OpenOrCreate', 'ReadWrite', 'None') }
 catch { throw "Rakit lain sedang jalan (memakai Word yang sama): tunggu sampai selesai, lalu ulangi." }
 # Proses /Automation bisa milik aplikasi lain. Hanya Word yang dibuat di sini yang dibersihkan di finally.
 # Rakit yang dimatikan paksa (terminal ditutup) tidak sempat ke finally, dan Word-nya tetap hidup: rakit berikutnya
@@ -714,5 +722,5 @@ finally {
     Start-Sleep -Milliseconds 500
     foreach ($id in $wordIni) { try { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue } catch {} }
     try { Remove-Item -LiteralPath $tmp, $CATATAN_WORD -Force -ErrorAction SilentlyContinue } catch {}
-    try { $kunci.Close() } catch {}
+    try { $pegangKunci.Close() } catch {}
 }
