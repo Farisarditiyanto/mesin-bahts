@@ -21,7 +21,7 @@ function Angka($s) {
     return -join ($s.ToCharArray() | ForEach-Object { if ($_ -ge [char]'0' -and $_ -le [char]'9') { [char](0x0660 + [int]$_ - 48) } else { $_ } })
 }
 $JUDUL = $M.judul; $NAMA = $M.nama; $NIM = $M.nim
-# judul sampul «… - دراسة …»: bagian sesudah « - » jadi baris kedua yang lebih kecil (kepala halaman tetap judul utuh)
+# judul sampul «… - …» (sub-judul hanya kalau @judul memuatnya): bagian sesudah « - » jadi baris kedua yang lebih kecil (kepala halaman tetap judul utuh)
 $JUDUL1 = $JUDUL; $JUDUL2 = ''
 if ($JUDUL -match '^(.+?)\s+[-–—]\s*(.+)$') { $JUDUL1 = $Matches[1].Trim(); $JUDUL2 = $Matches[2].Trim() }
 $MUSYRIF = if ($M.musyrif -and $M.musyrif -ne '-') { [string]$M.musyrif } else { '' }

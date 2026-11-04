@@ -95,7 +95,7 @@ SURAH = json.loads((HERE / "nama_surah.json").read_text(encoding="utf8"))
 FORMAT = json.loads((HERE / "format.json").read_text(encoding="utf8"))  # huruf & ukuran tiap pedoman; dipilih dengan @format
 WAJIB = {"bahts": ("judul", "jenis", "nama", "nim", "fasl"), "kitab": ("judul",)}  # @bentuk: yang pertama = bawaan
 # @sampul: model sampul bahts -> data yang wajib. Yang pertama = bawaan. mahad = mesin/sampul.doc (معهد، كلية الشريعة);
-# qism = mesin/sampul_qism.docx (قسم الشريعة: logo, judul besar, sub-judul dalam kurung, العام الجامعي; jenis dan nim tercetak kalau diisi, fasl tidak)
+# qism = mesin/sampul_qism.docx (قسم الشريعة: logo, judul besar, sub-judul dalam kurung kalau ada, العام الجامعي; jenis dan nim tercetak kalau diisi, fasl tidak)
 SAMPUL = {"qism": ("judul", "nama"), "mahad": WAJIB["bahts"]}
 HALAMAN_BARU = ("B", "M")  # judul yang bisa dibuat mulai halaman baru lewat @halaman_baru; K dan F selalu
 TANPA = ("ayat", "hadits", "maudhuat", "pustaka")  # فهرس dan المصادر yang boleh dibuang lewat @tanpa; perakitnya di rakit.ps1

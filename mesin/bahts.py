@@ -232,8 +232,9 @@ def baru(nama, judul):
     print(f"Siap: {f / 'naskah.txt'} (dan riset.txt untuk jejak langkah riset)")
     sub = re.match(r"^(.+?)\s+[-–—]\s*(.+)$", judul.strip())  # pemisah yang sama dengan rakit.ps1 ($JUDUL2)
     if sub:
-        print(f"Sub-judul «{sub.group(2)}» akan tercetak dalam kurung di sampul. Tulis hanya kalau dosen, خطة, "
-              f"atau pemakai memang menulisnya; kalau tidak, hapus « - …» dari @judul (tanpa sub-judul sampul tetap rapi).")
+        print(f"Sub-judul sampul «{sub.group(2)}» akan tercetak di sampul. Tulis hanya kalau dosen, خطة, "
+              f"atau pemakai memang menulisnya; kalau tidak, hapus « - …» dari @judul (tanpa sub-judul sampul tetap rapi). "
+              f"Jenjang atau jenis tugas masuk @jenis, bukan sub-judul.")
     kosong = re.findall(r"^@(\w+):[ \t]*$", isi, re.M)
     if kosong:
         print("Data sampul yang masih kosong: " + ", ".join("@" + k for k in kosong)

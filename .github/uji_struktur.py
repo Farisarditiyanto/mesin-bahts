@@ -129,7 +129,7 @@ def utama():
         # sub-judul « - …» tercetak di sampul: `baru` mengingatkan supaya tidak ditambah sendiri
         assert "Sub-judul" not in r.stdout, r.stdout
         r = bahts("baru", "bahts/ahmad/sub", "الإخلاص - دراسة موضوعية")
-        assert r.returncode == 0 and "Sub-judul «دراسة موضوعية»" in r.stdout, r.stdout + r.stderr
+        assert r.returncode == 0 and "Sub-judul sampul «دراسة موضوعية»" in r.stdout, r.stdout + r.stderr
         hasil.append("peringatan sub-judul di baru")
 
         # Salinan PDF: tanpa keluaran_saya.txt tidak ada apa-apa; dengan berkas itu tersalin per orang.

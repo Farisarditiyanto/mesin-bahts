@@ -5,7 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
-- Agent tidak lagi menambah sub-judul sendiri. AGENTS.md: `@judul` = judul persis dari dosen, خطة, atau pemakai; sub-judul hanya kalau sumber itu menulisnya, dan pemeriksa langkah 5 ikut mencocokkannya. `baru` mengingatkan kalau judulnya memuat sub-judul (« - …»). Dulu deskripsi sampul («sub-judul dalam kurung») terbaca seperti slot wajib, jadi agent mengisinya dengan «دراسة …» karangan sendiri.
+- Agent tidak lagi menambah sub-judul sampul sendiri. AGENTS.md: `@judul` = judul persis dari dosen, خطة, atau pemakai; sub-judul sampul (« - …») hanya kalau sumber itu menulisnya, jenjang masuk `@jenis`, dan pemeriksa langkah 5 ikut mencocokkannya. `baru` mengingatkan kalau judulnya memuat sub-judul (« - …»). Dulu deskripsi sampul («sub-judul dalam kurung») terbaca seperti slot wajib, jadi agent mengisinya dengan «دراسة …» karangan sendiri.
 
 ## 8.0.0 — 2026-11-04
 
