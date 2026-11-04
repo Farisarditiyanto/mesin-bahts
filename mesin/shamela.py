@@ -530,6 +530,18 @@ def _batas_kata(p, bagian):
     return p[kunci]
 
 
+def kata_titik_dua(p, bagian="body"):
+    """[(kata `padat`, diikuti «:»)] tiap kata bagian rekaman p («قال الشافعي (¬١):» -> الشافعي diikuti «:»).
+    Urutannya sama dengan `_batas_kata` kalau pemotongan katanya sama; pemakai membandingkan dulu."""
+    out = []
+    for _, b in _potong(p, bagian):
+        for t in TAGS.sub(" ", b).split():
+            out += [[w, False] for w in (BUKAN_ABJAD.sub("", x) for x in norm(t).split()) if w]
+            if out:  # tanda tanpa huruf ikut kata sebelumnya: «(¬١):» -> «:»; «[يوسف: ٨٨] .» -> bukan «:» lagi
+                out[-1][1] = bool(re.search(r":\W*$", t))
+    return out
+
+
 def kata_dalam(teks):
     """Letak awal tiap kata kutipan (selain kata pertama) di teks `padat`-nya, dihitung seperti `_batas_kata`."""
     out, n = set(), 0
@@ -716,20 +728,49 @@ def _judul_calon(p, toc, c, h, bagian):
     return [naung] + calon
 
 
+@functools.cache
+def _toc(sid):
+    """(judul toc urut page_id lalu title_id, {title_id: judul}); kitab tanpa toc.jsonl.gz = kosong."""
+    try:
+        with gzip.open(_folder(sid) / "toc.jsonl.gz", "rt", encoding="utf8") as f:
+            toc = [json.loads(x) for x in f]
+    except OSError:
+        toc = []
+    return sorted(toc, key=lambda t: (t["page_id"], t["title_id"])), {t["title_id"]: t for t in toc}
+
+
+def rantai_judul(sid, t):
+    """Judul t lalu induk-induknya (tanpa harakat), dari yang terdalam."""
+    byid, r = _toc(sid)[1], []
+    while t and len(r) < 50:  # toc rusak yang induknya berputar tidak membuat macet
+        r.append(HARAKAT.sub("", t["title_text"]).strip()); t = byid.get(t.get("parent_id"))
+    return r
+
+
+def judul_naung(sid, p, c):
+    """Judul toc yang menaungi letak c (dari `_cocok`, di matan) rekaman p, atau None (sebelum judul pertama, kitab
+    tanpa toc, atau rekaman tanpa page_id)."""
+    if not _toc(sid)[0] or p.get("page_id") is None:
+        return None
+    return _judul_calon(p | {"page_id": int(p["page_id"])}, _toc(sid)[0], c, None, "body")[0]
+
+
+def bagian_halaman(sid, p1, p2):
+    """Juz (bagian) kitab yang punya rekaman di halaman cetak p1..p2: «-» kitab satu jilid, angka jilid, atau nama
+    bagian (المقدمة، الكتاب). Dipakai `cek` untuk juz «-» di kitab yang bagiannya hanya bernama; `halaman` memakai aturan
+    yang sama, dari isi halamannya."""
+    ix, awal = _indeks(sid)
+    return {_juz({"part": j}) for (j, _, z, _), a in zip(ix, awal) if a is not None and a <= p2 and z >= p1}
+
+
 def bab(sid, frasa):
     """Tampilkan rantai judul (kitab > bab) tempat sebuah frasa berada, plus juz/halaman."""
     q = _kunci(frasa)
     info(sid)  # kitab belum diunduh -> pesan yang jelas
-    with gzip.open(_folder(sid) / "toc.jsonl.gz", "rt", encoding="utf8") as f:
-        toc = [json.loads(x) for x in f]
-    byid = {t["title_id"]: t for t in toc}
-    toc.sort(key=lambda t: (t["page_id"], t["title_id"]))
+    toc = _toc(sid)[0]
 
     def rantai(t):
-        r = []
-        while t:
-            r.append(HARAKAT.sub("", t["title_text"]).strip()); t = byid.get(t.get("parent_id"))
-        return " < ".join(r[:3]) or "(sebelum judul pertama)"
+        return " < ".join(rantai_judul(sid, t)[:3]) or "(sebelum judul pertama)"
     for p in _berisi(sid, q):
         for bagian, tanda in BAGIAN:
             c = _cocok(p, q, bagian)
@@ -879,11 +920,15 @@ def halaman(sid, juz, hal):
         raise SystemExit(f"Kitab {sid} belum diunduh: " + perintah(f"ambil {sid}"))
     # indeks: rekaman juz itu yang mungkin memuat halaman itu (halaman terkecil s.d. terbesar rekaman, termasuk penanda ⦗n⦘)
     ix, awal = _indeks(sid)
+    # kitab yang bagiannya hanya bernama (المقدمة، الكتاب): «-» = satu-satunya bagian yang punya halaman itu (seperti `cek`)
+    bernama = juz == "-" and not any(j is None or str(j).isdigit() for j, *_ in ix)
     calon = [i for i, (j, _, akhir, _) in enumerate(ix) if awal[i] is not None and awal[i] <= hal <= akhir
-             and angka("-" if j is None else j) == juz] if isinstance(hal, int) else []
+             and (bernama or angka("-" if j is None else j) == juz)] if isinstance(hal, int) else []
+    kena = [(p, b) for p in _rekaman_di(sid, calon) if (b := [b for h, b in _potong(p) if h == hal])]
+    if bernama and len({_juz(p) for p, _ in kena}) > 1:
+        kena = []  # ada di dua bagian: sebut bagiannya
     ada = False
-    for p in _rekaman_di(sid, calon):
-        bagian = [b for h, b in _potong(p) if h == hal]
+    for p, bagian in kena:
         if bagian:
             ada = True
             print(TAGS.sub("", "".join(bagian)))
