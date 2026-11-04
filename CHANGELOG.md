@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `rakit`: tautan dan DOI (`https://…`, `www.…`, `doi.org/…`, `10.xxxx/…`) di catatan kaki, matan, dan المصادر والمراجع dicetak kiri-ke-kanan apa adanya: angka 0123, titik tetap titik. Dulu catatan kaki `doi.org/10.21608/jasis.2021.183131` tercetak `doi.org/١٠,٢١٦٠٨/jasis.٢٠٢١,١٨٣١٣١`, dan DOI tanpa huruf di depannya (`انظر: 10.1016/…`) juga di matan dan المصادر, jadi DOI-nya tidak bisa dipakai. Angka lain tetap ٠١٢٣.
 - `@format: tatbiqi_mulakhas`: sama dengan `tatbiqi` (satu spasi), tetapi bagian `#K الملخص`/`ملخص البحث` dan `الملخص باللغة الأجنبية` 1,5 spasi, paragraf الملخص berjarak tanpa menjorok. Kunci profil baru: `spasi_mulakhas`.
 - `@format: tatbiqi_15`: sama dengan `tatbiqi`, tetapi matan dan judul 1,5 spasi (catatan kaki dan فهرس tetap satu spasi), dan paragraf di bawah `#K الملخص`/`#K ملخص البحث` berjarak 6 pt tanpa awal alinea menjorok. Profil baru di `format.json` bisa memakai `spasi` dan `mulakhas_berjarak`.
 - `#L **Abstract**` (satu baris `#L` diapit `**`): judul Latin tebal di tengah. Paragraf `#L` sesudahnya diberi jarak 6 pt antarparagraf, seperti contoh الملخص باللغة الأجنبية yang memakai judul «Abstract». Dulu `**` di `#L` tercetak apa adanya.

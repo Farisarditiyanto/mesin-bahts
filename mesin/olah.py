@@ -119,6 +119,10 @@ HORMAT_CETAK = str.maketrans({
 
 HARAKAT = shamela.HARAKAT
 KUAT = re.compile(r"[^\W\d_]|[،؛؟]")  # huruf, atau tanda baca Arab (tanda teks Arab)
+# tautan/DOI di teks Arab: angkanya tetap 0-9 (hindi) dan rakit.ps1 mencetaknya kiri-ke-kanan apa adanya (bahan "tautan"),
+# karena Word (angka konteks) mencetak «10.21608» di teks kanan-ke-kiri sebagai «١٠,٢١٦٠٨». Tanda baca penutup kalimat
+# sesudahnya («….» «،» «)») bukan bagian tautan. Pola ini juga dipakai .NET (rakit.ps1): jangan pakai sintaks khusus Python
+TAUTAN = re.compile(r"(?:https?://|www\.|doi\.org/|(?<![\w.])10\.[0-9]{4,}/)[^\s،؛«»()\[\]]*[^\s.,،؛:«»()\[\]]")
 
 
 class TandaRusak(ValueError):
@@ -132,15 +136,21 @@ def galat_mesin(n, e):
 
 def hindi(s):
     """Angka 0-9 -> ٠-٩, kecuali angka yang huruf atau tanda baca Arab terdekat sebelumnya (atau sesudahnya, kalau tidak
-    ada) huruf Latin: tautan, DOI, dan judul berbahasa Latin tetap 0-9; «مجلة X، 2020» tetap ٢٠٢٠. Satu lintasan linear."""
+    ada) huruf Latin: judul berbahasa Latin tetap 0-9; «مجلة X، 2020» tetap ٢٠٢٠. Angka di dalam tautan/DOI (TAUTAN) selalu
+    0-9, juga DOI tanpa huruf di depannya («انظر: 10.1016/…»). Satu lintasan linear."""
     keluar, pos, terakhir = [], 0, ""  # terakhir = huruf/tanda baca Arab terdekat sebelum posisi `pos`
+    tautan = iter([t.span() for t in TAUTAN.finditer(s)] + [(len(s) + 1, len(s) + 1)])
+    t = next(tautan)
     for m in re.finditer(r"[0-9]+", s):
+        while t[1] <= m.start():
+            t = next(tautan)
         keluar.append(s[pos:m.start()])
         for k in KUAT.finditer(s, pos, m.start()):
             terakhir = k.group()
         k = next(KUAT.finditer(s, m.end()), None)  # sesudah angka, kalau sebelumnya tidak ada
         c = terakhir or (k.group() if k else "")
-        keluar.append(m.group() if re.match(f"[{HURUF_LATIN}]", c) else m.group().translate(AD))
+        latin = t[0] <= m.start() or re.match(f"[{HURUF_LATIN}]", c)
+        keluar.append(m.group() if latin else m.group().translate(AD))
         pos = m.end()
     keluar.append(s[pos:])
     return "".join(keluar)
@@ -2155,7 +2165,8 @@ def utama(folder, keluar=None):
     with sementara(keluar or bahan(folder)) as part:
         part.write_text(json.dumps({"meta": meta, "format": FORMAT.get(fmt), "blok": blok, "catatan": catatan,
                                    "ayat": ayat_idx, "hadits": hadits_idx, "pustaka": pustaka,
-                                   "quran": bool(quran), "naskah_sha256": sidik_naskah}, ensure_ascii=False), encoding="utf8")
+                                   "quran": bool(quran), "tautan": TAUTAN.pattern,
+                                   "naskah_sha256": sidik_naskah}, ensure_ascii=False), encoding="utf8")
     n_bukti = sum(c["bukti"] for c in catatan)
     n_luar = sum(c["luar"] for c in catatan)  # disebut di ringkasan: tanda yang bisa menyembunyikan kutipan karangan
     n_pdf = sum(c["pdf"] for c in catatan)
