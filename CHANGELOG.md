@@ -5,6 +5,12 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `halaman`: pemisah baris Shamela («\r») kini dicetak sebagai baris baru. Dulu «\r» mentah ikut tercetak; di konsol atau saat disalin ia hilang, jadi dua kata tersambung (kitab 197 ج1 ص5: «نستعينالحمد») dan agent menyalinnya ke naskah. `cek` meloloskannya karena spasi dipadatkan.
+- Argumen atau bendera di luar bentuk perintah kini ditolak dengan kode keluar 1 dan bentuk perintahnya. Dulu ditelan diam-diam: `katalog "زاد" --mazhab hanbali` tidak tersaring, `cari 1679 "الماء" --kitab 2` mencari di 1679, `halaman 1679 - 8 9` mengabaikan 9.
+- `cari semua`: paling banyak 40 baris (4 tiap kitab), lalu ringkasan «N kitab cocok, M tempat» dan saran `cari <nomor>`. Dulu tanpa batas: «قال» di ±300 kitab = 1.492 baris, ±400.000 huruf.
+- `ambil` mencetak «mengunduh …» dan «menyiapkan indeks pencarian …» sebelum kerja lama; `siapkan` mencetak «katalog kitab: mengunduh …». Dulu diam sampai selesai (kitab besar: belasan detik).
+- Pesan yang lebih tepat: nomor yang tidak ada di katalog (`kartu`, `cari`, `teks`, `bab`, `halaman`) → «TIDAK ADA di katalog Shamela», dulu disuruh `ambil` yang lalu menolaknya. `ambil <jalur folder>` yang salah → pesan folder bahts, dulu «bukan nomor kitab». `baru ../x` atau jalur lengkap di luar repo → «harus di dalam folder repo ini», dulu «tanpa spasi»; jalur lengkap di dalam repo diterima. `temukan --halaman` yang melewati akhir menyebut halaman terakhir. Alamat `scan` tanpa «pdf//».
+
 - `@format: tatbiqi_mulakhas`: sama dengan `tatbiqi` (satu spasi), tetapi bagian `#K الملخص`/`ملخص البحث` dan `الملخص باللغة الأجنبية` 1,5 spasi, paragraf الملخص berjarak tanpa menjorok. Kunci profil baru: `spasi_mulakhas`.
 - `@format: tatbiqi_15`: sama dengan `tatbiqi`, tetapi matan dan judul 1,5 spasi (catatan kaki dan فهرس tetap satu spasi), dan paragraf di bawah `#K الملخص`/`#K ملخص البحث` berjarak 6 pt tanpa awal alinea menjorok. Profil baru di `format.json` bisa memakai `spasi` dan `mulakhas_berjarak`.
 - `#L **Abstract**` (satu baris `#L` diapit `**`): judul Latin tebal di tengah. Paragraf `#L` sesudahnya diberi jarak 6 pt antarparagraf, seperti contoh الملخص باللغة الأجنبية yang memakai judul «Abstract». Dulu `**` di `#L` tercetak apa adanya.

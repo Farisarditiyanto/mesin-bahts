@@ -21,7 +21,7 @@ Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
                                diunduh; --halaman 2: hasil ke-21 dan seterusnya
   ambil <id|folder> [...]      unduh kitab (sekali saja); nama folder bahts = semua kitab yang dirujuk naskahnya
   kartu <id>                   data cetak kitab (untuk rujukan pertama & daftar pustaka)
-  cari <id|semua> "<frasa>"    cari frasa -> juz/halaman cetak
+  cari <id|semua> "<frasa>"    cari frasa -> juz/halaman cetak; semua: paling banyak 40 baris, lalu jumlah kitab yang cocok
   teks <id> "<frasa>" [lebar] [maks]   teks asli di sekitar frasa, untuk disalin persis
   bab <id> "<frasa>"           rantai judul kitab/bab tempat frasa berada
   halaman <id> <juz> <hal>     isi satu halaman (juz "-" untuk kitab satu jilid); <hal> boleh rentang, mis. 10-14
@@ -205,7 +205,14 @@ def folder_bahts(nama):
 
 
 def baru(nama, judul):
-    nama = nama.removeprefix("./").removeprefix(".\\").replace("\\", "/").strip("/")
+    nama = nama.removeprefix("./").removeprefix(".\\").replace("\\", "/")
+    if Path(nama).is_absolute() or ".." in nama.split("/"):  # jalur lengkap atau naik folder: yang di dalam repo dipakai
+        jalur = (AKAR / nama).resolve()
+        if not jalur.is_relative_to(AKAR.resolve()):
+            sys.exit(f"Folder «{nama}» di luar folder mesin ({AKAR}): tiap bahts harus di dalam folder repo ini "
+                     f"(mis. ikhlas, atau bahts/ahmad/ikhlas untuk bahts banyak orang).")
+        nama = jalur.relative_to(AKAR.resolve()).as_posix()
+    nama = nama.strip("/")
     if not re.fullmatch(NAMA_FOLDER, nama) or nama.split("/")[0] in BUKAN_BAHTS:
         sys.exit(f"Nama folder «{nama}»: pakai huruf Latin, angka, - atau _ saja, tanpa spasi (mis. ikhlas, atau bahts/ahmad/ikhlas untuk bahts banyak orang).")
     if not judul.strip():
@@ -415,18 +422,20 @@ def ambil(nomor):
     """Unduh tiap kitab; satu yang gagal tidak membatalkan yang lain. Keluar dengan kode 1 kalau ada yang belum terunduh.
     Nama folder bahts = semua kitab yang dirujuk bukti naskahnya (yang sudah ada dilewati)."""
     import olah
-    sid = []
+    sid, bukan_folder = [], []
     for x in nomor:
         if not x.isdigit():
             try:
                 f = folder_bahts(x)
-            except SystemExit:  # bukan folder bahts: shamela.ambil yang menjelaskan kenapa bukan nomor kitab
-                sid.append(x); continue
+            except SystemExit as e:
+                if re.search(r"[/\\]", x):  # jalur folder yang salah: pesan folder, bukan «bukan nomor kitab»
+                    print(f"{x}: {e.code}"); bukan_folder.append(x); continue
+                sid.append(x); continue  # shamela.ambil yang menjelaskan kenapa bukan nomor kitab
             dirujuk = olah.kitab_dirujuk(f)
             print(f"{f.name}: {len(dirujuk)} kitab dirujuk naskahnya")
             sid += dirujuk; continue
         sid.append(x)
-    gagal = shamela.ambil(*dict.fromkeys(sid))
+    gagal = bukan_folder + shamela.ambil(*dict.fromkeys(sid))
     if gagal:
         sys.exit(f"Belum terunduh: {', '.join(gagal)} (lihat pesan di atas).")
 
@@ -486,26 +495,26 @@ def perintah_cek(a):
     sys.exit(1 if cek(folder, jejak="--jejak" in a)[1] else 0)
 
 
-PERINTAH = {  # nama: (jumlah argumen minimal, pemanggil)
-    "periksa": (0, lambda a: periksa()),
-    "siapkan": (0, lambda a: siapkan()),
-    "baru": (2, lambda a: baru(a[0], a[1])),
-    "cek": (0, perintah_cek),
-    "rakit": (1, lambda a: rakit(a[0])),
-    "tanda": (0, lambda a: print(tanda())),
-    "kitab": (0, lambda a: shamela.daftar()),
-    "katalog": (1, lambda a: ketemu(shamela.katalog(pola(a[0])))),
-    "temukan": (1, lambda a: ketemu(shamela.temukan(*bendera_temukan(a[0], a[1:])))),
-    "ambil": (1, lambda a: ambil(a)),
-    "kartu": (1, lambda a: shamela.kartu(a[0])),
-    "cari": (2, lambda a: ketemu(shamela.cari(a[0], a[1]))),
-    "teks": (2, lambda a: ketemu(shamela.teks(a[0], a[1], *(angka(x, apa) for x, apa in zip(a[2:4], ("lebar", "maks")))))),
-    "bab": (2, lambda a: ketemu(shamela.bab(a[0], a[1]))),
-    "halaman": (3, lambda a: ketemu(halaman(*a[:3]))),
-    "scan": (3, lambda a: ketemu(shamela.scan(*a[:3]))),
-    "hadits": (1, lambda a: ketemu(hadits.cari(a[0], *(angka(x, "maks") for x in a[1:2])))),
-    "dirasat": (1, lambda a: dirasat.cari(a[0], *(angka(x, "maks") for x in a[1:2]), *a[2:3])),
-    "dirasat-pdf": (2, lambda a: dirasat.pdf(a[0], folder_bahts(a[1]))),
+PERINTAH = {  # nama: (jumlah argumen minimal, maksimal (None = diperiksa pemanggilnya), pemanggil)
+    "periksa": (0, 0, lambda a: periksa()),
+    "siapkan": (0, 0, lambda a: siapkan()),
+    "baru": (2, 2, lambda a: baru(a[0], a[1])),
+    "cek": (0, None, perintah_cek),
+    "rakit": (1, 1, lambda a: rakit(a[0])),
+    "tanda": (0, 0, lambda a: print(tanda())),
+    "kitab": (0, 0, lambda a: shamela.daftar()),
+    "katalog": (1, 1, lambda a: ketemu(shamela.katalog(pola(a[0])))),
+    "temukan": (1, None, lambda a: ketemu(shamela.temukan(*bendera_temukan(a[0], a[1:])))),
+    "ambil": (1, None, lambda a: ambil(a)),
+    "kartu": (1, 1, lambda a: shamela.kartu(a[0])),
+    "cari": (2, 2, lambda a: ketemu(shamela.cari(a[0], a[1]))),
+    "teks": (2, 4, lambda a: ketemu(shamela.teks(a[0], a[1], *(angka(x, apa) for x, apa in zip(a[2:], ("lebar", "maks")))))),
+    "bab": (2, 2, lambda a: ketemu(shamela.bab(a[0], a[1]))),
+    "halaman": (3, 3, lambda a: ketemu(halaman(*a))),
+    "scan": (3, 3, lambda a: ketemu(shamela.scan(*a))),
+    "hadits": (1, 2, lambda a: ketemu(hadits.cari(a[0], *(angka(x, "maks") for x in a[1:])))),
+    "dirasat": (1, 3, lambda a: dirasat.cari(a[0], *(angka(x, "maks") for x in a[1:2]), *a[2:])),
+    "dirasat-pdf": (2, 2, lambda a: dirasat.pdf(a[0], folder_bahts(a[1]))),
 }
 
 
@@ -528,10 +537,17 @@ if __name__ == "__main__":
     # cukup baris bantuan perintah itu, berikut baris lanjutannya yang menjorok
     bantu = re.search(rf"^  {re.escape(cmd)}\s.*(?:\n {{20,}}\S.*)*", __doc__, re.M)
     bentuk = bantu.group(0) if bantu else cmd
-    if len(a) < PERINTAH[cmd][0]:
+    paling_sedikit, paling_banyak, jalankan = PERINTAH[cmd]
+    if len(a) < paling_sedikit:
         sys.exit(f"Perintah «{cmd}» kurang argumen. Bentuknya:\n{bentuk}")
+    if paling_banyak is not None and len(a) > paling_banyak:
+        # dulu ditelan diam-diam: `katalog "زاد" --mazhab hanbali` tidak tersaring, `halaman 1679 - 8 9` mengabaikan 9
+        bendera = [x for x in a if x.startswith("--")]
+        sys.exit(f"Argumen perintah «{cmd}» tidak dikenal atau berlebih: {a[paling_banyak:]}"
+                 + (f" (perintah «{cmd}» tidak punya bendera {', '.join(bendera)})" if bendera else "")
+                 + f"\nBentuknya:\n{bentuk}")
     try:
-        PERINTAH[cmd][1](a)
+        jalankan(a)
     except urllib.error.HTTPError as e:
         if not 400 <= e.code < 500 or e.code == 429:
             sys.exit(f"Perintah '{cmd}': layanannya sedang menolak atau sibuk (HTTP {e.code}). Ulangi sebentar lagi.")

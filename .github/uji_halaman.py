@@ -44,7 +44,7 @@ def halaman_lama(sid, juz, hal, rekaman):
         bagian = [b for h, b in pot if h == hal]
         if bagian:
             ada = True
-            print(TAGS.sub("", "".join(bagian)))
+            print(shamela.baris(TAGS.sub("", "".join(bagian))))  # «\r» Shamela jadi baris baru: cara cetak, bukan cara baca
             fn = _potong(p, "footnotes")
             if len(fn) > 1:
                 isi, catat = "".join(b for h, b in fn if h == hal), ""
@@ -53,7 +53,7 @@ def halaman_lama(sid, juz, hal, rekaman):
                 isi = fn[0][1]
                 catat = f" (حاشية rekaman ص{a}-{z}; halaman tiap catatan tidak tercatat)" if z != a else ""
             if isi.strip():
-                print("ـــــ" + catat + "\n" + TAGS.sub("", isi))
+                print("ـــــ" + catat + "\n" + shamela.baris(TAGS.sub("", isi)))
     if not ada:
         print(f"[{sid}] TIDAK ADA halaman {juz}/{hal}. Yang ada: "
               + "، ".join(f"juz {j} ص{a}-{z}" for j, (a, z) in rentang.items()) + " (juz \"-\" = kitab satu jilid)")
