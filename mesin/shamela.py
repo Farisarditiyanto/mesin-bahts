@@ -368,8 +368,10 @@ def daftar():
 
 
 def kartu(sid):
-    """Data cetak kitab (pengarang, muhaqqiq, penerbit, cetakan) untuk rujukan pertama dan daftar pustaka."""
-    print(info(sid)["betaka_text"].replace("\r", "\n"))
+    """Data cetak kitab (pengarang, muhaqqiq, penerbit, cetakan) untuk rujukan pertama dan daftar pustaka, lalu satu
+    baris bentuk bukti <<…>> kitab itu (contoh_bukti)."""
+    print(info(sid)["betaka_text"].replace("\r", "\n").rstrip("\n"))
+    print(contoh_bukti(sid))
 
 
 def ambil(*sid):
@@ -1062,11 +1064,37 @@ def halaman(sid, juz, hal):
             if isi.strip():
                 print("ـــــ" + catat + "\n" + baris(TAGS.sub("", isi)))
     if not ada:
-        rentang = {}  # juz -> [halaman terkecil, terbesar], dari indeks (rekaman tanpa nomor halaman dilewati)
-        for (j, _, z, _), a in zip(ix, awal):
-            if a is not None:
-                r = rentang.setdefault("-" if j is None else j, [a, z])
-                r[0], r[1] = min(r[0], a), max(r[1], z)
-        print(f"[{sid}] TIDAK ADA halaman {juz}/{hal}. Yang ada: "
-              + "، ".join(f"juz {j} ص{a}-{z}" for j, (a, z) in rentang.items()) + " (juz \"-\" = kitab satu jilid)")
+        print(f"[{sid}] TIDAK ADA halaman {juz}/{hal}. Yang ada: {daftar_juz(sid)} (juz \"-\" = kitab satu jilid)")
     return ada
+
+
+def rentang_juz(sid):
+    """{juz: [halaman terkecil, terbesar]} menurut rekaman kitab (urut kemunculan; juz None = "-"), dari indeks;
+    rekaman tanpa nomor halaman dilewati."""
+    ix, awal = _indeks(sid)
+    rentang = {}
+    for (j, _, z, _), a in zip(ix, awal):
+        if a is not None:
+            r = rentang.setdefault("-" if j is None else j, [a, z])
+            r[0], r[1] = min(r[0], a), max(r[1], z)
+    return rentang
+
+
+def daftar_juz(sid):
+    """«juz 1 ص1-538، juz 2 ص539-856»: juz yang dipakai rekaman kitab sid beserta rentang halamannya."""
+    return "، ".join(f"juz {j} ص{a}-{z}" for j, (a, z) in rentang_juz(sid).items())
+
+
+def contoh_bukti(sid):
+    """Satu baris bukti siap pakai menurut juz yang dipakai rekaman kitab, bukan «عدد الأجزاء» data cetak: kitab dua
+    jilid yang halamannya bersambung («متسلسلة الترقيم») tetap ditulis dengan juz-nya; "-" hanya untuk kitab tanpa juz."""
+    rentang = rentang_juz(sid)
+    if list(rentang) == ["-"]:
+        a, z = rentang["-"]
+        return f"bukti: <<{sid}|-|<hal>>> (kitab satu jilid: juz \"-\"; halaman {a}-{z})"
+    if not rentang:  # tanpa nomor halaman cetak sama sekali
+        return f"bukti: <<{sid}|<juz>|<hal>>> (rekaman kitab ini tanpa nomor halaman; lihat `halaman {sid} <juz> <hal>`)"
+    # juz berangka dulu; kitab yang bagiannya hanya bernama (المقدمة + الكتاب): bagian terpanjang, bukan مقدمة المحقق
+    j = next((j for j in rentang if str(j).isdigit()), None) or max(rentang, key=lambda j: rentang[j][1] - rentang[j][0])
+    a = rentang[j][0]
+    return f"bukti: <<{sid}|<juz>|<hal>>>, mis. <<{sid}|{j}|{a}>>; yang ada: {daftar_juz(sid)}"

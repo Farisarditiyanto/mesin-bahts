@@ -13,7 +13,7 @@ def utama():
     with tempfile.TemporaryDirectory(prefix="bahts-struktur-") as t:
         akar = Path(t)
         shutil.copytree(AKAR / "mesin", akar / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__", "*.ttf"))
-        for sid in ("_meta", "11223", "1681", "2348"):
+        for sid in ("_meta", "11223", "1681", "2348", "1726", "1082"):
             shutil.copytree(AKAR / "kitab" / sid, akar / "kitab" / sid)
         f = akar / "uji"
         f.mkdir()
@@ -134,6 +134,21 @@ def utama():
             cek("kepala hadits Bukhari " + str(halaman), sisip(
                 f"هذا موضع الحديث[^أخرجه البخاري، رقم الحديث (856)، 1/{halaman}. <<1681|1|{halaman}|#856>>]."), gagal)
         cek("lanjutan hadits tetap sah", sisip("هذا موضع الحديث[^رياض الصالحين، النووي، ص10. <<2348|-|10|#2>>]."))
+        # takhrij beberapa bukti: kutipan dicek ke tiap bukti tanpa potongan. Bukti kitab lain yang tidak memuatnya tetap
+        # GAGAL, tetapi pesannya menunjuk bukti yang memuatnya dan bentuk berpotongan untuk bukti derajat/takhrij lain
+        takhrij = ('قال: «نهى رسول الله ﷺ عن بيع العربان»[^أخرجه أبو داود، كتاب البيوع، باب في العربان، رقم الحديث (3502)، '
+                   '3/283، وهو حديث ضعيف، وانظر: سبل السلام، 5/41. <<1726|3|283>> <<1082|5|41{}>>].')
+        cek("bukti derajat tanpa potongan", sisip(takhrij.format("")), True,
+            "kutipan sebelum catatan kaki ada di <<1726|3|283>>, tetapi tidak di <<1082|5|41>>")
+        out = cek("bukti derajat tanpa potongan: bentuk yang ditunjuk", sisip(takhrij.format("|واختلف الفقهاء في جواز هذا البيع")))
+        assert "| GAGAL: 0" in out, out
+        # lafaz riwayat lain («teks berbeda», bukan «TIDAK KETEMU»), kutipannya terbukti di bukti berpotongan #nomor
+        cek("riwayat berlafaz lain sesudah bukti #nomor", sisip(
+            'قال ﷺ: «فمن كانت هجرته إلى دنيا يصيبها، أو إلى امرأة ينكحها، فهجرته إلى ما هاجر إليه»[^أخرجه البخاري، '
+            'رقم الحديث (1)، 1/6، وأبو داود، رقم الحديث (2201)، 2/262. <<1681|1|6|#1>> <<1726|2|262>>].'), True,
+            "kutipan sebelum catatan kaki ada di <<1681|1|6>>, tetapi tidak di <<1726|2|262>> (teks berbeda")
+        cek("kutipan palsu tetap GAGAL walau dua bukti", sisip(takhrij.replace("العربان»", "الكلب»").format("")), True,
+            "teks berbeda dengan kitab 1726")
 
         for akhir in (",", ";", ":", "]", "…", "）", "\u200f,\u200f", ". اهـ,", " انتهى كلامه؛"):
             cek("kutipan palsu dengan tanda baca " + repr(akhir), sisip(
