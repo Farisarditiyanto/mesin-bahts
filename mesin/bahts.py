@@ -273,7 +273,9 @@ def cek(nama, keluar=None, jejak=False, ringkas=False):
     jalur = nama.rstrip("/\\") or nama  # «"folder\"»: garis miring menelan tanda petik penutupnya
     if ringkas and not galat:
         n = sum(b.startswith("  ! ") for b in lap)
-        print(f"cek: GAGAL 0, perhatian {n} (rinciannya: laporan.txt sesudah rakit jadi, atau "
+        # baris jumlah «catatan kaki tanpa bukti …: N» dari laporan itu sendiri, hanya kalau N > 0
+        fn = "".join(f"; {b}" for b in lap if b.startswith("catatan kaki tanpa bukti") and not b.endswith(": 0"))
+        print(f"cek: GAGAL 0, perhatian {n}{fn} (rinciannya: laporan.txt sesudah rakit jadi, atau "
               + perintah(f'cek "{jalur}"') + ")")
         return f, galat, lap
     print("\n".join(lap))

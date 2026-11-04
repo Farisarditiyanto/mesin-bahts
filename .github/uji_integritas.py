@@ -397,7 +397,8 @@ def utama():
             folder = akar / "a" / "ringkas"
             naskah(folder)
             luar = 'قال الباحث: "القدر من أعظم أبواب الاعتقاد"[^بحث وهمي، ص5. <<luar>>].\n'  # lolos + satu perhatian
-            with open(folder / "naskah.txt", "a", encoding="utf8") as h: h.write(luar)
+            tanpa = "وهذا معنى التوحيد[^انظر: كتاب التوحيد، ص٣.].\n"  # lolos + catatan kaki tanpa bukti
+            with open(folder / "naskah.txt", "a", encoding="utf8") as h: h.write(luar + tanpa)
             r = subprocess.run([sys.executable, str(runner), str(akar), "a/ringkas", "ok", "-"],
                                cwd=akar, capture_output=True, encoding="utf8")
             assert r.returncode == 0, r.stdout + r.stderr
@@ -405,7 +406,9 @@ def utama():
             rinci = [b for b in lap.splitlines() if b.startswith("  ! ")]
             # cek lolos: laporan.txt tetap lengkap, layar rakit hanya satu baris cek lalu hasil rakit
             assert rinci and "GAGAL: 0" in lap, lap
-            assert f"cek: GAGAL 0, perhatian {len(rinci)} " in r.stdout and not any(b in r.stdout for b in rinci), r.stdout
+            assert f"cek: GAGAL 0, perhatian {len(rinci)}" in r.stdout and not any(b in r.stdout for b in rinci), r.stdout
+            fn = [b for b in lap.splitlines() if b.startswith("catatan kaki tanpa bukti")]  # jumlahnya tetap di layar
+            assert fn and not fn[0].endswith(": 0") and fn[0] in r.stdout, (fn, r.stdout)
             assert "HALAMAN=1" in r.stdout and "Jadi:" in r.stdout, r.stdout
             # cek GAGAL: rinciannya tetap tercetak lengkap (agent perlu baris ✗-nya)
             with open(folder / "naskah.txt", "a", encoding="utf8") as h:
