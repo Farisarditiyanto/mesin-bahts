@@ -463,6 +463,11 @@ def _rakit_di(nama, f, kerja):
         teks_pdf.betulkan(kerja / f"{berkas}.pdf")
     except Exception as e:
         print(f"PERINGATAN: PDF jadi, tetapi teks Arabnya belum dibetulkan (salin/cari bisa terbalik): {type(e).__name__}: {e}")
+    try:  # sampul, nomor halaman, dan pengantar «:» yang terpisah dari isinya; hasil tetap terbit
+        for p in teks_pdf.periksa(kerja / f"{berkas}.pdf", d):
+            print(f"PERINGATAN: {p}")
+    except Exception as e:
+        print(f"PERINGATAN: PDF jadi, tetapi belum diperiksa (sampul, nomor halaman): {type(e).__name__}: {e}")
     with zipfile.ZipFile(kerja / f"{berkas}.docx") as z:
         if z.testzip() or not {"[Content_Types].xml", "word/document.xml"} <= set(z.namelist()):
             raise RuntimeError("Word menghasilkan DOCX yang tidak utuh; hasil lama belum diganti.")
