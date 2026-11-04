@@ -33,6 +33,16 @@
     "judul": 16,
     "catatan_ulang_tiap_halaman": true
   },
+  "tatbiqi_15": {
+    "_sumber": "sama dengan «tatbiqi», kecuali matan 1,5 spasi dan paragraf الملخص berjarak tanpa awal alinea menjorok (contoh البحث التطبيقي mahasiswa lain di معهد العلوم الإسلامية والعربية)",
+    "huruf": "Traditional Arabic",
+    "matan": 14,
+    "catatan": 12,
+    "judul": 16,
+    "catatan_ulang_tiap_halaman": true,
+    "spasi": 1.5,
+    "mulakhas_berjarak": true
+  },
   "dalil": {
     "_sumber": "دليل إعداد وكتابة الرسائل العلمية (ماجستير/دكتوراه) بجامعة الإمام، الطبعة الثانية — hanya huruf dan ukurannya; gaya rujukan tetap catatan kaki",
     "huruf": "Sakkal Majalla",
