@@ -189,6 +189,32 @@ def nomor_judul(judul):
     return semua.get(q, []), [s for j, ss in semua.items() if j != q and j.startswith(q) for s in ss]
 
 
+def judul_pokok(judul):
+    """Judul katalog tanpa keterangan edisi sesudah « - » («صحيح مسلم - ت عبد الباقي»), dipecah di « = » (judul lain:
+    «تفسير السعدي = تيسير الكريم الرحمن»)."""
+    return [b for b in re.split(r"\s+=\s+", re.split(r"\s+-\s+", judul or "")[0].strip()) if b]
+
+
+@functools.cache
+def _judul_pokok_padat():
+    """{judul_pokok `padat`: {nomor kitab}}: «صحيح مسلم» = semua edisinya."""
+    try:
+        daftar = _meta()
+    except SystemExit:
+        return {}
+    out = {}
+    for r in daftar:
+        for b in judul_pokok(r["title_ar"]):
+            out.setdefault(padat(b), set()).add(int(r["shamela_id"]))
+    return out
+
+
+def nomor_judul_pokok(judul):
+    """Nomor kitab yang salah satu judul_pokok-nya persis `judul` («صحيح البخاري», «تيسير الكريم الرحمن»)."""
+    q = padat(judul)
+    return sorted(_judul_pokok_padat().get(q, ())) if len(q) >= 6 else []
+
+
 TURATH = "https://api.turath.io/search"  # pencarian isi seluruh Shamela; nomor kitabnya = shamela_id (sama dengan `ambil`)
 TURATH_MAKS = 20  # turath menjawab sebanyak ini tiap pencarian
 TURATH_SABAR = 30  # detik; turath minta menunggu lebih lama dari ini = jatah pencarian habis, bukan sekadar terlalu cepat

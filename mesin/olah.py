@@ -1237,6 +1237,109 @@ def periksa_takhrij(isi, bukti, terbukti, kutipan, perhatian):
                 perhatian.append(f"{pesan}  || fn: {isi[:45]}")
 
 
+# mukharrij yang namanya ditulis sesudah «أخرجه/رواه»: bentuk-bentuk tulisannya (i'rab, ejaan). Kitab bukti yang judul
+# atau pengarangnya memuat salah satu bentuk itu = kitab mukharrij itu, syarahnya, atau takhrij/ringkasannya
+MUKHARRIJ = (("البخاري",), ("مسلم",), ("أبو داود", "أبي داود", "أبا داود"), ("الترمذي",), ("النسائي",),
+             ("ابن ماجه", "ابن ماجة"), ("أحمد",), ("مالك",), ("الدارمي",), ("ابن حبان",), ("الحاكم",), ("البيهقي",),
+             ("الطبراني",), ("ابن خزيمة",), ("الدارقطني",), ("ابن أبي شيبة",), ("عبد الرزاق",))
+TAKHRIJ_OLEH = re.compile(r"(?<!\w)(?:أخرج|خرج|رو[ىا])(?:ه|ها|هما|اه)?\s+(?:الإمام\s+|الحافظ\s+)?("
+                          + "|".join(re.escape(b) for bb in MUKHARRIJ for b in sorted(bb, key=len, reverse=True)) + r")(?!\w)")
+
+
+def _nama_kitab(m):
+    """Bentuk `padat` yang menandai kitab bukti (metadata m) disebut di catatan kaki: dua kata awal tiap judulnya (judul
+    katalog bisa «تفسير السعدي = تيسير الكريم الرحمن»; pengarang yang ditempel di judul dibuang), nama pengarang
+    utuh, dan kata terakhirnya (nisbah: «أبو إسحاق الشاطبي» ditulis «الشاطبي»). Judul satu kata = kata itu."""
+    nama = []
+    for judul in shamela.judul_pokok(m["title_ar"]):
+        kata = judul.split()
+        kata = kata[:next((i for i, w in enumerate(kata) if i and PENGARANG_SESUDAH.match(w)), len(kata))]
+        nama.append(" ".join(kata[:2]))
+    for p in (m.get("main_author_name_ar") or "").split("،"):
+        nama += [p, p.split()[-1]] if p.split() else []
+    return {x for x in map(shamela.padat, nama) if len(x) >= 3}
+
+
+SYARAH = re.compile(r"شرح|حاشي|تعليق|(?<!\w)على(?!\w)")  # judul kitab bukti yang memuat matan kitab lain
+
+
+def kitab_lain(isi, sid_bukti):
+    """Catatan kaki yang hanya menyebut kitab lain: (galat, perhatian). Yang dikenali: judul katalog kitab lain di tempat
+    judul («مجموع الفتاوى، ابن تيمية» untuk bukti رسالة في القضاء والقدر) dan mukharrij lain sesudah «أخرجه/رواه»
+    («أخرجه البخاري» untuk bukti صحيح مسلم), sementara judul dan pengarang kitab bukti tidak disebut sama sekali.
+    Tidak ditandai: rujukan ringkas tanpa judul («المرجع السابق»), perantara yang disebut («رواه البخاري، انظر: رياض
+    الصالحين»), dan matan yang namanya termuat di judul syarah/hasyiah buktinya («فتح الباري بشرح البخاري» memuat
+    «البخاري», «الشرح الممتع على زاد المستقنع» memuat «زاد المستقنع»). Judul lain dengan bukti syarah/hasyiah yang tidak
+    memuatnya («صحيح البخاري» untuk bukti فتح الباري) = perhatian: matan bisa dikutip dari syarahnya."""
+    data = [shamela.info(int(s)) for s in dict.fromkeys(sid_bukti)]
+    pi = shamela.padat(isi)
+    if not data or any(x in pi for m in data for x in _nama_kitab(m)):
+        return None, None
+    milik = shamela.padat(" ".join(m["title_ar"] + " " + (m.get("main_author_name_ar") or "") for m in data))
+    lain = []
+    for g in TAKHRIJ_OLEH.findall(isi):
+        bentuk = next(bb for bb in MUKHARRIJ if g in bb)
+        if not any(shamela.padat(b) in milik for b in bentuk):
+            lain.append(f"«{g}»")
+    # judul hanya dicari di tempat judul (bagian pertama catatan kaki), dua kata atau lebih, utuh atau disusul pengarang:
+    # bagian lain bisa «كتاب الإيمان» (nama bab) yang kebetulan juga judul kitab
+    awal = next((b for b in PEMISAH_RUJUKAN.split(AWALAN_RUJUKAN.sub("", isi.strip())) if b.strip()), "").split()
+    ragu = False
+    for n in range(len(awal), 1, -1):
+        judul = " ".join(awal[:n])
+        nomor = shamela.nomor_judul_pokok(judul) if n == len(awal) or PENGARANG_SESUDAH.match(awal[n]) else []
+        if nomor:
+            if not set(nomor) & {int(s) for s in sid_bukti} and shamela.padat(" ".join(awal[:2])) not in milik:
+                lain.append(f"«{judul}»")
+                ragu = any(SYARAH.search(m["title_ar"]) for m in data)
+            break
+    if not lain:
+        return None, None
+    pesan = (f"catatan kaki menyebut {' dan '.join(dict.fromkeys(lain))}, tetapi buktinya kitab lain "
+             f"({'، '.join(m['title_ar'] for m in data)}) yang judul dan pengarangnya tidak disebut: tulis kitab yang "
+             f"benar-benar dibaca, atau sebut perantaranya («…، انظر: <judul>»)")
+    return (None, pesan) if ragu and len(lain) == 1 else (pesan, None)
+
+
+BUKAN_NAMA_RAWI = frozenset(map(shamela.padat, "بن ابن بنت أبو أبي أبا أم عبد الله الرحمن رضي عنه عنها عنهما عنهم".split()))
+TARAF_KATA = 3  # huruf `padat` paling sedikit kata طرف yang dihitung («لا», «من» ada di mana-mana)
+TARAF_SEPARUH = 0.5  # bagian kata طرف yang harus terbaca; kurang dari ini = GAGAL (hadits lain)
+
+
+def hadits_janggal(h, terbukti, sekitar):
+    """{H:طرف|راوٍ|kunci} dicocokkan ke teks naskah sejak catatan kaki sebelumnya (`sekitar`: kutipan hadits dan
+    pengantarnya) dan halaman bukti catatan kaki berikutnya (dari MUNDUR_KEPALA halaman sebelumnya, karena awal hadits bisa
+    di halaman sebelum lafaz yang dinukil, sampai satu halaman sesudahnya): (galat, perhatian). طرف boleh gabungan potongan hadits («كخ كخ، أما شعرت…»),
+    jadi yang dihitung katanya: semua terbaca = cocok; kurang dari TARAF_SEPARUH = GAGAL (فهرس الأحاديث mencetak hadits
+    lain); di antaranya = perhatian. Rawi dicari menurut namanya yang khas («أبو هريرة» → «هريرة»); «ابن مسعود» dan
+    «عبد الله بن عمر» juga cocok dengan «عبد الله» (kitab hadits menyebut العبادلة begitu). Tidak terbaca = perhatian."""
+    # sanad dan lafaz hadits bisa berlanjut ke halaman sesudah halaman bukti (Muslim 2/943: «سمع جابر» di 944)
+    teks = " ".join(r.get(b) or "" for s, z, a, b_ in terbukti
+                    for r in rekaman(int(s), z, max(1, a - MUNDUR_KEPALA), b_ + 1) for b in ("body", "footnotes"))
+    kata = lambda t: [shamela.padat(w) for w in shamela.norm(t).split()]  # norm: «عز وجل»/«﷿» dibuang di kedua sisi
+    lepas = lambda ww: ww | {w[1:] for w in ww if w[:1] in shamela.SAMBUNG}  # «وإني» di kitab = «إني» di طرف
+    di_kitab = lepas(set(kata(teks)))
+    ada = di_kitab | lepas(set(kata(sekitar)))
+    terbaca = lambda w, ada: w in ada or w[:1] in shamela.SAMBUNG and w[1:] in ada
+    taraf = [w for w in dict.fromkeys(kata(h["t"])) if len(w) >= TARAF_KATA]
+    hilang = [w for w in taraf if not terbaca(w, ada)]
+    galat = perhatian = None
+    if taraf and hilang:
+        pesan = f"طرف {{H:{h['t'][:30]}|…}}: {len(hilang)} dari {len(taraf)} katanya tidak terbaca di kutipan maupun di halaman bukti catatan kakinya"
+        if len(hilang) > len(taraf) * (1 - TARAF_SEPARUH):
+            galat = f"{pesan}: فهرس الأحاديث akan mencetak hadits lain; salin طرف dari awal lafaz hadits yang dikutip"
+        else:
+            perhatian = f"{pesan}: pastikan طرف memang lafaz hadits ini"
+    rawi = kata(h["r"])
+    khas = [w for w in rawi if w and w not in BUKAN_NAMA_RAWI]
+    abadilah = rawi[:1] == kata("ابن") or rawi[:2] == kata("عبد الله")
+    if (not galat and terbukti and khas and not any(terbaca(w, di_kitab) for w in khas)
+            and not (abadilah and shamela.padat("عبد الله") in shamela.padat(teks))):
+        perhatian = perhatian or (f"rawi «{h['r']}» di {{H:…|{h['r']}|…}} tidak terbaca di halaman bukti catatan kakinya: "
+                                  f"pastikan sahabat yang meriwayatkan hadits itu")
+    return galat, perhatian
+
+
 def ragu_kutipan(rr, awal, pot, periksa_angka=True, dulu=lambda: None):
     """Yang tidak diperiksa pencocokan huruf: angka di kutipan (kalau belum dicocokkan di tempatnya oleh susunan_kitab),
     dan kata nafi tepat sebelum kutipan di matan kitab, juga di akhir halaman sebelumnya (dulu() = rekaman sebelum rr)."""
@@ -1780,6 +1883,9 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             # dengan kutipan {H:…|k} di catatan kaki pertamanya
             for h in hadits_idx[seg_h:]:
                 h.setdefault("kutipan", mk); h.setdefault("bukti", list(terbukti))
+                g, p = hadits_janggal(h, terbukti, penggal)
+                galat += [f"{g}  || fn: {isi[:45]}"] if g else []
+                perhatian += [f"{p}  || fn: {isi[:45]}"] if p else []
             seg_h = len(hadits_idx)
             p_kunci = re.findall(r"\{P:([a-z]+)\}", isi)
             dulu_h = [h for h in hadits_idx if h["k"] in {"h_" + k for k in p_kunci}]
@@ -1812,6 +1918,9 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                                  f"sumber yang tidak ada di Shamela (jurnal, PDF penelitian): tulis <<{LUAR}>>  || fn: {isi[:45]}")
             if not diam:
                 galat += cocok_halaman(isi, terbukti, perhatian)
+                g, p = kitab_lain(isi, [b[0] for b in terbukti]) if "سبق تخريجه" not in isi else (None, None)
+                galat += [f"{g}  || fn: {isi[:45]}"] if g else []
+                perhatian += [f"{p}  || fn: {isi[:45]}"] if p else []
             sub = urai(isi, None, ayat_idx, hadits_idx, galat, perhatian, di_catatan=True)
             runs += [{"z": z} for z in zz]
             catatan.append({"runs": sub, "bukti": len(bukti), "luar": luar, "pdf": len(pdf)})
