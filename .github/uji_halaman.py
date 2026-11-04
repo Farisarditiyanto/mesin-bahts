@@ -5,29 +5,42 @@ halaman yang tidak ada, angka Arab, dan juz "-". Kitab buatan menambah penanda �
 halaman, juz bernama, dan حاشية bertanda halaman. Di Linux/macOS berkas yang ditulis mesin harus terbaca seperti
 berkas biasa (umask), bukan 0600 bawaan mkstemp. `cari`, `teks`, dan `bab` hanya mengurai rekaman yang memuat frasa:
 hasilnya harus sama dengan mengurai seluruh kitab."""
-import contextlib, gzip, io, json, os, random, shutil, stat, sys, tempfile
+import contextlib, gzip, io, json, os, random, re, shutil, stat, sys, tempfile
 from pathlib import Path
 
 AKAR = Path(__file__).resolve().parent.parent
+SAMPEL = 10  # kitab lokal di luar kitab CI yang ikut dibandingkan pada mode sampel
 sys.path.insert(0, str(AKAR / "mesin"))
 import shamela
 from shamela import TAGS, _juz, _potong
 sys.stdout.reconfigure(encoding="utf-8")
 
 
-def halaman_lama(sid, juz, hal, semua):
-    """Pembanding: `halaman` sebelum memakai indeks (membaca tiap rekaman kitab; `semua` = rekamannya, dibaca sekali)."""
-    ada, rentang = False, {}
-    angka = lambda x: int(x) if str(x).isdigit() else x
-    juz, hal = angka(juz), angka(hal)
+def angka(x):
+    return int(x) if str(x).isdigit() else x
+
+
+def urai(semua):
+    """Tiap rekaman diurai sekali untuk semua panggilan `halaman_lama` di kitab itu: (rekaman, juz, juz angka, potongan,
+    nomor halamannya). Hasilnya sama dengan mengurai ulang di tiap panggilan; dulu itu memakan sebagian besar waktu uji."""
+    out = []
     for p in semua:
-        hh = [h for h, _ in _potong(p) if h is not None]
+        pot = _potong(p)
+        out.append((p, _juz(p), angka(_juz(p)), pot, [h for h, _ in pot if h is not None]))
+    return out
+
+
+def halaman_lama(sid, juz, hal, rekaman):
+    """Pembanding: `halaman` sebelum memakai indeks (membaca tiap rekaman kitab; `rekaman` = hasil `urai`, dibaca sekali)."""
+    ada, rentang = False, {}
+    juz, hal = angka(juz), angka(hal)
+    for p, jz, jz_angka, pot, hh in rekaman:
         if hh:
-            r = rentang.setdefault(_juz(p), [min(hh), max(hh)])
+            r = rentang.setdefault(jz, [min(hh), max(hh)])
             r[0], r[1] = min(r[0], *hh), max(r[1], *hh)
-        if angka(_juz(p)) != juz:
+        if jz_angka != juz:
             continue
-        bagian = [b for h, b in _potong(p) if h == hal]
+        bagian = [b for h, b in pot if h == hal]
         if bagian:
             ada = True
             print(TAGS.sub("", "".join(bagian)))
@@ -35,7 +48,7 @@ def halaman_lama(sid, juz, hal, semua):
             if len(fn) > 1:
                 isi, catat = "".join(b for h, b in fn if h == hal), ""
             else:
-                a, z = p.get("page_num"), _potong(p)[-1][0]
+                a, z = p.get("page_num"), pot[-1][0]
                 isi = fn[0][1]
                 catat = f" (حاشية rekaman ص{a}-{z}; halaman tiap catatan tidak tercatat)" if z != a else ""
             if isi.strip():
@@ -55,7 +68,7 @@ def keluaran(f, *a):
 
 def bandingkan(sid, tambahan=(), contoh=60):
     ix = shamela.indeks(sid)
-    semua = list(shamela.norma.rekaman(shamela._folder(sid) / "pages.jsonl.gz"))
+    semua = urai(shamela.norma.rekaman(shamela._folder(sid) / "pages.jsonl.gz"))
     juz = sorted({"-" if j is None else str(j) for j, *_ in ix})
     juz = juz[:2] + juz[-2:] + ["-", "٠١", "x"]  # kitab berjilid banyak: cukup juz awal dan akhir
     hal = sorted({h for _, p1, p2, _ in ix for h in (p1, p2) if h is not None})
@@ -117,9 +130,29 @@ def kitab_buatan(root):
     (d / "book_metadata.json").write_text("{}", encoding="utf8")
 
 
+def kitab_diuji():
+    """Kitab yang dibandingkan. Bawaan (CI): semua kitab yang sudah diunduh. `UJI_HALAMAN=sampel` (dipasang `uji_semua`
+    kalau kode yang diuji di sini tidak berubah): kitab `ambil` di tes.yml + SAMPEL kitab lain acak, benihnya dicetak
+    supaya kegagalan bisa diulang dengan `UJI_HALAMAN_BENIH`."""
+    semua = shamela.punya()
+    if os.environ.get("UJI_HALAMAN") != "sampel":
+        return semua
+    yml = (AKAR / ".github" / "workflows" / "tes.yml").read_text(encoding="utf8")
+    ci = {int(x) for m in re.finditer(r"bahts\.py ambil ([\d ]+)", yml) for x in m.group(1).split()}
+    if not ci or not ci <= set(semua):  # baris `ambil` tes.yml tidak terbaca atau kitab CI belum diunduh: jangan menyusut diam-diam
+        print("halaman: kitab CI di tes.yml tidak lengkap di komputer ini; semua kitab dibandingkan")
+        return semua
+    benih = int(os.environ.get("UJI_HALAMAN_BENIH") or random.SystemRandom().randrange(10 ** 6))
+    lain = [s for s in semua if s not in ci]
+    pilih = sorted({s for s in semua if s in ci} | set(random.Random(benih).sample(lain, min(SAMPEL, len(lain)))))
+    print(f"halaman: sampel {len(pilih)} dari {len(semua)} kitab (UJI_HALAMAN_BENIH={benih}); "
+          f"semua kitab: tanpa UJI_HALAMAN atau `uji_semua.py --penuh`")
+    return pilih
+
+
 def utama():
     random.seed(3)
-    n = sum(bandingkan(sid, contoh=12) + bandingkan_cari(sid) for sid in shamela.punya())
+    n = sum(bandingkan(sid, contoh=12) + bandingkan_cari(sid) for sid in kitab_diuji())
     asli = shamela.ROOT
     with tempfile.TemporaryDirectory() as tmp:
         shamela.ROOT = Path(tmp)
