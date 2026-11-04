@@ -1277,8 +1277,8 @@ def tercetak(isi, juz):
     """Rentang halaman yang tercetak di catatan kaki untuk juz ini: [(awal, akhir)]. Angka ٠-٩ dibaca seperti 0-9.
     «ص» harus berdiri sebagai kata («النص 5» bukan halaman), boleh disambung و/ف («وص6»). Rentang boleh «-» atau «–»;
     «ص5، 7», «ص5 و7», «1/5، 7» = halaman 5 dan 7 (angka sesudah koma atau و yang bukan tahun atau juz/halaman).
-    Halaman bahts sendiri («ص3 من هذا البحث») bukan halaman kitab."""
-    isi = re.sub(r"\d+(?:\s*(?:[-–]|[،,]\s*و?|\s+و)\s*\d+)*\s*(?=من\s+هذا\s+البحث)", " ", isi.translate(ANGKA_LATIN))
+    Halaman bahts sendiri («ص3 من هذا البحث», «ص3 من البحث») bukan halaman kitab."""
+    isi = re.sub(r"\d+(?:\s*(?:[-–]|[،,]\s*و?|\s+و)\s*\d+)*\s*(?=من\s+(?:هذا\s+)?البحث)", " ", isi.translate(ANGKA_LATIN))
     rentang = r"\d+(?:\s*[-–]\s*\d+)?"
     tahun = r"(?:1[34]|19|20)\d\d(?!\d|\s*[-–])"  # «ص5، 1423»: tahun cetak tanpa هـ, bukan halaman kedua
     daftar = rf"(?:\s*(?:[،,]\s*و?|\s+و)\s*(?!{tahun}){rentang}(?![\d/]|\s*/|\s*(?:هـ|ه(?!\w)|م(?!\w))))*"
@@ -1295,10 +1295,12 @@ NOMOR_HADITS = re.compile(r"(?:رقم|حديث)(?:\s*الحديث)?\s*:?\s*\(?\s
 JUZ_TERCETAK = re.compile(r"(?<![\w/])(\d{1,2})\s*/\s*\d+(?![\d/])(?!\s*(?:هـ|م(?!\w)))")
 # «ج1، ص55», «ج1/ص55», «ج ١ ص ٥٥» (sesudah ANGKA_LATIN) = juz/halaman «1/55»; diganti dengan r"\1/"
 JUZ_ARAB = re.compile(r"(?<![\wـ])ج\s*:?\s*(\d{1,2})\s*[،,/]?\s*ص\s*:?\s*(?=\d)")
-# rujukan ke halaman bahts sendiri, bukan kitab: «تقدم تخريجه ص5», «سيأتي في ص{P:x}», «ينظر: المبحث الثاني، ص 12»
-# («الفصل في الملل» judul kitab: sesudah المبحث/المطلب/الفصل harus urutan «الثاني» atau angka). «ص5 من هذا البحث» di tercetak().
-RUJUKAN_DALAM = re.compile(r"(?:(?<!\w)(?:سبق|تقدم|سيأتي|يأتي)(?!\w)|(?<!\w)(?:المبحث|المطلب|الفصل)\s+(?:ال\w+|\d+))"
-                           r"[^.؛]*?(?<![\wـ])ص\s*(?:\{P:[a-z]+\}|\d+(?:\s*[-–]\s*\d+)?)")
+# rujukan ke halaman bahts sendiri, bukan kitab: «تقدم تخريجه ص5», «سيأتي في ص{P:x}», «ينظر: المبحث الثاني، ص 12»,
+# «ينظر: التمهيد، ص 3». «الفصل في الملل» judul kitab: sesudah المبحث/المطلب/الفصل harus urutan «الثاني» atau angka;
+# «المقدمة الحضرمية» juga: التمهيد/المقدمة/الخاتمة harus langsung disusul ص. «ص5 من (هذا) البحث» di tercetak().
+RUJUKAN_DALAM = re.compile(r"(?:(?:(?<!\w)(?:سبق|تقدم|سيأتي|يأتي)(?!\w)|(?<!\w)(?:المبحث|المطلب|الفصل)\s+(?:ال\w+|\d+))[^.؛]*?"
+                           r"|(?<!\w)(?:التمهيد|المقدمة|الخاتمة)\s*[،,:]?\s*)"
+                           r"(?<![\wـ])ص\s*(?:\{P:[a-z]+\}|\d+(?:\s*[-–]\s*\d+)?)")
 
 
 def rujukan_halaman(isi):
