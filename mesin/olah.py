@@ -156,8 +156,10 @@ TAKHRIJ_AWAL = re.compile(r"\s*و?(?:أخرج|رواه)")  # catatan kaki takhri
 DERAJAT = {"صحيح": "صحيح", "صححه": "صحيح", "حسن": "حسن", "حسنه": "حسن", "ضعيف": "ضعيف", "ضعفه": "ضعيف",
            "موضوع": "موضوع", "منكر": "منكر"}
 DITERIMA = frozenset(("صحيح", "حسن"))  # lawannya: ضعيف، موضوع، منكر
-KATA_DERAJAT = re.compile(r"(?<![ء-ي])[وف]?(%s)(?![ء-ي])(?!\s+(?:البخاري|مسلم|الجامع|سنن|ابن|ابي|الامام|الترمذي|النسا[يئ]ي"
-                          r"|الترغيب|الادب|المسند|موارد))" % "|".join(DERAJAT))
+# Judul hanya untuk kata benda: «صحيح ابن حبان» judul, «صححه ابن حبان»/«حسنه الترمذي» derajat. `norm` menulis «ابن» «بن».
+KATA_DERAJAT = re.compile(r"(?<![ء-ي])[وف]?(?:(%s)(?![ء-ي])(?!\s+(?:البخاري|مسلم|الجامع|سنن|ا?بن|ابي|الامام|الترمذي"
+                          r"|النسا[يئ]ي|الترغيب|الادب|المسند|موارد))|(%s)(?![ء-ي]))"
+                          % ("|".join(k for k in DERAJAT if not k.endswith("ه")), "|".join(k for k in DERAJAT if k.endswith("ه"))))
 SHAHIHAIN = re.compile(r"(?<![ء-ي])(?:البخاري|مسلم|الشيخان|الشيخين|الصحيحين|متفق عليه)(?![ء-ي])")  # teks `norm`
 # «ولم أقف على حكم لأهل العلم على إسناده»: derajat yang memang tidak ditemukan, ditulis terus terang
 DERAJAT_TIDAK_ADA = re.compile(r"لم (?:اقف|اجد) علي (?:من )?(?:حكم|صحح|ضعف|درج)")
@@ -1280,7 +1282,7 @@ def periksa_takhrij(isi, bukti, terbukti, kutipan, perhatian):
 
 def derajat(teks):
     """Derajat hadits yang tertulis di teks (lihat KATA_DERAJAT): {صحيح, حسن, ضعيف, موضوع, منكر}."""
-    return {DERAJAT[m] for m in KATA_DERAJAT.findall(shamela.norm(teks))}
+    return {DERAJAT[m[1] or m[2]] for m in KATA_DERAJAT.finditer(shamela.norm(teks))}
 
 
 def periksa_derajat(isi, terbukti, bernomor, galat, perhatian):
