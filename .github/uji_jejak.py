@@ -51,7 +51,7 @@ def tulis(folder, bukti, kutipan=KUTIPAN):
 
 def tulis_dua(folder, satu, bukti_satu, dua, bukti_dua):
     """Dua kutipan dalam satu naskah, masing-masing dengan bukti kitabnya sendiri."""
-    isi = (f"@judul: uji jejak\n@jenis: uji\n@nama: uji\n@nim: 0\n@fasl: uji\n@tanpa: pustaka\n\n"
+    isi = (f"@judul: uji jejak\n@jenis: uji\n@nama: uji\n@nim: -\n@fasl: uji\n@tanpa: pustaka\n\n"
            f"#K المقدمة\nقال الأول: \"{satu}\"[^مصدر، ص{bukti_satu.removesuffix('>>').split('|')[2]}. {bukti_satu}].\n"
            f"قال الثاني: \"{dua}\"[^مصدر، ص{bukti_dua.removesuffix('>>').split('|')[2]}. {bukti_dua}].\n")
     (folder / "naskah.txt").write_text(isi, encoding="utf-8")

@@ -90,6 +90,10 @@ def utama():
             cek("salah ketik " + salah, f"@{salah}: latin\n" + dasar, True, "maksudnya @" + benar)
         cek("@pustaka nilai salah", "@pustaka: awal\n" + dasar, True, "@pustaka: «awal» tidak dikenal")
         cek("@pustaka: akhir diterima", "@pustaka: akhir\n" + dasar)
+        # «000000000» dulu ada di contoh/naskah.txt, tersalin ke bahts nyata, lalu tercetak di sampul sebagai nomor mahasiswa
+        for nol in ("000000000", "٠٠٠٠٠٠٠٠٠"):
+            cek("@nim nol " + nol, dasar.replace("@nim: -", "@nim: " + nol), True, "tercetak di sampul sebagai nomor mahasiswa")
+        cek("@nim asli diterima", dasar.replace("@nim: -", "@nim: 123456789"))
 
         kutipan = '«توحيد الربوبية وهو إفراد الله تعالى بالخلق والملك والتدبير»'
         catatan = '[^رسالة في القضاء والقدر، ابن عثيمين، ص5. <<11223|-|5>>]'

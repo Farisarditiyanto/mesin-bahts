@@ -1,7 +1,7 @@
 @judul: نص تجريبي لاختبار الآلة
 @jenis: اختبار آلي
 @nama: طالب وهمي
-@nim: 000000000
+@nim: -
 @fasl: لا يوجد
 @format: imam_ayat16
 @rumuz: 11223=-

@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `cek`: `@nim` yang isinya nol semua («000000000», «٠٠٠٠٠٠٠٠٠») kini GAGAL: isi nomor asli, atau «-» kalau tidak ada. Isian contoh itu ada di `contoh/naskah.txt`, tersalin ke 5 bahts nyata, dan tercetak di sampulnya sebagai «الرقم الجامعي: ٠٠٠٠٠٠٠٠٠». `contoh/naskah.txt` kini memakai `@nim: -` (tidak tercetak). Naskah lama yang memakai isian itu kena GAGAL baru di baris `@nim`.
 - `@format: tatbiqi_mulakhas`: sama dengan `tatbiqi` (satu spasi), tetapi bagian `#K الملخص`/`ملخص البحث` dan `الملخص باللغة الأجنبية` 1,5 spasi, paragraf الملخص berjarak tanpa menjorok. Kunci profil baru: `spasi_mulakhas`.
 - `@format: tatbiqi_15`: sama dengan `tatbiqi`, tetapi matan dan judul 1,5 spasi (catatan kaki dan فهرس tetap satu spasi), dan paragraf di bawah `#K الملخص`/`#K ملخص البحث` berjarak 6 pt tanpa awal alinea menjorok. Profil baru di `format.json` bisa memakai `spasi` dan `mulakhas_berjarak`.
 - `#L **Abstract**` (satu baris `#L` diapit `**`): judul Latin tebal di tengah. Paragraf `#L` sesudahnya diberi jarak 6 pt antarparagraf, seperti contoh الملخص باللغة الأجنبية yang memakai judul «Abstract». Dulu `**` di `#L` tercetak apa adanya.
