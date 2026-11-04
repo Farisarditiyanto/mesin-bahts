@@ -73,6 +73,12 @@ def utama():
                                                              "اختار القول الأول جماعة، ثم قال: \"والصحيح هو القول الأول\".\n"
                                                              "#K الخاتمة"))
         assert "untuk 1 masalah khilaf («القول الأول»): ke-1 →" in out, out
+        # فصل/مبحث yang langsung disusul مبحث/مطلب-nya tanpa تمهيد = perhatian; dengan paragraf pengantar = tidak
+        out = cek("judul bertumpuk", dasar.replace("#K الخاتمة", "#F الفصل الثاني\n#B المبحث الأول\n#M المطلب الأول\nنص.\n#K الخاتمة"))
+        assert out.count("langsung disusul judul") == 2, out
+        out = cek("judul berpengantar", dasar.replace("#K الخاتمة", "#F الفصل الثاني\nوفيه مبحث.\n#B المبحث الأول\n"
+                                                      "وفيه مطلب.\n#M المطلب الأول\nنص.\n#K الخاتمة"))
+        assert "langsung disusul judul" not in out, out
         out = cek("riset {Q:} di bawah #R", dasar + "مرجع {Q:1:1}.\n")
         assert "{Q:1:1}" not in out, out
         for tanda in ("#K", "#F", "#B", "#M", "#S", "#T", "#R", "#H"):
