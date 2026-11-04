@@ -33,7 +33,8 @@ $adaHd = [bool]@($DATA.hadits).Count -and $TANPA -notcontains 'hadits'
 $adaTo = $TANPA -notcontains 'maudhuat'
 $KITAB = $M.bentuk -eq 'kitab'           # @bentuk: kitab = tanpa sampul bahts, judul di kepala halaman, hanya #K (dan @halaman_baru) halaman baru
 $adaPu = $TANPA -notcontains 'pustaka' -and (-not $KITAB -or @($DATA.pustaka).Count)   # @tanpa: pustaka = sumber cukup di catatan kaki
-$ABJAD = $M.nomor -eq 'abjad'             # @nomor: abjad = sebelum #F pertama nomor halaman huruf, mulai #F pertama ١، ٢، ٣
+$ABJAD = $M.nomor -in 'abjad', 'mukadimah'             # @nomor: abjad = sebelum #F pertama nomor halaman huruf, mulai #F pertama ١، ٢، ٣
+$NOMOR_MUQ = $M.nomor -eq 'mukadimah'      # @nomor: mukadimah = sama, tetapi ١ mulai #K المقدمة
 $PUSTAKA_AKHIR = $M.pustaka -eq 'akhir'   # @pustaka: akhir = sumber sesudah فهرس الأحاديث, berjudul فهرس المصادر والمراجع
 $MERAH = 176; $COKLAT = 2772843           # warna Word (BGR): lafaz matn RGB(176,0,0); rumuz RGB(107,79,42)
 
@@ -464,7 +465,8 @@ try {
         if ($blk.k -in 'K', 'F', 'B', 'M') {
             $pb = ((($blk.k -in 'K', 'F' -and -not ($KITAB -and $blk.k -eq 'F')) -or $blk.k -in $M.halaman_baru) -and -not $pertama) -or $pbBerikut   # @halaman_baru: B/M juga halaman baru
             $pbBerikut = $false
-            if ($ABJAD -and $blk.k -eq 'F' -and -not $ftIsi) {   # #F pertama: bagian Word baru, nomor kembali ١
+            $awalIsi = if ($NOMOR_MUQ) { $blk.k -eq 'K' -and $blk.judul -eq 'المقدمة' } else { $blk.k -eq 'F' }
+            if ($ABJAD -and $awalIsi -and -not $ftIsi) {   # #F pertama (@nomor: mukadimah: المقدمة): bagian Word baru, nomor kembali ١
                 $sel.InsertBreak(2)
                 $ftIsi = $doc.Sections($doc.Sections.Count).Footers(1); $ftIsi.LinkToPrevious = $false
                 $ftIsi.PageNumbers.NumberStyle = 0; $ftIsi.PageNumbers.RestartNumberingAtSection = $true; $ftIsi.PageNumbers.StartingNumber = 1

@@ -23,6 +23,7 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       apa adanya (data sampul di naskah tidak dipakai), kepala halamannya (termasuk judul di dalamnya) dipakai
                       di tiap halaman isi; nomor halaman di kaki hanya kalau kepala itu tidak memuat nomor halaman
                       nomor (abjad = halaman sebelum #F pertama bernomor huruf أ ب ت, mulai #F pertama nomornya ١، ٢، ٣)
+                      (mukadimah = sama, tetapi nomor ١ mulai #K المقدمة; الإهداء dst. sebelumnya tetap huruf)
                       halaman_baru (B, M, atau keduanya): judul itu juga mulai halaman baru, mis. dosen minta
                       مبحث dan مطلب beda halaman, مبحث = #F dan مطلب = #B → «@halaman_baru: B»
   @bentuk: kitab      bukan bahts (mis. muqarrar gabungan dua syarah): tanpa sampul bahts, wajib hanya @judul (tercetak di
@@ -2096,10 +2097,12 @@ def utama(folder, keluar=None):
     if any(t not in HALAMAN_BARU for t in baru):
         galat.append(di("@halaman_baru") + f"@halaman_baru: «{meta['halaman_baru']}» tidak dikenal (yang ada: {', '.join(HALAMAN_BARU)})")
     meta["halaman_baru"] = [t for t in baru if t in HALAMAN_BARU]  # dibaca rakit.ps1 dan perkiraan_halaman
-    if meta.get("nomor", "abjad") != "abjad":
-        galat.append(di("@nomor") + f"@nomor: «{meta['nomor']}» tidak dikenal (yang ada: abjad)")
-    elif meta.get("nomor") and not any(b["k"] == "F" for b in blok):
+    if meta.get("nomor", "abjad") not in ("abjad", "mukadimah"):
+        galat.append(di("@nomor") + f"@nomor: «{meta['nomor']}» tidak dikenal (yang ada: abjad, mukadimah)")
+    elif meta.get("nomor") == "abjad" and not any(b["k"] == "F" for b in blok):
         galat.append(di("@nomor") + "@nomor: abjad memerlukan #F: nomor ١ mulai dari #F pertama")
+    elif meta.get("nomor") == "mukadimah" and not any(b["k"] == "K" and b.get("judul") == "المقدمة" for b in blok):
+        galat.append(di("@nomor") + "@nomor: mukadimah memerlukan «#K المقدمة»: nomor ١ mulai dari judul itu")
     for a, b in zip(blok, blok[1:]):  # judul yang langsung disusul judul halaman baru tercetak sendirian di halamannya
         if a["k"] in ("K", "F", "B", "M") and b["k"] in ("K", "H", *("F",) * (bentuk != "kitab"), *meta["halaman_baru"]):
             perhatian.append(f"baris {a['n']}: judul «{a['judul'][:40]}» tercetak sendirian di halamannya, karena judul "
