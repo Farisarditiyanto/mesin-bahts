@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """`halaman` membaca rekaman lewat indeks, tidak lagi seluruh kitab. Hasilnya harus sama persis dengan membaca seluruh
 kitab (cara lama, disalin di sini sebagai pembanding) untuk tiap halaman tiap juz kitab yang sudah diunduh, juga
 halaman yang tidak ada, angka Arab, dan juz "-". Kitab buatan menambah penanda ⦗n⦘ yang menurun, rekaman tanpa nomor

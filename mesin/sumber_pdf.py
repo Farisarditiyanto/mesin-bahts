@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Bukti <<luar|berkas.pdf|hal>>: kutipan dari PDF penelitian (jurnal, risalah) yang disimpan di folder bahts
 dicari di teks PDF itu, bukan di Shamela. Dipanggil `cek` (olah.py). Hasilnya hanya PENUNJUK HALAMAN, tidak pernah
 bukti: teks PDF tidak bisa dipercaya seperti teks Shamela.

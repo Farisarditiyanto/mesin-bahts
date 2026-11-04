@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Penulisan berkas utuh dan penerbitan hasil dengan cadangan; tanpa layanan luar."""
 import hashlib, os, re, shutil, tempfile, time, zipfile
 from contextlib import contextmanager

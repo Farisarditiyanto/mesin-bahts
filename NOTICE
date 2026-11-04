@@ -1,5 +1,29 @@
-The MIT license in LICENSE covers the scripts in mesin/ (.py, .ps1, format.json,
-nama_surah.json, naskah_baru.txt), contoh/, and the documentation of this repository.
+Mesin Bahts
+Copyright (C) 2026 Farisarditiyanto
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version (SPDX: AGPL-3.0-or-later; full text of version 3 in LICENSE).
+Each .py and .ps1 file carries the line «SPDX-License-Identifier: AGPL-3.0-or-later».
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+The AGPL (version 3 or later) covers the scripts in mesin/ (.py, .ps1, format.json, nama_surah.json,
+naskah_baru.txt, riset_baru.txt), contoh/, and the documentation of this repository.
+Every version before this license change (up to commit 94d62d3, including release
+7.0.0) was published under the MIT license; copies of those versions keep that license.
+
+Bahts written with this program (naskah.txt, riset.txt, .docx, .pdf) belong to their
+authors. As an additional permission under section 7 of the AGPLv3, the text that
+the program copies into a bahts (mesin/naskah_baru.txt and mesin/riset_baru.txt)
+may be used, changed, and shared in that bahts without any condition.
 
 It does NOT cover the following. Their rights stay with their owners.
 
@@ -17,8 +41,9 @@ It does NOT cover the following. Their rights stay with their owners.
    which is embedded in the font file. Publisher's site:
    https://fonts.qurancomplex.gov.sa
 
-3. mesin/sampul.doc: the cover page follows a course template of
-   معهد العلوم الإسلامية والعربية في جاكرتا. The name and the logo of
+3. mesin/sampul.doc and mesin/sampul_qism.docx: the cover pages. sampul.doc
+   follows a course template of معهد العلوم الإسلامية والعربية في جاكرتا;
+   sampul_qism.docx follows the cover model of قسم الشريعة. The name and the logo of
    جامعة الإمام محمد بن سعود الإسلامية belong to the university (logo file: the university's
    visual identity page, https://imamu.edu.sa/Visualidentity/Pages/default.aspx,
    approved logo as published in April 2025). This project is

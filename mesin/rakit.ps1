@@ -1,4 +1,5 @@
-﻿# Rakit <Hasil>\<berkas>.docx + .pdf dari bahan JSON -Build (hasil olah.py), memakai Word asli (COM).
+﻿# SPDX-License-Identifier: AGPL-3.0-or-later
+# Rakit <Hasil>\<berkas>.docx + .pdf dari bahan JSON -Build (hasil olah.py), memakai Word asli (COM).
 # Dipanggil oleh bahts.py; jangan dijalankan langsung.
 param([Parameter(Mandatory)][string]$Build, [Parameter(Mandatory)][string]$Folder, [string]$Hasil = $Folder)
 $ErrorActionPreference = 'Stop'

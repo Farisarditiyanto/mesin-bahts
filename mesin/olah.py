@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Olah <bahts>/naskah.txt -> bahan JSON terpisah menurut jalur bahts/pekerjaan (untuk perakit Word)
 + verifikasi setiap rujukan ke kitab Shamela lokal. Dipanggil lewat bahts.py.
 

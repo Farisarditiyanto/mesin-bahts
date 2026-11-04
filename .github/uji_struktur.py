@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Regresi struktur lewat CLI asli di salinan TEMP, memakai contoh dan kitab asli.
 Tidak menjalankan Word: naskah yang kehilangan isi harus ditolak sebelum perakit dipanggil.
 """

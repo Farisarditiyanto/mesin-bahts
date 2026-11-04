@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Jalankan di komputer sendiri semua tes yang dijalankan CI (`.github/workflows/tes.yml`), urut dan sama persis.
 
 Daftarnya dibaca dari tes.yml, jadi tes baru di sana otomatis ikut dan tidak ada yang terlewat (dulu `uji_word_startup`

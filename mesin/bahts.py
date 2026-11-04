@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Satu pintu mesin bahts:  python mesin/bahts.py <perintah>
 
 Sekali sesudah mengunduh repo:

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # Jalankan startup rakit yang asli sebelum Word dibuat: hanya Word yatim yang dicatat rakit lama yang dihentikan,
 # proses aplikasi lain tidak boleh disentuh.
 $ErrorActionPreference = 'Stop'

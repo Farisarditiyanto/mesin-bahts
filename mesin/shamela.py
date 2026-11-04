@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Perpustakaan Shamela lokal: unduh kitab per-judul dari dataset Hugging Face
 AuthenticIlm/Shamela4_Full_DB ke folder kitab/, lalu cari kutipan secara offline
 (tanpa kredit, tanpa internet). `temukan` dan `scan` memakai turath.io sebagai penunjuk jalan. Dipanggil lewat bahts.py.

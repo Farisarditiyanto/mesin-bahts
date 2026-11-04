@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tes contoh/jebakan lewat pintu pemakai (`bahts.py cek`): tiap baris di bawah judul #S harus menghasilkan
 persis yang disebut judulnya. «#S GAGAL …» = satu galat, «#S perhatian …» = satu perhatian, «#S lolos …» = tidak
 ada keduanya. Baris lain (kepala, judul) tidak boleh menghasilkan apa pun. Mencocokkan per baris, bukan jumlah:

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Tes angka lewat pintu pemakai (`bahts.py cek`, lalu bahan yang dibaca rakit.ps1): naskah contoh mengetik
 «ص5», «1423هـ», nim «000000000», dan «آية: ٢». Tanpa @angka, semua angka di teks Arab bahan rakit harus ٠-٩
 (bug yang pernah terjadi: PDF mencetak «آية: ٢» di samping «ص5» dan «1423هـ»).
