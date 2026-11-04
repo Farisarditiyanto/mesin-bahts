@@ -8,6 +8,9 @@ tafsir 2:184
 tafsir 2:185
 tafsir 2:255
 tafsir 4:29
+tafsir 4:43
+tafsir 4:43-44
+tafsir 5:6
 tafsir 14:34
 tafsir 15:9
 tafsir 22:70
