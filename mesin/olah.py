@@ -1993,6 +1993,8 @@ def utama(folder, keluar=None):
                 if re.search(r"\[\^|<<|\{", t):
                     galat.append(f"baris {n}: #L tidak boleh memuat catatan kaki, bukti, atau tanda {{Q:/{{H: :: {b[:40]}")
                 m = re.fullmatch(r"\*\*([^*]+)\*\*", t.strip())  # «#L **Abstract**»: judul Latin tebal di tengah
+                if m and not m[1].strip():
+                    galat.append(f"baris {n}: judul #L **…** kosong :: {b[:40]}")
                 blok.append({"k": "L", "runs": [{"t": m[1].strip() if m else t}], "n": n, **({"tengah": True} if m else {})})
             elif k in ("T", "V"):  # kotak matn atau bait syair: paragraf biasa (boleh bercatatan kaki), dicetak rakit.ps1 menurut k
                 try:

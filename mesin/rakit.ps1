@@ -502,7 +502,7 @@ try {
             $sel.ParagraphFormat.Alignment = if ($judulL) { 1 } else { 3 }
             if ($judulL) { $sel.ParagraphFormat.KeepWithNext = -1 }
             $awal = $sel.Start
-            Tulis $blk.runs[0].t 'Times New Roman' $uMatan ([int]$judulL) 0
+            Tulis $blk.runs[0].t 'Times New Roman' $(if ($judulL) { $uJudul } else { $uMatan }) ([int]$judulL) 0
             $doc.Range($awal, $sel.Start).Select(); $word.Selection.LtrRun(); $sel.Collapse(0)
             $sel.TypeParagraph()
         }
