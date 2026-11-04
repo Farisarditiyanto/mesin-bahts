@@ -209,6 +209,7 @@ def utama():
         isi = (akar / "bahts" / "umar" / "a" / "naskah.txt").read_text(encoding="utf8")
         assert r.returncode == 0 and "صاحب" not in isi and "@nim: 111" not in isi and "thalibah" not in isi, isi
         assert "mahad" not in isi and "@angka: latin" in isi and "tidak diambil dari sampul_saya.txt" in r.stdout, isi + r.stdout
+        assert "Tanyakan ke «umar»" in r.stdout and "boleh ditulis sekali" not in r.stdout, r.stdout
         r = bahts("baru", "Bahts/zaid/a", "الإخلاص")  # huruf besar: di Windows folder yang sama
         assert "صاحب" not in (akar / "Bahts" / "zaid" / "a" / "naskah.txt").read_text(encoding="utf8"), r.stdout
         (akar / "bahts" / "umar" / "a" / "naskah.txt").write_text(isi.replace("@nama:", "@nama: عمر", 1), encoding="utf8")

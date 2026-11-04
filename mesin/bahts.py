@@ -272,7 +272,9 @@ def baru(nama, judul):
     kosong = re.findall(r"^@(\w+):[ \t]*$", isi, re.M)
     if kosong:
         print("Data sampul yang masih kosong: " + ", ".join("@" + k for k in kosong)
-              + f"\nIsi di naskah itu. Yang sama untuk tiap bahts (nama, nim, jenis, fasl) boleh ditulis sekali di {SAMPUL_SAYA.name}."
+              + (f"\nTanyakan ke «{bagian[1]}» (nama, nomor mahasiswa, jenis tugas, mahasiswa/mahasiswi, kampus, pembimbing), "
+                 f"lalu isi di naskah itu, bukan di {SAMPUL_SAYA.name}." if orang_lain else
+                 f"\nIsi di naskah itu. Yang sama untuk tiap bahts (nama, nim, jenis, fasl) boleh ditulis sekali di {SAMPUL_SAYA.name}.")
               + ("\nContoh @jenis (huruf Arab, tercetak di sampul): بحث صفي للمستوى الرابع" if "jenis" in kosong else ""))
 
 
