@@ -32,7 +32,7 @@ def utama():
             hasil.append(nama)
             return out
 
-        perkiraan = re.compile(r"perkiraan halaman isi .*: ±(\d+)")
+        perkiraan = re.compile(r"perkiraan halaman isi [^±]*±(\d+)")  # ± pertama = isi; sesudahnya «seluruh PDF: ±N»
         isi_asli = perkiraan.search(cek("contoh asli", dasar)).group(1)
         # #K sebelum المقدمة (الملخص dst.) bukan halaman isi, juga tanpa @nomor (HALAMAN_ISI rakit.ps1 sama)
         mulakhas = dasar.replace("#K المقدمة", "#K الملخص\n" + "كلمة " * 600 + "\n#K المقدمة", 1)
