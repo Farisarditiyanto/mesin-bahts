@@ -2,11 +2,15 @@
 """Tes contoh/jebakan lewat pintu pemakai (`bahts.py cek`): tiap baris di bawah judul #S harus menghasilkan
 persis yang disebut judulnya. «#S GAGAL …» = satu galat, «#S perhatian …» = satu perhatian, «#S lolos …» = tidak
 ada keduanya. Baris lain (kepala, judul) tidak boleh menghasilkan apa pun. Mencocokkan per baris, bukan jumlah:
-satu jebakan yang berhenti ditolak dan satu baris benar yang jadi GAGAL palsu tidak bisa saling menutupi."""
+satu jebakan yang berhenti ditolak dan satu baris benar yang jadi GAGAL palsu tidak bisa saling menutupi.
+Perhatian gabungan «baris 77, 81-83: …» dihitung satu di tiap baris yang disebutnya; perhatian yang sama persis
+tidak boleh dicetak dua kali."""
 import collections, re, subprocess, sys
 from pathlib import Path
 
 AKAR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(AKAR / "mesin"))
+import olah  # noqa: E402  bentuk awal «baris …: » ditulis di satu tempat: olah.pisah_baris
 NASKAH = AKAR / "contoh" / "jebakan" / "naskah.txt"
 HARUS = {"GAGAL": (1, 0), "perhatian": (0, 1), "lolos": (0, 0)}  # (galat, perhatian) tiap baris
 
@@ -18,14 +22,21 @@ if not re.search(r"^perhatian \(lolos", keluar, re.M):
     sys.exit("cek jebakan berhenti sebelum laporan selesai")
 ada = {"✗": collections.Counter(), "!": collections.Counter()}
 salah = []
+pesan_perhatian = collections.Counter()
 for tanda, isi in re.findall(r"^  ([✗!]) (.*)$", keluar, re.M):
-    m = re.match(r"baris (\d+): ", isi)
+    # perhatian gabungan («baris 77, 81-83: …», olah.gabung_kembar dan riset per langkah) dihitung satu di tiap barisnya
+    nn, pesan = olah.pisah_baris(isi)
     if "GALAT MESIN" in isi:  # pengecualian di dalam mesin yang tertangkap sebagai galat: tetap merah walau jumlahnya pas
         salah.append(isi[:120])
-    if not m:
+    if not nn:
         salah.append(f"{tanda} tanpa nomor baris: {isi[:80]}")
     else:
-        ada[tanda][int(m.group(1))] += 1
+        for n in nn:
+            ada[tanda][n] += 1
+        if tanda == "!":
+            pesan_perhatian[pesan] += 1
+# perhatian yang sama persis di beberapa baris dicetak sekali, menyebut semua barisnya
+salah += [f"perhatian kembar ({k} baris sama): {p[:80]}" for p, k in pesan_perhatian.items() if k > 1]
 bagian, diuji = None, 0
 for n, baris in enumerate(NASKAH.read_text(encoding="utf-8-sig").splitlines(), 1):
     if baris.startswith("#S"):
