@@ -73,8 +73,8 @@
 <rect x="1346.0" y="203" width="75.0" height="22" rx="11.0" fill="#2f4478"/><text x="1383.5" y="218.1" font-size="11.5" font-weight="700" fill="#fff" text-anchor="middle">Agent AI</text>
 <text x="1306" y="258" font-size="18" font-weight="700" font-family="Georgia, 'Times New Roman', serif" fill="#3a281b">Cari dan baca bahan</text>
 <text x="1306" y="285" font-size="13.5" fill="#5e4835">Cari kitab, baca konteks lokal,</text>
-<text x="1306" y="304" font-size="13.5" fill="#5e4835">syarat, dan pengecualiannya.</text>
-<text x="1306" y="323" font-size="13.5" fill="#5e4835">Catat data cetak; takhrij hadits;</text>
+<text x="1306" y="304" font-size="13.5" fill="#5e4835">syarat, pengecualian, data cetak.</text>
+<text x="1306" y="323" font-size="13.5" fill="#5e4835">Takhrij, tafsir → riset.txt;</text>
 <text x="1306" y="342" font-size="13.5" fill="#5e4835">الدراسات السابقة bila diminta.</text>
 <rect x="1306.0" y="352" width="67.1" height="22" rx="5" fill="#fbf5e8" stroke="#2f4478" stroke-opacity="0.6"/><text x="1339.5" y="367.5" font-size="12" font-family="Consolas, Menlo, monospace" fill="#1f2f57" text-anchor="middle">temukan</text>
 <rect x="1379.1" y="352" width="52.5" height="22" rx="5" fill="#fbf5e8" stroke="#2f4478" stroke-opacity="0.6"/><text x="1405.3" y="367.5" font-size="12" font-family="Consolas, Menlo, monospace" fill="#1f2f57" text-anchor="middle">ambil</text>

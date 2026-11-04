@@ -70,6 +70,16 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       dengan kutipan lain, dan tanda petik tanpa pasangan
   Judul (#K/#F/#B/#M/#S/#R) tidak boleh memuat [^, <<, {Q:/{H: atau **
   Contoh: قال ابن القيم: "…"[^مدارج السالكين، ابن القيم، 2/15. <<8370|2|15>>].
+
+riset.txt (di folder bahts, di samping naskah.txt): jejak langkah riset yang tidak meninggalkan bukti di kitab lokal.
+  takhrij8 <kunci>    `shamela_search_phrase` kategori 8 (التخريج والأطراف) sudah dijalankan untuk {H:…|kunci}
+  tafsir <s:a>        tafsir ayat sudah dibaca lewat connector `tafsir` (boleh rentang s:a-b)
+  khilaf <istilah>    `shamela_research_scope` sudah dijalankan untuk satu masalah khilaf; satu baris per masalah
+                      (masalah = bagian berjudul yang barisnya diawali «القول الأول», «الرأي الأول», atau «المذهب الأول»)
+  belum <langkah> <objek> <alasan>   langkah yang tidak bisa dijalankan; sebut di laporan akhir
+  Baris berawalan # = catatan. Tiap {H:}, ayat {Q:} (selain di bukti <<…>> dan di bawah #R), dan masalah khilaf yang
+                      belum tercatat = perhatian, juga baris riset.txt yang rusak atau kunci takhrij8 yang tidak ada di naskah.
+                      Tidak pernah GAGAL: isinya ditulis agen sendiri, jadi mesin hanya menunjuk yang belum dicatat
 """
 import bisect, difflib, functools, hashlib, io, json, os, re, unicodedata, zlib
 from pathlib import Path
@@ -1825,6 +1835,98 @@ def kata(runs):
     return sum(len(re.findall(r"[؀-ۿ]+", r.get("t") or "")) for r in runs)
 
 
+RISET = "riset.txt"
+RISET_LANGKAH = {"takhrij8": "kunci {H:}", "tafsir": "surat:ayat atau surat:ayat-ayat", "khilaf": "istilah"}
+Q_TANDA = re.compile(r"\{Q:(\d+):(\d+)(?:-(\d+))?(?::[\d-]+)?\}")
+H_TANDA = re.compile(r"\{H:[^|{}]*\|[^|{}]*\|([a-z]+)\}")
+# pembuka pendapat pertama masalah khilaf: di awal baris (boleh #S, -, **), dicocokkan sesudah harakat dan tatweel
+# dibuang. Di tengah kalimat («اختار القول الأول»، «ثم قال: "…هو القول الأول"») itu المناقشة/nukilan, bukan masalah baru
+KHILAF_TANDA = re.compile(r"^(?:#S\s+)?[-*\s]*(?:القول|الرأي|المذهب) ال[أا]ول(?![ء-ي])")
+
+
+def periksa_riset(folder, baris, perhatian):
+    """Langkah riset wajib yang tidak meninggalkan jejak di kitab lokal (AGENTS.md Alur kerja langkah 2): takhrij
+    `shamela_search_phrase` kategori 8 tiap {H:}, tafsir lewat connector tiap ayat {Q:}, `shamela_research_scope`
+    tiap masalah khilaf. Agen mencatatnya di riset.txt; yang belum tercatat = perhatian, tidak pernah GAGAL:
+    isi riset.txt ditulis agen sendiri, jadi mesin hanya bisa menunjuk yang belum dicatat, bukan membuktikan."""
+    tercatat = {"takhrij8": {}, "tafsir": set(), "khilaf": 0}
+    berkas = folder / RISET
+    isi = []
+    if berkas.is_file():
+        try:
+            isi = berkas.read_text(encoding="utf-8-sig").splitlines()
+        except UnicodeDecodeError:
+            perhatian.append(f"{RISET} bukan UTF-8: " + ("buka di Notepad, File > Save As, pilih Encoding «UTF-8», simpan"
+                                                         if os.name == "nt" else "simpan ulang sebagai UTF-8")
+                             + ", lalu ulangi `cek`")
+    bentuk = (f"bentuknya «langkah objek» ({'، '.join(f'{k} <{v}>' for k, v in RISET_LANGKAH.items())}), atau "
+              f"«belum langkah objek alasan» untuk langkah yang tidak bisa dijalankan")
+    for n, b in enumerate(isi, 1):
+        kata_ = b.split()
+        if not kata_ or kata_[0].startswith("#"):
+            continue
+        belum = kata_[0] == "belum"
+        if belum:
+            kata_ = kata_[1:]
+        if not kata_ or kata_[0] not in RISET_LANGKAH or len(kata_) < 2:
+            perhatian.append(f"{RISET} baris {n}: «{b.strip()[:50]}» tidak dikenal; {bentuk}")
+            continue
+        if belum and len(kata_) < 3:
+            perhatian.append(f"{RISET} baris {n}: «{b.strip()[:50]}»: tulis alasannya sesudah objek, mis. "
+                             f"«belum {kata_[0]} {kata_[1]} connector sedang mati»")
+            continue
+        langkah, objek = kata_[0], kata_[1]
+        if langkah == "tafsir":
+            m = re.fullmatch(r"(\d+):(\d+)(?:-(\d+))?", objek)
+            s, a, z = (int(m.group(1)), int(m.group(2)), int(m.group(3) or m.group(2))) if m else (0, 0, 0)
+            if not m or f"{s}:{a}" not in QURAN or f"{s}:{z}" not in QURAN:
+                perhatian.append(f"{RISET} baris {n}: tafsir «{objek}»: surat/ayat itu tidak ada; tulis surat:ayat "
+                                 f"atau surat:ayat-ayat, mis. «tafsir 3:92»")
+                continue
+            if a > z:
+                perhatian.append(f"{RISET} baris {n}: tafsir «{objek}»: rentang ayat harus dari kecil ke besar")
+                continue
+            tercatat["tafsir"] |= {(s, x) for x in range(a, z + 1)}
+        elif langkah == "takhrij8":
+            tercatat["takhrij8"].setdefault(objek, n)
+        else:
+            tercatat["khilaf"] += 1
+    sudah_h, sudah_q, khilaf, bagian, bagian_khilaf, di_r = set(), set(), 0, None, set(), False
+    for n, b in baris:
+        if b.startswith("#R"):
+            di_r = True  # daftar المصادر: bukan isi bahts
+        if b.startswith("@") or di_r:
+            continue
+        if re.match(r"#[KFBMS]\s", b):
+            bagian = n
+        b = re.sub(r"<<[^<>]*>>", " ", b)  # {Q:} di potongan bukti <<sid|juz|hal|…>> adalah lafaz kitab, bukan ayat yang dibahas
+        for kunci in H_TANDA.findall(b):
+            if kunci not in tercatat["takhrij8"] and kunci not in sudah_h:
+                perhatian.append(f"baris {n}: hadits {{H:…|{kunci}}} belum tercatat di {RISET}: jalankan "
+                                 f"`shamela_search_phrase` dengan `scope.category_ids: [8]`, lalu tulis «takhrij8 {kunci}» "
+                                 f"(tidak bisa: «belum takhrij8 {kunci} <alasan>», lalu sebut di laporan akhir)")
+            sudah_h.add(kunci)
+        for s, a, z in Q_TANDA.findall(b):
+            ayat_ = {(int(s), x) for x in range(int(a), int(z or a) + 1)}
+            if ayat_ - tercatat["tafsir"] - sudah_q:
+                spec = f"{int(s)}:{int(a)}" + (f"-{int(z)}" if z else "")
+                perhatian.append(f"baris {n}: ayat {{Q:{spec}}} belum tercatat di {RISET}: baca tafsirnya lewat connector "
+                                 f"`tafsir`, lalu tulis «tafsir {spec}» (tidak bisa: «belum tafsir {spec} <alasan>»)")
+            sudah_q |= ayat_
+        # satu masalah khilaf = satu bagian (judul #K/#F/#B/#M/#S) yang memuat «القول الأول»; baris khilaf ke-k
+        # di riset.txt menutup masalah ke-k, jadi tiap masalah perlu barisnya sendiri
+        if bagian not in bagian_khilaf and KHILAF_TANDA.search(HARAKAT.sub("", b).replace("ـ", "")):
+            bagian_khilaf.add(bagian)
+            khilaf += 1
+            if khilaf > tercatat["khilaf"]:
+                perhatian.append(f"baris {n}: masalah khilaf ke-{khilaf} («القول الأول») belum tercatat di {RISET} "
+                                 f"({tercatat['khilaf']} baris khilaf): jalankan `shamela_research_scope` sebelum menulis "
+                                 f"pendapat tiap mazhab, lalu tulis «khilaf <istilah>»")
+    for kunci, n in tercatat["takhrij8"].items():
+        if kunci not in sudah_h:
+            perhatian.append(f"{RISET} baris {n}: takhrij8 «{kunci}»: tidak ada {{H:…|{kunci}}} di naskah (salah ketik kunci?)")
+
+
 def utama(folder, keluar=None):
     """Olah naskah di `folder`. Kembalikan (jumlah galat, baris laporan)."""
     folder = Path(folder)
@@ -2032,6 +2134,8 @@ def utama(folder, keluar=None):
             for r in b["runs"]:
                 if "t" in r:
                     r["t"] = re.sub(r"\s*//\s*", "\v", re.sub(r"\s*\.\.\.\s*", "\u2003\u2003\u2003", re.sub(r"\s*\.\.\.~\s*", "", r["t"])))
+    if bentuk != "kitab":  # muqarrar gabungan syarah (@bentuk: kitab) bukan riset baru
+        periksa_riset(folder, baris, perhatian)
     sidik_naskah = hashlib.sha256(naskah).hexdigest()
     with sementara(keluar or bahan(folder)) as part:
         part.write_text(json.dumps({"meta": meta, "format": FORMAT.get(fmt), "blok": blok, "catatan": catatan,

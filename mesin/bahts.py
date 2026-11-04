@@ -224,9 +224,11 @@ def baru(nama, judul):
                 isi = re.sub(rf"^@{k}:[ \t]*$", lambda m: f"@{k}: {v.strip()}", isi, flags=re.M)
             else:  # kunci yang tidak ada di kerangka (mis. @thalibah) ikut ditulis
                 isi = isi.replace("@berkas:", f"@{k}: {v.strip()}\n@berkas:", 1)
+    riset = (MESIN / "riset_baru.txt").read_text(encoding="utf8")  # jejak langkah connector (olah.periksa_riset)
     f.mkdir(parents=True)
+    (f / "riset.txt").write_text(riset, encoding="utf8")
     (f / "naskah.txt").write_text(isi, encoding="utf8")
-    print(f"Siap: {f / 'naskah.txt'}")
+    print(f"Siap: {f / 'naskah.txt'} (dan riset.txt untuk jejak langkah riset)")
     kosong = re.findall(r"^@(\w+):[ \t]*$", isi, re.M)
     if kosong:
         print("Data sampul yang masih kosong: " + ", ".join("@" + k for k in kosong)
