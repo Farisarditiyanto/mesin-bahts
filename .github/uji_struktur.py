@@ -114,6 +114,11 @@ def utama():
             "kutipan sebelum catatan kaki ada di <<1726|3|283>>, tetapi tidak di <<1082|5|41>>")
         out = cek("bukti derajat tanpa potongan: bentuk yang ditunjuk", sisip(takhrij.format("|واختلف الفقهاء في جواز هذا البيع")))
         assert "| GAGAL: 0" in out, out
+        # lafaz riwayat lain («teks berbeda», bukan «TIDAK KETEMU»), kutipannya terbukti di bukti berpotongan #nomor
+        cek("riwayat berlafaz lain sesudah bukti #nomor", sisip(
+            'قال ﷺ: «فمن كانت هجرته إلى دنيا يصيبها، أو إلى امرأة ينكحها، فهجرته إلى ما هاجر إليه»[^أخرجه البخاري، '
+            'رقم الحديث (1)، 1/6، وأبو داود، رقم الحديث (2201)، 2/262. <<1681|1|6|#1>> <<1726|2|262>>].'), True,
+            "kutipan sebelum catatan kaki ada di <<1681|1|6>>, tetapi tidak di <<1726|2|262>> (teks berbeda")
         cek("kutipan palsu tetap GAGAL walau dua bukti", sisip(takhrij.replace("العربان»", "الكلب»").format("")), True,
             "teks berbeda dengan kitab 1726")
 

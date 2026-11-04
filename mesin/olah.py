@@ -1838,6 +1838,14 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             # GAGAL. Kutipan yang terbukti di bukti lain catatan kaki ini: pesannya menunjuk bentuk untuk bukti takhrij
             # berlafaz lain atau derajat dari kitab lain (<<sid|juz|hal|lafaz halaman itu>>), bukan «kutipannya salah».
             ada_di = next((b for b, e in kutipan_3 if not e), None)
+            if ada_di is None and mk is not None and any(e for _, e in kutipan_3):
+                # bukti berpotongan yang juga memuat kutipannya (mis. Bukhari <<1681|1|6|#1>>): hanya mengubah pesannya
+                sudah = {b for b, _ in kutipan_3}
+                for s, z, a, b_ in terbukti:
+                    letak = f"{s}|{z}|{a}" if a == b_ else f"{s}|{z}|{a}-{b_}"
+                    if letak not in sudah and not cek(int(s), z, f"{a}-{b_}", mk, [], kutipan=True, rinci=False):
+                        ada_di = letak
+                        break
             for b, e in kutipan_3:
                 if not e:
                     continue

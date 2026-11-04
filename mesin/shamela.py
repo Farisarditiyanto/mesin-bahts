@@ -929,6 +929,7 @@ def contoh_bukti(sid):
         return f"bukti: <<{sid}|-|<hal>>> (kitab satu jilid: juz \"-\"; halaman {a}-{z})"
     if not rentang:  # tanpa nomor halaman cetak sama sekali
         return f"bukti: <<{sid}|<juz>|<hal>>> (rekaman kitab ini tanpa nomor halaman; lihat `halaman {sid} <juz> <hal>`)"
-    j = next((j for j in rentang if str(j).isdigit()), next(iter(rentang)))  # juz berangka dulu, bukan المقدمة
+    # juz berangka dulu; kitab yang bagiannya hanya bernama (المقدمة + الكتاب): bagian terpanjang, bukan مقدمة المحقق
+    j = next((j for j in rentang if str(j).isdigit()), None) or max(rentang, key=lambda j: rentang[j][1] - rentang[j][0])
     a = rentang[j][0]
     return f"bukti: <<{sid}|<juz>|<hal>>>, mis. <<{sid}|{j}|{a}>>; yang ada: {daftar_juz(sid)}"
