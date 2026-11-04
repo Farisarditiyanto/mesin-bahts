@@ -62,7 +62,7 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   [^<<sid|juz|hal>>]  catatan kaki berisi bukti saja, semua sid-nya ada di @rumuz: tidak dicetak; yang tercetak hanya
                       rumuznya ض (sid=- di @rumuz: tanpa rumuz, mis. kitab matn). Seluruh teks sejak catatan kaki
                       ber-<<…>> sebelumnya dicek sebagai nukilan utuh dari halaman itu (catatan tanpa <<…>> di
-                      tengahnya, termasuk «سورة …», tidak memotongnya; tanda ((…)) dan ** tidak ikut dicek)
+                      tengahnya, termasuk «سورة …», dan <<luar>> tanpa kutipan tidak memotongnya; tanda ((…)) dan ** tidak ikut dicek)
   <<luar>>            kutipan dari sumber yang tidak ada di Shamela (jurnal, PDF penelitian): lolos, tetapi masuk
                       perhatian; lafaz dan halamannya dicocokkan sendiri ke sumbernya. Judul kitab Shamela = GAGAL
   <<luar|berkas.pdf|hal>>   kutipan dari PDF penelitian yang disimpan di folder bahts (mis. hasil dirasat-pdf):
@@ -1706,7 +1706,9 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 perhatian.append(f"kutipan disambung ... di luar tanda petik: baca yang dilompati di kitab, pastikan makna dan "
                                  f"pembicaranya tetap  || fn: {isi[:45]}")
             seg = len(polos)
-            if bukti:  # «سورة …»/«سبق تخريجه» tidak: ayat di paragraf salinan dicek sebagai celah ayat di kitab
+            # batas paragraf salinan: bukti Shamela, atau <<luar>> yang menutup kutipan (yang dicek/diberi perhatian).
+            # «سورة …»/«سبق تخريجه» dan <<luar>> tanpa kutipan tidak: teks sebelumnya ikut dicek ke bukti berikutnya
+            if sid_bukti or bukti and mk is not None:
                 seg_bukti = seg
             ww = {(warna or {}).get(x) for x in sid_bukti}
             if diam and len(ww) == 1 and None not in ww:  # paragraf salinan satu kitab berwarna: lafaz matn ((…)) tetap merah
