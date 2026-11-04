@@ -841,13 +841,15 @@ def _ayat_tercetak(spec, kitab, celah=""):
     tidak dihitung beda (kerangka: tanpa alif, waw, ya, dan hamzah). Salah ketik, salah baca OCR kitab, dan qiraat boleh:
     huruf yang diganti, paling banyak seperlima kerangka yang tercetak; huruf tercetak yang tidak ada di kitab (kata yang
     ditambah, ayat lain) paling banyak BEDA_AYAT. Tanda ﴿﴾ kitab yang
-    rusak («﴿فإذا قرأته فاتبع قرءانه﴾ (١٨) ثم إن علينا بيانه﴾»): yang termuat di seluruh celah kitab (tanpa rujukan
-    [سورة: n]) dianggap sama."""
+    rusak (jumlah ﴿ dan ﴾ di celah tidak sama: «﴿فإذا قرأته فاتبع قرءانه﴾ (١٨) ثم إن علينا بيانه﴾»): yang termuat di
+    seluruh celah kitab (tanpa rujukan [سورة: n]) dianggap sama. Tanda yang utuh tidak: kata kitab sesudahnya («الآية»)
+    bukan lanjutan ayat."""
     p = KERANGKA.sub("", shamela.padat(" ".join(ayat(x)[0] for x in spec)))
     k = KERANGKA.sub("", shamela.padat(kitab))
     beda = _dalam(p, k) if k else None
     if beda is None or beda > max(BEDA_AYAT, len(p) // 5):
-        luas = KERANGKA.sub("", shamela.padat(RUJUKAN_AYAT.sub(" ", celah)))
+        rusak = celah.count("﴿") != celah.count("﴾") or celah.count("{") != celah.count("}")
+        luas = rusak and KERANGKA.sub("", shamela.padat(RUJUKAN_AYAT.sub(" ", celah)))
         beda = _dalam(p, luas) if luas else None
         return "" if beda is not None and beda <= max(BEDA_AYAT, len(p) // 5) else "lebih"
     return "kurang" if len(k) - len(p) > BEDA_AYAT + beda else ""
