@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- `cek` kini juga memperkirakan halaman seluruh PDF, bukan hanya isi: «seluruh PDF: ±30 (sampul 1, المصادر 3, فهرس الآيات 1, فهرس الأحاديث 2, فهرس الموضوعات 1, isi 22)». Banyak dosen membatasi halaman total; dulu agent harus `rakit` (Word) berulang kali untuk tahu. Halaman المصادر dan tiap فهرس dihitung dari jumlah barisnya (diukur pada 30 PDF bahts nyata: selisih bagian ini paling banyak 1 halaman) dan mengikuti `@tanpa`, `@bentuk: kitab`, serta فهرس kosong yang tidak dicetak. Perkiraan isi untuk huruf yang lebih kecil (`@format: tatbiqi…`) tidak lagi terlalu rendah: 3 PDF tatbiqi nyata dulu ±16/±6/±6 untuk 19/8/8 halaman, kini ±20/±8/±7.
 - `@format: tatbiqi_mulakhas`: sama dengan `tatbiqi` (satu spasi), tetapi bagian `#K الملخص`/`ملخص البحث` dan `الملخص باللغة الأجنبية` 1,5 spasi, paragraf الملخص berjarak tanpa menjorok. Kunci profil baru: `spasi_mulakhas`.
 - `@format: tatbiqi_15`: sama dengan `tatbiqi`, tetapi matan dan judul 1,5 spasi (catatan kaki dan فهرس tetap satu spasi), dan paragraf di bawah `#K الملخص`/`#K ملخص البحث` berjarak 6 pt tanpa awal alinea menjorok. Profil baru di `format.json` bisa memakai `spasi` dan `mulakhas_berjarak`.
 - `#L **Abstract**` (satu baris `#L` diapit `**`): judul Latin tebal di tengah. Paragraf `#L` sesudahnya diberi jarak 6 pt antarparagraf, seperti contoh الملخص باللغة الأجنبية yang memakai judul «Abstract». Dulu `**` di `#L` tercetak apa adanya.
