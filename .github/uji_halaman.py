@@ -10,6 +10,7 @@ from pathlib import Path
 
 AKAR = Path(__file__).resolve().parent.parent
 SAMPEL = 10  # kitab lokal di luar kitab CI yang ikut dibandingkan pada mode sampel
+ARAB = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
 sys.path.insert(0, str(AKAR / "mesin"))
 import shamela
 from shamela import TAGS, _juz, _potong
@@ -119,7 +120,8 @@ def kitab_buatan(root):
                              for _ in range(random.randint(0, 3)))
         rek.append({"page_id": i, "part": random.choice([None, "1", "2", "المقدمة"]),
                     "page_num": random.choice([None, i % 40 + 1, i % 40 + 1, random.randint(1, 60)]), "body": body,
-                    "footnotes": random.choice(["", "(1) " + t(), f"(1) {t()} ⦗{random.randint(1, 60)}⦘ (2) {t()}"])})
+                    # penanda حاشية ber-angka Arab: hanya itu yang dibaca PENANDA, jadi حاشية bertanda halaman ikut diuji
+                    "footnotes": random.choice(["", "(1) " + t(), f"(1) {t()} ⦗{str(random.randint(1, 60)).translate(ARAB)}⦘ (2) {t()}"])})
     d = root / "990001"
     d.mkdir(parents=True)
     with gzip.open(d / "pages.jsonl.gz", "wt", encoding="utf8") as g:
