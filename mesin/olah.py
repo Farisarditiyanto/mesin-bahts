@@ -1838,7 +1838,7 @@ def kata(runs):
 
 RISET = "riset.txt"
 RISET_LANGKAH = {"takhrij8": "kunci {H:}", "tafsir": "surat:ayat atau surat:ayat-ayat", "khilaf": "istilah"}
-Q_TANDA = re.compile(r"\{Q:(\d+):(\d+)(?:-(\d+))?(?::[\d-]+)?\}")
+Q_TANDA = re.compile(r"\{Q:([^{}]*)\}")
 H_TANDA = re.compile(r"\{H:[^|{}]*\|[^|{}]*\|([a-z]+)\}")
 # pembuka pendapat pertama masalah khilaf: di awal baris (boleh #S, -, **), dicocokkan sesudah harakat dan tatweel
 # dibuang. Di tengah kalimat («اختار القول الأول»، «ثم قال: "…هو القول الأول"») itu المناقشة/nukilan, bukan masalah baru
@@ -1878,16 +1878,17 @@ def periksa_riset(folder, baris, perhatian):
             continue
         langkah, objek = kata_[0], kata_[1]
         if langkah == "tafsir":
-            m = re.fullmatch(r"(\d+):(\d+)(?:-(\d+))?", objek)
-            s, a, z = (int(m.group(1)), int(m.group(2)), int(m.group(3) or m.group(2))) if m else (0, 0, 0)
-            if not m or f"{s}:{a}" not in QURAN or f"{s}:{z}" not in QURAN:
-                perhatian.append(f"{RISET} baris {n}: tafsir «{objek}»: surat/ayat itu tidak ada; tulis surat:ayat "
+            try:
+                if not re.fullmatch(r"\d+:\d+(?:-\d+)?", objek):
+                    raise TandaRusak("surat/ayat itu tidak ada")
+                _, s, nomor = ayat(objek)
+            except (TandaRusak, ValueError) as e:
+                pesan = str(e).removeprefix(f"{{Q:{objek}}}: ") if isinstance(e, TandaRusak) else "surat/ayat itu tidak ada"
+                perhatian.append(f"{RISET} baris {n}: tafsir «{objek[:50]}»: {pesan}; tulis surat:ayat "
                                  f"atau surat:ayat-ayat, mis. «tafsir 3:92»")
                 continue
-            if a > z:
-                perhatian.append(f"{RISET} baris {n}: tafsir «{objek}»: rentang ayat harus dari kecil ke besar")
-                continue
-            tercatat["tafsir"] |= {(s, x) for x in range(a, z + 1)}
+            a, _, z = nomor.partition("-")
+            tercatat["tafsir"] |= {(s, x) for x in range(int(a), int(z or a) + 1)}
         elif langkah == "takhrij8":
             tercatat["takhrij8"].setdefault(objek, n)
         else:
@@ -1907,10 +1908,15 @@ def periksa_riset(folder, baris, perhatian):
                                  f"`shamela_search_phrase` dengan `scope.category_ids: [8]`, lalu tulis «takhrij8 {kunci}» "
                                  f"(tidak bisa: «belum takhrij8 {kunci} <alasan>», lalu sebut di laporan akhir)")
             sudah_h.add(kunci)
-        for s, a, z in Q_TANDA.findall(b):
-            ayat_ = {(int(s), x) for x in range(int(a), int(z or a) + 1)}
+        for spec in Q_TANDA.findall(b):
+            try:
+                _, s, nomor = ayat(spec)  # tanda yang sudah ditolak parser jangan dikembangkan jadi rentang riset
+            except (TandaRusak, ValueError):
+                continue
+            a, _, z = nomor.partition("-")
+            ayat_ = {(s, x) for x in range(int(a), int(z or a) + 1)}
             if ayat_ - tercatat["tafsir"] - sudah_q:
-                spec = f"{int(s)}:{int(a)}" + (f"-{int(z)}" if z else "")
+                spec = f"{s}:{nomor}"
                 perhatian.append(f"baris {n}: ayat {{Q:{spec}}} belum tercatat di {RISET}: baca tafsirnya lewat connector "
                                  f"`tafsir`, lalu tulis «tafsir {spec}» (tidak bisa: «belum tafsir {spec} <alasan>»)")
             sudah_q |= ayat_
