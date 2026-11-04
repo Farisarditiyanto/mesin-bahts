@@ -9,6 +9,8 @@ import collections, re, subprocess, sys
 from pathlib import Path
 
 AKAR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(AKAR / "mesin"))
+import olah  # noqa: E402  bentuk awal «baris …: » ditulis di satu tempat: olah.pisah_baris
 NASKAH = AKAR / "contoh" / "jebakan" / "naskah.txt"
 HARUS = {"GAGAL": (1, 0), "perhatian": (0, 1), "lolos": (0, 0)}  # (galat, perhatian) tiap baris
 
@@ -23,17 +25,16 @@ salah = []
 pesan_perhatian = collections.Counter()
 for tanda, isi in re.findall(r"^  ([✗!]) (.*)$", keluar, re.M):
     # perhatian gabungan («baris 77, 81-83: …», olah.gabung_kembar dan riset per langkah) dihitung satu di tiap barisnya
-    m = re.match(r"baris (\d+(?:-\d+)?(?:, \d+(?:-\d+)?)*): ", isi)
+    nn, pesan = olah.pisah_baris(isi)
     if "GALAT MESIN" in isi:  # pengecualian di dalam mesin yang tertangkap sebagai galat: tetap merah walau jumlahnya pas
         salah.append(isi[:120])
-    if not m:
+    if not nn:
         salah.append(f"{tanda} tanpa nomor baris: {isi[:80]}")
     else:
-        for a, z in re.findall(r"(\d+)(?:-(\d+))?", m.group(1)):
-            for n in range(int(a), int(z or a) + 1):
-                ada[tanda][n] += 1
+        for n in nn:
+            ada[tanda][n] += 1
         if tanda == "!":
-            pesan_perhatian[isi[m.end():]] += 1
+            pesan_perhatian[pesan] += 1
 # perhatian yang sama persis di beberapa baris dicetak sekali, menyebut semua barisnya
 salah += [f"perhatian kembar ({k} baris sama): {p[:80]}" for p, k in pesan_perhatian.items() if k > 1]
 bagian, diuji = None, 0
