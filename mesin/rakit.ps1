@@ -337,6 +337,14 @@ try {
         while ($lo -lt $hi) { $mid = [int][Math]::Floor(($lo + $hi + 1) / 2); if ($awal[$mid] -le $pos) { $lo = $mid } else { $hi = $mid - 1 } }
         return $lo + 1
     }
+    # tautan/DOI (pola olah.TAUTAN) = run kiri-ke-kanan, dicetak apa adanya: di teks kanan-ke-kiri Word (angka konteks)
+    # mencetak «doi.org/10.21608/jasis.2021» sebagai «doi.org/١٠,٢١٦٠٨/jasis.٢٠٢١». $teks mulai di posisi $awal cerita $rg
+    function Tautan($rg, $awal, $teks) {
+        if (-not $teks) { return }
+        foreach ($a in [regex]::Matches($teks, $DATA.tautan)) {
+            $l = $rg.Duplicate; $l.SetRange($awal + $a.Index, $awal + $a.Index + $a.Length); $l.Select(); $word.Selection.LtrRun()
+        }
+    }
     function TeksRuns($runs) { $s = ''; foreach ($r in $runs) { if ($null -ne $r.t) { $s += $r.t } elseif ($r.pg) { $s += '⟦' + $r.pg + '⟧' } }; return $s }
     # nomor catatan kaki = tanda buatan sendiri, bukan nomor otomatis Word: nomor otomatis Word selalu 0-9
     # (Options.ArabicNumeral tidak berlaku untuknya). Nomornya dibetulkan NomorCatatan sesudah halaman tersusun.
@@ -361,6 +369,7 @@ try {
                 $l = $fn.Range; $l.SetRange($fr.Start + 1 + $a.Index, $fr.Start + 1 + $a.Index + $a.Length); $l.Select(); $word.Selection.LtrRun()
             }
         }
+        Tautan $fn.Range ($fr.Start + 1) (TeksRuns $c.runs)
         $fr.ParagraphFormat.SpaceBefore = 0; $fr.ParagraphFormat.SpaceAfter = 0; $fr.ParagraphFormat.LineSpacingRule = 0
         $off = 1
         foreach ($r in $c.runs) {
@@ -449,7 +458,8 @@ try {
             elseif ($null -ne $r.t) {
                 $tb = 0; if ($r.b -or $r.m -or $paksaTebal) { $tb = 1 }   # lafaz matn di syarah: tebal + merah (cetakan Saudi: tebal dalam kurung)
                 $w = -16777216; if ($r.m -or $paksaMerah) { $w = $MERAH } elseif ($r.w) { $w = $r.w }   # w = @warna sumber paragraf
-                Tulis $r.t $TA $size $tb 0 $w
+                $awal = $sel.Start; Tulis $r.t $TA $size $tb 0 $w
+                if ($r.t -match $DATA.tautan) { $akhir = $sel.Start; Tautan $doc.Content $awal $r.t; $doc.Range($akhir, $akhir).Select() }
             }
         }
     }
@@ -584,6 +594,7 @@ try {
         $rg.Font.Name = $TA; $rg.Font.NameBi = $TA; $rg.Font.Size = $uMatan; $rg.Font.SizeBi = $uMatan
         $rg.ParagraphFormat.Alignment = $align
         $rg.Font.Bold = $bold; $rg.Font.BoldBi = $bold
+        Tautan $rg $rg.Start $teks
     }
 
     # ---------- 3. المصادر والمراجع (tabel tanpa garis, urut abjad) ----------
