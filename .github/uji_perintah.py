@@ -7,12 +7,19 @@
 - `cari`/`teks`/`bab` mencocokkan kata utuh; yang menyeberang batas kata hanya disebut jumlahnya;
 - `hadits` menandai riwayat yang kitabnya sudah diunduh dengan juz/halaman edisi lokal (layanan alminasa ditiru).
 Kitabnya kitab CI (baris `ambil` di tes.yml)."""
-import contextlib, io, json, runpy, subprocess, sys
+import atexit, contextlib, io, json, runpy, shutil, subprocess, sys, tempfile
 from pathlib import Path
 from unittest.mock import patch
 
 sys.stdout.reconfigure(encoding="utf-8")
-AKAR = Path(__file__).resolve().parent.parent
+from uji_semua import kitab_ci
+REPO = Path(__file__).resolve().parent.parent
+SEMENTARA = tempfile.TemporaryDirectory(prefix="bahts-perintah-")
+atexit.register(SEMENTARA.cleanup)
+AKAR = Path(SEMENTARA.name)
+shutil.copytree(REPO / "mesin", AKAR / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__"))
+for sid in ("_meta", *map(str, kitab_ci())):
+    shutil.copytree(REPO / "kitab" / sid, AKAR / "kitab" / sid)
 
 
 def jalankan(*a):

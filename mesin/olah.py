@@ -153,7 +153,8 @@ KUAT = re.compile(r"[^\W\d_]|[،؛؟]")  # huruf, atau tanda baca Arab (tanda te
 # karena Word (angka konteks) mencetak «10.21608» di teks kanan-ke-kiri sebagai «١٠,٢١٦٠٨». Tanda baca penutup kalimat
 # sesudahnya («….» «،» «)») dan kata Arab yang menempel («…/1234وانظر», huruf/harakat/tanda baca ؀-ۿ) bukan bagian
 # tautan. Pola ini juga dipakai .NET (rakit.ps1): jangan pakai sintaks khusus Python
-TAUTAN = re.compile(r"(?:https?://|www\.|doi\.org/|(?<![\w.])10\.[0-9]{4,}/)[^\s؀-ۿ«»()\[\]]*[^\s.,:؀-ۿ«»()\[\]]")
+HURUF_TAUTAN = r"[^\s؀-ۿ«»()\[\]]"
+TAUTAN = re.compile(rf"(?:https?://|www\.|doi\.org/|(?<![\w.])10\.[0-9]{{4,}}/)(?:{HURUF_TAUTAN}|\({HURUF_TAUTAN}*\))+(?<![.,:])")
 
 
 class TandaRusak(ValueError):
@@ -317,7 +318,7 @@ def cek_pdf(folder, berkas, hal, kutipan, galat, perhatian, fn):
         galat.append(f"bagian kutipan terlalu pendek untuk dicek (paling sedikit {KUTIPAN_MIN} huruf; jangan dipotong "
                      f"... di situ) :: {pendek.strip()[:30]}  || fn: {fn}")
         return
-    a, z = map(int, (hal + "-" + hal).split("-")[:2])
+    a, z = rentang_halaman(hal)
     if not 1 <= a <= z:
         galat.append(f"{tanda}: hal = urutan halaman di berkas PDF, mulai 1; rentang ditulis kecil-besar (mis. 3-4)  || fn: {fn}")
         return
@@ -380,10 +381,15 @@ MIRIP_CALON = 20  # tempat paling banyak tiap benih (benih umum, mis. basmalah, 
 MIRIP_LONGGAR = 12  # tempat yang berjarak kurang dari ini dibandingkan sekali
 
 
+def rentang_halaman(hal):
+    """Pasangan angka halaman «n» atau «n-m»; kebijakan rentang tetap diperiksa pemanggilnya."""
+    a, _, z = hal.partition("-")
+    return int(a), int(z or a)
+
+
 def salah_halaman(hal):
     """'' kalau halaman bukti «n» atau «n-m» masuk akal; selain itu pesan kesalahannya."""
-    p1, _, p2 = hal.partition("-")
-    p1 = int(p1); p2 = int(p2) if p2 else p1
+    p1, p2 = rentang_halaman(hal)
     if p1 < 1:
         return (f"halaman 0 tidak ada: teks tanpa nomor halaman (mukadimah, sampul jilid) tidak bisa dirujuk ke halaman "
                 f"cetak: {hal}")
@@ -608,8 +614,7 @@ def cek(sid, juz, hal, pot, perhatian, kutipan=False, rinci=True, pengantar=""):
     e = salah_halaman(hal)
     if e:
         return e
-    p1, _, p2 = hal.partition("-")
-    p1 = int(p1); p2 = int(p2) if p2 else p1
+    p1, p2 = rentang_halaman(hal)
     for n, (a, b) in halaman_janggal(sid, juz).items():
         pesan = (f"nomor halaman {juz}/{n} kitab {sid} jauh dari halaman lain juz itu (rekaman sebelum/sesudahnya di Shamela: "
                  f"{'، '.join(f'ص{x}' for x in (a, b) if x)}): mungkin salah ketik Shamela; cocokkan ke cetakan (`scan`) dan tulis nomor cetakannya")
@@ -1449,11 +1454,25 @@ def hadits_bernomor(sid, juz, p1, p2, nomor):
     awal = [0]  # letak awal tiap rekaman di `baris` (_bersih tidak melintasi pemisah «\n»)
     for t in tubuh:
         awal.append(awal[-1] + len(_bersih(t)) + 1)
+    catatan = []
+    for r, pos in zip(rr, awal):
+        halaman = []
+        for hal, t in shamela._potong(r):
+            akhir = pos + len(_bersih(t))
+            halaman.append((pos, akhir, hal))
+            pos = akhir + 1  # penanda halaman menjadi satu spasi dalam _bersih
+        catatan.append((halaman, shamela._potong(r, "footnotes")))
     ruas = []
     for a, n in kepala:
         if n == nomor:  # batas hadits = nomor lebih besar: angka kecil di awal baris sesudahnya biasanya daftar dalam syarah
             z = next((x for x, m in batas if x > a and m > nomor), len(baris))
-            ruas.append((baris[a:z], " ".join(r.get("footnotes") or "" for i, r in enumerate(rr) if awal[i] < z and awal[i + 1] > a)))
+            hasyiah = []
+            for halaman, potongan in catatan:
+                dipakai = {hal for x, y, hal in halaman if x < z and y > a and baris[max(x, a):min(y, z)].strip()}
+                if dipakai:
+                    # Tanpa penanda halaman, letak tiap catatan memang tidak tercatat di Shamela.
+                    hasyiah += [t for hal, t in potongan if len(potongan) == 1 or hal in dipakai]
+            ruas.append((baris[a:z], " ".join(hasyiah)))
     return rr, ruas
 
 
@@ -1474,19 +1493,20 @@ def periksa_takhrij(isi, bukti, terbukti, kutipan, perhatian):
     """Nomor takhrij yang tercetak tepat di depan juz/halaman sebuah bukti dicocokkan ke kitabnya; lafaz = potongan bukti, atau kutipan.
     Hasilnya {bukti (sid, juz, p1, p2): nomor takhrijnya}, untuk periksa_derajat."""
     bernomor = {}
-    for m in TAKHRIJ.finditer(isi.translate(ANGKA_LATIN)) if re.search("أخرج|رواه", isi) else ():
-        nomor, juz, hal = m[1] or m[2], m[3], m[4] or m[5]  # «ص n» (juz None): kitab satu jilid, juz bukti apa saja
-        for f in map(lambda b: b.split("|"), bukti):
-            p1, _, p2 = f[2].partition("-") if len(f) > 2 else ("", "", "")
-            if len(f) < 3 or juz not in (None, f[1]) or p1 != hal or (f[0], f[1], int(p1), int(p2 or p1)) not in terbukti:
-                continue
-            bernomor.setdefault((f[0], f[1], int(p1), int(p2 or p1)), int(nomor))
-            # kutipan hanya diikutkan kalau memang dicek ke bukti ini; #nomor tidak membawa lafaz
-            sumber = (kutipan or "") if len(f) == 3 else "" if f[3].startswith("#") else f[3]
-            lafaz = [x for x in ELIPSIS.split(re.sub(r"\{Q:[^}]*\}", " ", sumber)) if len(shamela.padat(x)) >= POTONGAN_MIN]
-            pesan = takhrij_janggal(int(f[0]), f[1], int(p1), int(p2 or p1), int(nomor), lafaz)
-            if pesan and f"{pesan}  || fn: {isi[:45]}" not in perhatian:
-                perhatian.append(f"{pesan}  || fn: {isi[:45]}")
+    for bagian, bb in _bagian_kitab(isi, terbukti) if re.search("أخرج|رواه", isi) else ():
+        for m in TAKHRIJ.finditer(bagian.translate(ANGKA_LATIN)):
+            nomor, juz, hal = m[1] or m[2], m[3], m[4] or m[5]  # «ص n» (juz None): kitab satu jilid, juz bukti apa saja
+            for f in map(lambda b: b.split("|"), bukti):
+                p1, _, p2 = f[2].partition("-") if len(f) > 2 else ("", "", "")
+                if len(f) < 3 or juz not in (None, f[1]) or p1 != hal or (f[0], f[1], int(p1), int(p2 or p1)) not in bb:
+                    continue
+                bernomor.setdefault((f[0], f[1], int(p1), int(p2 or p1)), int(nomor))
+                # kutipan hanya diikutkan kalau memang dicek ke bukti ini; #nomor tidak membawa lafaz
+                sumber = (kutipan or "") if len(f) == 3 else "" if f[3].startswith("#") else f[3]
+                lafaz = [x for x in ELIPSIS.split(re.sub(r"\{Q:[^}]*\}", " ", sumber)) if len(shamela.padat(x)) >= POTONGAN_MIN]
+                pesan = takhrij_janggal(int(f[0]), f[1], int(p1), int(p2 or p1), int(nomor), lafaz)
+                if pesan and f"{pesan}  || fn: {isi[:45]}" not in perhatian:
+                    perhatian.append(f"{pesan}  || fn: {isi[:45]}")
     return bernomor
 
 
@@ -1515,7 +1535,8 @@ def periksa_derajat(isi, terbukti, bernomor, galat, perhatian):
         if ruas:
             teks = " ".join(m + " " + h for m, h in ruas)
         else:  # tanpa nomor, atau nomornya tidak terbaca di sana (sudah jadi perhatian nomor takhrij)
-            teks = " ".join((r.get("body") or "") + " " + (r.get("footnotes") or "") for r in rekaman(int(b[0]), b[1], b[2], b[3]))
+            teks = " ".join(t for r in rekaman(int(b[0]), b[1], b[2], b[3]) for sisi, _ in shamela.BAGIAN
+                            for hal, t in shamela._potong(r, sisi) if hal is None or b[2] <= hal <= b[3])
         terbaca |= derajat(teks)
     if tulis <= terbaca:
         return
@@ -1576,9 +1597,7 @@ def _nama_kitab(m):
     «الشاطبي»)."""
     judul, pengarang = [], []
     for j in shamela.judul_pokok(m["title_ar"]):
-        kata = j.split()
-        kata = kata[:next((i for i, w in enumerate(kata) if i and PENGARANG_SESUDAH.match(w)), len(kata))]
-        judul.append(" ".join(kata[:2]))
+        judul.append(" ".join(shamela.kata_judul(j)[:2]))
     for p in (m.get("main_author_name_ar") or "").split("،"):
         pengarang += [p, p.split()[-1]] if p.split() else []
     rapi = lambda xx: {x for x in map(shamela.padat, xx) if len(x) >= 3}
@@ -1687,8 +1706,8 @@ def hadits_janggal(h, terbukti, sekitar):
     namanya yang khas («أبو هريرة» → «هريرة»); «ابن مسعود» dan «عبد الله بن عمر» juga cocok dengan «عبد الله» (kitab
     hadits menyebut العبادلة begitu). Tidak terbaca = perhatian."""
     # sanad dan lafaz hadits bisa berlanjut ke halaman sesudah halaman bukti (Muslim 2/943: «سمع جابر» di 944)
-    teks = " ".join(r.get(b) or "" for s, z, a, b_ in terbukti
-                    for r in rekaman(int(s), z, max(1, a - MUNDUR_KEPALA), b_ + 1) for b in ("body", "footnotes"))
+    rujukan = [rekaman(int(s), z, max(1, a - MUNDUR_KEPALA), b + 1) for s, z, a, b in terbukti]
+    teks = " ".join(r.get(b) or "" for rr in rujukan for r in rr for b in ("body", "footnotes"))
     kata = lambda t: [shamela.padat(w) for w in shamela.norm(t).split()]  # norm: «عز وجل»/«﷿» dibuang di kedua sisi
     lepas = lambda ww: ww | {w[1:] for w in ww if w[:1] in shamela.SAMBUNG}  # «وإني» di kitab = «إني» di طرف
     di_kitab = lepas(set(kata(teks)))
@@ -1709,8 +1728,8 @@ def hadits_janggal(h, terbukti, sekitar):
     # Rekaman disambung tanpa spasi: Shamela bisa memotong satu kata di batas halaman («جابر|َ» di Muslim 2/943-944)
     jejak = shamela.padat(h.get("kutipan") or h["t"])[:20]
     blok = []
-    for s, z, a, b_ in terbukti:
-        raw = shamela.TAGS.sub(" ", "".join(r.get("body") or "" for r in rekaman(int(s), z, max(1, a - MUNDUR_KEPALA), b_ + 1)))
+    for rr in rujukan:
+        raw = shamela.TAGS.sub(" ", "".join(r.get("body") or "" for r in rr))
         pp = NOMOR_DI_KITAB.split(raw)
         for i, x in enumerate(pp):
             if jejak and jejak in shamela.padat(x):
@@ -1869,10 +1888,8 @@ def _bagian_kitab(isi, bukti):
         return [(isi, bukti)]
     letak, terpakai = {}, {}
     data = {sid: shamela.info(int(sid)) for sid in sids}
-    judul = {sid: data[sid]["title_ar"].split(" - ")[0].split() for sid in sids}
     # pengarang di dalam judul katalog bukan bagian judul: «المغني لابن قدامة» ditulis «المغني، ابن قدامة»
-    judul = {sid: kata[:next((i for i, w in enumerate(kata) if i and PENGARANG_SESUDAH.match(w)), len(kata))]
-             for sid, kata in judul.items()}
+    judul = {sid: shamela.kata_judul(data[sid]["title_ar"].split(" - ")[0]) for sid in sids}
     cari = lambda teks, luar: next((m for m in re.finditer(rf"(?<!\w)و?{re.escape(teks)}(?!\w)", isi)  # «ورياض الصالحين»
                                     if not any(a <= m.start() < z for a, z in luar)), None)
     # judul terpanjang dulu: «زاد المستقنع» di dalam «الشرح الممتع على زاد المستقنع» bukan tempat kitab متن-nya
@@ -2379,8 +2396,8 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             # «"…" ... "…"»: dua kutipan disambung elipsis di luar petik. Paragraf salinan berbukti (diam) sudah dicek
             # utuh ke kitab, dan «...» di situ bisa pemisah dua paruh bait syair
             if lain and DIPOTONG.search(sisa) and not diam:
-                perhatian.append(f"kutipan disambung ... di luar tanda petik: baca yang dilompati di kitab, pastikan makna dan "
-                                 f"pembicaranya tetap  || " + (f"fn: {isi[:45]}" if isi else f"matan: {penggal.strip()[:45]}"))
+                perhatian.append("kutipan disambung ... di luar tanda petik: baca yang dilompati di kitab, pastikan makna dan "
+                                 "pembicaranya tetap  || " + (f"fn: {isi[:45]}" if isi else f"matan: {penggal.strip()[:45]}"))
             seg = len(polos)
             # batas paragraf salinan: bukti Shamela, atau <<luar>> yang menutup kutipan (yang dicek/diberi perhatian).
             # «سورة …»/«سبق تخريجه» dan <<luar>> tanpa kutipan tidak: teks sebelumnya ikut dicek ke bukti berikutnya
@@ -2417,7 +2434,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 e = salah_juz(int(f[0]), f[1], f[2]) or salah_halaman(f[2])
                 if e:  # juz/halamannya belum bisa dibandingkan dengan yang tercetak: satu galat saja
                     galat.append(e + f"  || fn: {isi[:45]}"); continue
-                terbukti.append((f[0], f[1], *map(int, (f[2] + "-" + f[2]).split("-")[:2])))
+                terbukti.append((f[0], f[1], *rentang_halaman(f[2])))
                 if len(f) == 3 or diam:  # bukti saja: seluruh paragraf dicek, potongannya tidak cukup
                     nukilan = penggal if diam else mk
                     if nukilan is None:
@@ -2687,6 +2704,14 @@ def periksa_riset(folder, baris, perhatian):
             perhatian.append(f"{RISET} baris {n}: takhrij8 «{kunci}»: tidak ada {{H:…|{kunci}}} di naskah (salah ketik kunci?)")
 
 
+def sumber_tertimpa(folder, berkas, sumber, laporan="laporan.txt"):
+    """Nama bahan pemakai yang bertabrakan dengan nama hasil akhir, juga sesudah `potong` mengganti @berkas."""
+    tujuan = {(folder / nama).resolve().as_posix().casefold()
+              for nama in (f"{berkas}.docx", f"{berkas}.pdf", laporan)}
+    return [nama for nama in dict.fromkeys(sumber)
+            if (folder / nama.strip()).resolve().as_posix().casefold() in tujuan]
+
+
 def potong(d, fasl):
     """`rakit <folder> --fasl n` (atau a-b): bahan rakit `d` (hasil utama, seluruh naskah sudah dicek) dipangkas jadi
     #F ke-n saja, untuk dosen yang meminta bahts dikumpulkan bertahap per فصل. Bentuknya mengikuti potongan yang dulu
@@ -2708,7 +2733,8 @@ def potong(d, fasl):
     meta = d["meta"]
     label = [b["judul"].split(":")[0].strip() for b in blok if b["k"] in ("K", "F")]
     label = label[0] + "".join(" و" + x for x in label[1:])
-    meta["berkas"] = f"{meta['berkas']} - {label}"
+    nama = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "-", label).strip(" .")
+    meta["berkas"] = f"{meta['berkas']} - {nama or 'fasl' + fasl}"
     if dari > 1:  # sampul dan halaman bernomor huruf (@nomor) hanya di potongan pertama
         meta["tanpa_sampul"] = True
         meta.pop("nomor", None)
@@ -2893,14 +2919,11 @@ def utama(folder, keluar=None):
             meta["templat"] = str(tpl)
     # Hasil lama boleh diganti; templat dan PDF yang dirujuk naskah adalah bahan pemakai.
     # Samakan kapitalisasi juga di Linux: hasilnya akan dirakit di Windows.
-    tujuan = {(folder / nama).resolve().as_posix().casefold()
-              for nama in (f"{meta['berkas']}.docx", f"{meta['berkas']}.pdf", "laporan.txt")}
     sumber = re.findall(r"<<luar\|([^|<>]+)\|", naskah.decode("utf-8-sig"))
     if meta.get("templat"):
         sumber.append(meta["templat"])
-    for nama in dict.fromkeys(sumber):
-        if (folder / nama.strip()).resolve().as_posix().casefold() in tujuan:
-            galat.append(di("@berkas") + f"hasil rakit akan menimpa bahan sumber «{nama}»: ganti @berkas atau nama berkas sumber")
+    for nama in sumber_tertimpa(folder, meta["berkas"], sumber):
+        galat.append(di("@berkas") + f"hasil rakit akan menimpa bahan sumber «{nama}»: ganti @berkas atau nama berkas sumber")
     baru = [t for t in re.split(r"[,، ]+", meta.get("halaman_baru", "")) if t]
     if any(t not in HALAMAN_BARU for t in baru):
         galat.append(di("@halaman_baru") + f"@halaman_baru: «{meta['halaman_baru']}» tidak dikenal (yang ada: {', '.join(HALAMAN_BARU)})")
@@ -2985,7 +3008,7 @@ def utama(folder, keluar=None):
     with sementara(keluar or bahan(folder)) as part:
         part.write_text(json.dumps({"meta": meta, "format": profil, "blok": blok, "catatan": catatan,
                                    "ayat": ayat_idx, "hadits": hadits_idx, "pustaka": pustaka,
-                                   "quran": bool(quran), "tautan": TAUTAN.pattern,
+                                   "quran": bool(quran), "tautan": TAUTAN.pattern, "sumber": sumber,
                                    "naskah_sha256": sidik_naskah}, ensure_ascii=False), encoding="utf8")
     n_bukti = sum(c["bukti"] for c in catatan)
     n_luar = sum(c["luar"] for c in catatan)  # disebut di ringkasan: tanda yang bisa menyembunyikan kutipan karangan
@@ -3041,8 +3064,7 @@ def _penunjuk_bukti(sid, juz, hal, kutipan):
         return [e]
     m = shamela.info(sid)
     hasil = [f"kitab: {m['title_ar']} — {m.get('main_author_name_ar') or '?'}"]
-    p1, _, p2 = hal.partition("-")
-    p1 = int(p1); p2 = int(p2) if p2 else p1
+    p1, p2 = rentang_halaman(hal)
     bagian_q = [x for x in ELIPSIS.split(kutipan or "") if len(shamela.padat(x)) >= KUTIPAN_MIN]
     q = shamela.padat(bagian_q[0]) if bagian_q else ""
     rr = sorted(rekaman(sid, juz, p1, p2), key=lambda r: r.get("page_num") or 0)

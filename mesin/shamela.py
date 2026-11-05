@@ -193,13 +193,18 @@ def nomor_judul(judul):
 PENGARANG_SESUDAH = re.compile(r"^(?:للشيخ|للإمام|للعلامة|للحافظ|للقاضي|لابن|لأبي|لأبى)$")  # «المغني لابن قدامة»
 
 
+def kata_judul(judul):
+    """Kata judul sebelum pengarang tempelan («المغني لابن قدامة» -> [«المغني»])."""
+    kata = judul.split()
+    return kata[:next((i for i, w in enumerate(kata) if i and PENGARANG_SESUDAH.match(w)), len(kata))]
+
+
 def judul_pokok(judul):
     """Judul katalog tanpa keterangan edisi sesudah « - » («صحيح مسلم - ت عبد الباقي»), dipecah di « = » (judul lain:
     «تفسير السعدي = تيسير الكريم الرحمن»), juga tanpa pengarang yang ditempel («المغني لابن قدامة» → «المغني»)."""
     out = []
     for b in re.split(r"\s+=\s+", re.split(r"\s+-\s+", judul or "")[0].strip()):
-        kata = b.split()
-        out += [b, " ".join(kata[:next((i for i, w in enumerate(kata) if i and PENGARANG_SESUDAH.match(w)), len(kata))])]
+        out += [b, " ".join(kata_judul(b))]
     return list(dict.fromkeys(x for x in out if x))
 
 

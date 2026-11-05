@@ -348,7 +348,9 @@ try {
     function TeksRuns($runs) { $s = ''; foreach ($r in $runs) { if ($null -ne $r.t) { $s += $r.t } elseif ($r.pg) { $s += '⟦' + $r.pg + '⟧' } }; return $s }
     # nomor catatan kaki = tanda buatan sendiri, bukan nomor otomatis Word: nomor otomatis Word selalu 0-9
     # (Options.ArabicNumeral tidak berlaku untuknya). Nomornya dibetulkan NomorCatatan sesudah halaman tersusun.
+    $asalCatatan = New-Object System.Collections.ArrayList   # nomor urut Word -> indeks bahan (bukti diam/potongan bisa melompat)
     function Catatan($idx) {
+        [void]$asalCatatan.Add($idx)
         $awal = $sel.Start
         Tulis '(' $TA $uMatan 0 1
         $fn = @(BuatCatatan $sel.Range $idx (Angka ($doc.Footnotes.Count + 1)))[-1]
@@ -411,7 +413,7 @@ try {
             foreach ($s in $salah) {
                 # objek catatan kaki Word menunjuk nomor urut: hapus dulu, baru buat di tempatnya
                 $lama = $doc.Footnotes.Item($s[0]); $pos = $lama.Reference.Start; $lama.Delete()
-                [void](BuatCatatan $doc.Range($pos, $pos) ($s[0] - 1) $s[1])
+                [void](BuatCatatan $doc.Range($pos, $pos) $asalCatatan[$s[0] - 1] $s[1])
             }
         }
         throw "Nomor catatan kaki belum tetap sesudah 5 putaran penyusunan halaman."

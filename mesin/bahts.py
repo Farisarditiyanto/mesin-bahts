@@ -461,15 +461,18 @@ def _rakit_di(nama, f, kerja, fasl=None):
     if not font_terpasang():
         sys.exit(f"Font mushaf belum terpasang: {perintah('siapkan')}, lalu ulangi.")
     d = json.loads(build.read_text(encoding="utf8"))
+    import olah
     laporan = "laporan.txt"
     if fasl:  # seluruh naskah sudah dicek di atas; yang dirakit hanya potongannya
-        import olah
         try:
             lap = [f"POTONGAN=--fasl {fasl}: {olah.potong(d, fasl)}"] + lap
         except olah.TandaRusak as e:
             sys.exit(f"Belum dirakit: {e}")
         build.write_text(json.dumps(d, ensure_ascii=False), encoding="utf8")
         laporan = f"laporan-fasl{fasl}.txt"  # laporan seluruh naskah (rakit tanpa --fasl) tidak tertimpa
+    tabrakan = olah.sumber_tertimpa(f, d["meta"]["berkas"], d["sumber"], laporan)
+    if tabrakan:
+        sys.exit(f"Belum dirakit: hasil rakit akan menimpa bahan sumber «{tabrakan[0]}»: ganti @berkas atau nama berkas sumber")
     huruf = d["format"]["huruf"]
     if not huruf_ada(huruf):  # tanpa huruf profil, Word diam-diam memakai huruf lain
         sys.exit(f"Huruf {huruf} (dipakai @format naskah ini) belum terpasang di Windows.\n       -> {HURUF_SARAN}\n"

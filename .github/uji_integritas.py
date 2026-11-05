@@ -248,6 +248,30 @@ def utama():
                         "قال الله تعالى {Q:" + spec + "}", 5, salah=salah)
                     cek("﴿الحمد لله رب العالمين﴾ [الفاتحة:٢] ⦗٦⦘ وفي الآية بيان واضح",
                         "{Q:" + spec + "} وفي الآية بيان واضح", 6, salah=salah)
+                # Derajat di halaman tetangga satu rekaman tidak membuktikan derajat di halaman yang dirujuk.
+                with gzip.open(pages, "wt", encoding="utf8") as h:
+                    h.write(json.dumps({"part": None, "page_num": 5,
+                                        "body": "هذا نص الحديث للاختبار. وهو حديث ضعيف. ⦗٦⦘ هذا حديث صحيح.",
+                                        "footnotes": ""}, ensure_ascii=False) + "\n")
+                for derajat, salah in (("صحيح", True), ("ضعيف", False)):
+                    naskah(f)
+                    with (f / "naskah.txt").open("a", encoding="utf8") as h:
+                        h.write("معنى من المصدر[^أخرجه أبو داود، انظر: رسالة في القضاء والقدر، ص5، "
+                                f"وهو حديث {derajat}. <<11223|-|5|هذا نص الحديث للاختبار>>].\n")
+                    r = jalan(akar, "cek", f)
+                    assert (r.returncode != 0) == salah, r.stdout + r.stderr
+                # Dengan nomor takhrij, حاشية hadits berikutnya juga tidak boleh dipakai.
+                with gzip.open(pages, "wt", encoding="utf8") as h:
+                    h.write(json.dumps({"part": None, "page_num": 5,
+                                        "body": "1 - هذا نص الحديث للاختبار. وهو حديث ضعيف.\n⦗٦⦘\n2 - هذا نص آخر للاختبار.",
+                                        "footnotes": "الحكم ضعيف. ⦗٦⦘ الحكم صحيح."}, ensure_ascii=False) + "\n")
+                for derajat, salah in (("صحيح", True), ("ضعيف", False)):
+                    naskah(f)
+                    with (f / "naskah.txt").open("a", encoding="utf8") as h:
+                        h.write("معنى من المصدر[^أخرجه أبو داود، انظر: رسالة في القضاء والقدر، رقم الحديث (1)، ص5، "
+                                f"وهو حديث {derajat}. <<11223|-|5|هذا نص الحديث للاختبار>>].\n")
+                    r = jalan(akar, "cek", f)
+                    assert (r.returncode != 0) == salah, r.stdout + r.stderr
                 # Properti: angka dari halaman tetangga tidak boleh membuktikan 100 kutipan acak (benih tetap).
                 rng = random.Random(17)
                 potong, sampel = [], []
@@ -272,6 +296,30 @@ def utama():
                     if f"| GAGAL: {len(sampel) if salah else 0}\n" not in out:
                         meleset.append(f"100 kutipan acak, harus gagal={salah}: " + out.splitlines()[1])
                 assert not meleset, "\n".join(meleset)
+            finally:
+                pages.write_bytes(sebelum)
+
+        def takhrij_per_kitab():
+            f = akar / "uji-takhrij"
+            kedua = akar / "kitab" / "99999"
+            kedua.mkdir()
+            meta = json.loads((kitab / "book_metadata.json").read_text(encoding="utf8"))
+            meta["title_ar"] = "كتاب الفحص الثاني"
+            (kedua / "book_metadata.json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf8")
+            sebelum = pages.read_bytes()
+            try:
+                for tujuan, nomor, lafaz in ((pages, 1, "الأول"), (kedua / "pages.jsonl.gz", 2, "الثاني")):
+                    with gzip.open(tujuan, "wt", encoding="utf8") as h:
+                        h.write(json.dumps({"part": None, "page_num": 5,
+                                            "body": f"{nomor} - هذا نص الحديث {lafaz} للاختبار.", "footnotes": ""},
+                                           ensure_ascii=False) + "\n")
+                naskah(f)
+                with (f / "naskah.txt").open("a", encoding="utf8") as h:
+                    h.write("معنى من المصدر[^أخرجه أبو داود، انظر: رسالة في القضاء والقدر، رقم الحديث (1)، ص5؛ "
+                            "وكتاب الفحص الثاني، رقم الحديث (2)، ص5، ولم أقف على حكم لأهل العلم. "
+                            "<<11223|-|5|هذا نص الحديث الأول للاختبار>> <<99999|-|5|هذا نص الحديث الثاني للاختبار>>].\n")
+                r = jalan(akar, "cek", f)
+                assert r.returncode == 0 and "perhatian (lolos, tetapi lihat sendiri): 0" in r.stdout, r.stdout + r.stderr
             finally:
                 pages.write_bytes(sebelum)
 
@@ -415,6 +463,7 @@ def utama():
         uji("indeks mengikuti isi/offset baru meski ukuran dan mtime sama", indeks_usang)
         uji("berkas padat rusak/terpotong/bentuk salah dihitung ulang", cache_rusak)
         uji("angka dan ayat terikat halaman, batas kata, dan bagian kitab", angka_ayat_sehalaman)
+        uji("nomor takhrij dipasangkan ke kitabnya walau halaman sama", takhrij_per_kitab)
         uji("templat/PDF sumber tidak ditimpa hasil rakit", bahan_terlindungi)
         uji("PDF rusak dan penulisan putus tidak meninggalkan hasil", pdf_utuh)
         uji("katalog tanpa pandas dan regex salah tidak crash", katalog_ringan)
@@ -555,6 +604,25 @@ def utama():
             for salah, pesan in (("4", "hanya punya 3 #F"), ("3-1", "dari kecil ke besar"), ("x", "tulis nomor #F")):
                 r, _ = rakit_fasl(salah)
                 assert r.returncode != 0 and pesan in r.stderr, (salah, r.stdout + r.stderr)
+            # Judul sah yang mengandung tanda nama berkas Windows hanya dibersihkan di nama hasilnya.
+            asli = teks
+            teks = teks.replace("الفصل الثاني: ب", "الفصل الثاني / التحقيق")
+            r, b = rakit_fasl("2")
+            assert r.returncode == 0, r.stdout + r.stderr
+            assert judul(b) == ["الفصل الثاني / التحقيق"] and "/" not in b["meta"]["berkas"], b["meta"]
+            teks = asli
+            # Nama hasil berubah sesudah cek seluruh naskah: PDF sumber potongan tetap harus dilindungi.
+            pdf = folder / "hasil - الفصل الثاني.pdf"
+            from pypdf import PdfWriter
+            w = PdfWriter(); w.add_blank_page(width=100, height=100)
+            with pdf.open("wb") as h: w.write(h)
+            sebelum = pdf.read_bytes()
+            teks = teks.replace("#F الفصل الثاني: ب\n", "#F الفصل الثاني: ب\nمعنى من المصدر[^انظر: دراسة، ص1. "
+                                "<<luar|hasil - الفصل الثاني.pdf|1>>].\n")
+            r, _ = rakit_fasl("2")
+            assert r.returncode != 0 and "menimpa bahan sumber" in r.stdout + r.stderr, r.stdout + r.stderr
+            assert pdf.read_bytes() == sebelum, "rakit --fasl mengganti PDF sumber"
+            assert not (akar / "bahan-fasl.json").exists(), "Word dipanggil sebelum melindungi PDF sumber potongan"
         uji("rakit --fasl: satu naskah, potongan per فصل", per_fasl)
         for mode in ("save-fail", "export-fail", "ps-mati", "pdf-fail", "pages-fail", "publish-fail", "rollback-blocked", "simpan-unlink-gagal",
                      "changed", "snapshot", "lock", "sisa", *(("ps-asli", "ps-yatim") if os.name == "nt" else ())):
@@ -564,5 +632,40 @@ def utama():
         print(f"uji integritas: {len(diuji)} skenario sesuai; Word disimulasikan")
 
 
+def word_asli():
+    """Opsional lokal: python .github/uji_integritas.py --word (Windows + Word, tidak disimulasikan).
+    Isi catatan tetap sama saat nomor diulang per halaman, juga di potongan dan sesudah bukti tanpa catatan tercetak."""
+    from xml.etree import ElementTree as ET
+    from pypdf import PdfReader
+    with tempfile.TemporaryDirectory(prefix="bahts-word-") as t:
+        akar = Path(t)
+        shutil.copytree(AKAR / "mesin", akar / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__"))
+        for sid in ("_meta", "11223"):
+            shutil.copytree(AKAR / "kitab" / sid, akar / "kitab" / sid)
+        f = akar / "uji"
+        f.mkdir()
+        teks = ("@judul: فحص الحواشي\n@bentuk: kitab\n@berkas: hasil\n"
+                "@tanpa: pustaka, ayat, hadits, maudhuat\n@halaman_baru: B\n@rumuz: 11223=-\n"
+                "#K المقدمة\nهذا تمهيد للفحص.\n#F الفصل الأول\nهذا فصل سابق[^OLD-FIRST-NOTE].\n"
+                "#F الفصل الثاني\nهذا تمهيد للفصل الثاني.\n#B المبحث الأول\n"
+                "توحيد الربوبية وهو إفراد الله تعالى بالخلق والملك والتدبير[^<<11223|-|5>>]\n"
+                "هذا نص المبحث الأول[^EXPECTED-SECOND-NOTE].\n"
+                "#B المبحث الثاني\nهذا نص المبحث الثاني[^EXPECTED-THIRD-NOTE].\n#K الخاتمة\nانتهى الفحص.\n")
+        (f / "naskah.txt").write_text(teks, encoding="utf8")
+        ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+        for args, nama, harus in (((), "hasil", ["OLD-FIRST-NOTE", "EXPECTED-SECOND-NOTE", "EXPECTED-THIRD-NOTE"]),
+                                  (("--fasl", "2"), "hasil - الفصل الثاني والخاتمة", ["EXPECTED-SECOND-NOTE", "EXPECTED-THIRD-NOTE"])):
+            r = jalan(akar, "rakit", "uji", *args)
+            assert r.returncode == 0, r.stdout + r.stderr
+            with zipfile.ZipFile(f / f"{nama}.docx") as z:
+                tree = ET.fromstring(z.read("word/footnotes.xml"))
+            catatan = ["".join(n.itertext()) for n in tree.findall("w:footnote", ns)
+                       if int(n.attrib.get("{" + ns["w"] + "}id", "0")) > 0]
+            assert len(catatan) == len(harus) and all(h in c for h, c in zip(harus, catatan)), catatan
+            pdf = "\n".join(p.extract_text() or "" for p in PdfReader(f / f"{nama}.pdf").pages)
+            assert all(h in pdf for h in harus), pdf
+            print(f"Word asli {args or 'utuh'}: {len(catatan)} isi catatan DOCX dan PDF tetap benar")
+
+
 if __name__ == "__main__":
-    utama()
+    word_asli() if sys.argv[1:] == ["--word"] else utama()
