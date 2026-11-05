@@ -1535,8 +1535,10 @@ def periksa_derajat(isi, terbukti, bernomor, galat, perhatian):
         if ruas:
             teks = " ".join(m + " " + h for m, h in ruas)
         else:  # tanpa nomor, atau nomornya tidak terbaca di sana (sudah jadi perhatian nomor takhrij)
+            # حاشية tanpa penanda halaman (satu potongan) milik seluruh rekaman, sama dengan hadits_bernomor
             teks = " ".join(t for r in rekaman(int(b[0]), b[1], b[2], b[3]) for sisi, _ in shamela.BAGIAN
-                            for hal, t in shamela._potong(r, sisi) if hal is None or b[2] <= hal <= b[3])
+                            for pp in [shamela._potong(r, sisi)] for hal, t in pp
+                            if hal is None or b[2] <= hal <= b[3] or (sisi == "footnotes" and len(pp) == 1))
         terbaca |= derajat(teks)
     if tulis <= terbaca:
         return

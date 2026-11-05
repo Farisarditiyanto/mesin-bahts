@@ -260,6 +260,18 @@ def utama():
                                 f"وهو حديث {derajat}. <<11223|-|5|هذا نص الحديث للاختبار>>].\n")
                     r = jalan(akar, "cek", f)
                     assert (r.returncode != 0) == salah, r.stdout + r.stderr
+                # حاشية tanpa penanda halaman milik seluruh rekaman (Abu Dawud 1726 1/2): derajatnya tetap terbaca
+                # untuk bukti di halaman kedua rekaman, jadi «صحيح» hadits lain di halaman itu tidak membuat GAGAL palsu.
+                with gzip.open(pages, "wt", encoding="utf8") as h:
+                    h.write(json.dumps({"part": None, "page_num": 5,
+                                        "body": "تمهيد الباب. ⦗٦⦘ هذا نص الحديث للاختبار. وفي الباب حديث صحيح.",
+                                        "footnotes": "الحكم ضعيف."}, ensure_ascii=False) + "\n")
+                naskah(f)
+                with (f / "naskah.txt").open("a", encoding="utf8") as h:
+                    h.write("معنى من المصدر[^أخرجه أبو داود، انظر: رسالة في القضاء والقدر، ص6، "
+                            "وهو حديث ضعيف. <<11223|-|6|هذا نص الحديث للاختبار>>].\n")
+                r = jalan(akar, "cek", f)
+                assert r.returncode == 0 and "berlawanan" not in r.stdout, r.stdout + r.stderr
                 # Dengan nomor takhrij, حاشية hadits berikutnya juga tidak boleh dipakai.
                 with gzip.open(pages, "wt", encoding="utf8") as h:
                     h.write(json.dumps({"part": None, "page_num": 5,
