@@ -23,23 +23,31 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python mesin/bahts.py siapkan
       - run: python mesin/bahts.py periksa
-      # 11223 = kitab contoh/naskah.txt; sisanya untuk jebakan yang butuh kitab berharakat, berjilid, atau berhalaman rumit
-      - run: python mesin/bahts.py ambil 11223 2348 1082 10649 1727 1681
+      # 11223 = kitab contoh/naskah.txt; sisanya untuk jebakan yang butuh kitab berharakat, berjilid, berhalaman rumit, atau berderajat (1726 سنن أبي داود: derajat tiap hadits di حاشية-nya);
+      # 9904 dan 11825: حاشية المحقق yang tertulis di body sesudah garis ___ (footnotes kosong)
+      # (11797 = kitab yang bagiannya hanya bernama: المقدمة + الكتاب)
+      - run: python mesin/bahts.py ambil 11223 2348 1082 10649 1727 1681 9904 11825 1726 11797
       - run: python mesin/bahts.py cek contoh
       # contoh/jebakan/naskah.txt: tiap baris di bawah #S menghasilkan persis yang disebut judulnya
       - run: python .github/uji_jebakan.py
       # cek --jejak: kutipan yang salah kitab ditunjuk di kitab lain yang sudah diunduh, tanpa mengubah putusan cek
       - run: python .github/uji_jejak.py
+      # bukti: teks kitab yang dicetak dari halaman yang dirujuk (bukan halaman lain), ayat persis, hanya baris yang diminta
+      - run: python .github/uji_bukti.py
       # tanpa @angka, angka di teks Arab bahan rakit ٠-٩ (dulu PDF mencetak «آية: ٢» di samping «ص5»)
       - run: python .github/uji_angka.py
       # Pengalihan HTTP harus menjaga kunci di asal yang sama, tanpa membocorkannya ke asal lain (peladen lokal).
       - run: python .github/uji_jaringan.py
       # Bahan terpisah, cache rusak pulih, sumber tidak tertimpa, katalog ringan, PDF utuh; kegagalan Word disimulasikan.
       - run: python .github/uji_integritas.py
+      # Pemeriksaan PDF sesudah rakit: isian «....» dan @judul di sampul, nomor halaman 0123/٠١٢٣, pengantar «:» di dasar halaman
+      - run: python .github/uji_pdf.py
       # Struktur yang diterima cek harus seluruhnya dapat dirakit; stress catatan kaki dan data salah ketik.
       - run: python .github/uji_struktur.py
       # `halaman` lewat indeks = hasil membaca seluruh kitab; berkas tulisan mesin mengikuti umask (bukan 0600)
       - run: python .github/uji_halaman.py
+      # `halaman` tanpa «\r» mentah (kata tersambung saat disalin); argumen/bendera berlebih ditolak, bukan ditelan
+      - run: python .github/uji_perintah.py
       # opencode.json = salinan terpaksa .mcp.json (OpenCode tidak membaca .mcp.json): daftar connector harus sama
       - name: connector opencode.json sama dengan .mcp.json
         run: python -c "import json; a={k:v['url'] for k,v in json.load(open('.mcp.json', encoding='utf-8'))['mcpServers'].items()}; b={k:v['url'] for k,v in json.load(open('opencode.json', encoding='utf-8'))['mcp'].items()}; assert a==b, (a,b)"

@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """`halaman` membaca rekaman lewat indeks, tidak lagi seluruh kitab. Hasilnya harus sama persis dengan membaca seluruh
-kitab (cara lama, disalin di sini sebagai pembanding) untuk tiap halaman tiap juz kitab yang sudah diunduh, juga
+kitab (cara lama, disalin di sini sebagai pembanding) untuk kitab yang dipilih (bawaan: kitab CI tetap), juga
 halaman yang tidak ada, angka Arab, dan juz "-". Kitab buatan menambah penanda ⦗n⦘ yang menurun, rekaman tanpa nomor
 halaman, juz bernama, dan حاشية bertanda halaman. Di Linux/macOS berkas yang ditulis mesin harus terbaca seperti
 berkas biasa (umask), bukan 0600 bawaan mkstemp. `cari`, `teks`, dan `bab` hanya mengurai rekaman yang memuat frasa:
 hasilnya harus sama dengan mengurai seluruh kitab."""
-import contextlib, gzip, io, json, os, random, re, shutil, stat, sys, tempfile
+import contextlib, gzip, io, json, os, random, re, stat, sys, tempfile
 from pathlib import Path
+from uji_semua import kitab_ci
 
 AKAR = Path(__file__).resolve().parent.parent
 SAMPEL = 10  # kitab lokal di luar kitab CI yang ikut dibandingkan pada mode sampel
@@ -35,6 +36,10 @@ def halaman_lama(sid, juz, hal, rekaman):
     """Pembanding: `halaman` sebelum memakai indeks (membaca tiap rekaman kitab; `rekaman` = hasil `urai`, dibaca sekali)."""
     ada, rentang = False, {}
     juz, hal = angka(juz), angka(hal)
+    if juz == "-" and not any(jz == "-" or isinstance(jz_angka, int) for _, jz, jz_angka, _, _ in rekaman):
+        # kitab yang bagiannya hanya bernama: «-» = satu-satunya bagian yang punya halaman itu
+        di = {jz_angka for _, _, jz_angka, pot, hh in rekaman if hal in hh}
+        juz = di.pop() if len(di) == 1 else juz
     for p, jz, jz_angka, pot, hh in rekaman:
         if hh:
             r = rentang.setdefault(jz, [min(hh), max(hh)])
@@ -44,7 +49,7 @@ def halaman_lama(sid, juz, hal, rekaman):
         bagian = [b for h, b in pot if h == hal]
         if bagian:
             ada = True
-            print(TAGS.sub("", "".join(bagian)))
+            print(shamela.baris(TAGS.sub("", "".join(bagian))))  # «\r» Shamela jadi baris baru: cara cetak, bukan cara baca
             fn = _potong(p, "footnotes")
             if len(fn) > 1:
                 isi, catat = "".join(b for h, b in fn if h == hal), ""
@@ -53,7 +58,7 @@ def halaman_lama(sid, juz, hal, rekaman):
                 isi = fn[0][1]
                 catat = f" (حاشية rekaman ص{a}-{z}; halaman tiap catatan tidak tercatat)" if z != a else ""
             if isi.strip():
-                print("ـــــ" + catat + "\n" + TAGS.sub("", isi))
+                print("ـــــ" + catat + "\n" + shamela.baris(TAGS.sub("", isi)))
     if not ada:
         print(f"[{sid}] TIDAK ADA halaman {juz}/{hal}. Yang ada: "
               + "، ".join(f"juz {j} ص{a}-{z}" for j, (a, z) in rentang.items()) + " (juz \"-\" = kitab satu jilid)")
@@ -133,28 +138,31 @@ def kitab_buatan(root):
 
 
 def kitab_diuji():
-    """Kitab yang dibandingkan. Bawaan (CI): semua kitab yang sudah diunduh. `UJI_HALAMAN=sampel` (dipasang `uji_semua`
-    kalau kode yang diuji di sini tidak berubah): kitab `ambil` di tes.yml + SAMPEL kitab lain acak, benihnya dicetak
-    supaya kegagalan bisa diulang dengan `UJI_HALAMAN_BENIH`."""
+    """Bawaan: kitab CI tetap. `UJI_HALAMAN=penuh`: semua kitab lokal; `sampel`: CI + SAMPEL kitab lain."""
     semua = shamela.punya()
-    if os.environ.get("UJI_HALAMAN") != "sampel":
+    mode = os.environ.get("UJI_HALAMAN", "ci")
+    if mode == "penuh":
         return semua
-    yml = (AKAR / ".github" / "workflows" / "tes.yml").read_text(encoding="utf8")
-    ci = {int(x) for m in re.finditer(r"bahts\.py ambil ([\d ]+)", yml) for x in m.group(1).split()}
-    if not ci or not ci <= set(semua):  # baris `ambil` tes.yml tidak terbaca atau kitab CI belum diunduh: jangan menyusut diam-diam
-        print("halaman: kitab CI di tes.yml tidak lengkap di komputer ini; semua kitab dibandingkan")
-        return semua
+    if mode not in ("ci", "sampel"):
+        sys.exit(f"UJI_HALAMAN={mode}: pilih ci, sampel, atau penuh")
+    ci = set(kitab_ci())
+    if kurang := ci - set(semua):
+        sys.exit("Kitab CI belum diunduh: " + shamela.perintah("ambil " + " ".join(map(str, sorted(kurang)))))
+    if mode == "ci":
+        print(f"halaman: {len(ci)} kitab CI tetap")
+        return sorted(ci)
     benih = int(os.environ.get("UJI_HALAMAN_BENIH") or random.SystemRandom().randrange(10 ** 6))
     lain = [s for s in semua if s not in ci]
     pilih = sorted({s for s in semua if s in ci} | set(random.Random(benih).sample(lain, min(SAMPEL, len(lain)))))
     print(f"halaman: sampel {len(pilih)} dari {len(semua)} kitab (UJI_HALAMAN_BENIH={benih}); "
-          f"semua kitab: tanpa UJI_HALAMAN atau `uji_semua.py --penuh`")
+          f"semua kitab: UJI_HALAMAN=penuh atau `uji_semua.py --penuh`")
     return pilih
 
 
 def utama():
     random.seed(3)
-    n = sum(bandingkan(sid, contoh=12) + bandingkan_cari(sid) for sid in kitab_diuji())
+    dipilih = kitab_diuji()
+    n = sum(bandingkan(sid, contoh=12) + bandingkan_cari(sid) for sid in dipilih)
     asli = shamela.ROOT
     with tempfile.TemporaryDirectory() as tmp:
         shamela.ROOT = Path(tmp)
@@ -173,12 +181,12 @@ def utama():
             assert mode == 0o666 & ~umask, f"indeks.json {oct(mode)}, harusnya {oct(0o666 & ~umask)} (umask)"
     shamela.ROOT = asli
     if os.name != "nt":  # kitab yang diunduh `ambil` (lewat berkas sementara) juga mengikuti umask
-        for sid in shamela.punya():
+        for sid in dipilih:
             mode = stat.S_IMODE((shamela._folder(sid) / "pages.jsonl.gz").stat().st_mode)
             assert mode == 0o666 & ~umask, f"kitab {sid}: pages.jsonl.gz {oct(mode)}"
     # rentang «a-b» = halaman tunggal berurutan, masing-masing diberi kepala, termasuk halaman bolong di tengah kitab
     import bahts
-    for sid in shamela.punya():
+    for sid in dipilih:
         ix, awal = shamela._indeks(sid)
         juz, hal = next(((e[0], a) for e, a in zip(ix, awal) if a is not None), (None, None))
         if hal is None:
@@ -189,7 +197,20 @@ def utama():
                         for h in range(hal, hal + 3))
         assert r and isi == harus, f"halaman rentang {sid} {juz}/{hal}-{hal + 2} beda dari halaman tunggal"
         n += 1
+    # `kartu`: baris bukti siap pakai memakai juz yang diterima `cek` dan halaman yang terbaca, juga untuk kitab berjilid
+    # yang halamannya bersambung («متسلسلة الترقيم», 6178): dulu agent menulis juz "-" lalu GAGAL «berjilid»
+    import olah
+    for sid in dipilih:
+        baris = keluaran(shamela.kartu, sid)[1].splitlines()[-1]
+        m = (re.search(rf"mis\. <<{sid}\|([^|<>]+)\|(\d+)>>", baris)
+             or re.search(rf"<<{sid}\|(-)\|<hal>>> \(kitab satu jilid: juz \"-\"; halaman (\d+)-", baris))
+        assert m, f"kartu {sid}: baris bukti tidak ada atau bentuknya lain: {baris!r}"
+        juz, hal = m.groups()
+        assert olah.salah_juz(sid, juz, hal) == "", f"kartu {sid}: {baris!r} -> {olah.salah_juz(sid, juz, hal)}"
+        assert keluaran(shamela.halaman, sid, juz, hal)[0], f"kartu {sid}: halaman {juz}/{hal} tidak terbaca"
+        n += 1
     print(f"halaman: {n} panggilan sama dengan cara lama")
 
 
-utama()
+if __name__ == "__main__":
+    utama()

@@ -1,13 +1,20 @@
 ﻿# SPDX-License-Identifier: AGPL-3.0-or-later
 # Rakit <Hasil>\<berkas>.docx + .pdf dari bahan JSON -Build (hasil olah.py), memakai Word asli (COM).
 # Dipanggil oleh bahts.py; jangan dijalankan langsung.
-param([Parameter(Mandatory)][string]$Build, [Parameter(Mandatory)][string]$Folder, [string]$Hasil = $Folder)
+param([Parameter(Mandatory)][string]$Build, [Parameter(Mandatory)][string]$Folder, [string]$Hasil = $Folder,
+      [Parameter(Mandatory)][string]$Kunci, [string]$Galat)
 $ErrorActionPreference = 'Stop'
+# Galat yang menghentikan skrip ini ditulis juga ke -Galat (UTF-8): bahts.py mengutipnya di pesan GAGAL, karena layar
+# bisa dipotong pemanggil (tail/grep) dan huruf Arabnya rusak lewat pipa. Tanpa berkas itu = PowerShell dimatikan dari luar.
+trap {
+    if ($Galat) { [IO.File]::WriteAllText($Galat, "$($_.Exception.Message) (rakit.ps1 baris $($_.InvocationInfo.ScriptLineNumber))", (New-Object Text.UTF8Encoding $false)) }
+    break
+}
 $dir = $PSScriptRoot
 $DATA = Get-Content -LiteralPath $Build -Raw -Encoding UTF8 | ConvertFrom-Json
 $M = $DATA.meta
 $Out = Join-Path $Hasil $M.berkas; $Laporan = Join-Path $Hasil 'laporan.txt'
-$FMT = $DATA.format                                      # profil dari format.json (dipilih @format)
+$FMT = $DATA.format                                      # profil dari format.json (dipilih @format; @catatan_kaki/@spasi sudah ditimpakan olah.py)
 $TA = [string]$FMT.huruf; $QF = 'KFGQPC HAFS Uthmanic Script'
 $uMatan = [single]$FMT.matan; $uCatatan = [single]$FMT.catatan; $uJudul = [single]$FMT.judul   # ukuran huruf (Word minta angka pecahan)
 $uAyat = if ($FMT.ayat) { [single]$FMT.ayat } else { $uMatan }   # ukuran ayat di matan dan فهرس الآيات; profil tanpa "ayat" = sama dengan matan
@@ -42,8 +49,9 @@ $NOMOR_MUQ = $M.nomor -eq 'mukadimah'      # @nomor: mukadimah = sama, tetapi ١
 $PUSTAKA_AKHIR = $M.pustaka -eq 'akhir'   # @pustaka: akhir = sumber sesudah فهرس الأحاديث, berjudul فهرس المصادر والمراجع
 $MERAH = 176; $COKLAT = 2772843           # warna Word (BGR): lafaz matn RGB(176,0,0); rumuz RGB(107,79,42)
 
-# satu rakit dalam satu waktu: rakit kedua berhenti di sini, sebelum mematikan Word milik rakit pertama (kunci lepas sendiri saat proses ini selesai)
-try { $kunci = [IO.File]::Open("$dir\_tmp\rakit.kunci", 'OpenOrCreate', 'ReadWrite', 'None') }
+# satu rakit dalam satu waktu: rakit kedua berhenti di sini, sebelum mematikan Word milik rakit pertama (kunci lepas sendiri saat proses ini selesai).
+# bahts.py menunggu kunci ini lepas sebelum rakit berikutnya (rakit.ps1 yang Python-nya dimatikan masih memegangnya).
+try { $pegangKunci = [IO.File]::Open($Kunci, 'OpenOrCreate', 'ReadWrite', 'None') }
 catch { throw "Rakit lain sedang jalan (memakai Word yang sama): tunggu sampai selesai, lalu ulangi." }
 # Proses /Automation bisa milik aplikasi lain. Hanya Word yang dibuat di sini yang dibersihkan di finally.
 # Rakit yang dimatikan paksa (terminal ditutup) tidak sempat ke finally, dan Word-nya tetap hidup: rakit berikutnya
@@ -69,7 +77,7 @@ try {
     # pengaturan Word pemakai (berlaku untuk semua dokumennya): dipinjam selama rakit, dikembalikan di finally.
     # 2 = angka di teks Arab dicetak ٠-٩, di teks Latin 0-9; 0 = selalu 0-9
     $numeralLama = $word.Options.ArabicNumeral
-    $word.Options.ArabicNumeral = if ($HINDI) { 2 } else { 0 }
+    $NUMERAL = if ($HINDI) { 2 } else { 0 }; $word.Options.ArabicNumeral = $NUMERAL
     # Alamat kerja Word berupa string biasa untuk COM.
     # huruf profil yang tidak terpasang diganti Word diam-diam: berhenti di sini saja
     if (@($word.FontNames) -notcontains $TA) { throw "Huruf [$TA] belum terpasang di Windows. Jalankan: python mesin/bahts.py periksa" }
@@ -249,6 +257,9 @@ try {
     $sel = $word.Selection
     [void]$sel.EndKey(6)
     if (-not $KITAB) { $sel.InsertBreak(2) }             # section break (halaman baru) sesudah sampul
+    # potongan `rakit --fasl` selain yang pertama: sampul (bagian Word pertama, berikut pemisahnya) dibuang; tata halaman isi
+    # disetel sesudah ini, jadi isinya sama dengan potongan bersampul
+    if ($M.tanpa_sampul -and -not $KITAB) { [void]$doc.Sections(1).Range.Delete(); [void]$sel.EndKey(6) }
     $sec = $doc.Sections($doc.Sections.Count)
     $ps = $sec.PageSetup
     $ps.PaperSize = 7
@@ -326,10 +337,20 @@ try {
         while ($lo -lt $hi) { $mid = [int][Math]::Floor(($lo + $hi + 1) / 2); if ($awal[$mid] -le $pos) { $lo = $mid } else { $hi = $mid - 1 } }
         return $lo + 1
     }
+    # tautan/DOI (pola olah.TAUTAN) = run kiri-ke-kanan, dicetak apa adanya: di teks kanan-ke-kiri Word (angka konteks)
+    # mencetak «doi.org/10.21608/jasis.2021» sebagai «doi.org/١٠,٢١٦٠٨/jasis.٢٠٢١». $teks mulai di posisi $awal cerita $rg
+    function Tautan($rg, $awal, $teks) {
+        if (-not $teks) { return }
+        foreach ($a in [regex]::Matches($teks, $DATA.tautan)) {
+            $l = $rg.Duplicate; $l.SetRange($awal + $a.Index, $awal + $a.Index + $a.Length); $l.Select(); $word.Selection.LtrRun()
+        }
+    }
     function TeksRuns($runs) { $s = ''; foreach ($r in $runs) { if ($null -ne $r.t) { $s += $r.t } elseif ($r.pg) { $s += '⟦' + $r.pg + '⟧' } }; return $s }
     # nomor catatan kaki = tanda buatan sendiri, bukan nomor otomatis Word: nomor otomatis Word selalu 0-9
     # (Options.ArabicNumeral tidak berlaku untuknya). Nomornya dibetulkan NomorCatatan sesudah halaman tersusun.
+    $asalCatatan = New-Object System.Collections.ArrayList   # nomor urut Word -> indeks bahan (bukti diam/potongan bisa melompat)
     function Catatan($idx) {
+        [void]$asalCatatan.Add($idx)
         $awal = $sel.Start
         Tulis '(' $TA $uMatan 0 1
         $fn = @(BuatCatatan $sel.Range $idx (Angka ($doc.Footnotes.Count + 1)))[-1]
@@ -350,6 +371,7 @@ try {
                 $l = $fn.Range; $l.SetRange($fr.Start + 1 + $a.Index, $fr.Start + 1 + $a.Index + $a.Length); $l.Select(); $word.Selection.LtrRun()
             }
         }
+        Tautan $fn.Range ($fr.Start + 1) (TeksRuns $c.runs)
         $fr.ParagraphFormat.SpaceBefore = 0; $fr.ParagraphFormat.SpaceAfter = 0; $fr.ParagraphFormat.LineSpacingRule = 0
         $off = 1
         foreach ($r in $c.runs) {
@@ -391,7 +413,7 @@ try {
             foreach ($s in $salah) {
                 # objek catatan kaki Word menunjuk nomor urut: hapus dulu, baru buat di tempatnya
                 $lama = $doc.Footnotes.Item($s[0]); $pos = $lama.Reference.Start; $lama.Delete()
-                [void](BuatCatatan $doc.Range($pos, $pos) ($s[0] - 1) $s[1])
+                [void](BuatCatatan $doc.Range($pos, $pos) $asalCatatan[$s[0] - 1] $s[1])
             }
         }
         throw "Nomor catatan kaki belum tetap sesudah 5 putaran penyusunan halaman."
@@ -438,7 +460,8 @@ try {
             elseif ($null -ne $r.t) {
                 $tb = 0; if ($r.b -or $r.m -or $paksaTebal) { $tb = 1 }   # lafaz matn di syarah: tebal + merah (cetakan Saudi: tebal dalam kurung)
                 $w = -16777216; if ($r.m -or $paksaMerah) { $w = $MERAH } elseif ($r.w) { $w = $r.w }   # w = @warna sumber paragraf
-                Tulis $r.t $TA $size $tb 0 $w
+                $awal = $sel.Start; Tulis $r.t $TA $size $tb 0 $w
+                if ($r.t -match $DATA.tautan) { $akhir = $sel.Start; Tautan $doc.Content $awal $r.t; $doc.Range($akhir, $akhir).Select() }
             }
         }
     }
@@ -463,6 +486,22 @@ try {
     $garis = New-Object System.Collections.ArrayList   # paragraf @warna: garis tegak di sisi awal (tetap terlihat di fotokopi hitam putih)
     $diMulakhas = $false; $nT = 0; $pertama = $true; $iR = -1; $pbBerikut = $false; $berjarakL = $false
     function HalamanBaru { if ($script:pbBerikut) { $sel.ParagraphFormat.PageBreakBefore = -1; $sel.ParagraphFormat.SpaceBefore = 0; $script:pbBerikut = $false } }
+    # paragraf pengantar = berakhir «:» (spasi dan nomor catatan kaki di ujung tidak dihitung, mis. «…وفيها قولان:»), atau
+    # seluruhnya tebal (**أدلة القول الأول:**): tidak boleh tertinggal sendirian di dasar halaman, daftar/dalilnya di
+    # halaman berikutnya. Seperti judul (#S): menempel ke paragraf sesudahnya (KeepWithNext), dan Word memecah paragraf
+    # panjangnya sendiri, jadi yang ikut pindah hanya baris terakhirnya. Rangkaian paragraf pengantar berturut-turut
+    # hanya dua yang terakhir yang menempel: rantai panjang bisa memindah hampir satu halaman dan menyisakan halaman kosong
+    function Pengantar($b) {
+        if (-not $b -or $b.k -ne 'P') { return $false }
+        $tk = @($b.runs | Where-Object { $null -ne $_.t -and $_.t.Trim() })
+        if (-not $tk.Count) { return $false }
+        return ($tk[-1].t.TrimEnd() -match ':$') -or (@($tk | Where-Object { -not $_.b }).Count -eq 0)
+    }
+    function Menempel($j) {
+        $nx = $DATA.blok[$j + 1]
+        if (-not $nx -or $nx.k -in 'K', 'F', 'B', 'M', 'H', 'R') { return $false }   # sesudahnya halaman/judul baru atau akhir isi
+        return -not ((Pengantar $nx) -and (Pengantar $DATA.blok[$j + 2]))
+    }
     for ($i = 0; $i -lt $DATA.blok.Count; $i++) {
         $blk = $DATA.blok[$i]
         if ($blk.k -eq 'R') { $iR = $i; break }
@@ -531,6 +570,7 @@ try {
             if ($biasa.Count -and $w.Count -eq 1 -and @($biasa | Where-Object { -not $_.w }).Count -eq 0) {
                 [void]$doc.Bookmarks.Add("garis_$($garis.Count + 1)", $doc.Range($awal, $sel.Start)); [void]$garis.Add($w[0])
             }
+            if ((Pengantar $blk) -and (Menempel $i)) { $sel.ParagraphFormat.KeepWithNext = -1 }
             $sel.TypeParagraph()
         }
     }
@@ -556,6 +596,7 @@ try {
         $rg.Font.Name = $TA; $rg.Font.NameBi = $TA; $rg.Font.Size = $uMatan; $rg.Font.SizeBi = $uMatan
         $rg.ParagraphFormat.Alignment = $align
         $rg.Font.Bold = $bold; $rg.Font.BoldBi = $bold
+        Tautan $rg $rg.Start $teks
     }
 
     # ---------- 3. المصادر والمراجع (tabel tanpa garis, urut abjad) ----------
@@ -672,19 +713,33 @@ try {
     if ($ubah) { Write-Output "PERINGATAN: nomor halaman فهرس belum tetap sesudah 5 putaran" }
 
     # ---------- 6. Simpan ----------
-    # nomor halaman = teks kanan-ke-kiri, supaya ArabicNumeral 2 mencetaknya ٠-٩ (di akhir: memindah Selection ke kaki halaman)
-    $ft.Range.Select(); $word.Selection.RtlRun()
-    if ($KITAB) { $fg.Range.Select(); $word.Selection.RtlRun() }
-    if ($ftIsi) { $ftIsi.Range.Select(); $word.Selection.RtlRun() }
+    # nomor halaman = teks kanan-ke-kiri, supaya ArabicNumeral 2 mencetaknya ٠-٩ (di akhir: memindah Selection ke kaki
+    # halaman). RtlRun hanya ada di Selection, dan bisa diam-diam tidak berpengaruh: satu PDF pernah tercetak 0123 di
+    # semua kaki halamannya, <w:rtl/> tidak ada di kaki halaman .docx-nya, dan rakit ulang naskah yang sama benar
+    # (penyebabnya belum tahu). Jadi dikerjakan di Print Layout, lalu dibaca lagi dari XML-nya dan diulang sekali
+    $doc.ActiveWindow.View.Type = 3
+    function NomorRtl($hf) {
+        if (-not $hf -or -not $hf.Range.Fields.Count) { return }   # kaki halaman tanpa PAGE (@templat: nomor di kepala halaman)
+        for ($k = 1; $k -le 2; $k++) {
+            $doc.Activate(); $hf.Range.Select(); $word.Selection.RtlRun()
+            if ($hf.Range.WordOpenXML -match '<w:rtl/>') { return }
+        }
+        # nomor huruf (@nomor: abjad) tidak berangka
+        if ($HINDI -and $hf.PageNumbers.NumberStyle -ne 46) { Write-Output "PERINGATAN: Word tidak mau membuat nomor halaman kanan-ke-kiri: nomor halaman bisa tercetak 0123. Rakit lagi." }
+    }
+    NomorRtl $ft
+    if ($KITAB) { NomorRtl $fg }
+    if ($ftIsi) { NomorRtl $ftIsi }
     # garis pemisah catatan kaki di kanan: ceritanya baru ada sesudah catatan kaki pertama; dokumen @templat berangkat dari
     # dokumen kosong yang gaya Normal-nya kiri-ke-kanan, jadi garisnya ikut ke kiri kalau tidak disetel di sini
     foreach ($g in @($doc.Footnotes.Separator, $doc.Footnotes.ContinuationSeparator)) {
         try { $g.ParagraphFormat.ReadingOrder = 0; $g.ParagraphFormat.Alignment = 0 } catch {}
     }
     $pages = $doc.ComputeStatistics(2)
-    # halaman isi = المقدمة s.d. الخاتمة (nomor halaman dihitung mulai dari المقدمة); tanpa المصادر dan فهرس = halaman terakhir
-    if ($ABJAD) {                                        # nomor tercetak dua jenis: halaman isi dihitung dari halaman fisik
-        $bmMuqaddimah = ($toc | Where-Object { $_.t -eq 'المقدمة' } | Select-Object -First 1).bm
+    # halaman isi = المقدمة s.d. الخاتمة; tanpa المصادر dan فهرس = halaman terakhir. Ada المقدمة atau nomor tercetak dua
+    # jenis (@nomor): dihitung dari halaman fisik, supaya #K sebelum المقدمة (الإهداء، الملخص) tidak ikut terhitung
+    $bmMuqaddimah = ($toc | Where-Object { $_.t -eq 'المقدمة' } | Select-Object -First 1).bm
+    if ($ABJAD -or $bmMuqaddimah) {
         $hAwal = if ($bmMuqaddimah) { $doc.Bookmarks.Item($bmMuqaddimah).Range.Information(3) } else { 1 }
         $hAkhir = if ($doc.Bookmarks.Exists($bmSesudahIsi)) { $doc.Bookmarks.Item($bmSesudahIsi).Range.Information(3) } else { $pages + 1 }
         $isi = $hAkhir - $hAwal
@@ -701,6 +756,7 @@ try {
     if ($kepalaTpl) { foreach ($sh in $kepalaTpl.Shapes) { if ($sh.TextFrame.HasText) { $sh.TextFrame.TextRange.Select(); $word.Selection.RtlRun() } } }
     $doc.SaveAs2("$Out.docx", 16)
     $word.ScreenUpdating = $true                         # tanpa ini garis bingkai/kepala halaman tidak ikut ke PDF
+    $word.Options.ArabicNumeral = $NUMERAL               # pengaturan milik seluruh Word pemakai: dipastikan lagi tepat sebelum PDF
     $doc.ExportAsFixedFormat("$Out.pdf", 17)
     $doc.Close($false)
 }
@@ -714,5 +770,5 @@ finally {
     Start-Sleep -Milliseconds 500
     foreach ($id in $wordIni) { try { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue } catch {} }
     try { Remove-Item -LiteralPath $tmp, $CATATAN_WORD -Force -ErrorAction SilentlyContinue } catch {}
-    try { $kunci.Close() } catch {}
+    try { $pegangKunci.Close() } catch {}
 }

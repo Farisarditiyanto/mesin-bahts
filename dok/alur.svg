@@ -120,10 +120,9 @@
 <text x="999" y="566" font-size="18" font-weight="700" font-family="Georgia, 'Times New Roman', serif" fill="#3a281b">Diperiksa agent kedua</text>
 <text x="999" y="593" font-size="13.5" fill="#5e4835">Agent yang tidak ikut menulis</text>
 <text x="999" y="612" font-size="13.5" fill="#5e4835">membuka halaman tiap catatan kaki</text>
-<text x="999" y="631" font-size="13.5" fill="#5e4835">dan membaca PDF: benarkah yang</text>
-<text x="999" y="650" font-size="13.5" fill="#5e4835">berkata orang itu, benarkah nama</text>
-<text x="999" y="669" font-size="13.5" fill="#5e4835">kitabnya, sesuaikah dengan</text>
-<text x="999" y="688" font-size="13.5" fill="#5e4835">permintaanmu.</text>
+<text x="999" y="631" font-size="13.5" fill="#5e4835">dan PDF: siapa yang berkata, nama</text>
+<text x="999" y="650" font-size="13.5" fill="#5e4835">kitab, sesuai permintaanmu?</text>
+<rect x="999.0" y="676" width="52.5" height="22" rx="5" fill="#fbf5e8" stroke="#2f4478" stroke-opacity="0.6"/><text x="1025.2" y="691.5" font-size="12" font-family="Consolas, Menlo, monospace" fill="#1f2f57" text-anchor="middle">bukti</text>
 <rect x="1288" y="478" width="272" height="240" rx="14" fill="#fbf5e8" stroke="#c0566e" stroke-width="1.4" filter="url(#bayang)"/>
 <path d="M1288 492Q1288 478 1302 478H1546Q1560 478 1560 492Z" fill="#c0566e"/>
 <circle cx="1318" cy="522" r="17" fill="#c0566e"/><circle cx="1318" cy="522" r="20" fill="none" stroke="#b8892f" stroke-width="1.2"/><text x="1318" y="528" font-size="16" font-weight="700" font-family="Georgia, 'Times New Roman', serif" fill="#fff" text-anchor="middle">10</text>

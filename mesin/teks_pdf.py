@@ -10,6 +10,7 @@ import os, re, unicodedata
 from pathlib import Path
 
 from berkas import sementara
+from norma import norm, padat
 
 ARAB = re.compile(r"[\u0600-\u06ff\ufb50-\ufdff\ufe70-\ufeff]")
 HARAKAT = re.compile(r"[\u064b-\u065f\u0670]")
@@ -120,6 +121,97 @@ def _cmap(peta):
             "endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n").encode("latin1")
 
 
+def _gid(f):
+    """Nomor glyph di PDF (CID) -> nomor glyph di berkas huruf. Word kadang menulis peta CIDToGIDMap sendiri, bukan
+    Identity (nomor halaman: CID 49 = glyph ١ nomor 206); tanpa peta itu glyph ١ dibaca sebagai huruf lain."""
+    peta = f["/DescendantFonts"][0].get_object().get("/CIDToGIDMap")
+    if peta is None or not hasattr(peta.get_object(), "get_data"):   # /Identity
+        return lambda c: c
+    data = peta.get_object().get_data()
+    return lambda c: int.from_bytes(data[2 * c:2 * c + 2], "big") if 2 * c + 2 <= len(data) else c
+
+
+def _baris(hal):
+    """[(y, x, ukuran, teks)] tiap potongan teks halaman (y dari bawah halaman, satuan pt)."""
+    out = []
+    def lihat(t, cm, tm, fd, fs):
+        if t.strip():
+            out.append((tm[5] * cm[3] + cm[5], tm[4] * cm[0] + cm[4], abs(fs * tm[3] * cm[3]), t))
+    hal.extract_text(visitor_text=lihat)
+    return out
+
+
+TEPI = 65  # pt dari tepi atas/bawah: nomor halaman (1,25 cm) ada di sini, matan dan catatan kaki (tepi 2,5 cm) tidak
+ANGKA = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
+
+
+def _ada(kata, teks):
+    """`kata` (padat) ada di `teks`, boleh dengan urutan huruf yang tertukar: teks PDF Word membalik huruf glyph
+    sambungan («بين» tersalin «بني», «الإسلام» «اإلسالم») dan kadang memindah ujung baris ke awalnya («…عند الفقهاء»
+    tersalin «ءاحكم … عند الفقه»), jadi tiap baris juga dicoba diputar. Huruf yang kurang atau lebih tetap tidak ada
+    («بيع» bukan «البيع»)."""
+    urut, n = sorted(kata), len(kata)
+    # Semua jendela tiap putaran baris sama dengan jendela baris melingkar; cukup sambung awalan sekali.
+    calon = [padat(teks)] + [p + p[:n - 1] for p in map(padat, teks.splitlines()) if n <= len(p)]
+    return any(kata in c or any(sorted(c[i:i + n]) == urut for i in range(len(c) - n + 1)) for c in calon)
+
+
+def periksa(pdf, bahan):
+    """Peringatan sesudah rakit (tidak menggagalkan): titik-titik isian di sampul, @judul yang tidak ada di sampul, jenis
+    angka nomor halaman yang tidak sesuai @angka, dan baris terakhir matan halaman yang berakhir «:». Teks PDF buatan Word
+    tidak tersalin persis (huruf sambung, angka ٠-٩), jadi pencocokannya longgar: yang diperingatkan hanya yang jelas."""
+    import pypdf
+    meta, fmt = bahan["meta"], bahan["format"]
+    halaman = pypdf.PdfReader(pdf).pages
+    pesan = []
+    awal = 0 if meta.get("bentuk") == "kitab" or meta.get("tanpa_sampul") else 1  # halaman 1 = sampul (bukan potongan --fasl)
+    if awal and halaman:
+        sampul = halaman[0].extract_text() or ""
+        polos = re.sub(r"\s+", "", sampul.replace("…", "...")).translate(ANGKA)
+        nim = str(meta.get("nim") or "").translate(ANGKA)
+        for n in {nim, nim[::-1]} - {""}:                # nomor mahasiswa contoh «000000000» bukan isian kosong
+            polos = polos.replace(n, "")
+        if re.search(r"\.{4,}|0{4,}", polos):
+            pesan.append("titik-titik isian («....» atau «٠٠٠٠») masih tercetak di sampul: isi atau hapus di "
+                         + ("templat Word (@templat)." if meta.get("templat") else "naskah."))
+        hilang = [k for k in norm(str(meta.get("judul", ""))).split() if padat(k) and not _ada(padat(k), sampul)]
+        if hilang:
+            pesan.append(f"sampul tidak memuat @judul persis (tidak terbaca: {' '.join(hilang)}): samakan judul di "
+                         + ("sampul templat Word dengan @judul." if meta.get("templat") else "sampul dengan @judul."))
+    hindi = meta.get("angka", "hindi") == "hindi"
+    nomor, ujung = {}, []
+    batas = (float(fmt["matan"]) + float(fmt["catatan"])) / 2   # matan dan judul; catatan kaki lebih kecil
+    for i, hal in enumerate(halaman[awal:], awal + 1):
+        tinggi = float(hal.mediabox.height)
+        potong = sorted(_baris(hal), key=lambda p: -p[1])   # kanan ke kiri
+        # kaki halaman = nomor halaman saja (@templat yang nomornya di kepala halaman: tidak diperiksa)
+        kaki = re.sub(r"[\s\u200c\u200e\u200f]", "", "".join(t for y, x, u, t in potong if y < TEPI))
+        if kaki:
+            nomor[i] = kaki.isascii() and kaki.isdigit()   # ٠-٩ terbaca benar sesudah betulkan (_gid)
+        matan = [p for p in potong if TEPI < p[0] < tinggi - TEPI and p[2] >= batas]
+        if matan:
+            y0 = min(p[0] for p in matan)
+            akhir = "".join(t for y, x, u, t in matan if abs(y - y0) < 2).strip()
+            while re.search(r"\([^()]{1,4}\)$", akhir):   # nomor catatan kaki «(١)» sesudah «:»
+                akhir = re.sub(r"\s*\([^()]{1,4}\)$", "", akhir)
+            if akhir.endswith(":"):
+                ujung.append(i)
+    if hindi:
+        salah = [i for i, latin in nomor.items() if latin]
+    else:   # @nomor abjad: halaman sebelum nomor 1 bernomor huruf, bukan angka
+        pertama = min((i for i, latin in nomor.items() if latin), default=None)
+        abjad = meta.get("nomor") in ("abjad", "mukadimah")
+        salah = [i for i, latin in nomor.items() if not latin and not (abjad and (pertama is None or i < pertama))]
+    if salah:
+        jenis, lawan = ("0123", "٠١٢٣ (bawaan)") if hindi else ("bukan 0123", "0123 (@angka: latin)")
+        pesan.append(f"nomor halaman tercetak {jenis} padahal @angka {lawan} di {len(salah)} halaman "
+                     f"(halaman PDF ke-{', '.join(map(str, salah[:5]))}{' …' if len(salah) > 5 else ''}): rakit lagi.")
+    if ujung:
+        pesan.append(f"baris terakhir matan berakhir «:» (pengantar terpisah dari isinya di halaman berikutnya) di halaman "
+                     f"PDF ke-{', '.join(map(str, ujung))}: lihat halamannya; perlu → pendekkan/panjangkan paragraf sebelumnya.")
+    return pesan
+
+
 def betulkan(pdf):
     """Tulis ulang peta glyph -> huruf tiap huruf Word (Type0) di `pdf`. Hasil: jumlah glyph yang petanya diubah."""
     import pypdf
@@ -135,9 +227,10 @@ def betulkan(pdf):
             sudah.add(tu.idnum)
             lama = _peta(tu.get_object().get_data().decode("latin1"))
             asli = _isi_glyph(str(f["/BaseFont"])[1:], daftar) if any(ARAB.search(s) for s in lama.values()) else {}
+            gid = _gid(f)
             baru = {}
             for g, s in lama.items():
-                teks, kode = asli.get(g, (None, None))
+                teks, kode = asli.get(gid(g), (None, None))
                 # Word memetakan glyph menurut kemunculan pertamanya: ligatur «نا» bisa jadi «نًّ», syaddah jadi «ن».
                 # Huruf yang digambar glyph itu (dari font) menang kalau hurufnya (tanpa harakat) berbeda
                 if teks and ARAB.search(teks) and _dasar(teks) != _dasar(s):

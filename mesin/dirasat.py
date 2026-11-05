@@ -139,7 +139,10 @@ def _doaj(kata, maks, saringan):
     return d.get("total", 0), hasil, None
 
 
-SUMBER = (("OpenAlex, menurut kata", _kata), ("OpenAlex, menurut makna", _makna), ("DOAJ", _doaj))  # urutan cetak
+# urutan cetak; True = menurut makna: selalu mengembalikan sesuatu, juga untuk kata yang tidak ada di penelitian mana pun
+SUMBER = (("OpenAlex, menurut kata", _kata, False), ("OpenAlex, menurut makna", _makna, True), ("DOAJ", _doaj, False))
+MAKNA_SAJA = ("hanya MIRIP MAKNANYA, karena kata kuncinya tidak ditemukan menurut kata: bisa sama sekali tidak relevan. "
+              "Baca judul dan ringkasannya dulu; jangan dipakai sebagai الدراسات السابقة hanya karena muncul di sini")
 # jawaban yang bukan JSON (halaman perawatan, halaman masuk wifi) atau JSON berbentuk lain
 JAWABAN_RUSAK = (ValueError, KeyError, TypeError, AttributeError)
 
@@ -151,7 +154,8 @@ def cari(kata, maks=10, saringan="", lebar=400):
     if not kata.strip() or not 1 <= maks <= 100:
         raise ValueError('bentuknya: dirasat "<kata kunci>" [maks 1-100] [saringan]')
     n, sudah, gagal, rusak, saringan_ditolak, sisa, perlu_kunci = 0, set(), 0, 0, 0, None, False
-    for nama, ambil in SUMBER:
+    menurut_kata, dari_makna = 0, 0  # jumlah cocok menurut kata; hasil tercetak dari pencarian makna
+    for nama, ambil, makna in SUMBER:
         print(f"\n{nama}: ", end="", flush=True)  # tanda masih bekerja selama menunggu jawaban
         try:
             jumlah, hasil, jatah = ambil(kata, maks, saringan)
@@ -172,6 +176,10 @@ def cari(kata, maks=10, saringan="", lebar=400):
         sisa = jatah or sisa
         baru = [w for w in hasil if not ({w["doi"], w.get("nomor")} - {"", None}) & sudah]
         print(f"{jumlah} penelitian cocok" + (f", {len(hasil) - len(baru)} sudah tercetak di atas" if len(baru) < len(hasil) else ""))
+        if makna and baru and not menurut_kata:
+            print("PERINGATAN: hasil di bawah ini " + MAKNA_SAJA)
+        menurut_kata += 0 if makna else jumlah
+        dari_makna += len(baru) if makna else 0
         if saringan and ambil is _doaj:
             print("(saringan tidak berlaku di DOAJ: hasil di bawah ini tidak tersaring)")
         for w in baru:
@@ -195,6 +203,8 @@ def cari(kata, maks=10, saringan="", lebar=400):
         print(f"\nSisa jatah OpenAlex hari ini: ${float(sisa):.2f}")
     if (sisa or perlu_kunci) and not _kunci():
         print(f"Tanpa kunci OpenAlex: jatahnya kecil dan PDF tersimpan tidak bisa diunduh; {CARA_KUNCI}")
+    if dari_makna and not menurut_kata:
+        print("\nPERINGATAN: semua hasil di atas " + MAKNA_SAJA)
     if not n:
         print("Coba kata kunci lebih pendek (2-3 kata inti), atau buang saringannya.")
 

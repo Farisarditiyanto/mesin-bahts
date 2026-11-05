@@ -2,7 +2,7 @@
 """Regresi struktur lewat CLI asli di salinan TEMP, memakai contoh dan kitab asli.
 Tidak menjalankan Word: naskah yang kehilangan isi harus ditolak sebelum perakit dipanggil.
 """
-import os, shutil, subprocess, sys, tempfile
+import json, os, re, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
 AKAR = Path(__file__).resolve().parent.parent
@@ -13,7 +13,7 @@ def utama():
     with tempfile.TemporaryDirectory(prefix="bahts-struktur-") as t:
         akar = Path(t)
         shutil.copytree(AKAR / "mesin", akar / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__", "*.ttf"))
-        for sid in ("_meta", "11223", "1681", "2348"):
+        for sid in ("_meta", "11223", "1681", "2348", "1726", "1082"):
             shutil.copytree(AKAR / "kitab" / sid, akar / "kitab" / sid)
         f = akar / "uji"
         f.mkdir()
@@ -32,11 +32,16 @@ def utama():
             hasil.append(nama)
             return out
 
-        cek("contoh asli", dasar)
+        perkiraan = re.compile(r"perkiraan halaman isi [^±]*±(\d+)")  # ± pertama = isi; sesudahnya «seluruh PDF: ±N»
+        isi_asli = perkiraan.search(cek("contoh asli", dasar)).group(1)
+        # #K sebelum المقدمة (الملخص dst.) bukan halaman isi, juga tanpa @nomor (HALAMAN_ISI rakit.ps1 sama)
+        mulakhas = dasar.replace("#K المقدمة", "#K الملخص\n" + "كلمة " * 600 + "\n#K المقدمة", 1)
+        isi = perkiraan.search(cek("الملخص panjang sebelum المقدمة", mulakhas)).group(1)
+        assert isi == isi_asli, f"perkiraan halaman isi ikut menghitung الملخص: ±{isi}, contoh ±{isi_asli}"
         # riset.txt: jejak langkah connector hanya pernah jadi perhatian, apa pun isinya (olah.periksa_riset)
         riset = f / "riset.txt"
         for nama, isi, pesan in (
-                ("tanpa riset.txt", None, "ayat {Q:1:2} belum tercatat"),
+                ("tanpa riset.txt", None, "tafsir belum tercatat di riset.txt untuk 1 ayat: 1:2 →"),
                 ("riset tercatat", "﻿tafsir 1:2\r\n# catatan\r\n", "perhatian (lolos, tetapi lihat sendiri): 0"),
                 ("riset rentang", "tafsir 1:1-7\n", "perhatian (lolos, tetapi lihat sendiri): 0"),
                 ("riset langkah asing", "ngaco 1:2\ntafsir 1:2\n", "riset.txt baris 1: «ngaco 1:2» tidak dikenal"),
@@ -62,17 +67,39 @@ def utama():
         riset.unlink()
         out = cek("khilaf dua masalah", dasar.replace("#K الخاتمة", "#B مسألة\nالقول الأول: يجوز.\n#B مسألة أخرى\n"
                                                       "القَوْلُ الأوَّلُ: يجوز.\n#K الخاتمة"))
-        assert out.count("masalah khilaf ke-") == 2, out
+        assert "untuk 2 masalah khilaf («القول الأول»): ke-1, ke-2 →" in out, out
         riset.write_text("tafsir 1:2\nkhilaf مسألة\n", encoding="utf8")
         out = cek("khilaf satu tercatat", dasar.replace("#K الخاتمة", "#B مسألة\nالقول الأول: يجوز.\n#B مسألة أخرى\n"
                                                         "الرأي الأول: يجوز.\n#K الخاتمة"))
-        assert out.count("masalah khilaf ke-") == 1 and "masalah khilaf ke-2" in out, out
+        assert "untuk 1 masalah khilaf («القول الأول»): ke-2 →" in out, out
         riset.unlink()
         # di tengah kalimat (المناقشة, nukilan) bukan masalah baru; «#S القول الأول» lalu «#B أدلة القول الأول» = satu
         out = cek("khilaf bukan masalah baru", dasar.replace("#K الخاتمة", "#S القول الأول\nيجوز.\n#B أدلة القول الأول ومناقشتها\n"
                                                              "اختار القول الأول جماعة، ثم قال: \"والصحيح هو القول الأول\".\n"
                                                              "#K الخاتمة"))
-        assert out.count("masalah khilaf ke-") == 1, out
+        assert "untuk 1 masalah khilaf («القول الأول»): ke-1 →" in out, out
+        # فصل/مبحث yang langsung disusul مبحث/مطلب-nya tanpa تمهيد = perhatian; dengan paragraf pengantar = tidak
+        out = cek("judul bertumpuk", dasar.replace("#K الخاتمة", "#F الفصل الثاني\n#B المبحث الأول\n#M المطلب الأول\nنص.\n#K الخاتمة"))
+        assert out.count("langsung disusul judul") == 2 and "وفيه مبحثان" in out, out
+        # bahts pendek: #F = مبحث, isinya مطلب (contoh pesan mengikuti kata di judul, bukan huruf tandanya)
+        out = cek("judul bertumpuk pendek", dasar.replace("#K الخاتمة", "#F المبحث الثاني\n#B المطلب الأول\nنص.\n#K الخاتمة"))
+        assert "وفيه مطلبان" in out and "وفيه مبحثان" not in out, out
+        out = cek("judul berpengantar", dasar.replace("#K الخاتمة", "#F الفصل الثاني\nوفيه مبحث.\n#B المبحث الأول\n"
+                                                      "وفيه مطلب.\n#M المطلب الأول\nنص.\n#K الخاتمة"))
+        assert "langsung disusul judul" not in out, out
+        # «#B تمهيد» di bawah فصل adalah pengantarnya sendiri
+        for tamhid in ("تمهيد", "المبحث التمهيدي"):
+            out = cek("judul " + tamhid, dasar.replace("#K الخاتمة", f"#F الفصل الثاني\n#B {tamhid}\nهذا تمهيد الفصل، وفيه مبحثان.\n#K الخاتمة"))
+            assert "langsung disusul judul" not in out, out
+        # bagian kosong (judul tanpa paragraf isi sebelum judul setingkat/lebih tinggi; #H bukan isi) = satu perhatian per
+        # judul, menggantikan «tercetak sendirian»; judul yang membawahi judul lebih rendah bukan kosong; kitab tidak diperiksa
+        kosong = dasar.replace("#K المقدمة", "#K الإهداء\n#K المقدمة").replace(
+            "#K الخاتمة", "#B المبحث الأول\n#S الأول\n#S الثاني\nنص.\n#M المطلب\n#H\n#B المبحث الثاني\nنص.\n#K الخاتمة")
+        out = cek("bagian kosong", kosong)
+        assert re.findall(r"bagian «(.+?)» masih kosong", out) == ["الإهداء", "الأول", "المطلب"], out
+        assert "tercetak sendirian" not in out, out
+        out = cek("bagian kosong di kitab", "@bentuk: kitab\n" + kosong)
+        assert "masih kosong" not in out, out
         out = cek("riset {Q:} di bawah #R", dasar + "مرجع {Q:1:1}.\n")
         assert "{Q:1:1}" not in out, out
         for tanda in ("#K", "#F", "#B", "#M", "#S", "#T", "#R", "#H"):
@@ -90,6 +117,29 @@ def utama():
             cek("salah ketik " + salah, f"@{salah}: latin\n" + dasar, True, "maksudnya @" + benar)
         cek("@pustaka nilai salah", "@pustaka: awal\n" + dasar, True, "@pustaka: «awal» tidak dikenal")
         cek("@pustaka: akhir diterima", "@pustaka: akhir\n" + dasar)
+        # «000000000» dulu ada di contoh/naskah.txt, tersalin ke bahts nyata, lalu tercetak di sampul sebagai nomor mahasiswa
+        for nol in ("000000000", "٠٠٠٠٠٠٠٠٠"):
+            cek("@nim nol " + nol, dasar.replace("@nim: -", "@nim: " + nol), True, "tercetak di sampul sebagai nomor mahasiswa")
+        cek("@nim asli diterima", dasar.replace("@nim: -", "@nim: 123456789"))
+
+        # @catatan_kaki/@spasi menimpa satu nilai profil @format di bahan yang dibaca rakit.ps1; profil lain tetap
+        sys.path.insert(0, str(akar / "mesin"))
+        from berkas import bahan
+        profil = json.loads((akar / "mesin" / "format.json").read_text(encoding="utf8"))
+        format_bahan = lambda: json.loads(bahan(f).read_text(encoding="utf8"))["format"]
+        dengan = lambda baris: dasar.replace("@format: imam_ayat16\n", baris)
+        cek("@catatan_kaki dan @spasi menimpa profil", dengan("@format: tatbiqi\n@catatan_kaki: bersambung\n@spasi: 1.5\n"))
+        assert format_bahan() == {**profil["tatbiqi"], "catatan_ulang_tiap_halaman": False, "spasi": 1.5}, format_bahan()
+        cek("@catatan_kaki: ulang", dengan("@format: imam_ayat16_bersambung\n@catatan_kaki: ulang\n"))
+        assert format_bahan() == {**profil["imam_ayat16_bersambung"], "catatan_ulang_tiap_halaman": True}, format_bahan()
+        cek("@spasi: 1", dengan("@format: tatbiqi_15\n@spasi: 1\n"))
+        assert format_bahan() == {**profil["tatbiqi_15"], "spasi": 1}, format_bahan()
+        cek("profil tanpa kunci timpa", dengan("@format: tatbiqi_15\n"))
+        assert format_bahan() == profil["tatbiqi_15"], format_bahan()
+        cek("@catatan_kaki nilai salah", dengan("@format: tatbiqi\n@catatan_kaki: bersambng\n"), True,
+            "@catatan_kaki: «bersambng» tidak dikenal (yang ada: bersambung, ulang)")
+        cek("@spasi nilai salah", dengan("@format: tatbiqi\n@spasi: 1,5\n"), True, "@spasi: «1,5» tidak dikenal (yang ada: 1, 1.5)")
+        cek("salah ketik catatan_kaki", "@catatan_kaky: bersambung\n" + dasar, True, "maksudnya @catatan_kaki")
 
         kutipan = '«توحيد الربوبية وهو إفراد الله تعالى بالخلق والملك والتدبير»'
         catatan = '[^رسالة في القضاء والقدر، ابن عثيمين، ص5. <<11223|-|5>>]'
@@ -106,12 +156,27 @@ def utama():
             cek("kepala hadits Bukhari " + str(halaman), sisip(
                 f"هذا موضع الحديث[^أخرجه البخاري، رقم الحديث (856)، 1/{halaman}. <<1681|1|{halaman}|#856>>]."), gagal)
         cek("lanjutan hadits tetap sah", sisip("هذا موضع الحديث[^رياض الصالحين، النووي، ص10. <<2348|-|10|#2>>]."))
+        # takhrij beberapa bukti: kutipan dicek ke tiap bukti tanpa potongan. Bukti kitab lain yang tidak memuatnya tetap
+        # GAGAL, tetapi pesannya menunjuk bukti yang memuatnya dan bentuk berpotongan untuk bukti derajat/takhrij lain
+        takhrij = ('قال: «نهى رسول الله ﷺ عن بيع العربان»[^أخرجه أبو داود، كتاب البيوع، باب في العربان، رقم الحديث (3502)، '
+                   '3/283، وهو حديث ضعيف، وانظر: سبل السلام، 5/41. <<1726|3|283>> <<1082|5|41{}>>].')
+        cek("bukti derajat tanpa potongan", sisip(takhrij.format("")), True,
+            "kutipan sebelum catatan kaki ada di <<1726|3|283>>, tetapi tidak di <<1082|5|41>>")
+        out = cek("bukti derajat tanpa potongan: bentuk yang ditunjuk", sisip(takhrij.format("|واختلف الفقهاء في جواز هذا البيع")))
+        assert "| GAGAL: 0" in out, out
+        # lafaz riwayat lain («teks berbeda», bukan «TIDAK KETEMU»), kutipannya terbukti di bukti berpotongan #nomor
+        cek("riwayat berlafaz lain sesudah bukti #nomor", sisip(
+            'قال ﷺ: «فمن كانت هجرته إلى دنيا يصيبها، أو إلى امرأة ينكحها، فهجرته إلى ما هاجر إليه»[^أخرجه البخاري، '
+            'رقم الحديث (1)، 1/6، وأبو داود، رقم الحديث (2201)، 2/262. <<1681|1|6|#1>> <<1726|2|262>>].'), True,
+            "kutipan sebelum catatan kaki ada di <<1681|1|6>>, tetapi tidak di <<1726|2|262>> (teks berbeda")
+        cek("kutipan palsu tetap GAGAL walau dua bukti", sisip(takhrij.replace("العربان»", "الكلب»").format("")), True,
+            "teks berbeda dengan kitab 1726")
 
         for akhir in (",", ";", ":", "]", "…", "）", "\u200f,\u200f", ". اهـ,", " انتهى كلامه؛"):
             cek("kutipan palsu dengan tanda baca " + repr(akhir), sisip(
                 'قال الشيخ: «القدر سر مكشوف»' + akhir +
                 '[^رسالة في القضاء والقدر، ابن عثيمين، ص5. <<11223|-|5|توحيد الربوبية وهو إفراد الله>>].'),
-                True, "kutipan sebelum catatan kaki tidak ada")
+                True, "kutipan sebelum catatan kaki: teks TIDAK KETEMU")
             cek("kutipan sah dengan tanda baca " + repr(akhir), sisip('قال الشيخ: ' + kutipan + akhir + catatan + '.'))
 
         # Beban besar dengan teks/rujukan asli, tanpa jaringan atau Word.
@@ -137,6 +202,24 @@ def utama():
         r = bahts("baru", "bahts/ahmad/sub", "الإخلاص - دراسة موضوعية")
         assert r.returncode == 0 and "Sub-judul sampul «دراسة موضوعية»" in r.stdout, r.stdout + r.stderr
         hasil.append("peringatan sub-judul di baru")
+        # sampul_saya.txt = data pemilik repo: tidak boleh tercetak di sampul bahts/<orang lain>/…
+        saya = akar / "sampul_saya.txt"
+        saya.write_text("@nama: صاحب المستودع\n@nim: 111\n@thalibah: ya\n@sampul: mahad\n@angka: latin\n", encoding="utf8")
+        r = bahts("baru", "bahts/umar/a", "الإخلاص")
+        isi = (akar / "bahts" / "umar" / "a" / "naskah.txt").read_text(encoding="utf8")
+        assert r.returncode == 0 and "صاحب" not in isi and "@nim: 111" not in isi and "thalibah" not in isi, isi
+        assert "mahad" not in isi and "@angka: latin" in isi and "tidak diambil dari sampul_saya.txt" in r.stdout, isi + r.stdout
+        assert "Tanyakan ke «umar»" in r.stdout and "boleh ditulis sekali" not in r.stdout, r.stdout
+        r = bahts("baru", "Bahts/zaid/a", "الإخلاص")  # huruf besar: di Windows folder yang sama
+        assert "صاحب" not in (akar / "Bahts" / "zaid" / "a" / "naskah.txt").read_text(encoding="utf8"), r.stdout
+        (akar / "bahts" / "umar" / "a" / "naskah.txt").write_text(isi.replace("@nama:", "@nama: عمر", 1), encoding="utf8")
+        r = bahts("baru", "bahts/umar/b", "الإخلاص")
+        isi = (akar / "bahts" / "umar" / "b" / "naskah.txt").read_text(encoding="utf8")
+        assert "@nama: عمر" in isi and "bahts/umar/a/naskah.txt" in r.stdout, isi + r.stdout
+        r = bahts("baru", "milikku", "الإخلاص")
+        assert "@nama: صاحب المستودع" in (akar / "milikku" / "naskah.txt").read_text(encoding="utf8"), r.stdout
+        saya.unlink()
+        hasil.append("data diri sampul_saya.txt tidak ke bahts orang lain")
 
         # Salinan PDF: tanpa keluaran_saya.txt tidak ada apa-apa; dengan berkas itu tersalin per orang.
         salin = ("import sys; sys.argv=['bahts']; import bahts\n"

@@ -95,6 +95,7 @@ def siapkan():
     f = ROOT / KATALOG
     if not f.exists():
         f.parent.mkdir(parents=True, exist_ok=True)
+        print("katalog kitab: mengunduh …", flush=True)
         _unduh(f"{RAW}/{KATALOG}", f, lambda q: open(q, "wb"))
     print(f"katalog kitab: {len(_meta())} judul")
 
@@ -119,10 +120,10 @@ def _meta():
         import pyarrow.parquet as pq
     except ImportError:
         raise SystemExit("Pustaka Python belum terpasang; cara memasangnya disebut oleh: " + perintah("periksa"))
-    # Katalog hanya perlu tujuh kolom ini; kartu lengkap dibaca dari kitab lokal.
+    # Katalog hanya perlu sembilan kolom ini; kartu lengkap dibaca dari kitab lokal.
     with pq.ParquetFile(ROOT / KATALOG) as f:
         return f.read(columns=["shamela_id", "book_id", "category_id", "title_ar",
-                               "main_author_name_ar", "category_name_ar", "has_multi_part"]).to_pylist()
+                               "main_author_id", "main_author_name_ar", "category_name_ar", "has_multi_part", "group_id"]).to_pylist()
 
 
 def ada_keterangan():
@@ -189,6 +190,84 @@ def nomor_judul(judul):
     return semua.get(q, []), [s for j, ss in semua.items() if j != q and j.startswith(q) for s in ss]
 
 
+PENGARANG_SESUDAH = re.compile(r"^(?:للشيخ|للإمام|للعلامة|للحافظ|للقاضي|لابن|لأبي|لأبى)$")  # «المغني لابن قدامة»
+
+
+def kata_judul(judul):
+    """Kata judul sebelum pengarang tempelan («المغني لابن قدامة» -> [«المغني»])."""
+    kata = judul.split()
+    return kata[:next((i for i, w in enumerate(kata) if i and PENGARANG_SESUDAH.match(w)), len(kata))]
+
+
+def judul_pokok(judul):
+    """Judul katalog tanpa keterangan edisi sesudah « - » («صحيح مسلم - ت عبد الباقي»), dipecah di « = » (judul lain:
+    «تفسير السعدي = تيسير الكريم الرحمن»), juga tanpa pengarang yang ditempel («المغني لابن قدامة» → «المغني»)."""
+    out = []
+    for b in re.split(r"\s+=\s+", re.split(r"\s+-\s+", judul or "")[0].strip()):
+        out += [b, " ".join(kata_judul(b))]
+    return list(dict.fromkeys(x for x in out if x))
+
+
+@functools.cache
+def _judul_pokok_padat():
+    """{judul_pokok `padat`: {nomor kitab}}: «صحيح مسلم» = semua edisinya."""
+    try:
+        daftar = _meta()
+    except SystemExit:
+        return {}
+    out = {}
+    for r in daftar:
+        for b in judul_pokok(r["title_ar"]):
+            out.setdefault(padat(b), set()).add(int(r["shamela_id"]))
+    return out
+
+
+def nomor_pengarang(nama):
+    """main_author_id pengarang katalog yang namanya `nama`, atau diawali `nama` utuh sekata («ابن حجر» = ابن حجر
+    العسقلاني dan ابن حجر الهيتمي). Nama satu kata hanya nisbah ber-«ال» yang persis sama («النووي»): «مسلم», «مالك»,
+    «أحمد» juga kata biasa, dan satu kata tidak boleh jadi awalan nama orang lain."""
+    awal = norm(nama)
+    if not awal or " " not in awal:
+        return set(_pengarang_kata().get(awal, ())) if awal.startswith("ال") and len(awal) >= 5 else set()
+    return {i for j, ii in _pengarang_kata().items() if j == awal or j.startswith(awal + " ") for i in ii}
+
+
+@functools.cache
+def _pengarang_kata():
+    """{nama pengarang `norm` (berspasi, supaya «ابن حجر» tidak cocok dengan «ابن حجرة»): {main_author_id}}."""
+    try:
+        daftar = _meta()
+    except SystemExit:
+        return {}
+    out = {}
+    for r in daftar:
+        nama = r["main_author_name_ar"] or ""
+        for b in {nama, *nama.split("،")}:
+            if norm(b):
+                out.setdefault(norm(b), set()).add(str(r["main_author_id"]))
+    return out
+
+
+@functools.cache
+def _asal():
+    """{nomor kitab: (main_author_id, group_id)} dari katalog; group_id menyatukan edisi dan ringkasan satu kitab."""
+    try:
+        return {int(r["shamela_id"]): (str(r["main_author_id"]), r["group_id"]) for r in _meta()}
+    except SystemExit:
+        return {}
+
+
+def asal(sid):
+    """(main_author_id, group_id) kitab sid menurut katalog; (None, None) kalau tidak ada."""
+    return _asal().get(int(sid), (None, None))
+
+
+def nomor_judul_pokok(judul):
+    """Nomor kitab yang salah satu judul_pokok-nya persis `judul` («صحيح البخاري», «تيسير الكريم الرحمن»)."""
+    q = padat(judul)
+    return sorted(_judul_pokok_padat().get(q, ())) if len(q) >= 6 else []
+
+
 TURATH = "https://api.turath.io/search"  # pencarian isi seluruh Shamela; nomor kitabnya = shamela_id (sama dengan `ambil`)
 TURATH_MAKS = 20  # turath menjawab sebanyak ini tiap pencarian
 TURATH_SABAR = 30  # detik; turath minta menunggu lebih lama dari ini = jatah pencarian habis, bukan sekadar terlalu cepat
@@ -242,7 +321,8 @@ def temukan(frasa, maks=20, mazhab=(), kitab=(), halaman=1):
               "Coba frasa lebih pendek (2-4 kata inti), atau ejaan lain.")
         return 0
     if not d["data"]:
-        print(f"Halaman {halaman} melewati akhir hasil: {d['count']} tempat cocok di {tempat}, {TURATH_MAKS} tiap halaman.")
+        print(f"Halaman {halaman} melewati akhir hasil: {d['count']} tempat cocok di {tempat}, {TURATH_MAKS} tiap halaman; "
+              f"halaman terakhir: --halaman {max(1, -(-d['count'] // TURATH_MAKS))}.")
         return 0
     print(f"{d['count']} tempat cocok di {tempat}: {frasa}\n" + ada_keterangan())
     ada = set(punya())
@@ -285,11 +365,22 @@ def _folder(sid):
     return ROOT / str(int(sid))
 
 
+def _belum(sid):
+    """Pesan kitab yang tidak ada di kitab/: nomor yang tidak ada di katalog tidak disuruh `ambil` (`ambil` akan menolaknya)."""
+    try:
+        dikenal = any(r["shamela_id"] == int(sid) for r in _meta())
+    except SystemExit:  # katalog/pyarrow belum ada: tidak bisa dipastikan
+        dikenal = True
+    if not dikenal:
+        return SystemExit(f"Kitab {sid} TIDAK ADA di katalog Shamela. Nomornya dari `kitab`, `katalog`, atau `temukan`.")
+    return SystemExit(f"Kitab {sid} belum diunduh: " + perintah(f"ambil {sid}"))
+
+
 @functools.cache  # `cek` membacanya untuk tiap bukti
 def info(sid):
     f = _folder(sid) / "book_metadata.json"
     if not f.exists():
-        raise SystemExit(f"Kitab {sid} belum diunduh: " + perintah(f"ambil {sid}"))
+        raise _belum(sid)
     return json.loads(f.read_text(encoding="utf8"))
 
 
@@ -303,8 +394,10 @@ def daftar():
 
 
 def kartu(sid):
-    """Data cetak kitab (pengarang, muhaqqiq, penerbit, cetakan) untuk rujukan pertama dan daftar pustaka."""
-    print(info(sid)["betaka_text"].replace("\r", "\n"))
+    """Data cetak kitab (pengarang, muhaqqiq, penerbit, cetakan) untuk rujukan pertama dan daftar pustaka, lalu satu
+    baris bentuk bukti <<…>> kitab itu (contoh_bukti)."""
+    print(info(sid)["betaka_text"].replace("\r", "\n").rstrip("\n"))
+    print(contoh_bukti(sid))
 
 
 def ambil(*sid):
@@ -342,6 +435,7 @@ def _ambil(sid):
     if not folder:
         raise LookupError("folder kitabnya tidak ketemu di dataset Shamela (mungkin belum tersedia di sana)")
     dst.mkdir(parents=True, exist_ok=True)
+    print(f"{sid}: mengunduh {r['title_ar']} …", flush=True)  # kitab besar: unduh + indeks makan belasan detik
     # isi kitab disimpan terkompres (.gz) supaya hemat disk: teks Arab menyusut ±5x
     # pages.jsonl terakhir: dialah tanda "sudah ada", jadi kitab yang unduhannya putus diunduh ulang
     for f in ("book_metadata.json", "toc.jsonl", "pages.jsonl"):
@@ -351,6 +445,7 @@ def _ambil(sid):
         else:
             _unduh(url, dst / f, lambda q: open(q, "wb"))
     mb = (dst / "pages.jsonl.gz").stat().st_size / 1e6
+    print(f"{sid}: menyiapkan indeks pencarian ({mb:.1f} MB) …", flush=True)
     _cache(sid)  # sekarang, bukan saat `cari` pertama: kitab besar makan belasan detik
     print(f"{sid} OK  {r['title_ar']}  ({mb:.1f} MB)")
 
@@ -530,6 +625,18 @@ def _batas_kata(p, bagian):
     return p[kunci]
 
 
+def kata_titik_dua(p, bagian="body"):
+    """[(kata `padat`, diikuti «:»)] tiap kata bagian rekaman p («قال الشافعي (¬١):» -> الشافعي diikuti «:»).
+    Urutannya sama dengan `_batas_kata` kalau pemotongan katanya sama; pemakai membandingkan dulu."""
+    out = []
+    for _, b in _potong(p, bagian):
+        for t in TAGS.sub(" ", b).split():
+            out += [[w, False] for w in (BUKAN_ABJAD.sub("", x) for x in norm(t).split()) if w]
+            if out:  # tanda tanpa huruf ikut kata sebelumnya: «(¬١):» -> «:»; «[يوسف: ٨٨] .» -> bukan «:» lagi
+                out[-1][1] = bool(re.search(r":\W*$", t))
+    return out
+
+
 def kata_dalam(teks):
     """Letak awal tiap kata kutipan (selain kata pertama) di teks `padat`-nya, dihitung seperti `_batas_kata`."""
     out, n = set(), 0
@@ -594,56 +701,176 @@ def _cocok(p, q, bagian="body", utuh=False, kata=()):
     return next(_letak(p, q, bagian, utuh, kata), None)
 
 
-def tempat(p, q, bagian="body", utuh=False, kata=(), dalam=None):
+# Garis pemisah matan dan حاشية di cetakan. Sebagian kitab Shamela menaruh حاشية المحقق di body sesudah garis ini
+# (footnotes kosong): teks sesudahnya sampai halaman cetak berikutnya bukan matan.
+PEMISAH_CATATAN = re.compile(r"_{5,}")
+
+
+def catatan_body(t):
+    """Ruas [(awal, akhir)] teks asli body t yang sebenarnya حاشية: dari garis pemisah sampai penanda halaman ⦗n⦘
+    berikutnya atau akhir teks."""
+    out = []
+    for m in PEMISAH_CATATAN.finditer(t):
+        if not out or m.start() >= out[-1][1]:
+            n = PENANDA.search(t, m.end())
+            out.append((m.start(), n.start() if n else len(t)))
+    return out
+
+
+def _catatan_padat(p):
+    """`catatan_body` rekaman p dalam letak teks `padat` body-nya; dihitung sekali per rekaman."""
+    if "_catatan_padat" not in p:
+        t = p.get("body") or ""
+        p["_catatan_padat"] = [(len(padat(t[:a])), len(padat(t[:z]))) for a, z in catatan_body(t)] if "_" in t else []
+    return p["_catatan_padat"]
+
+
+def _hal(p, bagian, c):
+    """Halaman cetak (awal, akhir) letak c = (awal, akhir) di teks `padat` bagian rekaman p; halamannya None kalau rekaman
+    itu tidak bernomor halaman."""
+    batas = _ruas(p, bagian)[1]
+    return (next(h for a, z, h, _ in batas if a <= c[0] < z), next(h for a, z, _, h in batas if a <= c[1] - 1 < z))
+
+
+def tempat(p, q, bagian="body", utuh=False, kata=(), dalam=None, catatan=None):
     """Halaman cetak (awal, akhir) tempat q (sudah `padat`) berada di rekaman p; None kalau tidak ada.
     bagian "footnotes" = حاشية, dihitung per penanda halaman seperti matan.
     utuh=True: q harus mulai dan berakhir di batas kata kitab (kutipan yang terpotong di tengah kata tidak dihitung).
     dalam=(p1, p2): q yang muncul lebih dari sekali di rekaman ini: yang di halaman p1..p2 didahulukan.
+    catatan (body saja): False = hanya letak di luar `catatan_body` (matan), True = hanya yang menyentuhnya (حاشية).
     Halamannya None kalau rekaman itu tidak bernomor halaman."""
-    batas, pertama = _ruas(p, bagian)[1], None
+    pertama = None
+    pilah = catatan is not None and bagian == "body"
+    ruas = _catatan_padat(p) if pilah else []
+    if pilah and catatan and not ruas:
+        return None
     for c in _letak(p, q, bagian, utuh, kata):
-        h = (next(h for a, z, h, _ in batas if a <= c[0] < z), next(h for a, z, _, h in batas if a <= c[1] - 1 < z))
+        if pilah and catatan != any(a < c[1] and c[0] < z for a, z in ruas):
+            continue
+        h = _hal(p, bagian, c)
         if dalam is None or dalam[0] <= (h[0] or 0) and (h[1] or 0) <= dalam[1]:
             return h
         pertama = pertama or h
     return pertama
 
 
-def cari(sid, frasa, konteks=90, maks=15, diam=False):
-    """Cari frasa di satu kitab; sid "semua" = di semua kitab yang sudah diunduh. Kembalikan jumlah temuan."""
-    if sid == "semua":
-        n = 0
-        for s in punya():
-            n += cari(s, frasa, konteks, 4, diam=True)
-            lepas()  # yang dibaca dari kitab yang sudah selesai tidak menumpuk
-        if not n:
-            print("TIDAK KETEMU di kitab mana pun:", frasa)
-        return n
-    q = _kunci(frasa)
-    n = 0
+# awalan yang boleh menempel di depan kata pertama frasa `cari`/`teks`/`bab` selain huruf sambung `_utuh`: «ال» («عربان» →
+# «العربان», «وبالعربان», «كالعربان»), dan «لل» («للعربان»)
+AWALAN_KATA = re.compile(r"[وفبكل]{0,2}ال|[وف]?لل")
+IBNU_SAMBUNG = re.compile(r"[وفبكل]{1,2}ا")
+
+
+def _kata_utuh(p, bagian, j, k, kata):
+    """Frasa `cari`/`teks`/`bab` di teks[j:k] cocok sebagai kata utuh: berakhir di akhir kata kitab, mulai di awal kata kitab
+    (boleh sesudah huruf sambung seperti `_utuh` di `cek`, atau sesudah «ال»/«لل»), dan tiap kata kitab yang mulai di dalamnya
+    juga mulai di awal kata frasa (kata = `kata_dalam`): «العربان» tidak cocok dengan «العرب ان». Kitab yang memisah huruf
+    sambung dari katanya («و الإحياء») tetap cocok, begitu juga frasa yang memisah kata yang di kitab tersambung."""
+    awal, akhir = _batas_kata(p, bagian)
+    if k not in akhir:
+        return False
+    teks = _ruas(p, bagian)[0]
+    if any(x in awal and x - j not in kata and not (x - 1 in awal and teks[x - 1] in SAMBUNG) for x in range(j + 1, k)):
+        return False
+    if j in awal or _utuh(p, bagian, j, k):
+        return True
+    a = next((j - d for d in range(1, 5) if j - d in awal), None)
+    if a is None:
+        return False
+    # «ابن» sendirian di-`norm` jadi «بن», yang bersambung tidak («لابن»): frasa «ابن …» tetap menemukan «لابن …»
+    return bool(AWALAN_KATA.fullmatch(teks[a:j]) or teks.startswith("بن", j) and IBNU_SAMBUNG.fullmatch(teks[a:j]))
+
+
+def _temuan(sid, frasa, potongan=False):
+    """Tiap tempat frasa di kitab sid, satu per bagian rekaman: (rekaman, bagian, tanda, letak (awal, akhir) di teks `padat`,
+    halaman, kata utuh?). Letaknya kecocokan kata utuh (`_kata_utuh`) pertama; tidak ada → kecocokan pertama, utuh False.
+    potongan=True: kecocokan pertama apa pun (perilaku lama, untuk mencari potongan kata)."""
+    q, kata = _kunci(frasa), kata_dalam(frasa)
     for p in _berisi(sid, q):
         for bagian, tanda in BAGIAN:
-            if q not in _ruas(p, bagian)[0]:  # saringan cepat dari cache; teks norm (untuk dicetak) hanya rekaman yang cocok
+            semua = list(_letak(p, q, bagian))
+            if not semua:
                 continue
-            t = norm(p.get(bagian) or "")
-            j = BUKAN_ABJAD.sub("", t).find(q)
-            if j >= 0:
-                peta = [k for k, c in enumerate(t) if "ء" <= c <= "ي"]  # letak tiap huruf `padat` di t
-                n += 1
-                i, akhir = peta[j], peta[j + len(q) - 1] + 1
-                h = tempat(p, q, bagian) or (p.get("page_num"),) * 2  # None hanya kalau q melintasi penanda halaman
-                print(f"[{sid}] {letak(_juz(p), h)}{tanda}: …{t[max(0, i - konteks): akhir + konteks]}…")
-                if n >= maks:
-                    print(f"[{sid}] (dipotong, masih ada lagi)"); return n
-    if n == 0 and not diam:
-        print(f"[{sid}] TIDAK KETEMU: {frasa}")
-    return n
+            c = next((c for c in semua if _kata_utuh(p, bagian, *c, kata)), None)
+            pilih = semua[0] if potongan or c is None else c
+            yield p, bagian, tanda, pilih, _hal(p, bagian, pilih), c is not None
 
 
-def _letak_asli(raw, q):
-    """Awal kata tempat q (sudah `padat`) mulai di teks asli raw. Dicari lewat panjang `padat` tiap awalan,
-    karena norm() mengubah panjang teks (kalimat hormat dibuang, tanda baca jadi spasi)."""
-    j = padat(raw).find(q)
+def _potongan(sid, lain, frasa, perintah_, sebagian=False):
+    """Baris jumlah tempat yang hanya cocok sebagai potongan kata (tidak dicetak tanpa --potongan).
+    sebagian=True: tidak semua rekaman dipilah, jadi jumlahnya batas bawah."""
+    if lain:
+        print(f"[{sid}] {'paling sedikit ' if sebagian else ''}{lain} tempat lain hanya cocok sebagai potongan kata (menyeberang batas kata, mis. «العرب ان» untuk "
+              f"«العربان»); tampilkan juga: " + perintah(f'{perintah_} {sid} "{frasa}" --potongan'))
+
+
+CARI_SEMUA_MAKS = 40  # baris `cari semua` yang dicetak; frasa umum di ratusan kitab = ribuan baris
+CARI_SEMUA_PER_KITAB = 4
+
+
+def _cari_satu(sid, frasa, konteks, maks, potongan, sekilas=False):
+    """Cetak paling banyak maks tempat frasa di kitab sid; kembalikan (dicetak, tempat cocok, tempat potongan kata saja,
+    seluruh kitab sudah dipilah?). sekilas=True (`cari semua`): berhenti begitu maks tempat (paling sedikit satu) dicetak,
+    supaya kata umum di ratusan kitab tidak memilah ribuan rekaman; hitungannya lalu belum lengkap."""
+    q = _kunci(frasa)
+    tampil = cocok = lain = 0
+    for p, bagian, tanda, c, h, utuh in _temuan(sid, frasa, potongan):
+        if not (utuh or potongan):
+            lain += 1
+            continue
+        if sekilas and cocok and tampil >= maks:
+            return tampil, cocok, lain, False
+        cocok += 1
+        if tampil < maks:
+            tampil += 1
+            t = norm(p.get(bagian) or "")  # teks norm (untuk dicetak) hanya rekaman yang cocok
+            s = BUKAN_ABJAD.sub("", t)
+            j = c[0] if s[c[0]:c[1]] == q else s.find(q)
+            peta = [k for k, ch in enumerate(t) if "ء" <= ch <= "ي"]  # letak tiap huruf `padat` di t
+            i, akhir = peta[j], peta[j + len(q) - 1] + 1
+            print(f"[{sid}] {letak(_juz(p), h)}{tanda}: …{t[max(0, i - konteks): akhir + konteks]}…")
+    return tampil, cocok, lain, True
+
+
+def cari(sid, frasa, konteks=90, maks=15, potongan=False):
+    """Cari frasa di satu kitab; sid "semua" = di semua kitab yang sudah diunduh (paling banyak CARI_SEMUA_MAKS baris,
+    lalu ringkasan jumlah kitab dan tempat yang cocok). Bawaan: frasa cocok sebagai kata utuh (`_kata_utuh`); tempat yang
+    hanya cocok sebagai potongan kata dihitung dan disebut jumlahnya. potongan=True: potongan kata juga dicetak.
+    Kembalikan jumlah tempat yang cocok."""
+    if sid == "semua":
+        q = _kunci(frasa)
+        tampil = kitab_n = lain_n = 0
+        lengkap = True  # semua tempat yang cocok sudah dicetak
+        for s in punya():
+            if _cache(s).kena(q):  # saringan cepat; rekaman lain tidak dibaca
+                t, c, lain, habis = _cari_satu(s, frasa, konteks, min(CARI_SEMUA_PER_KITAB, CARI_SEMUA_MAKS - tampil),
+                                               potongan, sekilas=True)
+                tampil, kitab_n, lain_n, lengkap = tampil + t, kitab_n + bool(c), lain_n + lain, lengkap and habis and c == t
+            lepas()  # yang dibaca dari kitab yang sudah selesai tidak menumpuk
+        if not kitab_n:
+            print("TIDAK KETEMU di kitab mana pun" + (" sebagai kata utuh" if lain_n else "") + ":", frasa)
+        elif not lengkap:
+            print(f"({kitab_n} kitab cocok; ditampilkan {tampil} baris, paling banyak {CARI_SEMUA_PER_KITAB} tiap kitab. "
+                  "Persempit frasanya, atau cari di satu kitab (jumlah tempatnya ikut dicetak): "
+                  + perintah(f'cari <nomor> "{frasa}"') + ")")
+        _potongan("semua", lain_n, frasa, "cari", sebagian=not lengkap)
+        return kitab_n
+    tampil, cocok, lain, _ = _cari_satu(sid, frasa, konteks, maks, potongan)
+    if cocok > tampil:
+        print(f"[{sid}] (ditampilkan {tampil} dari {cocok} tempat; persempit frasanya)")
+    if not cocok:
+        print(f"[{sid}] TIDAK KETEMU" + (" sebagai kata utuh" if lain else "") + f": {frasa}")
+    _potongan(sid, lain, frasa, "cari")
+    return cocok
+
+
+def _letak_asli(raw, q, ke=0):
+    """Awal kata tempat q (sudah `padat`) yang ke-`ke` (mulai 0) mulai di teks asli raw. Dicari lewat panjang `padat` tiap
+    awalan, karena norm() mengubah panjang teks (kalimat hormat dibuang, tanda baca jadi spasi)."""
+    pr, j = padat(raw), -1
+    for _ in range(ke + 1):
+        j = pr.find(q, j + 1)
+    if j < 0:  # bacaan raw berbeda dari teks `padat` rekaman: kembali ke yang pertama
+        j = pr.find(q)
     awal = [m.start() for m in re.finditer(r"\S+", raw)]
     if j <= 0 or not awal:
         return 0
@@ -657,23 +884,23 @@ def _letak_asli(raw, q):
     return awal[lo]
 
 
-def teks(sid, frasa, lebar=260, maks=3):
+def teks(sid, frasa, lebar=260, maks=3, potongan=False):
     """Seperti `cari`, tapi menampilkan teks ASLI (huruf apa adanya, tanpa harakat) untuk disalin persis."""
     q = _kunci(frasa)
-    n = 0
-    for p in _berisi(sid, q):
-        for bagian, tanda in BAGIAN:
-            h = tempat(p, q, bagian)
-            if h is None:
-                continue
-            n += 1
-            raw = re.sub(r"\s+", " ", HARAKAT.sub("", TAGS.sub("", p.get(bagian) or "")))
-            i = _letak_asli(raw, q)
-            print(f"[{sid}] {letak(_juz(p), h)}{tanda}: {raw[max(0, i - lebar // 3): i + lebar]}")
-            if n >= maks:
-                return n
+    n = lain = 0
+    for p, bagian, tanda, c, h, utuh in _temuan(sid, frasa, potongan):
+        if not (utuh or potongan):
+            lain += 1
+            continue
+        n += 1
+        raw = re.sub(r"\s+", " ", HARAKAT.sub("", TAGS.sub("", p.get(bagian) or "")))
+        i = _letak_asli(raw, q, sum(1 for x in _letak(p, q, bagian) if x[0] < c[0]))  # kecocokan ke berapa di rekaman ini
+        print(f"[{sid}] {letak(_juz(p), h)}{tanda}: {raw[max(0, i - lebar // 3): i + lebar]}")
+        if n >= maks:
+            return n
     if n == 0:
-        print(f"[{sid}] TIDAK KETEMU: {frasa}")
+        print(f"[{sid}] TIDAK KETEMU" + (" sebagai kata utuh" if lain else "") + f": {frasa}")
+    _potongan(sid, lain, frasa, "teks")
     return n
 
 
@@ -716,36 +943,67 @@ def _judul_calon(p, toc, c, h, bagian):
     return [naung] + calon
 
 
-def bab(sid, frasa):
-    """Tampilkan rantai judul (kitab > bab) tempat sebuah frasa berada, plus juz/halaman."""
-    q = _kunci(frasa)
-    info(sid)  # kitab belum diunduh -> pesan yang jelas
-    with gzip.open(_folder(sid) / "toc.jsonl.gz", "rt", encoding="utf8") as f:
-        toc = [json.loads(x) for x in f]
-    byid = {t["title_id"]: t for t in toc}
-    toc.sort(key=lambda t: (t["page_id"], t["title_id"]))
+@functools.cache  # `bukti` dan `cek` membacanya untuk tiap catatan kaki
+def _toc(sid):
+    """(judul toc urut page_id lalu title_id, {title_id: judul}); kitab tanpa toc.jsonl.gz = kosong."""
+    try:
+        with gzip.open(_folder(sid) / "toc.jsonl.gz", "rt", encoding="utf8") as f:
+            toc = [json.loads(x) for x in f]
+    except OSError:
+        toc = []
+    return sorted(toc, key=lambda t: (t["page_id"], t["title_id"])), {t["title_id"]: t for t in toc}
 
-    def rantai(t):
-        r = []
-        while t:
-            r.append(HARAKAT.sub("", t["title_text"]).strip()); t = byid.get(t.get("parent_id"))
-        return " < ".join(r[:3]) or "(sebelum judul pertama)"
-    for p in _berisi(sid, q):
-        for bagian, tanda in BAGIAN:
-            c = _cocok(p, q, bagian)
-            if c is None:
-                continue
-            h = tempat(p, q, bagian)
-            calon = _judul_calon(p, toc, c, h, bagian)
-            kepala = f"[{sid}] {letak(_juz(p), h)}{tanda}: "
-            if len(calon) == 1:
-                print(kepala + rantai(calon[0]))
-            else:
-                print(kepala + "RAGU, judulnya salah satu dari ini (lihat sendiri dengan `halaman`):")
-                for t in calon:
-                    print("  - " + rantai(t))
-            return True
-    print(f"[{sid}] TIDAK KETEMU: {frasa}")
+
+def rantai_judul(sid, t):
+    """Judul t lalu induk-induknya (tanpa harakat, spasi dirapikan), dari yang terdalam."""
+    byid, r = _toc(sid)[1], []
+    while t and len(r) < 50:  # toc rusak yang induknya berputar tidak membuat macet
+        r.append(" ".join(HARAKAT.sub("", t["title_text"]).split())); t = byid.get(t.get("parent_id"))
+    return r
+
+
+def rantai_calon(sid, p, c, h, bagian):
+    """Rantai judul (kitab > bab) tiap judul yang mungkin menaungi letak c (`padat`) di rekaman p: satu = pasti, lebih = ragu."""
+    return [" < ".join(rantai_judul(sid, t)[:3]) or "(sebelum judul pertama)"
+            for t in _judul_calon(p, _toc(sid)[0], c, h, bagian)]
+
+
+def judul_naung(sid, p, c):
+    """Judul toc yang menaungi letak c (dari `_cocok`, di matan) rekaman p, atau None (sebelum judul pertama, kitab
+    tanpa toc, atau rekaman tanpa page_id)."""
+    if not _toc(sid)[0] or p.get("page_id") is None:
+        return None
+    return _judul_calon(p | {"page_id": int(p["page_id"])}, _toc(sid)[0], c, None, "body")[0]
+
+
+def bagian_halaman(sid, p1, p2):
+    """Juz (bagian) kitab yang punya rekaman di halaman cetak p1..p2: «-» kitab satu jilid, angka jilid, atau nama
+    bagian (المقدمة، الكتاب). Dipakai `cek` untuk juz «-» di kitab yang bagiannya hanya bernama; `halaman` memakai aturan
+    yang sama, dari isi halamannya."""
+    ix, awal = _indeks(sid)
+    return {_juz({"part": j}) for (j, _, z, _), a in zip(ix, awal) if a is not None and a <= p2 and z >= p1}
+
+
+def bab(sid, frasa, potongan=False):
+    """Tampilkan rantai judul (kitab > bab) tempat sebuah frasa berada (kata utuh, kecuali potongan=True), plus juz/halaman."""
+    _kunci(frasa)
+    info(sid)  # kitab belum diunduh -> pesan yang jelas
+    lain = 0
+    for p, bagian, tanda, c, h, utuh in _temuan(sid, frasa, potongan):
+        if not (utuh or potongan):
+            lain += 1
+            continue
+        calon = rantai_calon(sid, p, c, h, bagian)
+        kepala = f"[{sid}] {letak(_juz(p), h)}{tanda}: "
+        if len(calon) == 1:
+            print(kepala + calon[0])
+        else:
+            print(kepala + "RAGU, judulnya salah satu dari ini (lihat sendiri dengan `halaman`):")
+            for t in calon:
+                print("  - " + t)
+        return True
+    print(f"[{sid}] TIDAK KETEMU" + (" sebagai kata utuh" if lain else "") + f": {frasa}")
+    _potongan(sid, lain, frasa, "bab")
     return False
 
 
@@ -846,7 +1104,7 @@ def scan(sid, juz, hal):
     if "archive.org" in jalur:
         jalur = "archive/" + jalur.replace("https://archive.org/download/", "").replace("/", "_=_", 1)
     print(f"[{sid}] {meta.get('name', '')} — juz {jilid_pdf or jilid}، ص{angka(hal)} = halaman PDF ke-{fisik}")
-    print(f"{TURATH_FILES}/pdf/{urllib.parse.quote(jalur)}#page={fisik}")
+    print(f"{TURATH_FILES}/pdf/{urllib.parse.quote(jalur.lstrip('/'))}#page={fisik}")  # root bisa diawali «/»: «pdf//…»
     if OTOMATIS.search(str(meta.get("info", ""))):
         print("perhatian: nomor halaman kitab ini buatan Shamela (مرقم آليا), jadi halaman scan bisa meleset; "
               "cari bacaannya di halaman sekitar.")
@@ -864,11 +1122,17 @@ def _rekaman_di(sid, nomor):
 def _berisi(sid, q):
     """Rekaman kitab sid yang memuat q (sudah `padat`), urut berkas, dengan cache `padat`-nya. Rekaman lain tidak diurai."""
     if not (_folder(sid) / "pages.jsonl.gz").exists():
-        raise SystemExit(f"Kitab {sid} belum diunduh: " + perintah(f"ambil {sid}"))
+        raise _belum(sid)
     padat_ = _cache(sid)
     kena = padat_.kena(q)
     for i, p in zip(kena, _rekaman_di(sid, kena)):
         yield padat_.isi(p, i)
+
+
+def baris(teks):
+    """Teks kitab untuk dicetak: pemisah baris Shamela «\\r» jadi baris baru. «\\r» mentah di konsol menimpa baris atau
+    hilang saat disalin, sehingga dua kata tersambung («نستعينالحمد»)."""
+    return re.sub(r"\r\n?", "\n", teks)
 
 
 def halaman(sid, juz, hal):
@@ -876,17 +1140,21 @@ def halaman(sid, juz, hal):
     angka = lambda x: int(x) if str(x).isdigit() else x  # int() membaca angka Arab ٠-٩ juga
     juz, hal = angka(juz), angka(hal)
     if not (_folder(sid) / "pages.jsonl.gz").exists():
-        raise SystemExit(f"Kitab {sid} belum diunduh: " + perintah(f"ambil {sid}"))
+        raise _belum(sid)
     # indeks: rekaman juz itu yang mungkin memuat halaman itu (halaman terkecil s.d. terbesar rekaman, termasuk penanda ⦗n⦘)
     ix, awal = _indeks(sid)
+    # kitab yang bagiannya hanya bernama (المقدمة، الكتاب): «-» = satu-satunya bagian yang punya halaman itu (seperti `cek`)
+    bernama = juz == "-" and not any(j is None or str(j).isdigit() for j, *_ in ix)
     calon = [i for i, (j, _, akhir, _) in enumerate(ix) if awal[i] is not None and awal[i] <= hal <= akhir
-             and angka("-" if j is None else j) == juz] if isinstance(hal, int) else []
+             and (bernama or angka("-" if j is None else j) == juz)] if isinstance(hal, int) else []
+    kena = [(p, b) for p in _rekaman_di(sid, calon) if (b := [b for h, b in _potong(p) if h == hal])]
+    if bernama and len({_juz(p) for p, _ in kena}) > 1:
+        kena = []  # ada di dua bagian: sebut bagiannya
     ada = False
-    for p in _rekaman_di(sid, calon):
-        bagian = [b for h, b in _potong(p) if h == hal]
+    for p, bagian in kena:
         if bagian:
             ada = True
-            print(TAGS.sub("", "".join(bagian)))
+            print(baris(TAGS.sub("", "".join(bagian))))
             fn = _potong(p, "footnotes")
             if len(fn) > 1:  # حاشية bertanda halaman: cetak yang milik halaman ini saja
                 isi, catat = "".join(b for h, b in fn if h == hal), ""
@@ -895,13 +1163,39 @@ def halaman(sid, juz, hal):
                 isi = fn[0][1]
                 catat = f" (حاشية rekaman ص{a}-{z}; halaman tiap catatan tidak tercatat)" if z != a else ""
             if isi.strip():
-                print("ـــــ" + catat + "\n" + TAGS.sub("", isi))
+                print("ـــــ" + catat + "\n" + baris(TAGS.sub("", isi)))
     if not ada:
-        rentang = {}  # juz -> [halaman terkecil, terbesar], dari indeks (rekaman tanpa nomor halaman dilewati)
-        for (j, _, z, _), a in zip(ix, awal):
-            if a is not None:
-                r = rentang.setdefault("-" if j is None else j, [a, z])
-                r[0], r[1] = min(r[0], a), max(r[1], z)
-        print(f"[{sid}] TIDAK ADA halaman {juz}/{hal}. Yang ada: "
-              + "، ".join(f"juz {j} ص{a}-{z}" for j, (a, z) in rentang.items()) + " (juz \"-\" = kitab satu jilid)")
+        print(f"[{sid}] TIDAK ADA halaman {juz}/{hal}. Yang ada: {daftar_juz(sid)} (juz \"-\" = kitab satu jilid)")
     return ada
+
+
+def rentang_juz(sid):
+    """{juz: [halaman terkecil, terbesar]} menurut rekaman kitab (urut kemunculan; juz None = "-"), dari indeks;
+    rekaman tanpa nomor halaman dilewati."""
+    ix, awal = _indeks(sid)
+    rentang = {}
+    for (j, _, z, _), a in zip(ix, awal):
+        if a is not None:
+            r = rentang.setdefault("-" if j is None else j, [a, z])
+            r[0], r[1] = min(r[0], a), max(r[1], z)
+    return rentang
+
+
+def daftar_juz(sid):
+    """«juz 1 ص1-538، juz 2 ص539-856»: juz yang dipakai rekaman kitab sid beserta rentang halamannya."""
+    return "، ".join(f"juz {j} ص{a}-{z}" for j, (a, z) in rentang_juz(sid).items())
+
+
+def contoh_bukti(sid):
+    """Satu baris bukti siap pakai menurut juz yang dipakai rekaman kitab, bukan «عدد الأجزاء» data cetak: kitab dua
+    jilid yang halamannya bersambung («متسلسلة الترقيم») tetap ditulis dengan juz-nya; "-" hanya untuk kitab tanpa juz."""
+    rentang = rentang_juz(sid)
+    if list(rentang) == ["-"]:
+        a, z = rentang["-"]
+        return f"bukti: <<{sid}|-|<hal>>> (kitab satu jilid: juz \"-\"; halaman {a}-{z})"
+    if not rentang:  # tanpa nomor halaman cetak sama sekali
+        return f"bukti: <<{sid}|<juz>|<hal>>> (rekaman kitab ini tanpa nomor halaman; lihat `halaman {sid} <juz> <hal>`)"
+    # juz berangka dulu; kitab yang bagiannya hanya bernama (المقدمة + الكتاب): bagian terpanjang, bukan مقدمة المحقق
+    j = next((j for j in rentang if str(j).isdigit()), None) or max(rentang, key=lambda j: rentang[j][1] - rentang[j][0])
+    a = rentang[j][0]
+    return f"bukti: <<{sid}|<juz>|<hal>>>, mis. <<{sid}|{j}|{a}>>; yang ada: {daftar_juz(sid)}"

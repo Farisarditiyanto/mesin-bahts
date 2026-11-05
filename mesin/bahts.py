@@ -9,7 +9,13 @@ Bahts (tiap bahts = satu folder berisi naskah.txt):
   baru <folder> "<judul>"      buat folder bahts baru + kerangka naskah.txt; <folder> boleh bahts/<orang>/<topik>
   cek <folder> [--jejak]       periksa naskah: tanda, ayat, dan semua bukti <<...>> ke kitab lokal;
                                --jejak: teks yang tidak ada di kitabnya dicari di kitab lain yang sudah diunduh
-  rakit <folder>               cek, lalu rakit .docx + .pdf (Word) ke dalam folder itu
+  bukti <folder> [baris|awal-akhir]   untuk pemeriksa: tiap catatan kaki berbukti <<sid|juz|hal>> (kalimat yang
+                               dibuktikan, isi catatan kaki, nama kitab, bab, dan teks halaman itu di sekitar kutipan)
+                               dan teks tiap ayat {Q:} persis seperti tercetak; tiap baris keluaran diawali «baris n».
+                               Penunjuk saja, putusan tetap `cek`
+  rakit <folder> [--fasl n]    cek, lalu rakit .docx + .pdf (Word) ke dalam folder itu; --fasl 2 (atau 1-2): hanya #F
+                               ke-2, untuk bahts yang dikumpulkan bertahap per فصل (lihat `tanda`); `cek` tetap
+                               memeriksa seluruh naskah
   tanda                        daftar tanda yang dipakai di naskah.txt
 
 Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
@@ -20,23 +26,28 @@ Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
                                tiap halaman. --mazhab: hanya kitab fikih mazhab itu; --kitab: hanya kitab itu, walau belum
                                diunduh; --halaman 2: hasil ke-21 dan seterusnya
   ambil <id|folder> [...]      unduh kitab (sekali saja); nama folder bahts = semua kitab yang dirujuk naskahnya
-  kartu <id>                   data cetak kitab (untuk rujukan pertama & daftar pustaka)
-  cari <id|semua> "<frasa>"    cari frasa -> juz/halaman cetak
-  teks <id> "<frasa>" [lebar] [maks]   teks asli di sekitar frasa, untuk disalin persis
-  bab <id> "<frasa>"           rantai judul kitab/bab tempat frasa berada
+  kartu <id>                   data cetak kitab (untuk rujukan pertama & daftar pustaka) + bentuk bukti <<…>> kitab itu
+  cari <id|semua> "<frasa>" [--potongan]
+                               cari frasa -> juz/halaman cetak; semua: paling banyak 40 baris, lalu jumlah kitab yang cocok.
+                               Frasa dicocokkan sebagai kata utuh (huruf sambung و ف ب ل ك dan «ال» di depan kata pertama
+                               boleh): «العربان» tidak cocok dengan «العرب ان». Yang hanya cocok sebagai potongan kata
+                               disebut jumlahnya; --potongan: ikut ditampilkan (mis. mencari awal kata)
+  teks <id> "<frasa>" [lebar] [maks] [--potongan]   teks asli di sekitar frasa, untuk disalin persis
+  bab <id> "<frasa>" [--potongan]   rantai judul kitab/bab tempat frasa berada
   halaman <id> <juz> <hal>     isi satu halaman (juz "-" untuk kitab satu jilid); <hal> boleh rentang, mis. 10-14
                                (paling banyak 20 halaman sekali panggil)
   scan <id> <juz> <hal>        alamat scan cetakan halaman itu (PDF di turath.io, butuh internet), untuk bacaan yang meragukan
 
 Takhrij (penunjuk jalan, «المنصة الحديثية», butuh internet):
-  hadits "<طرف>" [maks]        tempat hadits di 12 kitab hadits + hukum ulama; tetap dibaca di kitabnya sendiri
+  hadits "<طرف>" [maks]        tempat hadits di 12 kitab hadits + hukum ulama; tetap dibaca di kitabnya sendiri. Kitab yang
+                               sudah diunduh: juz/halaman edisi lokal ikut dicetak (juz/halaman layanan bisa edisi lain)
 
 Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex dan DOAJ, butuh internet):
   dirasat "<kata kunci>" [maks] [saringan]   judul, peneliti, tahun, jurnal, tautan, dan ringkasan; dicari menurut kata
                                dan menurut makna. Saringan OpenAlex, mis. language:ar,type:dissertation
   dirasat-pdf <W…> <folder>    unduh PDF penelitian (nomor OpenAlex dari `dirasat`) ke folder bahts; butuh kunci OpenAlex
 """
-import difflib, hashlib, json, math, os, re, shutil, subprocess, sys, sysconfig, tempfile, urllib.error, zipfile
+import difflib, hashlib, json, math, os, re, shutil, subprocess, sys, sysconfig, tempfile, time, urllib.error, zipfile
 from pathlib import Path
 
 import dirasat, hadits, shamela  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
@@ -53,6 +64,7 @@ FONT_SHA256 = "aa68bffce289b4c0ebac68e90502eb69e42356abcd1603cb2b8e99c2c723f145"
 FONT_NAMA = "KFGQPC HAFS Uthmanic Script (TrueType)"
 FONT_PEMAKAI = Path(os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Windows\Fonts"))
 SAMPUL_SAYA = AKAR / "sampul_saya.txt"  # data sampul pemakai (@kunci: nilai); mengisi @kunci yang kosong di naskah baru
+DATA_DIRI = ("nama", "nim", "jenis", "fasl", "thalibah", "sampul")  # milik satu orang (sampul = kampusnya): tidak disalin dari SAMPUL_SAYA ke bahts/<orang>/…
 NAMA_FOLDER = r"[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+){0,2}"  # nama folder bahts yang diterima `baru`: «ikhlas» atau «bahts/<orang>/<topik>»
 BUKAN_BAHTS = {"mesin", "kitab"}  # folder akar yang bukan tempat bahts
 KELUARAN_SAYA = AKAR / "keluaran_saya.txt"  # opsional, satu baris: folder tempat `rakit` menaruh salinan PDF
@@ -205,7 +217,14 @@ def folder_bahts(nama):
 
 
 def baru(nama, judul):
-    nama = nama.removeprefix("./").removeprefix(".\\").replace("\\", "/").strip("/")
+    nama = nama.removeprefix("./").removeprefix(".\\").replace("\\", "/")
+    if Path(nama).is_absolute() or ".." in nama.split("/"):  # jalur lengkap atau naik folder: yang di dalam repo dipakai
+        jalur = (AKAR / nama).resolve()
+        if not jalur.is_relative_to(AKAR.resolve()):
+            sys.exit(f"Folder «{nama}» di luar folder mesin ({AKAR}): tiap bahts harus di dalam folder repo ini "
+                     f"(mis. ikhlas, atau bahts/ahmad/ikhlas untuk bahts banyak orang).")
+        nama = jalur.relative_to(AKAR.resolve()).as_posix()
+    nama = nama.strip("/")
     if not re.fullmatch(NAMA_FOLDER, nama) or nama.split("/")[0] in BUKAN_BAHTS:
         sys.exit(f"Nama folder «{nama}»: pakai huruf Latin, angka, - atau _ saja, tanpa spasi (mis. ikhlas, atau bahts/ahmad/ikhlas untuk bahts banyak orang).")
     if not judul.strip():
@@ -215,12 +234,23 @@ def baru(nama, judul):
     if kembar:  # di Windows «Ikhlas» dan «ikhlas» satu folder
         sys.exit(f"Folder {kembar[0]} sudah ada.")
     isi = (MESIN / "naskah_baru.txt").read_text(encoding="utf8").replace("{judul}", judul).replace("{folder}", f.name)
+    data, asal = [], None
     if SAMPUL_SAYA.exists():
         try:
-            saya = SAMPUL_SAYA.read_text(encoding="utf-8-sig")
+            data = re.findall(r"^@(\w+):[ \t]*(\S.*)$", SAMPUL_SAYA.read_text(encoding="utf-8-sig"), re.M)
         except UnicodeDecodeError:
             sys.exit(f"{SAMPUL_SAYA.name} harus disimpan sebagai UTF-8. Simpan ulang, lalu ulangi.")
-        for k, v in re.findall(r"^@(\w+):[ \t]*(\S.*)$", saya, re.M):
+    bagian = nama.split("/")
+    orang_lain = len(bagian) == 3 and bagian[0].lower() == "bahts"  # bahts/<orang>/<topik>: data diri pemilik repo bukan miliknya
+    if orang_lain:
+        data = [(k, v) for k, v in data if k not in DATA_DIRI]
+        lama = sorted(f.parent.glob("*/naskah.txt"), key=lambda x: x.stat().st_mtime)  # bahts terakhir orang yang sama
+        if lama:
+            asal = lama[-1]
+            data += [(k, v) for k, v in re.findall(r"^@(\w+):[ \t]*(\S.*)$", asal.read_text(encoding="utf-8-sig"), re.M)
+                     if k in DATA_DIRI]
+    if data:
+        for k, v in data:
             if re.search(rf"^@{k}:", isi, re.M):
                 isi = re.sub(rf"^@{k}:[ \t]*$", lambda m: f"@{k}: {v.strip()}", isi, flags=re.M)
             else:  # kunci yang tidak ada di kerangka (mis. @thalibah) ikut ditulis
@@ -230,6 +260,10 @@ def baru(nama, judul):
     (f / "riset.txt").write_text(riset, encoding="utf8")
     (f / "naskah.txt").write_text(isi, encoding="utf8")
     print(f"Siap: {f / 'naskah.txt'} (dan riset.txt untuk jejak langkah riset)")
+    if orang_lain:
+        print(f"Data diri ({', '.join('@' + k for k in DATA_DIRI)}) " + (
+            f"disalin dari bahts «{bagian[1]}» sebelumnya: {asal.relative_to(AKAR).as_posix()}; pastikan masih benar."
+            if asal else f"tidak diambil dari {SAMPUL_SAYA.name} (itu data pemilik repo): isi data «{bagian[1]}» di naskahnya."))
     sub = re.match(r"^(.+?)\s+[-–—]\s*(.+)$", judul.strip())  # pemisah yang sama dengan rakit.ps1 ($JUDUL2)
     if sub:
         print(f"Sub-judul sampul «{sub.group(2)}» akan tercetak di sampul. Tulis hanya kalau dosen, خطة, "
@@ -238,37 +272,64 @@ def baru(nama, judul):
     kosong = re.findall(r"^@(\w+):[ \t]*$", isi, re.M)
     if kosong:
         print("Data sampul yang masih kosong: " + ", ".join("@" + k for k in kosong)
-              + f"\nIsi di naskah itu. Yang sama untuk tiap bahts (nama, nim, jenis, fasl) boleh ditulis sekali di {SAMPUL_SAYA.name}."
+              + (f"\nTanyakan ke «{bagian[1]}» (nama, nomor mahasiswa, jenis tugas, mahasiswa/mahasiswi, kampus, pembimbing), "
+                 f"lalu isi di naskah itu, bukan di {SAMPUL_SAYA.name}." if orang_lain else
+                 f"\nIsi di naskah itu. Yang sama untuk tiap bahts (nama, nim, jenis, fasl) boleh ditulis sekali di {SAMPUL_SAYA.name}.")
               + ("\nContoh @jenis (huruf Arab, tercetak di sampul): بحث صفي للمستوى الرابع" if "jenis" in kosong else ""))
 
 
 def perkiraan_halaman(d):
-    """Perkiraan kasar halaman isi (المقدمة s.d. الخاتمة) dari jumlah kata, untuk yang belum bisa `rakit`.
-    Tiap #K/#F (dan judul di @halaman_baru) mulai halaman baru; kata catatan kaki dihitung menurut perbandingan luas hurufnya."""
+    """Perkiraan kasar (isi, seluruh PDF, rincian) dari jumlah kata, untuk yang belum bisa `rakit`; None tanpa profil.
+    isi = المقدمة s.d. الخاتمة: tiap #K/#F (dan judul di @halaman_baru) mulai halaman baru; kata catatan kaki dihitung
+    menurut perbandingan luas hurufnya. Seluruh PDF = sampul + halaman sebelum المقدمة (@nomor) + isi + المصادر + فهرس,
+    yang dicetak sama dengan yang dicetak rakit.ps1 (@tanpa, @bentuk: kitab, فهرس kosong tidak dicetak)."""
     fmt = d.get("format")
     if not fmt:
         return None
-    per_hal = KATA_PER_HALAMAN_18 * (18 / fmt["matan"]) ** 2 / fmt.get("spasi", 1)  # 1,5 spasi = baris lebih sedikit
+    # huruf lebih kecil = lebih banyak kata, tetapi tidak sebanyak luasnya (pangkat 1,1, bukan 2: 3 PDF @format tatbiqi)
+    per_hal = KATA_PER_HALAMAN_18 * (18 / fmt["matan"]) ** 1.1 / fmt.get("spasi", 1)  # 1,5 spasi = baris lebih sedikit
     import olah
-    kata = olah.kata
-    bagian = []
+    kata, meta = olah.kata, d["meta"]
+
+    def halaman(blok):
+        bagian = []
+        for b in blok:
+            if b["k"] in ("K", "F", "H", *meta.get("halaman_baru", [])) or not bagian:
+                bagian.append(0.0)
+            fn = sum(kata(d["catatan"][r["fn"]]["runs"]) for r in b["runs"] if r.get("fn") is not None)
+            bagian[-1] += kata(b["runs"]) + fn * (fmt["catatan"] / fmt["matan"]) ** 2
+        return sum(max(1, math.ceil(x / per_hal)) for x in bagian)
+
     blok = d["blok"]
-    if d["meta"].get("nomor"):  # @nomor: abjad: الإهداء dst. sebelum المقدمة bukan halaman isi
-        blok = blok[next((i for i, b in enumerate(blok) if b.get("judul") == "المقدمة"), 0):]
-    for b in blok:
-        if b["k"] == "R":
-            break
-        if b["k"] in ("K", "F", "H", *d["meta"].get("halaman_baru", [])) or not bagian:
-            bagian.append(0.0)
-        fn = sum(kata(d["catatan"][r["fn"]]["runs"]) for r in b["runs"] if r.get("fn") is not None)
-        bagian[-1] += kata(b["runs"]) + fn * (fmt["catatan"] / fmt["matan"]) ** 2
-    return sum(max(1, math.ceil(x / per_hal)) for x in bagian)
+    blok = blok[:next((i for i, b in enumerate(blok) if b["k"] == "R"), len(blok))]
+    # الإهداء dst. sebelum المقدمة bukan halaman isi, dengan atau tanpa @nomor (sama dengan HALAMAN_ISI di rakit.ps1)
+    mula = next((i for i, b in enumerate(blok) if b.get("judul") == "المقدمة"), 0)
+    isi = halaman(blok[mula:])
+    tanpa = set(re.split(r"[,، ]+", meta.get("tanpa", "")))
+    kitab = meta.get("bentuk") == "kitab"
+    rinci = {"sampul": 0 if kitab else 1, "sebelum المقدمة": halaman(blok[:mula]) if mula else 0}
+    judul = sum(b["k"] in ("K", "F", "B", "M") for b in blok)  # baris فهرس الموضوعات
+    for nama, n, per in (("المصادر", len(d["pustaka"]) if "pustaka" not in tanpa and (not kitab or d["pustaka"]) else 0, 12),
+                         ("فهرس الآيات", 0 if "ayat" in tanpa else len(d["ayat"]), 26),
+                         ("فهرس الأحاديث", 0 if "hadits" in tanpa else len(d["hadits"]), 20),
+                         ("فهرس الموضوعات", 0 if "maudhuat" in tanpa else max(judul, 1), 25)):
+        rinci[nama] = math.ceil(n / per)  # baris per halaman dari 30 PDF bahts nyata (selisih paling banyak 1 halaman)
+    return isi, isi + sum(rinci.values()), {k: v for k, v in rinci.items() if v}
 
 
-def cek(nama, keluar=None, jejak=False):
+def cek(nama, keluar=None, jejak=False, ringkas=False):
+    """ringkas (dipakai `rakit`): naskah yang lolos dicetak satu baris; rinciannya tetap di laporan yang dikembalikan."""
     import olah
     f = folder_bahts(nama)
     galat, lap = olah.utama(f, keluar)
+    jalur = nama.rstrip("/\\") or nama  # «"folder\"»: garis miring menelan tanda petik penutupnya
+    if ringkas and not galat:
+        n = sum(b.startswith("  ! ") for b in lap)
+        # baris jumlah «catatan kaki tanpa bukti …: N» dari laporan itu sendiri, hanya kalau N > 0
+        fn = "".join(f"; {b}" for b in lap if b.startswith("catatan kaki tanpa bukti") and not b.endswith(": 0"))
+        print(f"cek: GAGAL 0, perhatian {n}{fn} (rinciannya: laporan.txt sesudah rakit jadi, atau "
+              + perintah(f'cek "{jalur}"') + ")")
+        return f, galat, lap
     print("\n".join(lap))
     if olah.TERTOLAK:
         if jejak:
@@ -276,7 +337,6 @@ def cek(nama, keluar=None, jejak=False):
             print("\n".join(olah.jejak(olah.TERTOLAK)))
         else:
             n = len({shamela.padat(t) for _, t in olah.TERTOLAK})
-            jalur = nama.rstrip("/\\") or nama  # «"folder\"»: garis miring menelan tanda petik penutupnya
             print(f"{n} teks tidak ditemukan di kitab yang dirujuk; cari di kitab lain yang sudah diunduh: "
                   + perintah(f'cek "{jalur}" --jejak'))
     elif jejak:
@@ -286,18 +346,27 @@ def cek(nama, keluar=None, jejak=False):
     except (OSError, ValueError, KeyError, IndexError, TypeError):
         n = None
     if n:
-        print(f"perkiraan halaman isi (المقدمة s.d. الخاتمة): ±{n} (kasar, dari jumlah kata; angka pasti = HALAMAN_ISI sesudah `rakit`)")
+        isi, total, rinci = n
+        print(f"perkiraan halaman isi (المقدمة s.d. الخاتمة): ±{isi}; seluruh PDF: ±{total} ("
+              + ", ".join(f"{k} {v}" for k, v in rinci.items()) + f", isi {isi}) "
+              "(kasar, dari jumlah kata; angka pasti = HALAMAN_ISI dan HALAMAN sesudah `rakit`)")
     return f, galat, lap
 
 
 RAKIT_ANTRE = 30 * 60  # detik; rakit terlama yang tercatat ±10 menit: dua rakit di depan masih tertampung
+RAKIT_PS_KUNCI = MESIN / "_tmp" / "rakit.kunci"  # dibuka rakit.ps1 tanpa berbagi selama ia hidup (dilepas OS saat mati)
+RAKIT_GALAT = "rakit.galat"  # di folder kerja: pesan galat rakit.ps1 (UTF-8), ditulis sebelum PowerShell berhenti
+RAKIT_SEMENTARA = "rakit.sementara"  # penanda folder .rakit-* bahan sementara rakit versi ini: boleh dibuang rakit berikutnya
+RAKIT_SIMPAN = "JANGAN_DIHAPUS.txt"  # pengganti penanda di atas bila folder itu berisi hasil baru yang belum terpasang (PemulihanGagal)
 
 
-def rakit(nama):
+def rakit(nama, fasl=None):
     if os.name == "nt":
         try:
-            with kunci(MESIN / "_tmp" / "rakit.pekerjaan", tunggu=RAKIT_ANTRE):
-                _rakit(nama)
+            apa = folder_bahts(nama).relative_to(AKAR).as_posix()
+            with kunci(MESIN / "_tmp" / "rakit.pekerjaan", tunggu=RAKIT_ANTRE, apa=apa):
+                _tunggu_ps_yatim()
+                _rakit(nama, fasl)
         except PermissionError as e:  # hasil lama (atau yang baru) sedang dibuka aplikasi lain; hasil lama tetap utuh
             sys.exit(f"Perakitan GAGAL: {Path(e.filename or '').name or 'hasil'} sedang terbuka di aplikasi lain (Word "
                      f"atau pembaca PDF). Tutup dulu, lalu ulangi `rakit`. Hasil lama tidak berubah.")
@@ -309,27 +378,82 @@ def rakit(nama):
                  "`rakit` butuh Windows + Microsoft Word. Naskahnya sudah lolos `cek`.")
 
 
-def _rakit(nama):
+def _tunggu_ps_yatim():
+    """rakit.ps1 milik rakit yang dimatikan (Python-nya mati, PowerShell-nya belum) masih memakai Word dan folder
+    kerjanya: tunggu sampai ia berhenti sendiri, supaya Word tidak dipakai berdua dan foldernya tidak dibuang saat masih
+    ditulisi. Word-nya dibereskan rakit.ps1 itu sendiri (atau rakit.ps1 berikutnya, lewat catatan Word yatim)."""
+    batas, kabar = time.monotonic() + RAKIT_ANTRE, False
+    while True:
+        try:
+            with open(RAKIT_PS_KUNCI, "ab"):
+                return
+        except PermissionError:
+            if time.monotonic() >= batas:
+                raise RuntimeError("rakit.ps1 dari rakit yang dimatikan masih jalan: tunggu sampai berhenti, lalu ulangi.") from None
+            if not kabar:
+                print("rakit.ps1 dari rakit sebelumnya yang dimatikan masih memakai Word: menunggu sampai berhenti sendiri "
+                      "(jangan matikan Word atau PowerShell-nya)...", flush=True)
+                kabar = True
+            time.sleep(2)
+
+
+def _buang_sisa(f, kerja):
+    """Buang folder kerja rakit ini dan folder .rakit-* yang tertinggal rakit yang dimatikan (Python-nya mati sebelum
+    membersihkannya). Aman: kunci rakit dipegang rakit ini dan rakit.ps1 sisa rakit lain sudah berhenti (_tunggu_ps_yatim),
+    jadi tidak ada rakit lain yang masih memakainya. Dipanggil sesudah rakit.ps1, yang menghentikan Word yatim rakit lama
+    (Word itu masih membuka berkas di foldernya). Yang dibuang hanya folder bertanda RAKIT_SEMENTARA (bahan sementara versi
+    ini). Tanpa penanda itu (hasil baru yang belum terpasang, atau folder dari versi lama yang mungkin sengaja disimpan)
+    hanya disebut, tidak pernah dibuang."""
+    for sisa in sorted(f.glob(".rakit-*")):
+        if not sisa.is_dir():
+            continue
+        if (sisa / RAKIT_SIMPAN).exists() or not (sisa / RAKIT_SEMENTARA).exists():
+            print(f"Folder {sisa.name} dibiarkan: mungkin berisi hasil yang sengaja disimpan; periksa isinya, lalu hapus sendiri.")
+            continue
+        shutil.rmtree(sisa, ignore_errors=True)
+        if sisa.exists():
+            print(f"Bahan sementara rakit belum bisa dibuang (ada berkas yang masih terbuka; `rakit` berikutnya mencoba lagi): {sisa}")
+        elif sisa != kerja:
+            print(f"Sisa rakit yang terhenti dibuang: {sisa.name}")
+
+
+def _word_gagal(kode, galat):
+    """Pesan rakit.ps1 yang gagal. Pesannya diambil dari berkas `galat` (ditulis trap rakit.ps1), bukan dari layar: layar
+    bisa dipotong `tail`/`grep` pemanggil. Tanpa berkas itu PowerShell mati sebelum sempat menulis apa pun."""
+    try:
+        isi = galat.read_text(encoding="utf8").strip()
+    except OSError:
+        isi = ""
+    if isi:
+        return f"Perakitan Word gagal (rakit.ps1, kode keluar {kode}): {isi}. Hasil lama belum diganti."
+    return (f"Perakitan Word gagal: rakit.ps1 berhenti tanpa pesan (kode keluar {kode}). Artinya PowerShell atau Word-nya "
+            "dimatikan dari luar (Stop-Process, Task Manager, batas waktu alat, terminal ditutup) atau mati mendadak. "
+            "Hasil lama belum diganti; ulangi `rakit`. Rakit yang sedang jalan jangan dimatikan: rakit berikutnya antre sendiri.")
+
+
+def _rakit(nama, fasl=None):
     f = folder_bahts(nama)
     kerja = Path(tempfile.mkdtemp(prefix=".rakit-", dir=f))
+    (kerja / RAKIT_SEMENTARA).write_text("Bahan sementara `rakit`; dibuang sendiri oleh rakit berikutnya.\n", encoding="utf8")
     try:
-        _rakit_di(nama, f, kerja)
-    except PemulihanGagal:  # hasil baru masih di folder kerja: jangan dibuang
+        _rakit_di(nama, f, kerja, fasl)
+    except PemulihanGagal:  # hasil baru masih di folder kerja: jangan dibuang, juga oleh rakit berikutnya
+        (kerja / RAKIT_SIMPAN).write_text("Hasil baru yang belum terpasang (pemulihan rakit gagal; lihat pesan rakit).\n"
+                                          "`rakit` tidak membuang folder ini: selamatkan isinya, lalu hapus sendiri.\n",
+                                          encoding="utf8")
+        try:  # RAKIT_SIMPAN sudah melindunginya; penanda sementara dicabut supaya versi lain pun tidak membuangnya
+            (kerja / RAKIT_SEMENTARA).unlink()
+        except OSError:
+            pass
         print(f"Bahan percobaan disimpan: {kerja}")
         raise
-    except BaseException:  # galat cek, Word gagal, berkas terkunci: hasil lama utuh, bahan sementara tidak dibutuhkan
-        shutil.rmtree(kerja, ignore_errors=True)
-        raise
-    else:
-        try:
-            shutil.rmtree(kerja)
-        except OSError:
-            print(f"Hasil sudah terbit; bahan sementara belum dibersihkan: {kerja}")
+    finally:  # berhasil, atau galat cek, Word gagal, berkas terkunci: hasil lama utuh, bahan sementara tidak dibutuhkan
+        _buang_sisa(f, kerja)
 
 
-def _rakit_di(nama, f, kerja):
+def _rakit_di(nama, f, kerja, fasl=None):
     build = kerja / "bahan.json"
-    f, galat, lap = cek(nama, build)
+    f, galat, lap = cek(nama, build, ringkas=True)
     if galat:
         sys.exit(f"Belum dirakit: {galat} galat di atas harus beres dulu.")
     if os.name != "nt":
@@ -337,6 +461,18 @@ def _rakit_di(nama, f, kerja):
     if not font_terpasang():
         sys.exit(f"Font mushaf belum terpasang: {perintah('siapkan')}, lalu ulangi.")
     d = json.loads(build.read_text(encoding="utf8"))
+    import olah
+    laporan = "laporan.txt"
+    if fasl:  # seluruh naskah sudah dicek di atas; yang dirakit hanya potongannya
+        try:
+            lap = [f"POTONGAN=--fasl {fasl}: {olah.potong(d, fasl)}"] + lap
+        except olah.TandaRusak as e:
+            sys.exit(f"Belum dirakit: {e}")
+        build.write_text(json.dumps(d, ensure_ascii=False), encoding="utf8")
+        laporan = f"laporan-fasl{fasl}.txt"  # laporan seluruh naskah (rakit tanpa --fasl) tidak tertimpa
+    tabrakan = olah.sumber_tertimpa(f, d["meta"]["berkas"], d["sumber"], laporan)
+    if tabrakan:
+        sys.exit(f"Belum dirakit: hasil rakit akan menimpa bahan sumber «{tabrakan[0]}»: ganti @berkas atau nama berkas sumber")
     huruf = d["format"]["huruf"]
     if not huruf_ada(huruf):  # tanpa huruf profil, Word diam-diam memakai huruf lain
         sys.exit(f"Huruf {huruf} (dipakai @format naskah ini) belum terpasang di Windows.\n       -> {HURUF_SARAN}\n"
@@ -347,28 +483,35 @@ def _rakit_di(nama, f, kerja):
         ps1.write_bytes(b"\xef\xbb\xbf" + ps1.read_bytes())
     (kerja / "laporan.txt").write_text("\n".join(lap) + "\n", encoding="utf8")
     r = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(ps1),
-                        "-Build", str(build), "-Folder", str(f), "-Hasil", str(kerja)])
+                        "-Build", str(build), "-Folder", str(f), "-Hasil", str(kerja),
+                        "-Kunci", str(RAKIT_PS_KUNCI), "-Galat", str(kerja / RAKIT_GALAT)])
     if r.returncode:
-        raise RuntimeError("Perakitan Word gagal; hasil lama belum diganti (lihat pesan di atas).")
+        raise RuntimeError(_word_gagal(r.returncode, kerja / RAKIT_GALAT))
+    if laporan != "laporan.txt":
+        (kerja / "laporan.txt").replace(kerja / laporan)
     berkas = d["meta"]["berkas"]
     import teks_pdf
     try:  # supaya teks Arab PDF tersalin dan tercari dengan benar; tampilannya tidak berubah
         teks_pdf.betulkan(kerja / f"{berkas}.pdf")
     except Exception as e:
         print(f"PERINGATAN: PDF jadi, tetapi teks Arabnya belum dibetulkan (salin/cari bisa terbalik): {type(e).__name__}: {e}")
+    try:  # sampul, nomor halaman, dan pengantar «:» yang terpisah dari isinya; hasil tetap terbit
+        for p in teks_pdf.periksa(kerja / f"{berkas}.pdf", d):
+            print(f"PERINGATAN: {p}")
+    except Exception as e:
+        print(f"PERINGATAN: PDF jadi, tetapi belum diperiksa (sampul, nomor halaman): {type(e).__name__}: {e}")
     with zipfile.ZipFile(kerja / f"{berkas}.docx") as z:
         if z.testzip() or not {"[Content_Types].xml", "word/document.xml"} <= set(z.namelist()):
             raise RuntimeError("Word menghasilkan DOCX yang tidak utuh; hasil lama belum diganti.")
     kosongkan_penulis(kerja / f"{berkas}.docx")
     from pypdf import PdfReader
     halaman = len(PdfReader(kerja / f"{berkas}.pdf").pages)
-    laporan = (kerja / "laporan.txt").read_text(encoding="utf8")
-    if f"HALAMAN={halaman}" not in laporan.splitlines() or not halaman:
+    if f"HALAMAN={halaman}" not in (kerja / laporan).read_text(encoding="utf8").splitlines() or not halaman:
         raise RuntimeError("PDF dan laporan halaman tidak cocok; hasil lama belum diganti.")
     if hashlib.sha256((f / "naskah.txt").read_bytes()).hexdigest() != d["naskah_sha256"]:
         raise RuntimeError("Naskah berubah selama rakit; hasil lama belum diganti. Ulangi rakit.")
-    terbitkan(kerja, f, [f"{berkas}.docx", f"{berkas}.pdf", "laporan.txt"])
-    for baris in (f / "laporan.txt").read_text(encoding="utf8").splitlines():
+    terbitkan(kerja, f, [f"{berkas}.docx", f"{berkas}.pdf", laporan])
+    for baris in (f / laporan).read_text(encoding="utf8").splitlines():
         if baris.startswith(("HALAMAN", "CATATAN_KAKI", "KATA")):
             print(baris)
     print(f"Jadi: {f / berkas}.docx dan .pdf")
@@ -415,18 +558,20 @@ def ambil(nomor):
     """Unduh tiap kitab; satu yang gagal tidak membatalkan yang lain. Keluar dengan kode 1 kalau ada yang belum terunduh.
     Nama folder bahts = semua kitab yang dirujuk bukti naskahnya (yang sudah ada dilewati)."""
     import olah
-    sid = []
+    sid, bukan_folder = [], []
     for x in nomor:
         if not x.isdigit():
             try:
                 f = folder_bahts(x)
-            except SystemExit:  # bukan folder bahts: shamela.ambil yang menjelaskan kenapa bukan nomor kitab
-                sid.append(x); continue
+            except SystemExit as e:
+                if re.search(r"[/\\]", x):  # jalur folder yang salah: pesan folder, bukan «bukan nomor kitab»
+                    print(f"{x}: {e.code}"); bukan_folder.append(x); continue
+                sid.append(x); continue  # shamela.ambil yang menjelaskan kenapa bukan nomor kitab
             dirujuk = olah.kitab_dirujuk(f)
             print(f"{f.name}: {len(dirujuk)} kitab dirujuk naskahnya")
             sid += dirujuk; continue
         sid.append(x)
-    gagal = shamela.ambil(*dict.fromkeys(sid))
+    gagal = bukan_folder + shamela.ambil(*dict.fromkeys(sid))
     if gagal:
         sys.exit(f"Belum terunduh: {', '.join(gagal)} (lihat pesan di atas).")
 
@@ -486,27 +631,57 @@ def perintah_cek(a):
     sys.exit(1 if cek(folder, jejak="--jejak" in a)[1] else 0)
 
 
-PERINTAH = {  # nama: (jumlah argumen minimal, pemanggil)
-    "periksa": (0, lambda a: periksa()),
-    "siapkan": (0, lambda a: siapkan()),
-    "baru": (2, lambda a: baru(a[0], a[1])),
-    "cek": (0, perintah_cek),
-    "rakit": (1, lambda a: rakit(a[0])),
-    "tanda": (0, lambda a: print(tanda())),
-    "kitab": (0, lambda a: shamela.daftar()),
-    "katalog": (1, lambda a: ketemu(shamela.katalog(pola(a[0])))),
-    "temukan": (1, lambda a: ketemu(shamela.temukan(*bendera_temukan(a[0], a[1:])))),
-    "ambil": (1, lambda a: ambil(a)),
-    "kartu": (1, lambda a: shamela.kartu(a[0])),
-    "cari": (2, lambda a: ketemu(shamela.cari(a[0], a[1]))),
-    "teks": (2, lambda a: ketemu(shamela.teks(a[0], a[1], *(angka(x, apa) for x, apa in zip(a[2:4], ("lebar", "maks")))))),
-    "bab": (2, lambda a: ketemu(shamela.bab(a[0], a[1]))),
-    "halaman": (3, lambda a: ketemu(halaman(*a[:3]))),
-    "scan": (3, lambda a: ketemu(shamela.scan(*a[:3]))),
-    "hadits": (1, lambda a: ketemu(hadits.cari(a[0], *(angka(x, "maks") for x in a[1:2])))),
-    "dirasat": (1, lambda a: dirasat.cari(a[0], *(angka(x, "maks") for x in a[1:2]), *a[2:3])),
-    "dirasat-pdf": (2, lambda a: dirasat.pdf(a[0], folder_bahts(a[1]))),
+def perintah_bukti(a):
+    """`bukti <folder> [baris|awal-akhir]`: penunjuk untuk pemeriksa (lihat olah.bukti); 0 yang dicetak = kode keluar 1."""
+    import olah
+    dari = sampai = None
+    if len(a) == 2:
+        m = re.fullmatch(r"(\d+)(?:\s*-\s*(\d+))?", a[1].strip())
+        if not m or int(m[2] or m[1]) < int(m[1]):
+            raise ValueError(f"baris ditulis angka (mis. 15) atau rentang awal-akhir (mis. 10-40), bukan «{a[1]}»")
+        dari, sampai = int(m[1]), int(m[2] or m[1])
+    ketemu(olah.bukti(folder_bahts(a[0]), dari, sampai))
+
+
+def perintah_rakit(a):
+    """`rakit <folder> [--fasl n]`: bendera boleh sebelum/sesudah folder."""
+    a = list(a)
+    fasl = None
+    if "--fasl" in a:
+        i = a.index("--fasl")
+        if i + 1 >= len(a):
+            raise ValueError("--fasl perlu nomor #F, mis. --fasl 2")
+        fasl = a.pop(i + 1)
+        a.pop(i)
+    if len(a) != 1 or a[0].startswith("--"):
+        raise ValueError(f"argumen tidak dikenal atau berlebih: {a}")
+    rakit(a[0], fasl)
+
+
+PERINTAH = {  # nama: (jumlah argumen minimal, maksimal (None = diperiksa pemanggilnya), pemanggil)
+    "periksa": (0, 0, lambda a: periksa()),
+    "siapkan": (0, 0, lambda a: siapkan()),
+    "baru": (2, 2, lambda a: baru(a[0], a[1])),
+    "cek": (0, None, perintah_cek),
+    "rakit": (1, None, perintah_rakit),
+    "bukti": (1, 2, perintah_bukti),
+    "tanda": (0, 0, lambda a: print(tanda())),
+    "kitab": (0, 0, lambda a: shamela.daftar()),
+    "katalog": (1, 1, lambda a: ketemu(shamela.katalog(pola(a[0])))),
+    "temukan": (1, None, lambda a: ketemu(shamela.temukan(*bendera_temukan(a[0], a[1:])))),
+    "ambil": (1, None, lambda a: ambil(a)),
+    "kartu": (1, 1, lambda a: shamela.kartu(a[0])),
+    "cari": (2, 2, lambda a, **k: ketemu(shamela.cari(a[0], a[1], **k))),
+    "teks": (2, 4, lambda a, **k: ketemu(shamela.teks(a[0], a[1], *(angka(x, apa) for x, apa in zip(a[2:], ("lebar", "maks"))), **k))),
+    "bab": (2, 2, lambda a, **k: ketemu(shamela.bab(a[0], a[1], **k))),
+    "halaman": (3, 3, lambda a: ketemu(halaman(*a))),
+    "scan": (3, 3, lambda a: ketemu(shamela.scan(*a))),
+    "hadits": (1, 2, lambda a: ketemu(hadits.cari(a[0], *(angka(x, "maks") for x in a[1:])))),
+    "dirasat": (1, 3, lambda a: dirasat.cari(a[0], *(angka(x, "maks") for x in a[1:2]), *a[2:])),
+    "dirasat-pdf": (2, 2, lambda a: dirasat.pdf(a[0], folder_bahts(a[1]))),
 }
+
+POTONGAN = ("cari", "teks", "bab")  # perintah yang menerima --potongan (frasa boleh cocok di tengah kata)
 
 
 def tanda():
@@ -528,10 +703,20 @@ if __name__ == "__main__":
     # cukup baris bantuan perintah itu, berikut baris lanjutannya yang menjorok
     bantu = re.search(rf"^  {re.escape(cmd)}\s.*(?:\n {{20,}}\S.*)*", __doc__, re.M)
     bentuk = bantu.group(0) if bantu else cmd
-    if len(a) < PERINTAH[cmd][0]:
+    paling_sedikit, paling_banyak, jalankan = PERINTAH[cmd]
+    k = {}
+    if cmd in POTONGAN and "--potongan" in a:  # bendera boleh di mana saja; tidak dihitung sebagai argumen
+        a, k = [x for x in a if x != "--potongan"], {"potongan": True}
+    if len(a) < paling_sedikit:
         sys.exit(f"Perintah «{cmd}» kurang argumen. Bentuknya:\n{bentuk}")
+    if paling_banyak is not None and len(a) > paling_banyak:
+        # dulu ditelan diam-diam: `katalog "زاد" --mazhab hanbali` tidak tersaring, `halaman 1679 - 8 9` mengabaikan 9
+        bendera = [x for x in a if x.startswith("--")]
+        sys.exit(f"Argumen perintah «{cmd}» tidak dikenal atau berlebih: {a[paling_banyak:]}"
+                 + (f" (perintah «{cmd}» tidak punya bendera {', '.join(bendera)})" if bendera else "")
+                 + f"\nBentuknya:\n{bentuk}")
     try:
-        PERINTAH[cmd][1](a)
+        jalankan(a, **k)
     except urllib.error.HTTPError as e:
         if not 400 <= e.code < 500 or e.code == 429:
             sys.exit(f"Perintah '{cmd}': layanannya sedang menolak atau sibuk (HTTP {e.code}). Ulangi sebentar lagi.")
