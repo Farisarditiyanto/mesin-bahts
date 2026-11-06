@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- Sampul `@model: jakarta`: logo جامعة الإمام tidak lagi gepeng. Gambarnya (1129×1311 dengan pinggiran kosong) dulu dipaksa masuk kotak 0,70, jadi logonya tercetak rasio 0,56; sekarang pinggirannya dibuang dan kotaknya ikut rasio gambar (0,69, sama dengan logo resmi).
 - Baru: perhatian «standar sumber» di `cek`: pendapat mazhab yang di bagian itu tidak punya satu pun bukti dari kitab mazhabnya (mis. dari الموسوعة الفقهية الكويتية atau kitab mazhab lain), dan ijmak/kesepakatan/jumhur yang hanya dibuktikan kitab fikih/usul modern. «مقتبس من»/«نقلا عن» di catatan kaki membebaskannya. Dasar dan tabel standar sumber per jenis klaim ada di AGENTS.md (عبد الوهاب أبو سليمان، كتابة البحث العلمي). Naskah lama yang lolos kini bisa mendapat perhatian baru (tidak ada GAGAL baru).
 - Baru: `@rujukan_ayat: matan` mencetak rujukan ayat «[المائدة: ٢٧]» di matan; `@model: jakarta` memakainya.
 
