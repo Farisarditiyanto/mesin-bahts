@@ -39,9 +39,10 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       judul_kanan (B, M, atau keduanya: judul itu rata kanan, bawaan di tengah), fihris (baru | sambung =
                       المصادر dan فهرس sesudah yang pertama menyambung di halaman yang sama), sifat (baris di bawah
                       nama di sampul, mis. «الطالب بقسم الشريعة للفترة الصباحية»)
+                      rujukan_ayat (catatan | matan = [^سورة …، آية: n.] dicetak «[السورة: n]» tepat sesudah ayatnya)
                       model (jakarta = sekaligus @sampul: jakarta, @format: jakarta, @kepala: kotak, @fihris_ayat: surah,
                       @fihris_hadits: ringkas, @maudhuat: titik, @pustaka_gaya: muallif, @pustaka: akhir,
-                      @judul_kanan: B, M, @catatan_kaki: bersambung, @fihris: sambung; kunci yang ditulis sendiri tetap menang,
+                      @judul_kanan: B, M, @catatan_kaki: bersambung, @fihris: sambung, @rujukan_ayat: matan; kunci yang ditulis sendiri tetap menang,
                       mis. «@model: jakarta» + «@sampul: qism»). @sampul: jakarta = model qism dengan «قسم الشريعة بجاكرتا»,
                       logo berwarna, baris @sifat, dan nomor mahasiswa tanpa «الرقم الجامعي:»
   @bentuk: kitab      bukan bahts (mis. muqarrar gabungan dua syarah): tanpa sampul bahts, wajib hanya @judul (tercetak di
@@ -160,12 +161,13 @@ GAYA = {"kepala": ("-", "kotak"),            # kotak = judul kanan, nomor halama
         "maudhuat": ("tabel", "titik"),      # titik = baris bertitik-titik ke nomor halaman, tanpa tabel; #S «❖ …» ikut
         "pustaka_gaya": ("judul", "muallif"),  # muallif = القرآن الكريم ikut bernomor; **…** tebal dan __…__ miring di #R
         "judul_kanan": ("-", "B", "M", "B, M"),  # judul #B/#M rata kanan (bawaan: di tengah)
-        "fihris": ("baru", "sambung")}  # sambung = المصادر/فهرس sesudah yang pertama menyambung di halaman yang sama
+        "fihris": ("baru", "sambung"),  # sambung = المصادر/فهرس sesudah yang pertama menyambung di halaman yang sama
+        "rujukan_ayat": ("catatan", "matan")}  # matan = [^سورة …، آية: n.] dicetak «[السورة: n]» tepat sesudah ayatnya
 # @model: satu nama untuk sekumpulan pilihan di atas (dan @sampul, @format, @pustaka, @catatan_kaki); kunci yang ditulis
 # sendiri di naskah tetap menang, jadi model bisa dicampur, mis. «@model: jakarta» + «@sampul: qism»
 MODEL = {"jakarta": {"sampul": "jakarta", "format": "jakarta", "kepala": "kotak", "fihris_ayat": "surah",
                      "fihris_hadits": "ringkas", "maudhuat": "titik", "pustaka_gaya": "muallif", "pustaka": "akhir",
-                     "judul_kanan": "B, M", "catatan_kaki": "bersambung", "fihris": "sambung"}}
+                     "judul_kanan": "B, M", "catatan_kaki": "bersambung", "fihris": "sambung", "rujukan_ayat": "matan"}}
 META = frozenset("judul jenis nama nim fasl musyrif jabatan thalibah sampul tahun berkas format angka angka_ayat tanpa pustaka templat halaman_baru nomor bentuk rumuz warna model kepala_judul sifat".split()) | TIMPA.keys() | GAYA.keys()
 # @warna: nama -> RGB. Biru tua: tetap nyaman dibaca untuk paragraf panjang dan jelas beda dari hitam serta merah lafaz matn
 WARNA = {"biru": (20, 60, 150)}
@@ -2285,6 +2287,117 @@ def ayat_ketik(teks):
     return next((k for k in AYAT_KETIK.findall(teks) if k not in dikutip), None)
 
 
+# Standar sumber (AGENTS.md «Standar sumber»; dasar: عبد الوهاب أبو سليمان، كتابة البحث العلمي، ص70-73 dan 162-163):
+# pendapat mazhab diambil dari kitab mazhab itu, ijmak/kesepakatan dari kitab ulama yang menukilnya, bukan dari kitab
+# modern (مرجع). Perantara boleh hanya kalau asalnya tidak bisa didapat, dan catatan kakinya menyebut «مقتبس من» / «نقلا عن».
+MAZHAB = {  # mazhab -> (kategori Shamela, pola penyebutannya di kalimat)
+    "حنفي": (14, r"الحنفية|الحنفي|الأحناف|أبي حنيفة|أبو حنيفة|أبا حنيفة"),
+    "مالكي": (15, r"المالكية|المالكي|الإمام مالك|مذهب مالك|قول مالك|قال مالك|وقال مالك"),
+    "شافعي": (16, r"الشافعية|الشافعي"),
+    "حنبلي": (17, r"الحنابلة|الحنبلي|الإمام أحمد|أحمد بن حنبل|مذهب أحمد|قول أحمد|قال أحمد|رواية عن أحمد"),
+}
+IJMAK = re.compile(r"أجمع|الإجماع على|بالإجماع|إجماع العلماء|إجماع الفقهاء|اتفق|باتفاق|بالاتفاق|لا خلاف|بلا خلاف|الجمهور|جمهور")
+KATA = r"(?<![ء-ي])(?:{})(?![ء-ي])"  # kata utuh Arab (bukan potongan: «ذكر» bukan bagian «الذكر»)
+# perantara yang disebut di catatan kaki: «مقتبس من …» (istilah kitab 8350) atau «نقلا عن …», diikuti nama sumbernya,
+# bukan sekadar nama mazhab atau «غيره» («نقلا عن الحنفية» tidak menyebut kitab perantara mana pun)
+PERANTARA = re.compile(r"(?:نقلا|نقلًا) عن|مقتبس من")
+BUKAN_PERANTARA = re.compile(r"^\s*(?:ال)?(?:حنفية|مالكية|شافعية|حنابلة|أحناف|غيره|غيرها|غيرهم)(?![ء-ي])")
+# kalimat yang menyebut mazhab tanpa menisbatkan pendapat kepadanya: penulis sendiri sudah menyebut perantaranya di matan
+# («ذكر ابن قدامة أن أبا حنيفة…»، «نقل…»), atau sedang membantah/menilai dalilnya («ونوقش استدلال الحنفية…»)
+SEBUT = re.compile(KATA.format(r"[وف]?(?:ذكر|ذكره|ذكرهما|نقل|نقله|حكى|حكاه|عزا|عزاه|نسبه|علل|نوقش|يناقش|اعترض|أجيب|أجاب)"))
+KONTEMPORER = re.compile(KATA.format(r"مجمع الفقه|المجمع الفقهي|قرار المجمع|[وف]?(?:ال)?قرار(?:ات)?|هيئة كبار|اللجنة الدائمة"
+                                     r"|المؤتمر|الندوة"))
+FIKIH = {12, 14, 15, 16, 17, 18, 19, 20, 22}  # kategori fikih Shamela (mazhab, الفقه العام, masail, qadha, fatwa, qawaid)
+USUL = {11}  # ijmak/jumhur juga dijaga di أصول الفقه
+MODERN = 1350  # wafat sesudah tahun ini, atau tidak tercatat (99999: hidup, kolektif, tak diketahui) = kitab modern
+
+
+@functools.cache
+def mutamad():
+    """{mazhab: {nomor kitab}} dari tabel ringkas dok/mutamad.md; kosong kalau berkasnya tidak ada."""
+    f = HERE.parent / "dok" / "mutamad.md"
+    hasil = {}
+    if f.exists():
+        for m in re.finditer(r"^\| (\S+) \| `\[([\d, ]+)\]` \|", f.read_text(encoding="utf8"), re.M):
+            hasil[m.group(1)] = {int(x) for x in m.group(2).split(",")}
+    return hasil
+
+
+@functools.cache
+def _kitab_meta(sid):
+    try:
+        m = shamela.info(sid)
+    except (SystemExit, LookupError, OSError, ValueError):
+        return None
+    try:
+        wafat = int(m.get("main_author_death_hijri") or 99999)
+    except ValueError:
+        wafat = 99999
+    return {"wafat": wafat, "kategori": int(m.get("category_id") or 0), "judul": m.get("title_ar") or str(sid)}
+
+
+def _kitab_mazhab(mz, sid, v):
+    """Bukti dari kitab mazhab mz: kitab daftar mu'tamad, atau kitab lama (wafat < MODERN) di kategori mazhab itu."""
+    return int(sid) in mutamad().get(mz, ()) or (v["kategori"] == MAZHAB[mz][0] and v["wafat"] < MODERN)
+
+
+def standar_sumber(penggal, isi, sid_bukti):
+    """Catatan standar sumber satu catatan kaki (dinilai per bagian oleh standar_baris), atau None kalau data kitabnya tak
+    terbaca. Takhrij/ayat, perantara yang disebut («مقتبس من …»، «نقلا عن …»), dan masalah kontemporer tidak dinilai, tetapi
+    bukti kitab mazhabnya tetap dihitung untuk bagian itu."""
+    if not sid_bukti:
+        return None
+    meta = {sid: _kitab_meta(int(sid)) for sid in sid_bukti}
+    if any(v is None for v in meta.values()):
+        return None
+    ada = {mz for mz in MAZHAB for sid, v in meta.items() if _kitab_mazhab(mz, sid, v)}
+    teks = HARAKAT.sub("", penggal)
+    perantara = any(not BUKAN_PERANTARA.match(isi[m.end():]) for m in PERANTARA.finditer(isi))
+    if perantara or isi.startswith(("أخرجه", "رواه", "سورة")) or KONTEMPORER.search(teks):
+        # tidak dinilai (takhrij: nama imam = mukharrij), tetapi bukti kitab mazhabnya tetap dihitung untuk bagian itu
+        return {"isi": isi, "disebut": set(), "ada": ada, "ijmak": False, "judul": "", "n": None}
+    judul = "، ".join(dict.fromkeys(v["judul"] for v in meta.values()))
+    # kategori usul, akhlak, tafsir… tidak dibagi per mazhab di Shamela: di sana mesin tidak bisa menilai kitab mazhabnya
+    fikih = any(v["kategori"] in FIKIH for v in meta.values())
+    # mazhab yang disebut di dalam kutipan kitab lama adalah ucapan pengarang kitab itu, bukan penisbatan penulis bahts;
+    # kutipan dari kitab modern («وهو مذهب الحنفية…» dari sebuah ensiklopedi) tetap dihitung
+    modern = any(v["wafat"] >= MODERN for v in meta.values())
+    nilai = teks if modern else luar_petik(seragam(teks))
+    disebut = ({mz for mz, (_, pola) in MAZHAB.items() if re.search(pola, nilai)}
+               if fikih and not SEBUT.search(luar_petik(seragam(teks))) else set())
+    # ijmak tidak dibebaskan SEBUT: «نقلت الموسوعة عن ابن رجب … بالاتفاق» tetap diminta dari kitab penukil tertuanya
+    ijmak = (IJMAK.search(teks) and any(v["kategori"] in FIKIH | USUL for v in meta.values())
+             and all(v["wafat"] >= MODERN for v in meta.values()))
+    return {"isi": isi, "disebut": disebut, "ada": ada, "ijmak": bool(ijmak), "judul": judul, "n": None}
+
+
+STANDAR = []  # catatan standar_sumber yang belum dinilai; diisi urai, dinilai per bagian oleh olah (standar_baris)
+AWAL_BAGIAN = re.compile(r"^(?:\*\*)?(?:#[KFBMSR](?![^\s])|القول|الرأي|المذهب)")  # judul, atau awal pendapat baru
+
+
+def standar_baris(catat):
+    """Perhatian standar sumber satu bagian naskah (sampai judul atau «القول/الرأي/المذهب …» berikutnya). Pendapat mazhab
+    dinilai sebagian: «القول الأول: … وبه قال المالكية والحنابلة» lalu baris «قال الدسوقي: "…"[bukti مالكي]» dan «قال
+    المرداوي: "…"[bukti حنبلي]» tidak ditandai, karena tiap mazhab yang disebut punya bukti dari kitabnya di bagian itu.
+    Ijmak dinilai per catatan kaki."""
+    ada = set().union(*(c["ada"] for c in catat)) if catat else set()
+    hasil, sudah = [], set()
+    for c in catat:
+        kurang = [mz for mz in MAZHAB if mz in c["disebut"] and mz not in ada and (c["n"], mz) not in sudah]
+        sudah.update((c["n"], mz) for mz in kurang)  # satu baris naskah: tiap mazhab disebut sekali
+        alasan = []
+        if kurang:
+            alasan.append(f"pendapat {'، '.join(kurang)} dibuktikan dari {c['judul']}, bukan kitab mazhab itu: ambil dari "
+                          f"kitab mu'tamad-nya (dok/mutamad.md, `shamela_search_phrase` dengan scope.book_ids)")
+        if c["ijmak"]:
+            alasan.append(f"klaim ijmak/kesepakatan/jumhur hanya dari kitab modern {c['judul']} (مرجع، bukan مصدر): ambil "
+                          f"dari kitab ulama yang menukilnya")
+        if alasan:
+            hasil.append(f"baris {c['n']}: standar sumber: " + "; ".join(alasan) + "; asalnya memang tidak bisa didapat → tulis «مقتبس من …» "
+                         f"atau «نقلا عن …» di catatan kaki  || fn: {c['isi'][:45]}")
+    return hasil
+
+
 def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False, rumuz=None, warna=None, folder=None):
     """Pecah satu baris jadi 'runs'. Catatan kaki ([^...]) diurai rekursif. rumuz = {sid: huruf} dari @rumuz;
     warna = {sid: warna Word (BGR)} dari @warna; folder = folder bahts (tempat PDF bukti <<luar|berkas|hal>>)."""
@@ -2602,6 +2715,8 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 g, p = kitab_lain(isi, [b[0] for b in terbukti]) if "سبق تخريجه" not in isi else (None, None)
                 galat += [f"{g}  || fn: {isi[:45]}"] if g else []
                 perhatian += [f"{p}  || fn: {isi[:45]}"] if p else []
+                c = standar_sumber(penggal, isi, [b[0] for b in terbukti]) if not di_catatan else None
+                STANDAR.extend([c] if c else [])
             sub = urai(isi, None, ayat_idx, hadits_idx, galat, perhatian, di_catatan=True)
             runs += [{"z": z} for z in zz]
             catatan.append({"runs": sub, "bukti": len(bukti), "luar": luar, "pdf": len(pdf)})
@@ -2808,13 +2923,16 @@ def utama(folder, keluar=None):
             + ", lalu ulangi `cek`.") from None
     blok, catatan, ayat_idx, hadits_idx, galat, perhatian, pustaka = [], [], [], [], [], [], []
     TERTOLAK.clear()
+    STANDAR.clear()
     PENUNJUK.clear()
     meta = {"berkas": folder.name}
     di_baris = {}  # @kunci dan #R -> nomor barisnya, untuk galat yang baru ketahuan sesudah semua baris dibaca
     rumuz = {}  # @rumuz: sid -> huruf
     warna = {}  # @warna: sid -> warna Word (BGR)
     for n, b in baris:
-        g0, p0, u0 = len(galat), len(perhatian), len(PENUNJUK)
+        if AWAL_BAGIAN.match(b) and STANDAR:  # bagian baru: nilai standar sumber bagian sebelumnya
+            perhatian += standar_baris(STANDAR); STANDAR.clear()
+        g0, p0, u0, s0 = len(galat), len(perhatian), len(PENUNJUK), len(STANDAR)
         if b.startswith("@"):
             k, _, v = b[1:].partition(":")
             if k.strip() not in META:
@@ -2884,6 +3002,9 @@ def utama(folder, keluar=None):
         perhatian[p0:] = [p if p.startswith("baris ") else f"baris {n}: {p}" for p in perhatian[p0:]]
         for u in PENUNJUK[u0:]:
             u["n"] = n
+        for c in STANDAR[s0:]:
+            c["n"] = n
+    perhatian += standar_baris(STANDAR); STANDAR.clear()
 
     def di(kunci):
         return f"baris {di_baris[kunci]}: " if kunci in di_baris else ""
@@ -2900,6 +3021,14 @@ def utama(folder, keluar=None):
         if meta[k] not in nilai:
             galat.append(di("@" + k) + f"@{k}: «{meta[k]}» tidak dikenal (yang ada: {', '.join(nilai)})")
             meta[k] = nilai[0]
+    if meta["rujukan_ayat"] == "matan":  # [^سورة …، آية: n.] jadi «[السورة: n]» di matan, catatan kakinya tidak dicetak
+        for b in blok:
+            for j, r in enumerate(b.get("runs", [])):
+                if "fn" in r:
+                    t = "".join(x.get("t", "") for x in catatan[r["fn"]]["runs"]).strip()
+                    m = re.fullmatch(r"سورة\s+(.+?)،\s*آية:?\s*([\d٠-٩]+(?:\s*[-–]\s*[\d٠-٩]+)?)\.?", t)
+                    if m:
+                        b["runs"][j] = {"t": f" [{m.group(1)}: {m.group(2)}]", "b": False}
     if meta["kepala"] == "kotak" and meta.get("templat"):
         galat.append(di("@kepala") + "@kepala: kotak dan @templat tidak bisa dipakai bersama: @templat sudah membawa kepala halamannya")
     tanpa =[t for t in re.split(r"[,، ]+", meta.get("tanpa", "")) if t]
