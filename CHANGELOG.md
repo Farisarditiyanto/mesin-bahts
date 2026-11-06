@@ -5,6 +5,9 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- Baru: perhatian «standar sumber» di `cek`: pendapat mazhab yang di bagian itu tidak punya satu pun bukti dari kitab mazhabnya (mis. dari الموسوعة الفقهية الكويتية atau kitab mazhab lain), dan ijmak/kesepakatan/jumhur yang hanya dibuktikan kitab fikih/usul modern. «مقتبس من»/«نقلا عن» di catatan kaki membebaskannya. Dasar dan tabel standar sumber per jenis klaim ada di AGENTS.md (عبد الوهاب أبو سليمان، كتابة البحث العلمي). Naskah lama yang lolos kini bisa mendapat perhatian baru (tidak ada GAGAL baru).
+- Baru: `@rujukan_ayat: matan` mencetak rujukan ayat «[المائدة: ٢٧]» di matan; `@model: jakarta` memakainya.
+
 - Baru: tata letak yang bisa dicampur per bagian. `@kepala: kotak` (judul di kanan, nomor halaman berbingkai di kiri, garis di bawahnya; `@kepala_judul` untuk judul pendek), `@fihris_ayat: surah`, `@fihris_hadits: ringkas`, `@maudhuat: titik`, `@pustaka_gaya: muallif` (**tebal** dan __miring__ di baris #R), `@judul_kanan: B, M`, `@fihris: sambung` (فهرس sesudah yang pertama tidak mulai halaman baru), `@sifat` (baris di bawah nama di sampul), dan `@sampul: jakarta` (kop «قسم الشريعة بجاكرتا», logo berwarna). `@model: jakarta` memasang semuanya sekaligus, ditambah profil `@format: jakarta` (judul Sakkal Majalla 18, matan 1,15 spasi dengan jarak 10 pt antarparagraf, المصادر 16, tepi kanan 2,93 cm, catatan kaki bersambung); kunci yang ditulis sendiri tetap menang.
 
 ## 9.0.0 — 2026-11-05
