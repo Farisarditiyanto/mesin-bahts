@@ -5,6 +5,8 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- Baru: tata letak yang bisa dicampur per bagian. `@kepala: kotak` (judul di kanan, nomor halaman berbingkai di kiri, garis di bawahnya; `@kepala_judul` untuk judul pendek), `@fihris_ayat: surah`, `@fihris_hadits: ringkas`, `@maudhuat: titik`, `@pustaka_gaya: muallif` (**tebal** dan __miring__ di baris #R), `@judul_kanan: B, M`, `@fihris: sambung` (فهرس sesudah yang pertama tidak mulai halaman baru), `@sifat` (baris di bawah nama di sampul), dan `@sampul: jakarta` (kop «قسم الشريعة بجاكرتا», logo berwarna). `@model: jakarta` memasang semuanya sekaligus, ditambah profil `@format: jakarta` (judul Sakkal Majalla 18, matan 1,15 spasi dengan jarak 10 pt antarparagraf, المصادر 16, tepi kanan 2,93 cm, catatan kaki bersambung); kunci yang ditulis sendiri tetap menang.
+
 ## 9.0.0 — 2026-11-05
 
 **Naskah lama bisa GAGAL di `cek`.** Yang kini GAGAL: ayat sesudah «قال الله تعالى» atau «وقال:» yang dirujuk «سورة …» tanpa `{Q:}`, `{Q:}` di dalam kutipan yang lebih panjang atau lain dari ayat yang dikutip kitab, catatan kaki yang menyebut kitab lain dari buktinya, derajat hadits yang berlawanan dengan yang terbaca di halaman bukti, dan `@nim` nol semua. Argumen perintah yang berlebih kini ditolak. Baru: `bukti <folder>` untuk pemeriksa langkah 5, `rakit <folder> --fasl n` untuk bahts yang dikumpulkan per فصل, serta `@catatan_kaki` dan `@spasi` yang menimpa satu nilai `@format`. `cari`, `teks`, dan `bab` kini mencocokkan kata utuh.
