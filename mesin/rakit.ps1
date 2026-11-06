@@ -47,6 +47,19 @@ $adaPu = $TANPA -notcontains 'pustaka' -and (-not $KITAB -or @($DATA.pustaka).Co
 $ABJAD = $M.nomor -in 'abjad', 'mukadimah'             # @nomor: abjad = sebelum #F pertama nomor halaman huruf, mulai #F pertama ١، ٢، ٣
 $NOMOR_MUQ = $M.nomor -eq 'mukadimah'      # @nomor: mukadimah = sama, tetapi ١ mulai #K المقدمة
 $PUSTAKA_AKHIR = $M.pustaka -eq 'akhir'   # @pustaka: akhir = sumber sesudah فهرس الأحاديث, berjudul فهرس المصادر والمراجع
+# tata letak yang bisa dicampur (olah.GAYA, @model): tiap bagian memilih bentuknya sendiri
+$KEPALA_KOTAK = $M.kepala -eq 'kotak'      # kepala halaman: judul kanan, nomor halaman berbingkai kiri, garis di bawahnya
+$JUDUL_KEPALA = if ($M.kepala_judul) { [string]$M.kepala_judul } else { $JUDUL }
+$AYAT_SURAH = $M.fihris_ayat -eq 'surah'   # فهرس الآيات: السورة (digabung per surat) | الآية «… الآية n» | الصفحة
+$HADITS_RINGKAS = $M.fihris_hadits -eq 'ringkas'   # فهرس الأحاديث: الأحاديث | الصفحة
+$TO_TITIK = $M.maudhuat -eq 'titik'        # فهرس الموضوعات bertitik-titik tanpa tabel
+$PUSTAKA_MUALLIF = $M.pustaka_gaya -eq 'muallif'   # القرآن الكريم bernomor; **…** tebal, __…__ miring
+$KANAN = @(([string]$M.judul_kanan -split '[,، ]+') | Where-Object { $_ -in 'B', 'M' })   # judul #B/#M rata kanan
+$TJ = if ($FMT.huruf_judul) { [string]$FMT.huruf_judul } else { $TA }   # huruf judul (#K/#F/#B/#M/#S dan judul فهرس)
+$JARAK_P = if ($FMT.jarak_paragraf) { [single]$FMT.jarak_paragraf } else { 0 }   # pt sesudah paragraf matan
+$U_PUSTAKA = if ($FMT.ukuran_pustaka) { [single]$FMT.ukuran_pustaka } else { $null }   # ukuran huruf المصادر (bawaan = matan)
+$FIHRIS_SAMBUNG = $M.fihris -eq 'sambung'  # فهرس sesudah yang pertama menyambung di halaman yang sama
+$TEPI_KANAN = if ($FMT.tepi_kanan) { [single]$FMT.tepi_kanan } else { 3.5 }   # cm
 $MERAH = 176; $COKLAT = 2772843           # warna Word (BGR): lafaz matn RGB(176,0,0); rumuz RGB(107,79,42)
 
 # satu rakit dalam satu waktu: rakit kedua berhenti di sini, sebelum mematikan Word milik rakit pertama (kunci lepas sendiri saat proses ini selesai).
@@ -81,6 +94,7 @@ try {
     # Alamat kerja Word berupa string biasa untuk COM.
     # huruf profil yang tidak terpasang diganti Word diam-diam: berhenti di sini saja
     if (@($word.FontNames) -notcontains $TA) { throw "Huruf [$TA] belum terpasang di Windows. Jalankan: python mesin/bahts.py periksa" }
+    if (@($word.FontNames) -notcontains $TJ) { Write-Output "PERINGATAN: huruf judul $TJ belum terpasang di Windows: judul dicetak $TA."; $TJ = $TA }
     # ---------- 1. Sampul: berangkat dari template sampul (bentuk kitab: dokumen kosong) ----------
     if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force }
     # Tampilan Draft selama menyusun: di Print Layout (bawaan kebanyakan pemakai) tiap Select menyusun ulang halaman sampai
@@ -123,9 +137,11 @@ try {
         }
     }
     if ($KITAB) { $doc = $word.Documents.Add(); $doc.SaveAs2($tmp, 16); Draft }
-    elseif ($M.sampul -eq 'qism' -and -not $M.templat) {   # @sampul bawaan selalu terisi: @templat didahulukan
+    elseif ($M.sampul -in 'qism', 'jakarta' -and -not $M.templat) {   # @sampul bawaan selalu terisi: @templat didahulukan
     # @sampul: qism = model قسم الشريعة (logo, judul dalam kurung, العام الجامعي): teks penanda diganti, bentuknya dari templat
-    $doc = $word.Documents.Open("$dir\sampul_qism.docx", $false, $true)
+    # jakarta = sama, dari sampul_jakarta.docx: «قسم الشريعة بجاكرتا», logo berwarna, baris @sifat, nomor tanpa «الرقم الجامعي:»
+    $JAKARTA = $M.sampul -eq 'jakarta'
+    $doc = $word.Documents.Open($(if ($JAKARTA) { "$dir\sampul_jakarta.docx" } else { "$dir\sampul_qism.docx" }), $false, $true)
     $doc.SaveAs2($tmp, 16)
     Draft
     # العام الجامعي bawaan = tahun hijriah saat tahun ajaran mulai (1 Agustus): satu tahun ajaran tetap satu tahun
@@ -140,7 +156,8 @@ try {
         elseif ($t -eq '( موضوع البحث )') { Ganti $p $(if ($JUDUL2) { "( $JUDUL2 )" } else { '' }); $pSub = $p }
         # @jenis dan @nim tercetak kalau diisi; kosong (atau "-") = barisnya dibuang
         elseif ($t -eq 'نوع البحث') { if ($M.jenis -and $M.jenis -ne '-') { Ganti $p ([string]$M.jenis) } else { $buang += $p } }
-        elseif ($t -eq 'الرقم الجامعي') { if ($NIM -and $NIM -ne '-') { Ganti $p "الرقم الجامعي: $(Angka $NIM)" } else { $buang += $p } }
+        elseif ($t -eq 'الرقم الجامعي') { if ($NIM -and $NIM -ne '-') { Ganti $p $(if ($JAKARTA) { Angka $NIM } else { "الرقم الجامعي: $(Angka $NIM)" }) } else { $buang += $p } }
+        elseif ($t -eq 'صفة الطالب') { if ($M.sifat -and $M.sifat -ne '-') { Ganti $p ([string]$M.sifat) } else { $buang += $p } }
         # pembimbing: tanpa @musyrif (atau "-") ketiga barisnya kosong; tanpa @jabatan (atau "-") baris jabatannya kosong
         elseif ($t -eq 'المشرف') { if (-not $MUSYRIF) { Ganti $p '' } }
         elseif ($t -eq 'اسم المشرف') { Ganti $p $MUSYRIF }
@@ -149,6 +166,19 @@ try {
         elseif ($t -eq 'اسم الطالب') { Ganti $p $NAMA }
         elseif ($t -eq 'السنة الهجرية') { Ganti $p "$TAHUN هـ" }
     }
+    if ($JAKARTA) {
+        $SM = if (@($word.FontNames) -contains 'Sakkal Majalla') { 'Sakkal Majalla' } else { $TA }
+        foreach ($p in @($doc.Paragraphs)) {
+            $t = $p.Range.Text.Trim(); $f = $p.Range.Font
+            $u = switch ($t) {
+                'المشرف' { 18, 1, $SM } { $_ -eq $MUSYRIF -and $MUSYRIF } { 18, 1, $SM } { $_ -eq $JABATAN -and $JABATAN } { 18, 0, $SM }
+                { $_ -in 'إعداد الطالب:', 'إعداد الطالبة:' } { 16, 1, $SM } $NAMA { 16, 1, $SM }
+                { $M.sifat -and $_ -eq [string]$M.sifat } { 16, 0, $SM } { $NIM -and $_ -eq (Angka $NIM) } { 18, 0, $TA }
+                'العام الجامعي' { 18, 0, $TA } "$TAHUN هـ" { 18, 0, $TA } 'قسم الشريعة بجاكرتا' { 16, 0, $TA }
+            }
+            if ($u) { $f.Size = [single]$u[0]; $f.SizeBi = [single]$u[0]; $f.Bold = $u[1]; $f.BoldBi = $u[1]; $f.Name = $u[2]; $f.NameBi = $u[2]; $p.LineSpacingRule = 0 }
+        }
+    }
     foreach ($p in $buang) { [void]$p.Range.Delete() }
     # huruf judul model (dari templat: PT Bold Heading) belum terpasang = Word diam-diam memakai huruf lain: pakai huruf profil tebal
     $hJudul = $pJudul.Range.Font.NameBi
@@ -156,7 +186,7 @@ try {
         Write-Output "PERINGATAN: huruf $hJudul (judul sampul qism) belum terpasang di Windows: judul dicetak $TA tebal. Pasang hurufnya, lalu rakit lagi."
         $f = $pJudul.Range.Font; $f.Name = $TA; $f.NameBi = $TA; $f.Bold = 1; $f.BoldBi = 1
     }
-    Seimbang $pJudul 24 18                               # judul 24 seperti model, dikecilkan sampai 18 supaya muat satu baris
+    Seimbang $pJudul $(if ($JAKARTA) { 22 } else { 24 }) 18   # judul 24 seperti model (jakarta 22), dikecilkan sampai 18 supaya muat satu baris
     if ($JUDUL2) { Seimbang $pSub 18 16 }
     else { $pSub.Range.Font.Size = 2; $pSub.Range.Font.SizeBi = 2; $pSub.SpaceBefore = 0 }   # tanpa sub-judul: tanpa celah
     # judul sangat panjang: sampul tetap satu halaman, judul dan sub-judul dikecilkan sampai 14.
@@ -264,8 +294,8 @@ try {
     $ps = $sec.PageSetup
     $ps.PaperSize = 7
     $ps.TopMargin = $word.CentimetersToPoints(2.5); $ps.BottomMargin = $word.CentimetersToPoints(2.5)
-    $ps.LeftMargin = $word.CentimetersToPoints(2.5); $ps.RightMargin = $word.CentimetersToPoints(3.5)
-    $ps.HeaderDistance = $word.CentimetersToPoints(1.25); $ps.FooterDistance = $word.CentimetersToPoints(1.25)
+    $ps.LeftMargin = $word.CentimetersToPoints(2.5); $ps.RightMargin = $word.CentimetersToPoints($TEPI_KANAN)
+    $ps.HeaderDistance = $word.CentimetersToPoints($(if ($FMT.jarak_kepala) { [single]$FMT.jarak_kepala } else { 1.25 })); $ps.FooterDistance = $word.CentimetersToPoints(1.25)
     $ft = $sec.Footers(1); $ft.LinkToPrevious = $false; $sec.Headers(1).LinkToPrevious = $false
     $ft.Range.Text = ''
     [void]$ft.Range.Fields.Add($ft.Range, 33)
@@ -275,6 +305,7 @@ try {
     $ft.PageNumbers.RestartNumberingAtSection = $true; $ft.PageNumbers.StartingNumber = 1
     if ($ABJAD) { $ft.PageNumbers.NumberStyle = 46 }     # wdPageNumberStyleArabicLetter1: أ ب ت
     $ftIsi = $null; $bagianDepan = $sec.Index
+    if ($KEPALA_KOTAK -and -not $TPL) { $TPL = $word.Documents.Open("$dir\kepala_kotak.docx", $false, $true); $doc.Activate() }
     if ($TPL) {                                          # kepala halaman @templat (nomor halamannya di situ): kaki halaman dikosongkan
         $hd = $sec.Headers(1); $sh0 = $TPL.Sections(1).Headers(1); $hd.Range.FormattedText = $sh0.Range.FormattedText
         # FormattedText membawa format langsung saja; arah, rata, dan garis dari gaya «Header» templat disalin per paragraf
@@ -286,6 +317,10 @@ try {
         $adaPage = @($sh0.Range.Fields | Where-Object { $_.Code.Text -match 'PAGE' }).Count -gt 0
         foreach ($sp in $sh0.Shapes) { if ($sp.TextFrame.HasText -and @($sp.TextFrame.TextRange.Fields | Where-Object { $_.Code.Text -match 'PAGE' }).Count) { $adaPage = $true } }
         if ($adaPage) { $ft.Range.Text = '' }
+        if ($KEPALA_KOTAK) {                             # penanda judul di kepala_kotak.docx = judul (pendek) bahts ini
+            $f = $hd.Range.Find; $f.ClearFormatting(); $f.Replacement.ClearFormatting()
+            [void]$f.Execute('عنوان البحث', $true, $false, $false, $false, $false, $true, 0, $false, $JUDUL_KEPALA, 2)
+        }
         $TPL.Close(0); $TPL = $null; $doc.Activate(); $script:kepalaTpl = $hd
     }
     # kepala halaman berjalan gaya cetakan kitab, bergaris bawah: halaman genap = judul kitab, halaman ganjil = judul bab
@@ -465,7 +500,7 @@ try {
             }
         }
     }
-    function Judul($teks, $bm, $pb) {
+    function Judul($teks, $bm, $pb, $k = '') {
         if ($pb -and $KITAB) {                           # bentuk kitab: judul halaman baru = bagian Word baru, judulnya jadi kepala halaman ganjil
             $sel.InsertBreak(2)
             $s = $doc.Sections($doc.Sections.Count)
@@ -473,11 +508,11 @@ try {
             $s.Footers(1).PageNumbers.RestartNumberingAtSection = $false
             $pb = $false
         }
-        Para 1 6 0
+        Para $(if ($k -in $KANAN) { 3 } else { 1 }) 6 0  # @judul_kanan: #B/#M rata kanan seperti #S
         $sel.ParagraphFormat.KeepWithNext = -1
         if ($pb) { $sel.ParagraphFormat.PageBreakBefore = -1; $sel.ParagraphFormat.SpaceBefore = 0 }
         if ($bm) { [void]$doc.Bookmarks.Add($bm, $sel.Range) }
-        Tulis $teks $TA $uJudul 1 0
+        Tulis $teks $TJ $uJudul 1 0
         $sel.TypeParagraph()
     }
 
@@ -520,7 +555,7 @@ try {
             $diMulakhas = $MULAKHAS_JARAK -and $blk.k -eq 'K' -and $blk.judul -match '^(ال)?ملخص' -and $blk.judul -notmatch 'الأجنبية|الإنجليزية'
             $spasiAktif = if ($blk.k -eq 'K' -and $blk.judul -match '^(ال)?ملخص') { $SPASI_MULAKHAS } else { $SPASI }
             $nT++; $bm = "t_$nT"
-            Judul $blk.judul $bm $pb
+            Judul $blk.judul $bm $pb $blk.k
             $lvl = @{ K = 0; F = 0; B = 1; M = 2 }[$blk.k]
             [void]$toc.Add(@{ t = $blk.judul; bm = $bm; lvl = $lvl })
         }
@@ -556,11 +591,14 @@ try {
             Para 3 6 0
             HalamanBaru
             $sel.ParagraphFormat.KeepWithNext = -1
-            Tulis $blk.judul $TA $uJudul 1 0
+            if ($TO_TITIK -and $blk.judul.StartsWith('❖')) {   # فهرس الموضوعات titik: sub-judul «❖ …» ikut, di bawah judul sebelumnya
+                $nT++; [void]$doc.Bookmarks.Add("t_$nT", $sel.Range); [void]$toc.Add(@{ t = $blk.judul; bm = "t_$nT"; lvl = 1 })
+            }
+            Tulis $blk.judul $TJ $uJudul 1 0
             $sel.TypeParagraph()
         }
         else {
-            if ($diMulakhas) { Para 3 $(if ($DATA.blok[$i - 1].k -eq 'K') { 0 } else { 6 }) 0 } else { Para 3 0 ($word.CentimetersToPoints(0.8)) }
+            if ($diMulakhas) { Para 3 $(if ($DATA.blok[$i - 1].k -eq 'K') { 0 } else { 6 }) 0 } else { Para 3 0 ($word.CentimetersToPoints(0.8)); $sel.ParagraphFormat.SpaceAfter = $JARAK_P }
             HalamanBaru
             $awal = $sel.Start
             Runs $blk.runs $uMatan $false
@@ -576,6 +614,13 @@ try {
     }
 
     function Sel-Akhir { [void]$sel.EndKey(6) }
+    # judul المصادر/فهرس: yang pertama sesudah الخاتمة selalu halaman baru; @fihris: sambung = sisanya menyambung
+    $script:fihrisPertama = $true
+    function JudulFihris($teks, $bm) {
+        $pb = $script:fihrisPertama -or -not $FIHRIS_SAMBUNG; $script:fihrisPertama = $false
+        Judul $teks $bm $pb
+        if (-not $pb) { $p = $sel.Paragraphs(1).Previous(1); if ($p) { $p.SpaceBefore = 24 } }
+    }
     function Tabel($rows, $widthsCm, $garis) {
         Para 3 0 0
         $tbl = $doc.Tables.Add($sel.Range, [int]$rows, [int]$widthsCm.Count)
@@ -599,27 +644,44 @@ try {
         Tautan $rg $rg.Start $teks
     }
 
+    # sel berisi **tebal** dan __miring__ (@pustaka_gaya: muallif): teks ditulis tanpa tandanya, lalu tiap ruas diberi gayanya
+    function SelGaya($tbl, $r, $c, $teks) {
+        $polos = $teks -replace '\*\*|__', ''
+        Sel $tbl $r $c $polos 3 0
+        $rg0 = $tbl.Cell($r, $c).Range.Start; $pos = 0; $b = $false; $it = $false
+        foreach ($m in [regex]::Split($teks, '(\*\*|__)')) {
+            if ($m -eq '**') { $b = -not $b; continue }; if ($m -eq '__') { $it = -not $it; continue }
+            if ($m.Length -and ($b -or $it)) {
+                $x = $tbl.Cell($r, $c).Range; $x.SetRange($rg0 + $pos, $rg0 + $pos + $m.Length)
+                if ($b) { $x.Font.Bold = 1; $x.Font.BoldBi = 1 }; if ($it) { $x.Font.Italic = 1; $x.Font.ItalicBi = 1 }
+            }
+            $pos += $m.Length
+        }
+    }
     # ---------- 3. المصادر والمراجع (tabel tanpa garis, urut abjad) ----------
     $bmSesudahIsi = "t_$($nT + 1)"   # judul pertama sesudah الخاتمة (المصادر, atau فهرس pertama): HALAMAN_ISI = halamannya - 1
     function Tulis-Pustaka($judul) {
-    $script:nT++; Judul $judul "t_$script:nT" $true; [void]$toc.Add(@{ t = $judul; bm = "t_$script:nT"; lvl = 0 })
+    $script:nT++; JudulFihris $judul "t_$script:nT"; [void]$toc.Add(@{ t = $judul; bm = "t_$script:nT"; lvl = 0 })
     $n = $DATA.pustaka.Count
     # baris القرآن الكريم (selalu paling atas kalau ada) bertanda «-», kitab lain bernomor 1, 2, ...; penandanya dari olah.py
     $adaQuran = [bool]$DATA.quran
     $geser = if ($adaQuran) { 1 } else { 0 }
+    if ($PUSTAKA_MUALLIF) { $geser = 0 }                 # @pustaka_gaya: muallif = القرآن الكريم ikut bernomor (١.)
     $tb = Tabel $n @(1.3, 13.7) 0
     for ($r = 1; $r -le $n; $r++) {
-        $no = if ($adaQuran -and $r -eq 1) { '-' } else { (Angka ($r - $geser)) + '.' }
+        $no = if ($adaQuran -and $r -eq 1 -and -not $PUSTAKA_MUALLIF) { '-' } else { (Angka ($r - $geser)) + '.' }
         Sel $tb $r 1 $no 1 0
-        Sel $tb $r 2 $DATA.pustaka[$r - 1] 3 0
+        if ($PUSTAKA_MUALLIF) { SelGaya $tb $r 2 $DATA.pustaka[$r - 1] } else { Sel $tb $r 2 $DATA.pustaka[$r - 1] 3 0 }
     }
+    if ($U_PUSTAKA) { $tb.Range.Font.Size = $U_PUSTAKA; $tb.Range.Font.SizeBi = $U_PUSTAKA }
     Sel-Akhir
     }
     if ($adaPu -and -not $PUSTAKA_AKHIR) { Tulis-Pustaka 'المصادر والمراجع' }
 
     # ---------- 4. الفهارس ----------
     if ($adaAy) {
-    $nT++; Judul 'فهرس الآيات القرآنية' "t_$nT" $true; [void]$toc.Add(@{ t = 'فهرس الآيات القرآنية'; bm = "t_$nT"; lvl = 0 })
+    $jAy = if ($AYAT_SURAH) { 'فهرس الآيات الكريمة' } else { 'فهرس الآيات القرآنية' }
+    $nT++; JudulFihris $jAy "t_$nT"; [void]$toc.Add(@{ t = $jAy; bm = "t_$nT"; lvl = 0 })
     # gabung ayat yang sama, urut mushaf
     $ay = @{}; $urut = New-Object System.Collections.ArrayList
     foreach ($a in $DATA.ayat) {
@@ -628,37 +690,79 @@ try {
         else { $ay[$key].bm += $a.k; if ($a.t.Length -gt $ay[$key].t.Length) { $ay[$key].t = $a.t } }
     }
     $urut = $urut | Sort-Object { $ay[$_].s }, { $ay[$_].n }
-    $tAy = Tabel ($urut.Count + 1) @(7.9, 2.6, 2.5, 2.0) 1
-    Sel $tAy 1 1 'الآية' 1 1; Sel $tAy 1 2 'السورة' 1 1; Sel $tAy 1 3 'رقمها' 1 1; Sel $tAy 1 4 'الصفحة' 1 1
+    # @fihris_ayat: surah = السورة | الآية | الصفحة; sel السورة digabung per surat, ayat diakhiri «الآية n»
+    $cA = if ($AYAT_SURAH) { 2 } else { 1 }; $cP = if ($AYAT_SURAH) { 3 } else { 4 }
+    if ($AYAT_SURAH) { $tAy = Tabel ($urut.Count + 1) @(2.6, 10.4, 2.0) 1; Sel $tAy 1 1 'السورة' 1 1; Sel $tAy 1 2 'الآية' 1 1; Sel $tAy 1 3 'الصفحة' 1 1 }
+    else { $tAy = Tabel ($urut.Count + 1) @(7.9, 2.6, 2.5, 2.0) 1; Sel $tAy 1 1 'الآية' 1 1; Sel $tAy 1 2 'السورة' 1 1; Sel $tAy 1 3 'رقمها' 1 1; Sel $tAy 1 4 'الصفحة' 1 1 }
     $r = 1
     foreach ($key in $urut) {
         $r++; $a = $ay[$key]
         $kata = $a.t -split ' '
         $nk = 4; if ($kata.Count -gt 5 -and $kata[3].Length -le 3) { $nk = 5 }; $pot = if ($kata.Count -gt $nk) { ($kata[0..($nk - 1)] -join ' ') + ' ...' } else { $a.t }
-        $rg = $tAy.Cell($r, 1).Range; $rg.Text = '﴿' + $pot + '﴾'; $rg.ParagraphFormat.Alignment = 3
+        $ekor = if ($AYAT_SURAH) { ' الآية ' + (Angka $a.a) } else { '' }
+        $rg = $tAy.Cell($r, $cA).Range; $rg.Text = '﴿' + $pot + '﴾' + $ekor; $rg.ParagraphFormat.Alignment = 3
         # huruf mushaf hanya untuk kata-kata ayat; titik-titik « ...» tetap huruf matan (huruf mushaf tidak punya titik)
         $nq = if ($pot.EndsWith(' ...')) { $pot.Length - 4 } else { $pot.Length }
-        $q = $tAy.Cell($r, 1).Range; $q.SetRange($rg.Start + 1, $rg.Start + 1 + $nq); $q.Font.Name = $QF; $q.Font.NameBi = $QF; $q.Font.Size = $uAyat; $q.Font.SizeBi = $uAyat
-        Sel $tAy $r 2 $a.surah 1 0; Sel $tAy $r 3 (Angka $a.a) 1 0; Sel $tAy $r 4 (Angka '00') 1 0
+        $q = $tAy.Cell($r, $cA).Range; $q.SetRange($rg.Start + 1, $rg.Start + 1 + $nq); $q.Font.Name = $QF; $q.Font.NameBi = $QF; $q.Font.Size = $uAyat; $q.Font.SizeBi = $uAyat
+        if ($AYAT_SURAH) { $ra = $tAy.Cell($r, $cA).Range; $ra.Font.Size = $uCatatan; $ra.Font.SizeBi = $uCatatan }   # contoh: sel ayat kecil (14)
+        if ($AYAT_SURAH) { Sel $tAy $r 1 $a.surah 1 0 } else { Sel $tAy $r 2 $a.surah 1 0; Sel $tAy $r 3 (Angka $a.a) 1 0 }
+        Sel $tAy $r $cP (Angka '00') 1 0
+    }
+    if ($AYAT_SURAH) { $h1 = $tAy.Rows(1).Range.Font; $h1.Name = $TJ; $h1.NameBi = $TJ }
+    if ($AYAT_SURAH) {                                   # gabung sel السورة yang sama, dari bawah supaya nomor baris tetap
+        $akhirS = $urut.Count + 1
+        for ($r = $urut.Count + 1; $r -ge 2; $r--) {
+            $atas = if ($r -gt 2) { $ay[$urut[$r - 3]].s } else { -1 }
+            if ($atas -ne $ay[$urut[$r - 2]].s) {
+                if ($akhirS -gt $r) {
+                    $tAy.Cell($r, 1).Merge($tAy.Cell($akhirS, 1))
+                    Sel $tAy $r 1 $ay[$urut[$r - 2]].surah 1 0
+                }
+                $tAy.Cell($r, 1).VerticalAlignment = 1; $akhirS = $r - 1
+            }
+        }
     }
     Sel-Akhir
     }
     if ($adaHd) {
-    $nT++; Judul 'فهرس الأحاديث والآثار' "t_$nT" $true; [void]$toc.Add(@{ t = 'فهرس الأحاديث والآثار'; bm = "t_$nT"; lvl = 0 })
-    $tHd = Tabel ($DATA.hadits.Count + 1) @(8.6, 4.4, 2.0) 1
-    Sel $tHd 1 1 'طرف الحديث أو الأثر' 1 1; Sel $tHd 1 2 'الراوي' 1 1; Sel $tHd 1 3 'الصفحة' 1 1
+    $jHd = if ($HADITS_RINGKAS) { 'فهرس الأحاديث الشريفة' } else { 'فهرس الأحاديث والآثار' }
+    $nT++; JudulFihris $jHd "t_$nT"; [void]$toc.Add(@{ t = $jHd; bm = "t_$nT"; lvl = 0 })
+    $cH = if ($HADITS_RINGKAS) { 2 } else { 3 }          # @fihris_hadits: ringkas = الأحاديث | الصفحة, طرف dalam kurung
+    if ($HADITS_RINGKAS) { $tHd = Tabel ($DATA.hadits.Count + 1) @(7.5, 7.5) 1; Sel $tHd 1 1 'الأحاديث' 1 1; Sel $tHd 1 2 'الصفحة' 1 1; $h1 = $tHd.Rows(1).Range.Font; $h1.Name = $TJ; $h1.NameBi = $TJ }
+    else { $tHd = Tabel ($DATA.hadits.Count + 1) @(8.6, 4.4, 2.0) 1; Sel $tHd 1 1 'طرف الحديث أو الأثر' 1 1; Sel $tHd 1 2 'الراوي' 1 1; Sel $tHd 1 3 'الصفحة' 1 1 }
     $r = 1
-    foreach ($h in $DATA.hadits) { $r++; Sel $tHd $r 1 ('«' + $h.t + '»') 3 0; Sel $tHd $r 2 $h.r 1 0; Sel $tHd $r 3 (Angka '00') 1 0 }
+    foreach ($h in $DATA.hadits) {
+        $r++
+        if ($HADITS_RINGKAS) { Sel $tHd $r 1 ('(' + $h.t + ')') 3 0; $rh = $tHd.Cell($r, 1).Range; $rh.Font.Size = 12; $rh.Font.SizeBi = 12 } else { Sel $tHd $r 1 ('«' + $h.t + '»') 3 0; Sel $tHd $r 2 $h.r 1 0 }
+        Sel $tHd $r $cH (Angka '00') 1 0
+    }
     Sel-Akhir
     }
     if ($adaPu -and $PUSTAKA_AKHIR) { Tulis-Pustaka 'فهرس المصادر والمراجع' }
     if ($adaTo) {
-    $nT++; Judul 'فهرس الموضوعات' "t_$nT" $true; [void]$toc.Add(@{ t = 'فهرس الموضوعات'; bm = "t_$nT"; lvl = 0 })
+    $nT++; JudulFihris 'فهرس الموضوعات' "t_$nT"
+    if (-not $TO_TITIK) { [void]$toc.Add(@{ t = 'فهرس الموضوعات'; bm = "t_$nT"; lvl = 0 }) }   # titik: tanpa barisnya sendiri (seperti contoh)
+    if ($TO_TITIK) {                                     # @maudhuat: titik = «الموضوع ...... ص» per baris, nomor di tepi kiri
+        $lebar = $sec.PageSetup.PageWidth - $sec.PageSetup.LeftMargin - $sec.PageSetup.RightMargin
+        $r = 0
+        foreach ($e in $toc) {
+            $r++
+            Para 3 0 0
+            $pf = $sel.ParagraphFormat; $pf.Alignment = 0; $pf.SpaceAfter = 6
+            if ($e.lvl -gt 0) { $pf.LeftIndent = $word.CentimetersToPoints(0.6 * $e.lvl) }
+            $pf.TabStops.ClearAll(); [void]$pf.TabStops.Add($lebar, 2, 1)   # 2 = rata ujung (kiri di teks kanan-ke-kiri), 1 = titik-titik
+            Tulis ($e.t + "`t") $TA $uMatan 0 0
+            $awalNo = $sel.Start; Tulis (Angka '00') $TA $uMatan 0 0
+            [void]$doc.Bookmarks.Add("tn_$r", $doc.Range($awalNo, $sel.Start))
+            $sel.TypeParagraph()
+        }
+    } else {
     $tTo = Tabel ($toc.Count + 1) @(13.0, 2.0) 1
     Sel $tTo 1 1 'الموضوع' 1 1; Sel $tTo 1 2 'الصفحة' 1 1
     $r = 1
     foreach ($e in $toc) { $r++; Sel $tTo $r 1 $e.t 3 ([int]($e.lvl -eq 0)); $tTo.Cell($r, 1).Range.ParagraphFormat.RightIndent = 0; $tTo.Cell($r, 1).Range.ParagraphFormat.LeftIndent = 0; if ($e.lvl -gt 0) { $tTo.Cell($r, 1).Range.ParagraphFormat.RightIndent = $word.CentimetersToPoints(0.7 * $e.lvl) }; Sel $tTo $r 2 (Angka '00') 1 0 }
     Sel-Akhir
+    }
     }
 
     # naskah tanpa catatan kaki tidak punya story catatan kaki
@@ -704,9 +808,16 @@ try {
     $isiLama = @{}
     for ($putaran = 1; $putaran -le 5; $putaran++) {
         $ubah = 0
-        if ($adaAy) { $r = 1; foreach ($key in $urut) { $r++; $pg = Angka (($ay[$key].bm | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '); if ($isiLama["a$r"] -ne $pg) { $isiLama["a$r"] = $pg; $ubah++; Sel $tAy $r 4 $pg 1 0 } } }
-        if ($adaHd) { $r = 1; foreach ($h in $DATA.hadits) { $r++; $ks = @($h.k); if ($h.lagi) { $ks += $h.lagi }; $pg = Angka (($ks | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '); if ($isiLama["h$r"] -ne $pg) { $isiLama["h$r"] = $pg; $ubah++; Sel $tHd $r 3 $pg 1 0 } } }
-        if ($adaTo) { $r = 1; foreach ($e in $toc) { $r++; $pg = Angka (Hal $e.bm); if ($isiLama["t$r"] -ne $pg) { $isiLama["t$r"] = $pg; $ubah++; Sel $tTo $r 2 $pg 1 0 } } }
+        if ($adaAy) { $r = 1; foreach ($key in $urut) { $r++; $pg = Angka (($ay[$key].bm | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '); if ($isiLama["a$r"] -ne $pg) { $isiLama["a$r"] = $pg; $ubah++; Sel $tAy $r $cP $pg 1 ([int]$AYAT_SURAH) } } }
+        if ($adaHd) { $r = 1; foreach ($h in $DATA.hadits) { $r++; $ks = @($h.k); if ($h.lagi) { $ks += $h.lagi }; $pg = Angka (($ks | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '); if ($isiLama["h$r"] -ne $pg) { $isiLama["h$r"] = $pg; $ubah++; Sel $tHd $r $cH $pg 1 ([int]$HADITS_RINGKAS) } } }
+        if ($adaTo -and $TO_TITIK) {
+            $r = 0
+            foreach ($e in $toc) {
+                $r++; $pg = Angka (Hal $e.bm)
+                if ($isiLama["t$r"] -ne $pg) { $isiLama["t$r"] = $pg; $ubah++; $x = $doc.Bookmarks.Item("tn_$r").Range; $x.Text = $pg; [void]$doc.Bookmarks.Add("tn_$r", $x) }
+            }
+        }
+        elseif ($adaTo) { $r = 1; foreach ($e in $toc) { $r++; $pg = Angka (Hal $e.bm); if ($isiLama["t$r"] -ne $pg) { $isiLama["t$r"] = $pg; $ubah++; Sel $tTo $r 2 $pg 1 0 } } }
         $doc.Repaginate()
         if (-not $ubah) { break }
     }

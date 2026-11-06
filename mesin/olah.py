@@ -29,6 +29,21 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       (mukadimah = sama, tetapi nomor ١ mulai #K المقدمة; الإهداء dst. sebelumnya tetap huruf)
                       halaman_baru (B, M, atau keduanya): judul itu juga mulai halaman baru, mis. dosen minta
                       مبحث dan مطلب beda halaman, مبحث = #F dan مطلب = #B → «@halaman_baru: B»
+                      Tata letak per bagian, bisa dicampur (nilai pertama = bawaan):
+                      kepala (- | kotak = judul kanan, nomor halaman berbingkai kiri, garis di bawahnya; kepala_judul =
+                      judul pendek di situ, bawaan @judul), fihris_ayat (tabel | surah = السورة digabung per surat | الآية
+                      «… الآية n» | الصفحة, berjudul فهرس الآيات الكريمة), fihris_hadits (tabel | ringkas = الأحاديث | الصفحة,
+                      berjudul فهرس الأحاديث الشريفة), maudhuat (tabel | titik = baris bertitik-titik ke nomor halaman;
+                      #S «❖ …» ikut), pustaka_gaya (judul | muallif = القرآن الكريم ikut bernomor; **…** tebal, __…__ miring
+                      di baris #R, mis. «**ابن كثير، إسماعيل بن عمر** (ت 774هـ). __تفسير القرآن العظيم__. …»),
+                      judul_kanan (B, M, atau keduanya: judul itu rata kanan, bawaan di tengah), fihris (baru | sambung =
+                      المصادر dan فهرس sesudah yang pertama menyambung di halaman yang sama), sifat (baris di bawah
+                      nama di sampul, mis. «الطالب بقسم الشريعة للفترة الصباحية»)
+                      model (jakarta = sekaligus @sampul: jakarta, @format: jakarta, @kepala: kotak, @fihris_ayat: surah,
+                      @fihris_hadits: ringkas, @maudhuat: titik, @pustaka_gaya: muallif, @pustaka: akhir,
+                      @judul_kanan: B, M, @catatan_kaki: bersambung, @fihris: sambung; kunci yang ditulis sendiri tetap menang,
+                      mis. «@model: jakarta» + «@sampul: qism»). @sampul: jakarta = model qism dengan «قسم الشريعة بجاكرتا»,
+                      logo berwarna, baris @sifat, dan nomor mahasiswa tanpa «الرقم الجامعي:»
   @bentuk: kitab      bukan bahts (mis. muqarrar gabungan dua syarah): tanpa sampul bahts, wajib hanya @judul (tercetak di
                       kepala tiap halaman), #R tidak wajib, hanya #K (dan @halaman_baru) mulai halaman baru. Bawaan: bahts
   @rumuz: sid=ض، sid=ف  rumuz sumber: catatan kaki yang buktinya dari kitab sid itu dicetak dengan rumuznya ض (huruf kecil terangkat) tepat sebelum
@@ -125,7 +140,9 @@ FORMAT = json.loads((HERE / "format.json").read_text(encoding="utf8"))  # huruf 
 WAJIB = {"bahts": ("judul", "jenis", "nama", "nim", "fasl"), "kitab": ("judul",)}  # @bentuk: yang pertama = bawaan
 # @sampul: model sampul bahts -> data yang wajib. Yang pertama = bawaan. mahad = mesin/sampul.doc (معهد، كلية الشريعة);
 # qism = mesin/sampul_qism.docx (قسم الشريعة: logo, judul besar, sub-judul dalam kurung kalau ada, العام الجامعي; jenis dan nim tercetak kalau diisi, fasl tidak)
-SAMPUL = {"qism": ("judul", "nama"), "mahad": WAJIB["bahts"]}
+# jakarta = mesin/sampul_jakarta.docx: model qism dengan «قسم الشريعة بجاكرتا», logo berwarna, baris @sifat di bawah nama,
+# nomor mahasiswa tanpa «الرقم الجامعي:»
+SAMPUL = {"qism": ("judul", "nama"), "mahad": WAJIB["bahts"], "jakarta": ("judul", "nama")}
 HALAMAN_BARU = ("B", "M")  # judul yang bisa dibuat mulai halaman baru lewat @halaman_baru; K dan F selalu
 TANPA = ("ayat", "hadits", "maudhuat", "pustaka")  # فهرس dan المصادر yang boleh dibuang lewat @tanpa; perakitnya di rakit.ps1
 # @angka: yang pertama = bawaan. Pedoman Jāmiʿat al-Imām tidak menyebut jenis angka; contoh resminya (pedoman 1443هـ,
@@ -135,7 +152,21 @@ ANGKA = ("hindi", "latin")
 # @kunci -> (kunci di format.json yang dibaca rakit.ps1, {nilai di naskah: nilai di profil})
 TIMPA = {"catatan_kaki": ("catatan_ulang_tiap_halaman", {"bersambung": False, "ulang": True}),
          "spasi": ("spasi", {"1": 1, "1.5": 1.5})}
-META = frozenset("judul jenis nama nim fasl musyrif jabatan thalibah sampul tahun berkas format angka angka_ayat tanpa pustaka templat halaman_baru nomor bentuk rumuz warna".split()) | TIMPA.keys()
+# Bagian tata letak yang bisa dicampur: tiap kunci memilih bentuk satu bagian, nilai pertama = bawaan.
+# Dibaca rakit.ps1. kepala_judul = judul pendek di kepala halaman (bawaan @judul); sifat = baris di bawah nama di sampul
+GAYA = {"kepala": ("-", "kotak"),            # kotak = judul kanan, nomor halaman berbingkai kiri, garis di bawahnya
+        "fihris_ayat": ("tabel", "surah"),   # surah = kolom السورة (digabung per surat) | الآية «… الآية n» | الصفحة
+        "fihris_hadits": ("tabel", "ringkas"),  # ringkas = الأحاديث | الصفحة, tanpa kolom الراوي
+        "maudhuat": ("tabel", "titik"),      # titik = baris bertitik-titik ke nomor halaman, tanpa tabel; #S «❖ …» ikut
+        "pustaka_gaya": ("judul", "muallif"),  # muallif = القرآن الكريم ikut bernomor; **…** tebal dan __…__ miring di #R
+        "judul_kanan": ("-", "B", "M", "B, M"),  # judul #B/#M rata kanan (bawaan: di tengah)
+        "fihris": ("baru", "sambung")}  # sambung = المصادر/فهرس sesudah yang pertama menyambung di halaman yang sama
+# @model: satu nama untuk sekumpulan pilihan di atas (dan @sampul, @format, @pustaka, @catatan_kaki); kunci yang ditulis
+# sendiri di naskah tetap menang, jadi model bisa dicampur, mis. «@model: jakarta» + «@sampul: qism»
+MODEL = {"jakarta": {"sampul": "jakarta", "format": "jakarta", "kepala": "kotak", "fihris_ayat": "surah",
+                     "fihris_hadits": "ringkas", "maudhuat": "titik", "pustaka_gaya": "muallif", "pustaka": "akhir",
+                     "judul_kanan": "B, M", "catatan_kaki": "bersambung", "fihris": "sambung"}}
+META = frozenset("judul jenis nama nim fasl musyrif jabatan thalibah sampul tahun berkas format angka angka_ayat tanpa pustaka templat halaman_baru nomor bentuk rumuz warna model kepala_judul sifat".split()) | TIMPA.keys() | GAYA.keys()
 # @warna: nama -> RGB. Biru tua: tetap nyaman dibaca untuk paragraf panjang dan jelas beda dari hitam serta merah lafaz matn
 WARNA = {"biru": (20, 60, 150)}
 # lambang hormat Unicode 14 (﵀-﵏ ﷾ ﷿) tidak ada di huruf cetak (Traditional Arabic, Sakkal Majalla): kotak kosong di PDF.
@@ -2856,7 +2887,22 @@ def utama(folder, keluar=None):
 
     def di(kunci):
         return f"baris {di_baris[kunci]}: " if kunci in di_baris else ""
-    tanpa = [t for t in re.split(r"[,، ]+", meta.get("tanpa", "")) if t]
+    if meta.get("model"):
+        if meta["model"] not in MODEL:
+            galat.append(di("@model") + f"@model: «{meta['model']}» tidak dikenal (yang ada: {'، '.join(MODEL)})")
+        else:
+            for k, v in MODEL[meta["model"]].items():
+                if k == "sampul" and meta.get("templat"):  # @templat membawa sampulnya sendiri
+                    continue
+                meta.setdefault(k, v)
+    for k, nilai in GAYA.items():
+        meta.setdefault(k, nilai[0])
+        if meta[k] not in nilai:
+            galat.append(di("@" + k) + f"@{k}: «{meta[k]}» tidak dikenal (yang ada: {', '.join(nilai)})")
+            meta[k] = nilai[0]
+    if meta["kepala"] == "kotak" and meta.get("templat"):
+        galat.append(di("@kepala") + "@kepala: kotak dan @templat tidak bisa dipakai bersama: @templat sudah membawa kepala halamannya")
+    tanpa =[t for t in re.split(r"[,، ]+", meta.get("tanpa", "")) if t]
     bentuk = meta.setdefault("bentuk", next(iter(WAJIB)))
     if bentuk not in WAJIB:
         galat.append(di("@bentuk") + f"@bentuk: «{bentuk}» tidak dikenal (yang ada: {'، '.join(WAJIB)})")
@@ -2875,11 +2921,11 @@ def utama(folder, keluar=None):
         galat.append(di("@berkas") + f"@berkas: «{meta['berkas']}»: nama berkas tidak boleh memuat : / \\ ? * < > | \"")
 
     def kunci_urut(s):
-        s = HARAKAT.sub("", s)
+        s = HARAKAT.sub("", s.replace("**", "").replace("__", ""))  # tanda tebal/miring @pustaka_gaya: muallif
         if not s.startswith("الله"):
             s = re.sub(r"^ال", "", s)
         return re.sub("[إأآ]", "ا", s)
-    quran = [p for p in pustaka if HARAKAT.sub("", p).startswith("القرآن")]  # tanpa nomor, paling atas
+    quran = [p for p in pustaka if HARAKAT.sub("", p.replace("**", "").replace("__", "")).startswith("القرآن")]  # tanpa nomor, paling atas
     pustaka = quran + sorted([p for p in pustaka if p not in quran], key=kunci_urut)
 
     for a in ayat_idx:
@@ -2979,7 +3025,7 @@ def utama(folder, keluar=None):
         galat.append(di("@angka_ayat") + f"@angka_ayat: «{angka_ayat}» tidak dikenal (yang ada: {'، '.join(ANGKA)})")
     else:  # yang dihitung Word (nomor halaman, catatan kaki, فهرس) diubah di rakit.ps1; ayat (q) tetap apa adanya
         ubah = hindi if angka == "hindi" else (lambda s: s.translate(ANGKA_LATIN))
-        for k in ("judul", "jenis", "nama", "nim", "fasl", "musyrif", "jabatan", "tahun"):
+        for k in ("judul", "jenis", "nama", "nim", "fasl", "musyrif", "jabatan", "tahun", "kepala_judul", "sifat"):
             if k in meta:
                 meta[k] = ubah(meta[k])
         for r in [r for b in blok + catatan if b.get("k") != "L" for r in b["runs"]] + hadits_idx:
