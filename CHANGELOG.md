@@ -5,6 +5,8 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+## 9.1.0 — 2026-11-07
+
 - Baru, dari kitab metodologi أبو سليمان «كتابة البحث العلمي» (Shamela 8350):
   - `cek`: kurung siku tanpa angka di dalam kutipan kini dibaca sebagai tambahan penulis: «[هكذا]» sesudah salah yang disalin apa adanya lolos, kata yang dibetulkan dalam kurung siku lolos dengan perhatian, dan kurung siku lain (penjelasan, «[ليس]») lolos dengan perhatian. Yang di luar kurung tetap dicek. Dulu semuanya GAGAL «teks berbeda dengan kitab». Kurung siku milik kitab sendiri («[ممن]») tetap dicek sebagai lafaz kitab, dan kurung berangka («[القصص: 25]») tetap GAGAL kalau berbeda (ص112-113، 174).
   - `cek`: kamus (bidang Shamela الغريب والمعاجم) boleh dirujuk lewat materinya, «مادة (قدر)» atau «(قدر)», tanpa juz/halaman di catatan kaki; materinya harus ada di halaman bukti, kalau tidak = GAGAL (ص142، 155).
