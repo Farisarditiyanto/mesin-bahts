@@ -79,17 +79,9 @@ PUSTAKA = ("pyarrow", "pypdf", "fontTools")  # nama modul; nama pemasangannya di
 
 def huruf_ada(nama):
     """Huruf `nama` terpasang di Windows, untuk semua akun atau untuk akun ini saja (daftar huruf di registry)."""
-    import winreg
-    for akar in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
-        try:
-            with winreg.OpenKey(akar, r"Software\Microsoft\Windows NT\CurrentVersion\Fonts") as k:
-                for i in range(winreg.QueryInfoKey(k)[1]):
-                    # nama terdaftar mis. «Traditional Arabic (TrueType)» atau «Cambria & Cambria Math (TrueType)»
-                    if nama.lower() in (x.strip().lower() for x in re.sub(r"\s*\(.*\)$", "", winreg.EnumValue(k, i)[0]).split("&")):
-                        return True
-        except OSError:
-            pass
-    return False
+    import teks_pdf
+    # satu nama terdaftar bisa memuat beberapa huruf: «Cambria & Cambria Math»
+    return any(nama.lower() in (x.strip().lower() for x in terdaftar.split("&")) for terdaftar, _ in teks_pdf.huruf_terdaftar())
 
 
 def font_terpasang():
@@ -157,7 +149,7 @@ def periksa():
     else:
         pip = f'"{sys.executable}" {pip}'
     baris(all(importlib.util.find_spec(m) for m in PUSTAKA), f"pustaka Python ({', '.join(PUSTAKA)})", pip)
-    baris((AKAR / "kitab" / shamela.KATALOG).exists(), "katalog kitab", perintah("siapkan"))
+    baris((shamela.ROOT / shamela.KATALOG).exists(), "katalog kitab", perintah("siapkan"))
     baris(os.name == "nt", "Windows", "`rakit` hanya jalan di Windows; di sini mesin berhenti di `cek`", untuk_cek=False)
     if os.name == "nt":
         import winreg
