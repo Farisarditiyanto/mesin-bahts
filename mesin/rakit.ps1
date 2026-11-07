@@ -794,9 +794,10 @@ try {
         if ($ABJAD -and $r.Sections(1).Index -eq $bagianDepan) { return [string]$HURUF_NOMOR[$n - 1] }
         return $n
     }
-    # {P:kunci} di catatan kaki: tiap ⟦h_…⟧ diganti nomor halaman hadits itu (satu catatan kaki bisa memuat beberapa)
+    # {P:kunci} di catatan kaki: tiap ⟦h_…⟧ / ⟦a_…⟧ diganti nomor halaman hadits {H:} atau titik rujukan {A:} itu
+    # (satu catatan kaki bisa memuat beberapa)
     foreach ($fn in $doc.Footnotes) {
-        foreach ($k in @([regex]::Matches($fn.Range.Text, '⟦(h_[^⟧]+)⟧') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)) {
+        foreach ($k in @([regex]::Matches($fn.Range.Text, '⟦([ha]_[^⟧]+)⟧') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)) {
             $rg = $fn.Range; $f = $rg.Find; $f.ClearFormatting(); $f.Replacement.ClearFormatting()
             [void]$f.Execute(('⟦' + $k + '⟧'), $true, $false, $false, $false, $false, $true, 0, $false, (Angka (Hal $k)), 2)
         }

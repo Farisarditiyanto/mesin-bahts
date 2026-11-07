@@ -5,6 +5,13 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- Baru, dari kitab metodologi أبو سليمان «كتابة البحث العلمي» (Shamela 8350):
+  - `cek`: kurung siku tanpa angka di dalam kutipan kini dibaca sebagai tambahan penulis: «[هكذا]» sesudah salah yang disalin apa adanya lolos, kata yang dibetulkan dalam kurung siku lolos dengan perhatian, dan kurung siku lain (penjelasan, «[ليس]») lolos dengan perhatian. Yang di luar kurung tetap dicek. Dulu semuanya GAGAL «teks berbeda dengan kitab». Kurung siku milik kitab sendiri («[ممن]») tetap dicek sebagai lafaz kitab, dan kurung berangka («[القصص: 25]») tetap GAGAL kalau berbeda (ص112-113، 174).
+  - `cek`: kamus (bidang Shamela الغريب والمعاجم) boleh dirujuk lewat materinya, «مادة (قدر)» atau «(قدر)», tanpa juz/halaman di catatan kaki; materinya harus ada di halaman bukti, kalau tidak = GAGAL (ص142، 155).
+  - `cek`: perhatian «urutan sumber» kalau catatan kaki «انظر:» menyebut beberapa kitab tidak urut dari pengarang yang lebih dulu wafat (ص73).
+  - `cek`: perhatian kalau lebih dari 2/3 huruf satu bagian (#K/#F/#B/#M, paling sedikit 600 huruf) adalah kutipan bertanda petik; ayat dan hadits tidak dihitung (ص112، 121-123; angka 2/3 aturan repo, kitab itu tidak memberi angka).
+  - Tanda baru `{A:kunci}`: titik rujukan di matan; `{P:kunci}` di catatan kaki kini juga mencetak nomor halaman titik itu («انظر: ص{P:kunci} من هذا البحث»), boleh sebelum titiknya (ص125).
+
 - Sampul `@model: jakarta`: logo جامعة الإمام tidak lagi gepeng. Gambarnya (1129×1311 dengan pinggiran kosong) dulu dipaksa masuk kotak 0,70, jadi logonya tercetak rasio 0,56; sekarang pinggirannya dibuang dan kotaknya ikut rasio gambar (0,69, sama dengan logo resmi).
 - Baru: perhatian «standar sumber» di `cek`: pendapat mazhab yang di bagian itu tidak punya satu pun bukti dari kitab mazhabnya (mis. dari الموسوعة الفقهية الكويتية atau kitab mazhab lain), dan ijmak/kesepakatan/jumhur yang hanya dibuktikan kitab fikih/usul modern. «مقتبس من»/«نقلا عن» di catatan kaki membebaskannya. Dasar dan tabel standar sumber per jenis klaim ada di AGENTS.md (عبد الوهاب أبو سليمان، كتابة البحث العلمي). Naskah lama yang lolos kini bisa mendapat perhatian baru (tidak ada GAGAL baru).
 - Baru: `@rujukan_ayat: matan` mencetak rujukan ayat «[المائدة: ٢٧]» di matan; `@model: jakarta` memakainya.
