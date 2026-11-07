@@ -50,7 +50,7 @@ Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex dan DOAJ
 import difflib, hashlib, json, math, os, re, shutil, subprocess, sys, sysconfig, tempfile, time, urllib.error, zipfile
 from pathlib import Path
 
-import dirasat, hadits, shamela  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
+import dirasat, hadits, norma, shamela  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
 from shamela import perintah
 from berkas import PemulihanGagal, bahan, kosongkan_penulis, kunci, terbitkan
 
@@ -321,7 +321,7 @@ def cek(nama, keluar=None, jejak=False, ringkas=False):
     """ringkas (dipakai `rakit`): naskah yang lolos dicetak satu baris; rinciannya tetap di laporan yang dikembalikan."""
     import olah
     f = folder_bahts(nama)
-    galat, lap = olah.utama(f, keluar)
+    galat, lap, tertolak = olah.utama(f, keluar)
     jalur = nama.rstrip("/\\") or nama  # «"folder\"»: garis miring menelan tanda petik penutupnya
     if ringkas and not galat:
         n = sum(b.startswith("  ! ") for b in lap)
@@ -331,12 +331,12 @@ def cek(nama, keluar=None, jejak=False, ringkas=False):
               + perintah(f'cek "{jalur}"') + ")")
         return f, galat, lap
     print("\n".join(lap))
-    if olah.TERTOLAK:
+    if tertolak:
         if jejak:
             print("petunjuk dari kitab lain (hanya petunjuk, bukan bukti; putusan tetap milik `cek`):")
-            print("\n".join(olah.jejak(olah.TERTOLAK)))
+            print("\n".join(olah.jejak(tertolak)))
         else:
-            n = len({shamela.padat(t) for _, t in olah.TERTOLAK})
+            n = len({norma.padat(t) for _, t in tertolak})
             print(f"{n} teks tidak ditemukan di kitab yang dirujuk; cari di kitab lain yang sudah diunduh: "
                   + perintah(f'cek "{jalur}" --jejak'))
     elif jejak:
