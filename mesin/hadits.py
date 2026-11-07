@@ -8,8 +8,9 @@ yang terbaca di kitab lokal (`ambil`, `halaman`) dan lolos `cek`. Isinya 12 kita
 """
 import json, time, urllib.error
 
-import shamela
-from shamela import HARAKAT, _kunci, buka
+import norma, shamela
+from norma import HARAKAT
+from shamela import _kunci, buka
 
 ALMINASA = "https://alminasa.ai/api/reactivesearchproxy/es-prod-euw1-hadith-12-read/_search"
 KOLOM = ["book_name", "number", "editions", "chapter", "sub_chapter", "matn", "rulings"]
@@ -60,17 +61,17 @@ def _lokal(hits):
     tempat nomor itu berdiri sebagai kepala hadits («2192 - حدثنا»). Tiap kitab dibaca sekali, hanya kalau ada riwayatnya."""
     judul = {}
     for sid in shamela.punya():
-        judul.setdefault(shamela.padat(shamela.info(sid)["title_ar"].split(" - ")[0]), []).append(sid)
+        judul.setdefault(norma.padat(shamela.info(sid)["title_ar"].split(" - ")[0]), []).append(sid)
     perlu = {}  # sid -> nomor yang dicari
     for h in hits:
-        for sid in judul.get(shamela.padat(h["_source"]["book_name"]), ()):
+        for sid in judul.get(norma.padat(h["_source"]["book_name"]), ()):
             perlu.setdefault(sid, set()).update(_nomor(h["_source"]))
     tempat = {}
     if perlu:
         import olah  # kepala hadits dibaca dengan aturan yang sama dengan `cek` (#nomor, takhrij)
     for sid, nomor in perlu.items():
         for p in shamela._rekaman_di(sid, range(len(shamela.indeks(sid)))):
-            for hal, b in shamela._potong(p):
+            for hal, b in norma.per_halaman(p):
                 for n in {n for _, n in olah.kepala_hadits(b)[1]} & nomor:
                     tempat.setdefault((sid, n), f"{shamela._juz(p)}/{hal}")
         shamela.lepas()
@@ -85,7 +86,7 @@ def _baris(hits, lebar):
         nomor = "، ".join(map(str, s.get("number") or [])) or "-"
         baris += [f"\n{s['book_name']}، رقم {nomor}، {cetak or 'juz/halaman tidak tercatat'}"]
         for n in _nomor(s):
-            for sid in judul.get(shamela.padat(s["book_name"]), ()):
+            for sid in judul.get(norma.padat(s["book_name"]), ()):
                 letak = tempat.get((sid, n))
                 baris.append(f"{LOKAL} edisi lokal {sid}: {letak} (kepala hadits «{n} -»)" if letak else
                              f"{LOKAL} kitab {sid}, tetapi «{n} -» tidak ketemu sebagai kepala hadits di sana "

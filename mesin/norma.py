@@ -64,7 +64,7 @@ def norm(s):
     return BUKAN_HURUF.sub(" ", s).strip()
 
 
-def _potong(p, bagian="body"):
+def per_halaman(p, bagian="body"):
     """Satu rekaman bisa memuat beberapa halaman cetak (penanda ⦗n⦘): pecah jadi [(halaman, teks)].
     Teks sebelum penanda pertama milik page_num."""
     hal, out = p.get("page_num"), []
@@ -82,14 +82,14 @@ def padat(s):
     return BUKAN_ABJAD.sub("", norm(s))
 
 
-def _ruas(p, bagian):
+def ruas_halaman(p, bagian):
     """Teks `padat` satu bagian rekaman dan ruas halamannya [(awal, akhir, hal_awal, hal_akhir)]; dihitung sekali per rekaman.
     حاشية tanpa penanda ⦗n⦘ di rekaman banyak halaman: halaman tiap catatan tidak tercatat, jadi ruasnya = seluruh rekaman."""
     kunci = "_padat_" + bagian
     if kunci not in p:
-        potong = _potong(p, bagian)
+        potong = per_halaman(p, bagian)
         if bagian != "body" and len(potong) == 1:
-            ruas = [(p.get("page_num"), _potong(p)[-1][0], potong[0][1])]
+            ruas = [(p.get("page_num"), per_halaman(p)[-1][0], potong[0][1])]
         else:
             ruas = [(h, h, b) for h, b in potong]
         teks, batas = "", []
@@ -134,7 +134,7 @@ def teks(b):
 class Padat:
     """Teks `padat` seluruh kitab, satu deret per bagian (BAGIAN), bukan satu objek per rekaman:
     bagian s rekaman i = teks[s][mulai[s][i]:mulai[s][i+1]] (`bait`); ruasnya [(awal, akhir, h1, h2)] (letak relatif
-    terhadap awal rekaman) = baris ruas[s][i]..ruas[s][i+1] deret awal/akhir/h1/h2. Sama dengan `_ruas` tiap rekaman."""
+    terhadap awal rekaman) = baris ruas[s][i]..ruas[s][i+1] deret awal/akhir/h1/h2. Sama dengan `ruas_halaman` tiap rekaman."""
     DERET = ("mulai", "ruas", "awal", "akhir", "h1", "h2")
     JENIS = {"mulai": "Q", "ruas": "Q", "awal": "Q", "akhir": "Q", "h1": "q", "h2": "q"}
 
@@ -142,7 +142,7 @@ class Padat:
         self.teks, self.deret = teks, deret  # teks[s]: bytes; deret[s][nama]: array (atau list, lihat `buat`)
 
     def bagian(self, i, s):
-        """(teks padat, ruas) bagian s rekaman i, seperti `_ruas`."""
+        """(teks padat, ruas) bagian s rekaman i, seperti `ruas_halaman`."""
         d = self.deret[s]
         a, z = d["mulai"][i], d["mulai"][i + 1]
         r = range(d["ruas"][i], d["ruas"][i + 1])
@@ -150,7 +150,7 @@ class Padat:
         return teks(self.teks[s][a:z]), [(d["awal"][k], d["akhir"][k], h(d["h1"][k]), h(d["h2"][k])) for k in r]
 
     def isi(self, p, i):
-        """Pasang teks padat rekaman i ke rekaman p (yang dibaca `_ruas`); kembalikan p."""
+        """Pasang teks padat rekaman i ke rekaman p (yang dibaca `ruas_halaman`); kembalikan p."""
         for s, (b, _) in enumerate(BAGIAN):
             p["_padat_" + b] = self.bagian(i, s)
         return p
@@ -179,7 +179,7 @@ class Padat:
         panjang = [0] * len(BAGIAN)
         for p in semua:
             for s, (b, _) in enumerate(BAGIAN):
-                t, batas = _ruas(p, b)
+                t, batas = ruas_halaman(p, b)
                 d = deret[s]
                 d["mulai"].append(panjang[s]); d["ruas"].append(len(d["awal"]))
                 potong[s].append(bait(t)); panjang[s] += len(t)

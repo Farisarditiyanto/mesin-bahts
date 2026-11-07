@@ -8,7 +8,7 @@ from pathlib import Path
 
 import norma
 from berkas import sementara
-from norma import BAGIAN, HARAKAT, PENANDA, TAGS, BUKAN_ABJAD, _potong, _ruas, norm, padat  # dipakai juga lewat shamela.* (olah, hadits)
+from norma import BAGIAN, HARAKAT, PENANDA, TAGS, BUKAN_ABJAD, per_halaman, ruas_halaman, norm, padat
 
 MESIN = Path(__file__).parent
 ROOT = MESIN.parent / "kitab"
@@ -547,7 +547,7 @@ def lepas():
 
 @functools.cache
 def rekaman_ke(sid, i):
-    """Rekaman ke-i kitab sid (urutan berkas), tanpa cache `padat`: dihitung `_ruas` hanya untuk rekaman yang disentuh."""
+    """Rekaman ke-i kitab sid (urutan berkas), tanpa cache `padat`: dihitung `ruas_halaman` hanya untuk rekaman yang disentuh."""
     ix = indeks(sid)
     return json.loads(_lompat(sid).baca(ix[i][3], ix[i + 1][3] if i + 1 < len(ix) else None))
 
@@ -616,7 +616,7 @@ def _batas_kata(p, bagian):
     kunci = "_kata_" + bagian
     if kunci not in p:
         awal, akhir, n = set(), set(), 0
-        for _, b in _potong(p, bagian):
+        for _, b in per_halaman(p, bagian):
             for w in norm(b).split():
                 w = BUKAN_ABJAD.sub("", w)
                 if w:
@@ -629,7 +629,7 @@ def kata_titik_dua(p, bagian="body"):
     """[(kata `padat`, diikuti «:»)] tiap kata bagian rekaman p («قال الشافعي (¬١):» -> الشافعي diikuti «:»).
     Urutannya sama dengan `_batas_kata` kalau pemotongan katanya sama; pemakai membandingkan dulu."""
     out = []
-    for _, b in _potong(p, bagian):
+    for _, b in per_halaman(p, bagian):
         for t in TAGS.sub(" ", b).split():
             out += [[w, False] for w in (BUKAN_ABJAD.sub("", x) for x in norm(t).split()) if w]
             if out:  # tanda tanpa huruf ikut kata sebelumnya: «(¬١):» -> «:»; «[يوسف: ٨٨] .» -> bukan «:» lagi
@@ -657,7 +657,7 @@ def _utuh(p, bagian, j, k, kata=()):
         return False
     if j in awal:
         return True
-    teks = _ruas(p, bagian)[0]
+    teks = ruas_halaman(p, bagian)[0]
     for d in (1, 2):
         if j - d in awal and all(c in SAMBUNG for c in teks[j - d:j]):
             # ك hanya awalan kalau sesudahnya «ال» («كالله»); selain itu hurufnya milik kata («كان», «كأنه»). ب/ل (huruf jar:
@@ -688,7 +688,7 @@ def _sebatas(awal, j, k, kata):
 
 def _letak(p, q, bagian="body", utuh=False, kata=()):
     """Tiap letak (awal, akhir) q di teks `padat` bagian rekaman p, berurutan."""
-    teks = _ruas(p, bagian)[0]
+    teks = ruas_halaman(p, bagian)[0]
     j = teks.find(q)
     while j >= 0:
         if not utuh or _utuh(p, bagian, j, j + len(q), kata):
@@ -728,7 +728,7 @@ def _catatan_padat(p):
 def _hal(p, bagian, c):
     """Halaman cetak (awal, akhir) letak c = (awal, akhir) di teks `padat` bagian rekaman p; halamannya None kalau rekaman
     itu tidak bernomor halaman."""
-    batas = _ruas(p, bagian)[1]
+    batas = ruas_halaman(p, bagian)[1]
     return (next(h for a, z, h, _ in batas if a <= c[0] < z), next(h for a, z, _, h in batas if a <= c[1] - 1 < z))
 
 
@@ -768,7 +768,7 @@ def _kata_utuh(p, bagian, j, k, kata):
     awal, akhir = _batas_kata(p, bagian)
     if k not in akhir:
         return False
-    teks = _ruas(p, bagian)[0]
+    teks = ruas_halaman(p, bagian)[0]
     if any(x in awal and x - j not in kata and not (x - 1 in awal and teks[x - 1] in SAMBUNG) for x in range(j + 1, k)):
         return False
     if j in awal or _utuh(p, bagian, j, k):
@@ -918,7 +918,7 @@ def _judul_calon(p, toc, c, h, bagian):
             di_sini.append(t)
         else:
             break
-    teks, batas = _ruas(p, "body")
+    teks, batas = ruas_halaman(p, "body")
     body = p.get("body") or ""
     span = {int(m.group(1)): m.start() for m in JUDUL.finditer(body)}
     letak_judul, mulai = [], 0  # letak judul yang tidak terbaca = None; letaknya tetap sesudah judul sebelumnya
@@ -1147,7 +1147,7 @@ def halaman(sid, juz, hal):
     bernama = juz == "-" and not any(j is None or str(j).isdigit() for j, *_ in ix)
     calon = [i for i, (j, _, akhir, _) in enumerate(ix) if awal[i] is not None and awal[i] <= hal <= akhir
              and (bernama or angka("-" if j is None else j) == juz)] if isinstance(hal, int) else []
-    kena = [(p, b) for p in _rekaman_di(sid, calon) if (b := [b for h, b in _potong(p) if h == hal])]
+    kena = [(p, b) for p in _rekaman_di(sid, calon) if (b := [b for h, b in per_halaman(p) if h == hal])]
     if bernama and len({_juz(p) for p, _ in kena}) > 1:
         kena = []  # ada di dua bagian: sebut bagiannya
     ada = False
@@ -1155,11 +1155,11 @@ def halaman(sid, juz, hal):
         if bagian:
             ada = True
             print(baris(TAGS.sub("", "".join(bagian))))
-            fn = _potong(p, "footnotes")
+            fn = per_halaman(p, "footnotes")
             if len(fn) > 1:  # حاشية bertanda halaman: cetak yang milik halaman ini saja
                 isi, catat = "".join(b for h, b in fn if h == hal), ""
             else:
-                a, z = p.get("page_num"), _potong(p)[-1][0]
+                a, z = p.get("page_num"), per_halaman(p)[-1][0]
                 isi = fn[0][1]
                 catat = f" (حاشية rekaman ص{a}-{z}; halaman tiap catatan tidak tercatat)" if z != a else ""
             if isi.strip():
