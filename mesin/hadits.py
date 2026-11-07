@@ -6,7 +6,7 @@ Hanya penunjuk jalan: layanan orang lain, tanpa janji tetap ada, dan datanya bis
 yang terbaca di kitab lokal (`ambil`, `halaman`) dan lolos `cek`. Isinya 12 kitab: الكتب التسعة, المستدرك,
 صحيح ابن حبان, صحيح ابن خزيمة; hadits di luar itu dicari dengan `temukan`.
 """
-import json, time, urllib.error
+import json, urllib.error
 
 import norma, shamela
 from norma import HARAKAT
@@ -26,21 +26,14 @@ def _tanya(query, maks):
     badan = {"query": query, "size": maks, "sort": [{"authenticity_order": "asc"}], "_source": KOLOM}
     # layanannya hanya menjawab JSON rapat berhuruf Arab asli; bentuk lain dibiarkannya sampai waktu habis
     isi = json.dumps(badan, separators=(",", ":"), ensure_ascii=False).encode("utf8")
-    # 429 = jatah permintaan alminasa sementara habis: tunggu sekali sesuai retry-after, jangan berjatah dua kali
     for ulang in (True, False):
         try:
             with buka(ALMINASA, isi, {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}) as r:
                 jawab = r.read()
             break
         except urllib.error.HTTPError as e:
-            if e.code != 429:
-                raise
-            tunggu = e.headers.get("retry-after") or ""
-            tunggu = int(tunggu) if tunggu.isdigit() else 11
-            if tunggu > 30 or not ulang:
-                raise SystemExit("Jatah pencarian alminasa.ai untuk komputer ini habis untuk sekarang. Sementara itu pakai "
-                                 "`temukan`, connector turath/shamela, atau `katalog` lalu `cari`.")
-            time.sleep(tunggu + 1)
+            shamela.tunggu_jatah(e, ulang, "Jatah pencarian alminasa.ai untuk komputer ini habis untuk sekarang. Sementara itu pakai "
+                                           "`temukan`, connector turath/shamela, atau `katalog` lalu `cari`.")
     try:
         return json.loads(jawab)["hits"]
     except (ValueError, KeyError, TypeError) as e:  # bukan JSON (perawatan, wifi minta masuk) atau bentuknya berubah

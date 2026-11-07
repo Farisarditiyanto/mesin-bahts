@@ -71,6 +71,22 @@ def buka(url, data=None, kepala=UA, waktu=60, coba=3):
                 raise
         time.sleep(2 ** i)
 
+
+SABAR_JATAH = 30  # detik; layanan minta menunggu lebih lama dari ini = jatah pencarian habis, bukan sekadar terlalu cepat
+
+
+def tunggu_jatah(e, ulang, habis):
+    """HTTP 429 dari `buka` = jatah permintaan layanan sementara habis (turath, alminasa): tunggu sesuai retry-after
+    (bawaan 11 detik), lalu pemanggil mengulang sekali. Diminta menunggu lebih dari SABAR_JATAH, atau sudah diulang =
+    jatahnya habis: SystemExit(habis), «{menit}» di dalamnya = perkiraan menit sampai terbuka lagi. Galat lain dilempar lagi."""
+    if e.code != 429:
+        raise e
+    tunggu = e.headers.get("retry-after") or ""
+    tunggu = int(tunggu) if tunggu.isdigit() else 11  # layanan membatasi permintaan beruntun dan jumlah pencarian
+    if tunggu > SABAR_JATAH or not ulang:
+        raise SystemExit(habis.format(menit=tunggu // 60 + 1))
+    time.sleep(tunggu + 1)
+
 SAMBUNG = "وفبلك"  # huruf sambung di depan kata: kutipan boleh mulai sesudahnya («و"الإحياء"» = «والإحياء»)
 NAFI_SAMBUNG = {"ما", "لا", "لم", "لن", "ليس"}  # kutipan tidak boleh mulai dengan kata ini kalau di kitab ia didahului ب/ل
 
@@ -270,7 +286,6 @@ def nomor_judul_pokok(judul):
 
 TURATH = "https://api.turath.io/search"  # pencarian isi seluruh Shamela; nomor kitabnya = shamela_id (sama dengan `ambil`)
 TURATH_MAKS = 20  # turath menjawab sebanyak ini tiap pencarian
-TURATH_SABAR = 30  # detik; turath minta menunggu lebih lama dari ini = jatah pencarian habis, bukan sekadar terlalu cepat
 # nomor bidang katalog Shamela (category_id), sama dengan nomor bidang turath. Saringan `cat`, `book`, dan `page` dibaca dari
 # kode situs app.turath.io (2 Nov 2026), tidak terdokumentasi, jadi bisa berubah tanpa kabar
 MAZHAB = {"hanafi": 14, "maliki": 15, "syafii": 16, "hanbali": 17}
@@ -303,14 +318,8 @@ def temukan(frasa, maks=20, mazhab=(), kitab=(), halaman=1):
                 with buka(url) as r:
                     return json.load(r)
             except urllib.error.HTTPError as e:
-                if e.code != 429:
-                    raise
-                tunggu = e.headers.get("retry-after") or ""
-                tunggu = int(tunggu) if tunggu.isdigit() else 11  # turath membatasi permintaan beruntun dan jumlah pencarian
-                if tunggu > TURATH_SABAR or not ulang:
-                    raise SystemExit(f"Jatah pencarian turath.io untuk komputer ini habis; terbuka lagi sekitar {tunggu // 60 + 1} menit lagi. "
-                                     "Sementara itu: connector `turath` (jatahnya terpisah), `katalog`, atau `cari semua`.")
-                time.sleep(tunggu + 1)
+                tunggu_jatah(e, ulang, "Jatah pencarian turath.io untuk komputer ini habis; terbuka lagi sekitar {menit} menit lagi. "
+                                       "Sementara itu: connector `turath` (jatahnya terpisah), `katalog`, atau `cari semua`.")
     d = tanya(True)
     if not d["count"]:
         d = tanya(False)
