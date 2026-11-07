@@ -6,10 +6,11 @@ Hanya penunjuk jalan: layanan orang lain, tanpa janji tetap ada, dan datanya bis
 yang terbaca di kitab lokal (`ambil`, `halaman`) dan lolos `cek`. Isinya 12 kitab: الكتب التسعة, المستدرك,
 صحيح ابن حبان, صحيح ابن خزيمة; hadits di luar itu dicari dengan `temukan`.
 """
-import json, time, urllib.error
+import json, urllib.error
 
-import shamela
-from shamela import HARAKAT, _kunci, buka
+import norma, shamela
+from norma import HARAKAT
+from shamela import _kunci, buka
 
 ALMINASA = "https://alminasa.ai/api/reactivesearchproxy/es-prod-euw1-hadith-12-read/_search"
 KOLOM = ["book_name", "number", "editions", "chapter", "sub_chapter", "matn", "rulings"]
@@ -25,21 +26,14 @@ def _tanya(query, maks):
     badan = {"query": query, "size": maks, "sort": [{"authenticity_order": "asc"}], "_source": KOLOM}
     # layanannya hanya menjawab JSON rapat berhuruf Arab asli; bentuk lain dibiarkannya sampai waktu habis
     isi = json.dumps(badan, separators=(",", ":"), ensure_ascii=False).encode("utf8")
-    # 429 = jatah permintaan alminasa sementara habis: tunggu sekali sesuai retry-after, jangan berjatah dua kali
     for ulang in (True, False):
         try:
             with buka(ALMINASA, isi, {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}) as r:
                 jawab = r.read()
             break
         except urllib.error.HTTPError as e:
-            if e.code != 429:
-                raise
-            tunggu = e.headers.get("retry-after") or ""
-            tunggu = int(tunggu) if tunggu.isdigit() else 11
-            if tunggu > 30 or not ulang:
-                raise SystemExit("Jatah pencarian alminasa.ai untuk komputer ini habis untuk sekarang. Sementara itu pakai "
-                                 "`temukan`, connector turath/shamela, atau `katalog` lalu `cari`.")
-            time.sleep(tunggu + 1)
+            shamela.tunggu_jatah(e, ulang, "Jatah pencarian alminasa.ai untuk komputer ini habis untuk sekarang. Sementara itu pakai "
+                                           "`temukan`, connector turath/shamela, atau `katalog` lalu `cari`.")
     try:
         return json.loads(jawab)["hits"]
     except (ValueError, KeyError, TypeError) as e:  # bukan JSON (perawatan, wifi minta masuk) atau bentuknya berubah
@@ -60,17 +54,17 @@ def _lokal(hits):
     tempat nomor itu berdiri sebagai kepala hadits («2192 - حدثنا»). Tiap kitab dibaca sekali, hanya kalau ada riwayatnya."""
     judul = {}
     for sid in shamela.punya():
-        judul.setdefault(shamela.padat(shamela.info(sid)["title_ar"].split(" - ")[0]), []).append(sid)
+        judul.setdefault(norma.padat(shamela.info(sid)["title_ar"].split(" - ")[0]), []).append(sid)
     perlu = {}  # sid -> nomor yang dicari
     for h in hits:
-        for sid in judul.get(shamela.padat(h["_source"]["book_name"]), ()):
+        for sid in judul.get(norma.padat(h["_source"]["book_name"]), ()):
             perlu.setdefault(sid, set()).update(_nomor(h["_source"]))
     tempat = {}
     if perlu:
         import olah  # kepala hadits dibaca dengan aturan yang sama dengan `cek` (#nomor, takhrij)
     for sid, nomor in perlu.items():
         for p in shamela._rekaman_di(sid, range(len(shamela.indeks(sid)))):
-            for hal, b in shamela._potong(p):
+            for hal, b in norma.per_halaman(p):
                 for n in {n for _, n in olah.kepala_hadits(b)[1]} & nomor:
                     tempat.setdefault((sid, n), f"{shamela._juz(p)}/{hal}")
         shamela.lepas()
@@ -85,7 +79,7 @@ def _baris(hits, lebar):
         nomor = "، ".join(map(str, s.get("number") or [])) or "-"
         baris += [f"\n{s['book_name']}، رقم {nomor}، {cetak or 'juz/halaman tidak tercatat'}"]
         for n in _nomor(s):
-            for sid in judul.get(shamela.padat(s["book_name"]), ()):
+            for sid in judul.get(norma.padat(s["book_name"]), ()):
                 letak = tempat.get((sid, n))
                 baris.append(f"{LOKAL} edisi lokal {sid}: {letak} (kepala hadits «{n} -»)" if letak else
                              f"{LOKAL} kitab {sid}, tetapi «{n} -» tidak ketemu sebagai kepala hadits di sana "

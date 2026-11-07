@@ -14,7 +14,8 @@ SAMPEL = 10  # kitab lokal di luar kitab CI yang ikut dibandingkan pada mode sam
 ARAB = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
 sys.path.insert(0, str(AKAR / "mesin"))
 import shamela
-from shamela import TAGS, _juz, _potong
+from norma import per_halaman
+from shamela import TAGS, _juz
 sys.stdout.reconfigure(encoding="utf-8")
 
 
@@ -27,7 +28,7 @@ def urai(semua):
     nomor halamannya). Hasilnya sama dengan mengurai ulang di tiap panggilan; dulu itu memakan sebagian besar waktu uji."""
     out = []
     for p in semua:
-        pot = _potong(p)
+        pot = per_halaman(p)
         out.append((p, _juz(p), angka(_juz(p)), pot, [h for h, _ in pot if h is not None]))
     return out
 
@@ -50,7 +51,7 @@ def halaman_lama(sid, juz, hal, rekaman):
         if bagian:
             ada = True
             print(shamela.baris(TAGS.sub("", "".join(bagian))))  # «\r» Shamela jadi baris baru: cara cetak, bukan cara baca
-            fn = _potong(p, "footnotes")
+            fn = per_halaman(p, "footnotes")
             if len(fn) > 1:
                 isi, catat = "".join(b for h, b in fn if h == hal), ""
             else:

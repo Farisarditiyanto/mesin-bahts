@@ -50,7 +50,7 @@ Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex dan DOAJ
 import difflib, hashlib, json, math, os, re, shutil, subprocess, sys, sysconfig, tempfile, time, urllib.error, zipfile
 from pathlib import Path
 
-import dirasat, hadits, shamela  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
+import dirasat, hadits, norma, shamela  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
 from shamela import perintah
 from berkas import PemulihanGagal, bahan, kosongkan_penulis, kunci, terbitkan
 
@@ -79,17 +79,9 @@ PUSTAKA = ("pyarrow", "pypdf", "fontTools")  # nama modul; nama pemasangannya di
 
 def huruf_ada(nama):
     """Huruf `nama` terpasang di Windows, untuk semua akun atau untuk akun ini saja (daftar huruf di registry)."""
-    import winreg
-    for akar in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
-        try:
-            with winreg.OpenKey(akar, r"Software\Microsoft\Windows NT\CurrentVersion\Fonts") as k:
-                for i in range(winreg.QueryInfoKey(k)[1]):
-                    # nama terdaftar mis. «Traditional Arabic (TrueType)» atau «Cambria & Cambria Math (TrueType)»
-                    if nama.lower() in (x.strip().lower() for x in re.sub(r"\s*\(.*\)$", "", winreg.EnumValue(k, i)[0]).split("&")):
-                        return True
-        except OSError:
-            pass
-    return False
+    import teks_pdf
+    # satu nama terdaftar bisa memuat beberapa huruf: «Cambria & Cambria Math»
+    return any(nama.lower() in (x.strip().lower() for x in terdaftar.split("&")) for terdaftar, _ in teks_pdf.huruf_terdaftar())
 
 
 def font_terpasang():
@@ -157,7 +149,7 @@ def periksa():
     else:
         pip = f'"{sys.executable}" {pip}'
     baris(all(importlib.util.find_spec(m) for m in PUSTAKA), f"pustaka Python ({', '.join(PUSTAKA)})", pip)
-    baris((AKAR / "kitab" / shamela.KATALOG).exists(), "katalog kitab", perintah("siapkan"))
+    baris((shamela.ROOT / shamela.KATALOG).exists(), "katalog kitab", perintah("siapkan"))
     baris(os.name == "nt", "Windows", "`rakit` hanya jalan di Windows; di sini mesin berhenti di `cek`", untuk_cek=False)
     if os.name == "nt":
         import winreg
@@ -321,7 +313,7 @@ def cek(nama, keluar=None, jejak=False, ringkas=False):
     """ringkas (dipakai `rakit`): naskah yang lolos dicetak satu baris; rinciannya tetap di laporan yang dikembalikan."""
     import olah
     f = folder_bahts(nama)
-    galat, lap = olah.utama(f, keluar)
+    galat, lap, tertolak = olah.utama(f, keluar)
     jalur = nama.rstrip("/\\") or nama  # «"folder\"»: garis miring menelan tanda petik penutupnya
     if ringkas and not galat:
         n = sum(b.startswith("  ! ") for b in lap)
@@ -331,12 +323,12 @@ def cek(nama, keluar=None, jejak=False, ringkas=False):
               + perintah(f'cek "{jalur}"') + ")")
         return f, galat, lap
     print("\n".join(lap))
-    if olah.TERTOLAK:
+    if tertolak:
         if jejak:
             print("petunjuk dari kitab lain (hanya petunjuk, bukan bukti; putusan tetap milik `cek`):")
-            print("\n".join(olah.jejak(olah.TERTOLAK)))
+            print("\n".join(olah.jejak(tertolak)))
         else:
-            n = len({shamela.padat(t) for _, t in olah.TERTOLAK})
+            n = len({norma.padat(t) for _, t in tertolak})
             print(f"{n} teks tidak ditemukan di kitab yang dirujuk; cari di kitab lain yang sudah diunduh: "
                   + perintah(f'cek "{jalur}" --jejak'))
     elif jejak:
