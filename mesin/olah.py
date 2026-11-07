@@ -332,6 +332,9 @@ NAFI = {"لا", "فلا", "ولا", "ما", "فما", "وما", "ليس", "ول�
 HENTI = re.compile(r"[.،,؛;؟?!:]")  # tanda akhir kalimat di teks kitab: kata nafi di depannya milik kalimat sebelumnya
 BELUM_DIUNDUH = "kitab {} belum diunduh"  # pesan GAGAL per bukti; ringkasan di `utama` mengumpulkan nomornya dari pesan ini
 BELUM_DIUNDUH_RE = re.compile(re.escape(BELUM_DIUNDUH).replace(r"\{\}", r"(\d+)"))
+# kutipan yang tidak ada di kitab buktinya; pesan yang sama dikenali `urai` untuk TERTOLAK (`cek --jejak`)
+TIDAK_KETEMU = "teks TIDAK KETEMU di kitab {}"
+TIDAK_KETEMU_RE = re.compile(re.escape(TIDAK_KETEMU).replace(r"\{\}", r"(\d+)"))
 TERTOLAK = []  # (sid, kutipan) yang GAGAL «teks TIDAK KETEMU di kitab»; diisi `urai`, dikembalikan `utama` (untuk `cek --jejak`)
 # ayat {Q:} dan catatan kaki berbukti, urut naskah, dengan nomor barisnya: dibaca `bukti`, dikosongkan tiap `utama`
 #   {"n", "ayat": spec, "t": teks tercetak} atau {"n", "bukti": [sid|juz|hal…], "kutipan": teks yang dibuktikan, "catatan": isi}
@@ -592,7 +595,7 @@ def _cek_bagian(sid, juz, hal, p1, p2, teks, utuh, perhatian, rinci=True):
     beda = _menyimpang(sid, juz, p1, p2, teks)
     if beda:
         return f"teks berbeda dengan kitab {sid} {juz}/{hal}: {beda} :: {teks[:40]}"
-    return f"teks TIDAK KETEMU di kitab {sid} :: {teks[:60]}"
+    return TIDAK_KETEMU.format(sid) + f" :: {teks[:60]}"
 
 
 def _menyimpang(sid, juz, p1, p2, teks):
@@ -2703,7 +2706,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 if e:
                     galat.append(e + f"  || fn: {isi[:45]}")
                     sid_bersih = str(int(f[0]))  # «02348» dan «2348» kitab yang sama; pesan cek memakai bentuk tanpa nol
-                    if e.startswith(f"teks TIDAK KETEMU di kitab {sid_bersih}"):
+                    if e.startswith(TIDAK_KETEMU.format(sid_bersih)):
                         # yang dicek: kutipan sebelum catatan kaki, paragraf salinan (diam), atau potongan bukti itu sendiri
                         t = (penggal if diam else mk) if (len(f) == 3 or diam) else pot4
                         if t:
@@ -2732,7 +2735,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                     continue
                 galat.append(e + f"  || fn: {isi[:45]}")
                 sid_bersih = str(int(b.split("|")[0]))
-                if e.startswith(f"teks TIDAK KETEMU di kitab {sid_bersih}"):
+                if e.startswith(TIDAK_KETEMU.format(sid_bersih)):
                     TERTOLAK.append((sid_bersih, mk))
             periksa_derajat(isi, terbukti, periksa_takhrij(isi, bukti, terbukti, mk, perhatian), galat, perhatian)
             # kutipan bertanda petik tetap dicek walau buktinya membawa potongan sendiri: cukup ada di salah satu bukti itu
@@ -2742,7 +2745,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                              f"buktinya (potongan <<…|potongan>> hanya membuktikan potongannya; nukilan makna tanpa tanda "
                              f"petik, diawali انظر)  || fn: {isi[:45]}")
                 if mk:
-                    m = re.search(r"teks TIDAK KETEMU di kitab (\d+)", kutipan_4[0][0])
+                    m = TIDAK_KETEMU_RE.search(kutipan_4[0][0])
                     if m:
                         TERTOLAK.append((str(int(m.group(1))), mk))
             else:
