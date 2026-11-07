@@ -261,10 +261,15 @@ def kitab(sid):
     return juz
 
 
+def _nomor_juz(sid, juz):
+    """Nomor rekaman juz itu (juz "-" = semua juz, urut juz lalu urut berkas), lihat `kitab`."""
+    return [i for ii in kitab(sid).values() for i in ii] if juz == "-" else kitab(sid)[juz]
+
+
 def rekaman(sid, juz, p1=0, p2=float("inf")):
     """Rekaman juz itu (juz "-" = semua) yang menyentuh halaman p1..p2. Hanya rekaman itu yang diurai."""
     ix = shamela.indeks(sid)
-    semua = [i for ii in kitab(sid).values() for i in ii] if juz == "-" else kitab(sid)[juz]
+    semua = _nomor_juz(sid, juz)
     return [shamela.rekaman_ke(sid, i) for i in semua if ix[i][2] >= p1 and (ix[i][1] or 0) <= p2]
 
 
@@ -458,7 +463,7 @@ def halaman_janggal(sid, juz):
     RENTANG_MAKS di bawahnya dan di atasnya), biasanya salah ketik Shamela (ص3110 di antara ص310 dan ص312 di jilid
     ±520 halaman). sebelum/sesudah = nomor rekaman tetangganya di berkas."""
     ix = shamela.indeks(sid)
-    semua = [i for ii in kitab(sid).values() for i in ii] if juz == "-" else kitab(sid)[juz]
+    semua = _nomor_juz(sid, juz)
     nomor = sorted({ix[i][1] for i in semua if ix[i][1]})
     sendiri = {n for k, n in enumerate(nomor) if k and n - nomor[k - 1] > RENTANG_MAKS
                and (k == len(nomor) - 1 or nomor[k + 1] - n > RENTANG_MAKS)}
@@ -469,7 +474,7 @@ def halaman_janggal(sid, juz):
 def rekaman_dulu(sid, juz, p1, p2):
     """Rekaman tepat sebelum rekaman pertama yang menyentuh halaman p1..p2 (kata di akhir halaman sebelumnya); None kalau tidak ada."""
     ix = shamela.indeks(sid)
-    semua = [i for ii in kitab(sid).values() for i in ii] if juz == "-" else kitab(sid)[juz]
+    semua = _nomor_juz(sid, juz)
     for k, i in enumerate(semua):
         if ix[i][2] >= p1 and (ix[i][1] or 0) <= p2:
             return shamela.rekaman_ke(sid, semua[k - 1]) if k else None
