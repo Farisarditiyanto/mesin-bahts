@@ -5,6 +5,8 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- Baru: `@basmalah: ya` menambah satu halaman kaligrafi ﷽ (huruf Arabic Typesetting) sesudah sampul, tanpa nomor halaman. Bawaan: tidak ada. Nilai selain «ya» ditolak `cek`.
+
 ## 9.1.0 — 2026-11-07
 
 - Baru, dari kitab metodologi أبو سليمان «كتابة البحث العلمي» (Shamela 8350):
