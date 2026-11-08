@@ -166,6 +166,8 @@ try {
         elseif ($t -eq 'إعداد الطالب:') { if ($M.thalibah -eq 'ya') { Ganti $p 'إعداد الطالبة:' } }
         elseif ($t -eq 'اسم الطالب') { Ganti $p $NAMA }
         elseif ($t -eq 'السنة الهجرية') { Ganti $p "$TAHUN هـ" }
+        # @qism: baris qism model; « // » = pindah baris di paragraf yang sama (bentuk dan hurufnya tetap dari templat); di jakarta barisnya di sel tabel (teksnya berakhir tanda sel char 7)
+        elseif ($M.qism -and $t.Trim([char]7, [char]13, ' ') -in 'قسم الشريعة', 'قسم الشريعة بجاكرتا') { Ganti $p (([string]$M.qism -split '\s*//\s*') -join [char]11) }
     }
     if ($JAKARTA) {
         $SM = if (@($word.FontNames) -contains 'Sakkal Majalla') { 'Sakkal Majalla' } else { $TA }
@@ -861,6 +863,14 @@ try {
     # dokumen kosong yang gaya Normal-nya kiri-ke-kanan, jadi garisnya ikut ke kiri kalau tidak disetel di sini
     foreach ($g in @($doc.Footnotes.Separator, $doc.Footnotes.ContinuationSeparator)) {
         try { $g.ParagraphFormat.ReadingOrder = 0; $g.ParagraphFormat.Alignment = 0 } catch {}
+    }
+    # Word selalu menaruh satu paragraf sesudah tabel terakhir (فهرس). Tabel yang pas memenuhi halaman mendorong paragraf
+    # kosong itu ke halaman baru: PDF berakhir dengan halaman kosong yang hanya bernomor. Paragraf itu dikecilkan sampai
+    # setinggi 1 pt supaya tetap muat di halaman tabelnya
+    $ekor = $doc.Paragraphs.Last
+    if ($ekor.Range.Text.Trim().Length -eq 0) {
+        $ekor.Range.Font.Size = 1; $ekor.Range.Font.SizeBi = 1
+        $ekor.SpaceBefore = 0; $ekor.SpaceAfter = 0; $ekor.LineSpacingRule = 4; $ekor.LineSpacing = 1   # 4 = wdLineSpaceExactly
     }
     $pages = $doc.ComputeStatistics(2)
     # halaman isi = المقدمة s.d. الخاتمة; tanpa المصادر dan فهرس = halaman terakhir. Ada المقدمة atau nomor tercetak dua

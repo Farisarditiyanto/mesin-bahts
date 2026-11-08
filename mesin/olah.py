@@ -39,7 +39,9 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       di baris #R, mis. «**ابن كثير، إسماعيل بن عمر** (ت 774هـ). __تفسير القرآن العظيم__. …»),
                       judul_kanan (B, M, atau keduanya: judul itu rata kanan, bawaan di tengah), fihris (baru | sambung =
                       المصادر dan فهرس sesudah yang pertama menyambung di halaman yang sama), sifat (baris di bawah
-                      nama di sampul, mis. «الطالب بقسم الشريعة للفترة الصباحية»)
+                      nama di sampul, mis. «الطالب بقسم الشريعة للفترة الصباحية»), qism (baris qism di sampul qism/jakarta
+                      menggantikan «قسم الشريعة»/«قسم الشريعة بجاكرتا»; « // » = pindah baris, mis.
+                      «معهد العلوم الإسلامية والعربية في إندونيسيا // قسم اللغة العربية»)
                       rujukan_ayat (catatan | matan = [^سورة …، آية: n.] dicetak «[السورة: n]» tepat sesudah ayatnya)
                       model (jakarta = sekaligus @sampul: jakarta, @format: jakarta, @kepala: kotak, @fihris_ayat: surah,
                       @fihris_hadits: ringkas, @maudhuat: titik, @pustaka_gaya: muallif, @pustaka: akhir,
@@ -177,7 +179,7 @@ GAYA = {"kepala": ("-", "kotak"),            # kotak = judul kanan, nomor halama
 MODEL = {"jakarta": {"sampul": "jakarta", "format": "jakarta", "kepala": "kotak", "fihris_ayat": "surah",
                      "fihris_hadits": "ringkas", "maudhuat": "titik", "pustaka_gaya": "muallif", "pustaka": "akhir",
                      "judul_kanan": "B, M", "catatan_kaki": "bersambung", "fihris": "sambung", "rujukan_ayat": "matan"}}
-META = frozenset("judul jenis nama nim fasl musyrif jabatan thalibah basmalah sampul tahun berkas format angka angka_ayat tanpa pustaka templat halaman_baru nomor bentuk rumuz warna model kepala_judul sifat".split()) | TIMPA.keys() | GAYA.keys()
+META = frozenset("judul jenis nama nim fasl musyrif jabatan thalibah basmalah sampul tahun berkas format angka angka_ayat tanpa pustaka templat halaman_baru nomor bentuk rumuz warna model kepala_judul sifat qism".split()) | TIMPA.keys() | GAYA.keys()
 # @warna: nama -> RGB. Biru tua: tetap nyaman dibaca untuk paragraf panjang dan jelas beda dari hitam serta merah lafaz matn
 WARNA = {"biru": (20, 60, 150)}
 # lambang hormat Unicode 14 (﵀-﵏ ﷾ ﷿) tidak ada di huruf cetak (Traditional Arabic, Sakkal Majalla): kotak kosong di PDF.
@@ -3334,7 +3336,7 @@ def utama(folder, keluar=None):
         galat.append(di("@angka_ayat") + f"@angka_ayat: «{angka_ayat}» tidak dikenal (yang ada: {'، '.join(ANGKA)})")
     else:  # yang dihitung Word (nomor halaman, catatan kaki, فهرس) diubah di rakit.ps1; ayat (q) tetap apa adanya
         ubah = hindi if angka == "hindi" else (lambda s: s.translate(ANGKA_LATIN))
-        for k in ("judul", "jenis", "nama", "nim", "fasl", "musyrif", "jabatan", "tahun", "kepala_judul", "sifat"):
+        for k in ("judul", "jenis", "nama", "nim", "fasl", "musyrif", "jabatan", "tahun", "kepala_judul", "sifat", "qism"):
             if k in meta:
                 meta[k] = ubah(meta[k])
         for r in [r for b in blok + catatan if b.get("k") != "L" for r in b["runs"]] + hadits_idx:
