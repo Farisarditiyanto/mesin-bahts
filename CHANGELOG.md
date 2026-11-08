@@ -5,6 +5,8 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- Baru: `@qism:` mengganti baris «قسم الشريعة» di sampul `qism`/`jakarta` (mis. qism lain atau nama lembaga); « // » = pindah baris.
+- Perbaikan: PDF tidak lagi berakhir dengan halaman kosong bernomor saat tabel فهرس terakhir pas memenuhi halaman.
 - Baru: `@format: tatbiqi_16` = Traditional Arabic, matan 16, catatan kaki 12, spasi 1,5, judul utama (#K/#F) 18, sub-judul (#B/#M/#S) 16. Profil lain bisa memakai kunci `judul_sub` di `mesin/format.json` untuk ukuran sub-judul.
 - Baru: `@basmalah: ya` menambah satu halaman kaligrafi ﷽ (huruf Arabic Typesetting) sesudah sampul, tanpa nomor halaman. Bawaan: tidak ada. Nilai selain «ya» ditolak `cek`.
 
