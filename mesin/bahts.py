@@ -299,7 +299,7 @@ def perkiraan_halaman(d):
     isi = halaman(blok[mula:])
     tanpa = set(re.split(r"[,، ]+", meta.get("tanpa", "")))
     kitab = meta.get("bentuk") == "kitab"
-    rinci = {"sampul": 0 if kitab else 1, "sebelum المقدمة": halaman(blok[:mula]) if mula else 0}
+    rinci = {"sampul": 0 if kitab else 1 + (meta.get("basmalah") == "ya"), "sebelum المقدمة": halaman(blok[:mula]) if mula else 0}
     judul = sum(b["k"] in ("K", "F", "B", "M") for b in blok)  # baris فهرس الموضوعات
     for nama, n, per in (("المصادر", len(d["pustaka"]) if "pustaka" not in tanpa and (not kitab or d["pustaka"]) else 0, 12),
                          ("فهرس الآيات", 0 if "ayat" in tanpa else len(d["ayat"]), 26),

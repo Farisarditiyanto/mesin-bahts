@@ -292,9 +292,9 @@ try {
         $sel.InsertBreak(7)
         $sel.ClearFormatting()
         # Word membuang jarak atas paragraf sesudah pindah halaman: turun ke tengah lewat satu paragraf kosong bertinggi pas
-        $psS = $doc.Sections(1).PageSetup                # ukuran 72: lebar ﷽ ±14 cm, tinggi barisnya ±110 pt
+        $psS = $doc.Sections(1).PageSetup                # ukuran 72: lebar ﷽ ±14 cm; -40 = ﷽ tepat di tengah bidang sampul qism (diukur di PDF)
         $sel.ParagraphFormat.SpaceBefore = 0; $sel.ParagraphFormat.SpaceAfter = 0
-        $sel.ParagraphFormat.LineSpacingRule = 4; $sel.ParagraphFormat.LineSpacing = [single][Math]::Max(1, ($psS.PageHeight - $psS.TopMargin - $psS.BottomMargin) / 2 - 70)
+        $sel.ParagraphFormat.LineSpacingRule = 4; $sel.ParagraphFormat.LineSpacing = [single][Math]::Max(1, ($psS.PageHeight - $psS.TopMargin - $psS.BottomMargin) / 2 - 40)
         $sel.TypeParagraph()
         $sel.ParagraphFormat.Alignment = 1; $sel.ParagraphFormat.LineSpacingRule = 0
         $sel.Font.Name = $hB; $sel.Font.NameBi = $hB; $sel.Font.Size = 72; $sel.Font.SizeBi = 72; $sel.Font.Bold = 0; $sel.Font.BoldBi = 0
