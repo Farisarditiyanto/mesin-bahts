@@ -53,6 +53,16 @@
     "spasi_mulakhas": 1.5,
     "mulakhas_berjarak": true
   },
+  "tatbiqi_16": {
+    "_sumber": "ketentuan dosen البحث التطبيقي (mahasiswi المعهد, 2026): Traditional Arabic, matan 16, catatan kaki 12, spasi 1,5, judul utama (#K/#F) 18, sub-judul (#B/#M/#S) 16",
+    "huruf": "Traditional Arabic",
+    "matan": 16,
+    "catatan": 12,
+    "judul": 18,
+    "judul_sub": 16,
+    "catatan_ulang_tiap_halaman": true,
+    "spasi": 1.5
+  },
   "dalil": {
     "_sumber": "دليل إعداد وكتابة الرسائل العلمية (ماجستير/دكتوراه) بجامعة الإمام، الطبعة الثانية — hanya huruf dan ukurannya; gaya rujukan tetap catatan kaki",
     "huruf": "Sakkal Majalla",

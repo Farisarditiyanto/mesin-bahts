@@ -5,6 +5,8 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- Baru: `@format: tatbiqi_16` = Traditional Arabic, matan 16, catatan kaki 12, spasi 1,5, judul utama (#K/#F) 18, sub-judul (#B/#M/#S) 16. Profil lain bisa memakai kunci `judul_sub` di `mesin/format.json` untuk ukuran sub-judul.
+
 ## 9.1.0 — 2026-11-07
 
 - Baru, dari kitab metodologi أبو سليمان «كتابة البحث العلمي» (Shamela 8350):
