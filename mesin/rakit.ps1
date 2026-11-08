@@ -287,6 +287,20 @@ try {
     # ---------- 2. Bagian isi ----------
     $sel = $word.Selection
     [void]$sel.EndKey(6)
+    if ($M.basmalah -eq 'ya' -and -not $KITAB -and -not $M.tanpa_sampul) {   # halaman ﷽ sesudah sampul, masih di bagian sampul (tanpa nomor)
+        $hB = 'Arabic Typesetting'                       # ﷽ huruf ini = satu kaligrafi utuh; Traditional Arabic hanya mencetak «بسم»
+        if (@($word.FontNames) -notcontains $hB) { Write-Output "PERINGATAN: huruf $hB belum terpasang di Windows: halaman basmalah dicetak $TA."; $hB = $TA }
+        $sel.InsertBreak(7)
+        $sel.ClearFormatting()
+        # Word membuang jarak atas paragraf sesudah pindah halaman: turun ke tengah lewat satu paragraf kosong bertinggi pas
+        $psS = $doc.Sections(1).PageSetup                # ukuran 72: lebar ﷽ ±14 cm; -40 = ﷽ tepat di tengah bidang sampul qism (diukur di PDF)
+        $sel.ParagraphFormat.SpaceBefore = 0; $sel.ParagraphFormat.SpaceAfter = 0
+        $sel.ParagraphFormat.LineSpacingRule = 4; $sel.ParagraphFormat.LineSpacing = [single][Math]::Max(1, ($psS.PageHeight - $psS.TopMargin - $psS.BottomMargin) / 2 - 40)
+        $sel.TypeParagraph()
+        $sel.ParagraphFormat.Alignment = 1; $sel.ParagraphFormat.LineSpacingRule = 0
+        $sel.Font.Name = $hB; $sel.Font.NameBi = $hB; $sel.Font.Size = 72; $sel.Font.SizeBi = 72; $sel.Font.Bold = 0; $sel.Font.BoldBi = 0
+        $sel.TypeText([string][char]0xFDFD)
+    }
     if (-not $KITAB) { $sel.InsertBreak(2) }             # section break (halaman baru) sesudah sampul
     # potongan `rakit --fasl` selain yang pertama: sampul (bagian Word pertama, berikut pemisahnya) dibuang; tata halaman isi
     # disetel sesudah ini, jadi isinya sama dengan potongan bersampul
