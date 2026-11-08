@@ -17,6 +17,7 @@ $Out = Join-Path $Hasil $M.berkas; $Laporan = Join-Path $Hasil 'laporan.txt'
 $FMT = $DATA.format                                      # profil dari format.json (dipilih @format; @catatan_kaki/@spasi sudah ditimpakan olah.py)
 $TA = [string]$FMT.huruf; $QF = 'KFGQPC HAFS Uthmanic Script'
 $uMatan = [single]$FMT.matan; $uCatatan = [single]$FMT.catatan; $uJudul = [single]$FMT.judul   # ukuran huruf (Word minta angka pecahan)
+$uJudulSub = if ($FMT.judul_sub) { [single]$FMT.judul_sub } else { $uJudul }   # ukuran #B/#M/#S; profil tanpa "judul_sub" = sama dengan judul
 $uAyat = if ($FMT.ayat) { [single]$FMT.ayat } else { $uMatan }   # ukuran ayat di matan dan فهرس الآيات; profil tanpa "ayat" = sama dengan matan
 $ULANG = if ($FMT.catatan_ulang_tiap_halaman) { 2 } else { 0 }   # nomor catatan kaki: 2 = mulai ulang tiap halaman, 0 = bersambung
 $SPASI = if ($FMT.spasi) { [single]$FMT.spasi } else { 1 }   # jarak baris matan dan judul (kali satu baris); catatan kaki dan فهرس tetap satu spasi
@@ -526,7 +527,7 @@ try {
         $sel.ParagraphFormat.KeepWithNext = -1
         if ($pb) { $sel.ParagraphFormat.PageBreakBefore = -1; $sel.ParagraphFormat.SpaceBefore = 0 }
         if ($bm) { [void]$doc.Bookmarks.Add($bm, $sel.Range) }
-        Tulis $teks $TJ $uJudul 1 0
+        Tulis $teks $TJ $(if ($k -in 'B', 'M') { $uJudulSub } else { $uJudul }) 1 0
         $sel.TypeParagraph()
     }
 
@@ -608,7 +609,7 @@ try {
             if ($TO_TITIK -and $blk.judul.StartsWith('❖')) {   # فهرس الموضوعات titik: sub-judul «❖ …» ikut, di bawah judul sebelumnya
                 $nT++; [void]$doc.Bookmarks.Add("t_$nT", $sel.Range); [void]$toc.Add(@{ t = $blk.judul; bm = "t_$nT"; lvl = 1 })
             }
-            Tulis $blk.judul $TJ $uJudul 1 0
+            Tulis $blk.judul $TJ $uJudulSub 1 0
             $sel.TypeParagraph()
         }
         else {
