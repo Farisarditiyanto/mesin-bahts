@@ -404,8 +404,9 @@ def daftar():
 
 def kartu(sid):
     """Data cetak kitab (pengarang, muhaqqiq, penerbit, cetakan) untuk rujukan pertama dan daftar pustaka, lalu satu
-    baris bentuk bukti <<…>> kitab itu (contoh_bukti)."""
-    print(info(sid)["betaka_text"].replace("\r", "\n").rstrip("\n"))
+    baris bentuk bukti <<…>> kitab itu (contoh_bukti). Gelar di nama muhaqqiq/penyusun dibuang (norma.buang_gelar):
+    data ini disalin apa adanya ke catatan kaki dan المصادر."""
+    print("\n".join(norma.buang_gelar(b) for b in info(sid)["betaka_text"].replace("\r", "\n").rstrip("\n").split("\n")))
     print(contoh_bukti(sid))
 
 

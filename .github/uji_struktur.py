@@ -258,6 +258,40 @@ def utama():
             assert f"«{nama}» masih kosong" in out, out
         hasil.append("label الدراسات السابقة utuh dan berisi, di tiap tingkat judul")
 
+        # أبو سليمان، كتابة البحث العلمي: الخاتمة memuat النتائج (ص198); المقدمة رسالة memuat isinya (ص196-197), بحث صفي tidak dinilai
+        khatimah = re.search(r"#K الخاتمة\n([^\n]*)\n", dasar)[1]
+        out = cek("الخاتمة tanpa النتائج", dasar.replace(khatimah, "هذا آخر ما كتبته في هذا البحث."))
+        assert "الخاتمة belum menyebut النتائج" in out, out
+        assert "الخاتمة belum" not in cek("الخاتمة dengan النتائج", dasar)
+        # «#F الفصل الخامس: الخاتمة» juga الخاتمة (bahts nyata ihsan, shafira)
+        out = cek("الخاتمة di #F", dasar.replace(khatimah, "هذا آخر ما كتبته في هذا البحث.").replace(
+            "#K الخاتمة", "#F الفصل الثاني: الخاتمة"))
+        assert "الخاتمة belum menyebut النتائج" in out, out
+        out = cek("المقدمة رسالة", dasar.replace("@jenis: مثال تجريبي", "@jenis: رسالة ماجستير"))
+        assert "المقدمة belum menyebut: " in out and "قيمة البحث وأهميته" in out, out
+        lengkap = dasar.replace("#K المقدمة\n", "#K المقدمة\nموضوع البحث وأهميته وأسباب اختياره وحدوده وإجراءاته ومنهجه "
+                                "ومصطلحاته وآفاقه والدراسات السابقة وخطته.\n", 1)
+        assert "\n#K المقدمة\n" in dasar and "المقدمة belum" not in cek(
+            "المقدمة رسالة lengkap", lengkap.replace("@jenis: مثال تجريبي", "@jenis: رسالة ماجستير"))
+        assert "المقدمة belum" not in cek("المقدمة بحث صفي", dasar)
+        # bab isi yang judulnya memuat kata itu bukan المقدمة/الخاتمة: «المقدمات اللغوية», «الخاتم في اللغة»
+        bab = lengkap.replace("@jenis: مثال تجريبي", "@jenis: رسالة ماجستير").replace(
+            "#K المقدمة\n", "#F الفصل الأول: المقدمات اللغوية\nكلام في اللغة.\n#F الفصل الثاني: الخاتم في اللغة\n"
+            "كلام آخر في اللغة.\n#K المقدمة\n", 1)
+        out = cek("bab isi bernama mirip", bab)
+        assert "المقدمة belum" not in out and "الخاتمة belum" not in out, out
+        # urutan المصادر gaya muallif: «ابن/أبو» tidak dihitung, «ابن كثير» di ك sesudah «الترمذي» (ص204)
+        gaya = dasar.replace("@format: imam_ayat16", "@format: imam_ayat16\n@pustaka_gaya: muallif").replace(
+            "رسالة في القضاء والقدر، محمد بن صالح بن محمد العثيمين، دار الوطن، 1423هـ.",
+            "**ابن كثير، إسماعيل بن عمر**. __تفسير القرآن العظيم__.\n**أبو داود، سليمان بن الأشعث**. __السنن__.\n"
+            "**الترمذي، محمد بن عيسى**. __السنن__.\n**العثيمين، محمد بن صالح**. __رسالة في القضاء والقدر__. دار الوطن، 1423هـ.")
+        cek("urutan pustaka muallif", gaya)
+        sys.path.insert(0, str(akar / "mesin"))
+        import berkas as berkas_
+        urut = [p.split("،")[0].strip("*") for p in json.loads(berkas_.bahan(f).read_text(encoding="utf8"))["pustaka"]]
+        assert urut == ["القرآن الكريم.", "الترمذي", "أبو داود", "العثيمين", "ابن كثير"], urut
+        hasil.append("standar أبو سليمان: الخاتمة, المقدمة رسالة, urutan pustaka muallif")
+
         # Salinan PDF: tanpa keluaran_saya.txt tidak ada apa-apa; dengan berkas itu tersalin per orang.
         salin = ("import sys; sys.argv=['bahts']; import bahts\n"
                  "f = bahts.AKAR / 'bahts' / 'ahmad' / 'ikhlas'\n"
@@ -352,7 +386,7 @@ def utama():
         assert "HASIL=TIDAK_DIKETAHUI" in out and "naskah diubah" not in out.split("HASIL fasl")[0], out
         # bertahap per فصل: potongan terakhir yang dirakit menentukan; potongan lama yang USANG tidak disuruh rakit
         (ikhlas / "laporan.txt").unlink()
-        (ikhlas / "laporan-fasl1.txt").write_text(f"POTONGAN=--fasl 1: المقدمة\nNASKAH_SHA256=lama\n", encoding="utf8")
+        (ikhlas / "laporan-fasl1.txt").write_text(f"POTONGAN=--fasl 1: المقدمة\nNASKAH_SHA256={'0' * 64}\n", encoding="utf8")
         (ikhlas / "laporan-fasl2.txt").write_text(f"POTONGAN=--fasl 2: الفصل\nNASKAH_SHA256={sidik}\n", encoding="utf8")
         (ikhlas / "ikhlas - الفصل.pdf").write_bytes(b"%PDF")
         (ikhlas / "laporan-fasl10.txt").write_text("HALAMAN=1\n", encoding="utf8")  # tanpa baris POTONGAN

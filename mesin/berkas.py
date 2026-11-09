@@ -65,6 +65,45 @@ def pemegang(f):
         return ""
 
 
+def _pegang(h):
+    h.seek(0)
+    if os.name == "nt":
+        import msvcrt
+        msvcrt.locking(h.fileno(), msvcrt.LK_NBLCK, 1)
+    else:
+        import fcntl
+        fcntl.flock(h, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+
+def _lepas(h):
+    h.seek(0)
+    if os.name == "nt":
+        import msvcrt
+        msvcrt.locking(h.fileno(), msvcrt.LK_UNLCK, 1)
+    else:
+        import fcntl
+        fcntl.flock(h, fcntl.LOCK_UN)
+
+
+def lihat_kunci(f):
+    """None = bebas; string (boleh kosong) = dipegang. Tidak membuat berkas atau menulis metadata pemegang.
+
+    Probe memakai kunci OS yang sama dengan `kunci`, lalu langsung melepasnya. Probe bersamaan boleh melihat probe
+    lain sesaat, tetapi tidak pernah menulis identitas rakit palsu atau menghapus metadata pemegang terakhir.
+    """
+    try:
+        h = open(f, "rb")
+    except FileNotFoundError:
+        return None
+    with h:
+        try:
+            _pegang(h)
+        except OSError:
+            return _pemegang(h)
+        _lepas(h)
+    return None
+
+
 @contextmanager
 def kunci(f, tunggu=0, apa=""):
     """Kunci antarproses yang dilepas OS saat proses mati, meliputi seluruh pekerjaan rakit.
@@ -77,14 +116,8 @@ def kunci(f, tunggu=0, apa=""):
             h.write(b"\0"); h.flush()
         batas, kabar = time.monotonic() + tunggu, None
         while True:
-            h.seek(0)
             try:
-                if os.name == "nt":
-                    import msvcrt
-                    msvcrt.locking(h.fileno(), msvcrt.LK_NBLCK, 1)
-                else:
-                    import fcntl
-                    fcntl.flock(h, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                _pegang(h)
                 break
             except OSError:
                 siapa = _pemegang(h)
@@ -103,11 +136,7 @@ def kunci(f, tunggu=0, apa=""):
             yield
         finally:
             h.truncate(1)
-            h.seek(0)
-            if os.name == "nt":
-                msvcrt.locking(h.fileno(), msvcrt.LK_UNLCK, 1)
-            else:
-                fcntl.flock(h, fcntl.LOCK_UN)
+            _lepas(h)
 
 
 class FolderKerja:
@@ -128,7 +157,7 @@ class FolderKerja:
     KETERANGAN = {
         Keadaan.SEMENTARA: "bahan sementara rakit; dibuang sendiri oleh rakit berikutnya (jangan dihapus selama rakit jalan)",
         Keadaan.SIMPAN: "hasil baru yang belum terpasang (pemulihan rakit gagal): selamatkan isinya, lalu hapus sendiri",
-        Keadaan.ASING: "tanpa penanda (rakit versi lama, atau dibuat tangan): mungkin berisi hasil yang sengaja disimpan; "
+        Keadaan.ASING: "tanpa penanda atau berupa tautan folder: mungkin berisi hasil yang sengaja disimpan; "
                        "periksa isinya, lalu hapus sendiri",
     }
 
@@ -146,9 +175,12 @@ class FolderKerja:
         return [cls(p) for p in sorted(Path(folder).glob(".rakit-*")) if p.is_dir()]
 
     def keadaan(self):
+        if self.path.is_symlink() or self.path.is_junction():
+            return self.Keadaan.ASING  # penanda di tujuan tautan tidak memberi izin menghapus isi tujuan itu
         if (self.path / self.SIMPAN).exists():
             return self.Keadaan.SIMPAN
-        return self.Keadaan.SEMENTARA if (self.path / self.SEMENTARA).exists() else self.Keadaan.ASING
+        penanda = self.path / self.SEMENTARA
+        return self.Keadaan.SEMENTARA if penanda.is_file() and not penanda.is_symlink() else self.Keadaan.ASING
 
     def simpan(self):
         (self.path / self.SIMPAN).write_text("Hasil baru yang belum terpasang (pemulihan rakit gagal; lihat pesan rakit).\n"
@@ -168,7 +200,12 @@ class FolderKerja:
         for isi in self.path.iterdir():
             if isi.name == self.SEMENTARA:
                 continue
-            if isi.is_dir() and not isi.is_symlink():
+            if isi.is_symlink() or isi.is_junction():
+                try:  # hanya tautannya yang dibuang, isi tujuannya tidak disentuh
+                    os.rmdir(isi) if isi.is_dir() else isi.unlink()
+                except OSError:
+                    pass
+            elif isi.is_dir():
                 shutil.rmtree(isi, ignore_errors=True)
             else:
                 try:
@@ -176,7 +213,15 @@ class FolderKerja:
                 except OSError:
                     pass
         if [x.name for x in self.path.iterdir()] == [self.SEMENTARA]:
-            shutil.rmtree(self.path, ignore_errors=True)
+            penanda = self.path / self.SEMENTARA
+            try:
+                penanda.unlink()
+                self.path.rmdir()
+            except OSError:
+                # Windows bisa mengizinkan penghapusan isi, tetapi menahan direktori itu sendiri. Pertahankan
+                # keadaan SEMENTARA agar rakit berikutnya mencoba lagi, termasuk saat semua isi sudah terhapus.
+                if self.path.is_dir():
+                    penanda.touch(exist_ok=True)
         return not self.path.exists()
 
 
