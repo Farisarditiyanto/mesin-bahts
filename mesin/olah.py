@@ -253,6 +253,12 @@ def sumber_tertimpa(folder, berkas, sumber, laporan="laporan.txt"):
             if (folder / nama.strip()).resolve().as_posix().casefold() in tujuan]
 
 
+def nama_potongan(berkas, label, fasl):
+    """Nama berkas hasil `rakit --fasl`: «<@berkas> - <label potongan>» (dipakai `potong` dan `tahap`)."""
+    nama = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "-", label).strip(" .")
+    return f"{berkas} - {nama or 'fasl' + fasl}"
+
+
 def potong(d, fasl):
     """`rakit <folder> --fasl n` (atau a-b): bahan rakit `d` (hasil utama, seluruh naskah sudah dicek) dipangkas jadi
     #F ke-n saja, untuk dosen yang meminta bahts dikumpulkan bertahap per فصل. Bentuknya mengikuti potongan yang dulu
@@ -274,8 +280,7 @@ def potong(d, fasl):
     meta = d["meta"]
     label = [b["judul"].split(":")[0].strip() for b in blok if b["k"] in ("K", "F")]
     label = label[0] + "".join(" و" + x for x in label[1:])
-    nama = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "-", label).strip(" .")
-    meta["berkas"] = f"{meta['berkas']} - {nama or 'fasl' + fasl}"
+    meta["berkas"] = nama_potongan(meta["berkas"], label, fasl)
     if dari > 1:  # sampul dan halaman bernomor huruf (@nomor) hanya di potongan pertama
         meta["tanpa_sampul"] = True
         meta.pop("nomor", None)

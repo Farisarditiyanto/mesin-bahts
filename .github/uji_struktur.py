@@ -269,6 +269,115 @@ def utama():
         r = jalan()
         assert (akar / "keluar" / "ahmad" / "hasil.pdf").read_bytes() == b"PDF", r.stdout + r.stderr
         hasil.append("salinan PDF per orang")
+
+        # `tahap`: keadaan dibaca ulang dari barang aslinya. Yang diam-diam menyesatkan: PDF lama dilaporkan TERKINI sesudah
+        # naskah diubah, folder .rakit-* tanpa penanda disuruh/dibiarkan dibuang, atau rakit yang jalan tidak terlihat.
+        ikhlas = akar / "bahts" / "ahmad" / "ikhlas"
+        (ikhlas / "riset.txt").write_text("tafsir 1:2\n", encoding="utf8")
+
+        def tahap():
+            r = bahts("tahap", "bahts/ahmad/ikhlas")
+            assert r.returncode == 0 and "Traceback" not in r.stderr, r.stdout + r.stderr
+            return r.stdout
+
+        out = tahap()
+        assert "NASKAH=LOLOS" in out and "HASIL=BELUM" in out and 'rakit "bahts/ahmad/ikhlas"' in out, out
+        sidik = __import__("hashlib").sha256((ikhlas / "naskah.txt").read_bytes()).hexdigest()
+        (ikhlas / "ikhlas.pdf").write_bytes(b"%PDF")
+        (ikhlas / "laporan.txt").write_text(f"NASKAH_SHA256={sidik}\nHALAMAN=1\n", encoding="utf8")
+        out = tahap()
+        assert "HASIL=TERKINI" in out and 'bukti "bahts/ahmad/ikhlas"' in out, out
+        (ikhlas / "laporan-fasl1.txt").write_text(f"POTONGAN=--fasl 1: المقدمة\nNASKAH_SHA256={sidik}\n", encoding="utf8")
+        (ikhlas / "ikhlas - المقدمة.pdf").write_bytes(b"%PDF")
+        assert "HASIL fasl1=TERKINI" in tahap()
+        (ikhlas / "naskah.txt").write_text(dasar + "\n", encoding="utf8")
+        out = tahap()
+        assert "HASIL=USANG" in out and "HASIL fasl1=USANG" in out and "rakit ulang" in out, out
+        assert 'rakit "bahts/ahmad/ikhlas" --fasl 1\n' in out, out  # yang terakhir dirakit = potongan itu
+        os.utime(ikhlas / "laporan-fasl1.txt", (1, 1))
+        assert 'rakit "bahts/ahmad/ikhlas"\n' in tahap()  # seluruh naskah dirakit sesudahnya: itu yang menentukan
+        (ikhlas / "riset.txt").unlink()  # perhatian yang bertahan: perintahnya tetap `rakit`, bukan `cek` berulang
+        out = tahap()
+        assert "NASKAH=PERHATIAN" in out and "HASIL=USANG" in out and '-> ' in out, out
+        assert out.rstrip().endswith('rakit "bahts/ahmad/ikhlas"'), out
+        (ikhlas / "riset.txt").write_text("tafsir 1:2\n", encoding="utf8")
+        (ikhlas / "naskah.txt").write_text("@fromat: imam\n" + dasar, encoding="utf8")
+        out = tahap()
+        assert "NASKAH=GAGAL" in out and 'cek "bahts/ahmad/ikhlas"' in out and "HASIL=USANG" in out, out
+        (ikhlas / "naskah.txt").write_text(dasar, encoding="utf8")
+        for nama, penanda, harus in ((".rakit-lama", None, "=ASING"), (".rakit-simpan", "JANGAN_DIHAPUS.txt", "=SIMPAN"),
+                                     (".rakit-sisa", "rakit.sementara", "=SEMENTARA")):
+            (ikhlas / nama).mkdir()
+            if penanda:
+                (ikhlas / nama / penanda).write_text("")
+        out = tahap()
+        assert "FOLDER_KERJA .rakit-lama=ASING" in out and "FOLDER_KERJA .rakit-simpan=SIMPAN" in out, out
+        assert "FOLDER_KERJA .rakit-sisa=SEMENTARA" in out, out
+        assert "PERLU PEMAKAI: .rakit-lama, .rakit-simpan " in out and all((ikhlas / n).is_dir() for n in
+                                                                          (".rakit-lama", ".rakit-simpan", ".rakit-sisa")), out
+        (ikhlas / "_arsip" / "rakit-x").mkdir(parents=True)
+        out = tahap()
+        assert "ARSIP _arsip/rakit-x" in out and "_arsip/rakit-x tidak pernah dibuang" in out, out
+        for nama in (".rakit-lama", ".rakit-simpan", ".rakit-sisa", "_arsip"):
+            shutil.rmtree(ikhlas / nama)
+
+        def pegang_rakit(apa, naskah_):  # rakit yang sedang jalan = proses yang memegang kunci rakit
+            (ikhlas / "naskah.txt").write_text(naskah_, encoding="utf8")
+            p = subprocess.Popen([sys.executable, "-c", "import sys, time; from pathlib import Path; import berkas\n"
+                                  f"with berkas.kunci(Path('_tmp/rakit.pekerjaan'), apa='{apa}'):\n"
+                                  "    print('pegang', flush=True); time.sleep(60)"],
+                                 cwd=akar / "mesin", stdout=subprocess.PIPE, encoding="utf8")
+            try:
+                assert p.stdout.readline().strip() == "pegang"
+                return tahap()
+            finally:
+                p.kill()
+                p.wait()
+        out = pegang_rakit("bahts/ahmad/ikhlas", dasar)
+        assert "RAKIT=JALAN: bahts/ahmad/ikhlas, proses" in out and "BERIKUTNYA: rakit bahts ini sedang jalan" in out, out
+        # rakit bahts lain tidak menahan membetulkan naskah ini
+        out = pegang_rakit("bahts/umar/a", "@fromat: imam\n" + dasar)
+        assert "RAKIT=JALAN: bahts/umar/a" in out and 'BERIKUTNYA: betulkan' in out, out
+        (ikhlas / "naskah.txt").write_text(dasar, encoding="utf8")
+        assert "RAKIT=BEBAS" in tahap()
+        # perhatian yang tidak bisa dibereskan tidak menahan: PDF TERKINI -> pemeriksa, bukan rakit lagi
+        (ikhlas / "riset.txt").unlink()
+        (ikhlas / "laporan.txt").write_text(f"NASKAH_SHA256={sidik}\n", encoding="utf8")
+        out = tahap()
+        assert "NASKAH=PERHATIAN" in out and "HASIL=TERKINI" in out and 'bukti "bahts/ahmad/ikhlas"' in out, out
+        # laporan versi lama tanpa NASKAH_SHA256: tidak diketahui, bukan «naskah diubah»
+        (ikhlas / "riset.txt").write_text("tafsir 1:2\n", encoding="utf8")
+        (ikhlas / "laporan.txt").write_text("HALAMAN=1\n", encoding="utf8")
+        out = tahap()
+        assert "HASIL=TIDAK_DIKETAHUI" in out and "naskah diubah" not in out.split("HASIL fasl")[0], out
+        # bertahap per فصل: potongan terakhir yang dirakit menentukan; potongan lama yang USANG tidak disuruh rakit
+        (ikhlas / "laporan.txt").unlink()
+        (ikhlas / "laporan-fasl1.txt").write_text(f"POTONGAN=--fasl 1: المقدمة\nNASKAH_SHA256=lama\n", encoding="utf8")
+        (ikhlas / "laporan-fasl2.txt").write_text(f"POTONGAN=--fasl 2: الفصل\nNASKAH_SHA256={sidik}\n", encoding="utf8")
+        (ikhlas / "ikhlas - الفصل.pdf").write_bytes(b"%PDF")
+        (ikhlas / "laporan-fasl10.txt").write_text("HALAMAN=1\n", encoding="utf8")  # tanpa baris POTONGAN
+        os.utime(ikhlas / "laporan-fasl1.txt", (1, 1))
+        os.utime(ikhlas / "laporan-fasl10.txt", (2, 2))
+        out = tahap()
+        assert "HASIL fasl1=USANG" in out and "HASIL fasl2=TERKINI" in out and "HASIL fasl10=TIDAK_DIKETAHUI" in out, out
+        assert out.index("fasl2=") < out.index("fasl10="), out
+        assert 'bukti "bahts/ahmad/ikhlas"' in out, out
+        # folder kerja yang gagal dibuang sebagian tetap SEMENTARA (dicoba lagi), tidak jadi ASING
+        sys.path.insert(0, str(akar / "mesin"))
+        import berkas as berkas_
+        sisa = ikhlas / ".rakit-sebagian"
+        (sisa / "word").mkdir(parents=True)
+        (sisa / "rakit.sementara").write_text("")
+        (sisa / "buka.txt").write_text("")
+        with open(sisa / "buka.txt") as _terbuka:  # Windows: berkas yang terbuka tidak bisa dihapus
+            hilang = berkas_.FolderKerja(sisa).buang()
+            assert not hilang or os.name != "nt", "berkas terbuka ikut terhapus"
+            if not hilang:
+                assert berkas_.FolderKerja(sisa).keadaan() is berkas_.FolderKerja.Keadaan.SEMENTARA, list(sisa.iterdir())
+        if sisa.exists():
+            assert berkas_.FolderKerja(sisa).buang() and not sisa.exists()
+        hasil.append("tahap: naskah, hasil (juga --fasl dan laporan lama), perhatian tidak menahan, folder .rakit-*, "
+                     "_arsip, rakit bahts ini dan bahts lain; folder kerja setengah terbuang tetap SEMENTARA")
         print(f"uji struktur: {len(hasil)} skenario sesuai, termasuk beban 2000 nukilan/4000 catatan kaki dan 500 data salah ketik")
 
 
