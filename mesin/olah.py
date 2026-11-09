@@ -2513,6 +2513,17 @@ class Pemeriksaan:
     jangkar: set = dataclasses.field(default_factory=set)  # kunci {A:} naskah ini
     rujuk_silang: list = dataclasses.field(default_factory=list)  # {P:k} yang belum menunjuk {H:}: harus menunjuk {A:k}
     standar: list = dataclasses.field(default_factory=list)  # catatan standar_sumber yang belum dinilai (per bagian)
+    # bahan rakit selain catatan kaki dan فهرس (diisi `periksa`)
+    meta: dict = dataclasses.field(default_factory=dict)  # @kunci: nilai
+    di_baris: dict = dataclasses.field(default_factory=dict)  # @kunci dan #R -> nomor barisnya (galat yang ketahuan belakangan)
+    blok: list = dataclasses.field(default_factory=list)  # paragraf dan judul, urut naskah
+    pustaka: list = dataclasses.field(default_factory=list)  # baris sesudah #R
+    bentuk: str = ""  # @bentuk: bahts atau kitab
+    tanpa: list = dataclasses.field(default_factory=list)  # @tanpa
+
+    def di(self, kunci):
+        """Awal pesan «baris n: » untuk @kunci/#R yang sudah dibaca; kosong kalau tidak ditulis di naskah."""
+        return f"baris {self.di_baris[kunci]}: " if kunci in self.di_baris else ""
 
 
 def urai(teks, ctx, di_catatan=False):
@@ -3282,8 +3293,32 @@ def utama(folder, keluar=None):
 
 
 def periksa(folder, keluar=None):
-    """Urai dan periksa naskah di `folder`, tulis bahan rakit ke `keluar`. Kembalikan (Pemeriksaan, baris laporan)."""
+    """Urai dan periksa naskah di `folder`, tulis bahan rakit ke `keluar`. Kembalikan (Pemeriksaan, baris laporan).
+    Tahapannya urut; urutan itu juga urutan galat dan perhatian di laporan."""
     folder = Path(folder)
+    naskah, baris = _baca_naskah(folder)
+    ctx = Pemeriksaan(folder=folder, meta={"berkas": folder.name})
+    _urai_baris(ctx, baris)
+    _cek_sesudah_naskah(ctx)
+    _terapkan_model_gaya(ctx)
+    _cek_bentuk(ctx)
+    quran = _urutkan_fihris(ctx)
+    n_matan, n_fn = _hitung_kata(ctx)
+    _cek_sampul(ctx)
+    sumber = _cek_bahan_sumber(ctx, naskah)
+    _cek_tata_letak(ctx)
+    profil = _format_dan_angka(ctx)
+    _bait_syair(ctx)
+    if ctx.bentuk != "kitab":  # muqarrar gabungan syarah (@bentuk: kitab) bukan riset baru
+        periksa_riset(folder, baris, ctx.perhatian)
+    ctx.perhatian = gabung_kembar(ctx.perhatian)  # jumlah di ringkasan = baris yang dicetak
+    sidik_naskah = hashlib.sha256(naskah).hexdigest()
+    _tulis_bahan(ctx, keluar, profil, quran, sumber, sidik_naskah)
+    return ctx, _laporan(ctx, n_matan, n_fn, sidik_naskah)
+
+
+def _baca_naskah(folder):
+    """Isi naskah.txt (bytes) dan baris-barisnya yang tidak kosong: [(nomor baris, teks)]."""
     try:
         naskah = (folder / "naskah.txt").read_bytes()
         baris = [(n, x.rstrip("\n")) for n, x in enumerate(io.StringIO(naskah.decode("utf-8-sig"), newline=None), 1) if x.strip()]
@@ -3293,12 +3328,14 @@ def periksa(folder, keluar=None):
             "simpan ulang sebagai UTF-8 di editormu (atau dari terminal, mis. untuk UTF-16: "
             "iconv -f UTF-16 -t UTF-8 naskah.txt > naskah8.txt, lalu ganti naskah.txt dengan naskah8.txt)")
             + ", lalu ulangi `cek`.") from None
-    ctx = Pemeriksaan(folder=folder)
-    catatan, ayat_idx, hadits_idx, galat, perhatian = ctx.catatan, ctx.ayat_idx, ctx.hadits_idx, ctx.galat, ctx.perhatian
-    rumuz, warna = ctx.rumuz, ctx.warna
-    blok, pustaka = [], []
-    meta = {"berkas": folder.name}
-    di_baris = {}  # @kunci dan #R -> nomor barisnya, untuk galat yang baru ketahuan sesudah semua baris dibaca
+    return naskah, baris
+
+
+def _urai_baris(ctx, baris):
+    """Tiap baris naskah: @data, judul #…, rujukan sesudah #R, atau paragraf (diurai `urai`).
+    Tiap galat dan perhatian diberi nomor barisnya."""
+    meta, di_baris, blok, pustaka = ctx.meta, ctx.di_baris, ctx.blok, ctx.pustaka
+    galat, perhatian, rumuz, warna = ctx.galat, ctx.perhatian, ctx.rumuz, ctx.warna
     for n, b in baris:
         if AWAL_BAGIAN.match(b) and ctx.standar:  # bagian baru: nilai standar sumber bagian sebelumnya
             perhatian += standar_baris(ctx.standar); ctx.standar.clear()
@@ -3376,6 +3413,13 @@ def periksa(folder, keluar=None):
             c["n"] = n
         for r in ctx.rujuk_silang[r0:]:
             r["n"] = n
+
+
+def _cek_sesudah_naskah(ctx):
+    """Yang baru bisa dinilai sesudah semua baris dibaca: standar sumber bagian terakhir,
+    porsi kutipan, الدراسات السابقة, dan {P:} yang menunjuk {A:}/{H:}."""
+    blok, catatan, hadits_idx, galat = ctx.blok, ctx.catatan, ctx.hadits_idx, ctx.galat
+    perhatian = ctx.perhatian
     perhatian += standar_baris(ctx.standar); ctx.standar.clear()
     perhatian += porsi_kutipan(blok, catatan)
     perhatian += periksa_dirasat(blok, catatan)
@@ -3386,8 +3430,11 @@ def periksa(folder, keluar=None):
                 f"{{H:…|{r['k']}}} baru ditulis sesudah catatan kaki ini; «سبق تخريجه» menunjuk hadits yang sudah ditakhrij"
                 if dulu else f"tidak ada {{A:{r['k']}}} atau {{H:…|{r['k']}}} di naskah"))
 
-    def di(kunci):
-        return f"baris {di_baris[kunci]}: " if kunci in di_baris else ""
+
+def _terapkan_model_gaya(ctx):
+    """@model mengisi pilihan tata letak yang tidak ditulis sendiri; tiap pilihan @GAYA dicek."""
+    meta, blok, catatan, galat = ctx.meta, ctx.blok, ctx.catatan, ctx.galat
+    di = ctx.di
     if meta.get("model"):
         if meta["model"] not in MODEL:
             galat.append(di("@model") + f"@model: «{meta['model']}» tidak dikenal (yang ada: {'، '.join(MODEL)})")
@@ -3409,6 +3456,12 @@ def periksa(folder, keluar=None):
                     m = re.fullmatch(r"سورة\s+(.+?)،\s*آية:?\s*([\d٠-٩]+(?:\s*[-–]\s*[\d٠-٩]+)?)\.?", t)
                     if m:
                         b["runs"][j] = {"t": f" [{m.group(1)}: {m.group(2)}]", "b": False}
+
+
+def _cek_bentuk(ctx):
+    """@kepala dengan @templat, @tanpa, @bentuk, daftar #R, dan @berkas."""
+    meta, di_baris, pustaka, galat = ctx.meta, ctx.di_baris, ctx.pustaka, ctx.galat
+    folder, di = ctx.folder, ctx.di
     if meta["kepala"] == "kotak" and meta.get("templat"):
         galat.append(di("@kepala") + "@kepala: kotak dan @templat tidak bisa dipakai bersama: @templat sudah membawa kepala halamannya")
     tanpa =[t for t in re.split(r"[,، ]+", meta.get("tanpa", "")) if t]
@@ -3428,7 +3481,13 @@ def periksa(folder, keluar=None):
         meta["berkas"] = folder.name
     elif re.search(r'[<>:"/\\|?*]', meta["berkas"]):
         galat.append(di("@berkas") + f"@berkas: «{meta['berkas']}»: nama berkas tidak boleh memuat : / \\ ? * < > | \"")
+    ctx.tanpa, ctx.bentuk = tanpa, bentuk
 
+
+def _urutkan_fihris(ctx):
+    """Urutan المصادر (القرآن الكريم paling atas), nama surat فهرس الآيات, urutan فهرس الأحاديث.
+    Kembalikan baris pustaka القرآن الكريم."""
+    pustaka, ayat_idx, hadits_idx = ctx.pustaka, ctx.ayat_idx, ctx.hadits_idx
     def kunci_urut(s):
         s = norma.HARAKAT.sub("", s.replace("**", "").replace("__", ""))  # tanda tebal/miring @pustaka_gaya: muallif
         if not s.startswith("الله"):
@@ -3436,14 +3495,26 @@ def periksa(folder, keluar=None):
         return re.sub("[إأآ]", "ا", s)
     quran = [p for p in pustaka if norma.HARAKAT.sub("", p.replace("**", "").replace("__", "")).startswith("القرآن")]  # tanpa nomor, paling atas
     pustaka = quran + sorted([p for p in pustaka if p not in quran], key=kunci_urut)
-
     for a in ayat_idx:
         a["surah"] = SURAH[a["s"] - 1]
     hadits_idx.sort(key=lambda h: kunci_urut(h["t"]))
+    ctx.pustaka = pustaka
+    return quran
 
+
+def _hitung_kata(ctx):
+    """Jumlah kata matan dan catatan kaki (sebelum angka diubah)."""
+    blok, catatan = ctx.blok, ctx.catatan
     # hitung kata
     n_matan = sum(kata(b["runs"]) for b in blok)
     n_fn = sum(kata(c["runs"]) for c in catatan)
+    return n_matan, n_fn
+
+
+def _cek_sampul(ctx):
+    """@sampul, @tahun, data sampul wajib, @pustaka, @tanpa, dan @templat."""
+    meta, galat, folder, bentuk = ctx.meta, ctx.galat, ctx.folder, ctx.bentuk
+    tanpa, di = ctx.tanpa, ctx.di
     # rakit.ps1 hanya memakai salah satu: jangan ada yang diabaikan diam-diam (@sampul yang tidak dikenal sudah GAGAL di bawah)
     if meta.get("sampul", "").lower() in SAMPUL and meta.get("templat"):
         galat.append(di("@sampul") + "@sampul dan @templat tidak bisa dipakai bersama: @templat sudah membawa sampulnya sendiri; hapus salah satu")
@@ -3474,6 +3545,11 @@ def periksa(folder, keluar=None):
             galat.append(di("@templat") + f"@templat: «{meta['templat']}» tidak ada di folder {folder.name}")
         else:
             meta["templat"] = str(tpl)
+
+
+def _cek_bahan_sumber(ctx, naskah):
+    """Bahan pemakai (PDF <<luar|…>>, @templat) yang akan tertimpa hasil rakit. Kembalikan daftarnya."""
+    meta, galat, folder, di = ctx.meta, ctx.galat, ctx.folder, ctx.di
     # Hasil lama boleh diganti; templat dan PDF yang dirujuk naskah adalah bahan pemakai.
     # Samakan kapitalisasi juga di Linux: hasilnya akan dirakit di Windows.
     sumber = re.findall(r"<<luar\|([^|<>]+)\|", naskah.decode("utf-8-sig"))
@@ -3481,6 +3557,13 @@ def periksa(folder, keluar=None):
         sumber.append(meta["templat"])
     for nama in sumber_tertimpa(folder, meta["berkas"], sumber):
         galat.append(di("@berkas") + f"hasil rakit akan menimpa bahan sumber «{nama}»: ganti @berkas atau nama berkas sumber")
+    return sumber
+
+
+def _cek_tata_letak(ctx):
+    """@halaman_baru, @nomor, bagian kosong dan judul bertumpuk, @nim, dan kunci ya/tidak."""
+    meta, blok, galat, perhatian = ctx.meta, ctx.blok, ctx.galat, ctx.perhatian
+    bentuk, di = ctx.bentuk, ctx.di
     baru = [t for t in re.split(r"[,، ]+", meta.get("halaman_baru", "")) if t]
     if any(t not in HALAMAN_BARU for t in baru):
         galat.append(di("@halaman_baru") + f"@halaman_baru: «{meta['halaman_baru']}» tidak dikenal (yang ada: {', '.join(HALAMAN_BARU)})")
@@ -3516,6 +3599,13 @@ def periksa(folder, keluar=None):
     for kunci in ("thalibah", "basmalah"):  # kunci ya/tidak: tanpa barisnya = tidak
         if meta.get(kunci, "ya") != "ya":
             galat.append(di("@" + kunci) + f"@{kunci}: «{meta[kunci]}» tidak dikenal: tulis «ya», atau hapus barisnya")
+
+
+def _format_dan_angka(ctx):
+    """Profil @format (ditimpa @catatan_kaki/@spasi) dan angka yang tercetak (@angka, @angka_ayat).
+    Kembalikan profilnya."""
+    meta, blok, pustaka, catatan = ctx.meta, ctx.blok, ctx.pustaka, ctx.catatan
+    hadits_idx, galat, di = ctx.hadits_idx, ctx.galat, ctx.di
     fmt = meta.get("format", "imam")
     if fmt not in FORMAT:
         galat.append(di("@format") + f"@format: «{fmt}» tidak ada di mesin/format.json (yang ada: {'، '.join(FORMAT)})")
@@ -3554,20 +3644,35 @@ def periksa(folder, keluar=None):
         for h in hadits_idx:
             h["r"] = ubah(h["r"])
         pustaka = [ubah(p) for p in pustaka]
+    ctx.pustaka = pustaka
+    return profil
+
+
+def _bait_syair(ctx):
+    """Bait syair #V: tanda tulis jadi jarak antarparuh dan pindah baris."""
+    blok = ctx.blok
     for b in blok:  # bait syair: tanda tulis jadi jarak antarparuh dan pindah baris (\v = pindah baris dalam paragraf Word)
         if b["k"] == "V":
             for r in b["runs"]:
                 if "t" in r:
                     r["t"] = re.sub(r"\s*//\s*", "\v", re.sub(r"\s*\.\.\.\s*", "\u2003\u2003\u2003", r["t"]))
-    if bentuk != "kitab":  # muqarrar gabungan syarah (@bentuk: kitab) bukan riset baru
-        periksa_riset(folder, baris, perhatian)
-    perhatian = gabung_kembar(perhatian)  # jumlah di ringkasan = baris yang dicetak
-    sidik_naskah = hashlib.sha256(naskah).hexdigest()
+
+
+def _tulis_bahan(ctx, keluar, profil, quran, sumber, sidik_naskah):
+    """Bahan rakit JSON (dibaca rakit.ps1)."""
+    meta, blok, pustaka, catatan = ctx.meta, ctx.blok, ctx.pustaka, ctx.catatan
+    ayat_idx, hadits_idx, folder = ctx.ayat_idx, ctx.hadits_idx, ctx.folder
     with sementara(keluar or bahan(folder)) as part:
         part.write_text(json.dumps({"meta": meta, "format": profil, "blok": blok, "catatan": catatan,
                                    "ayat": ayat_idx, "hadits": hadits_idx, "pustaka": pustaka,
                                    "quran": bool(quran), "tautan": TAUTAN.pattern, "sumber": sumber,
                                    "naskah_sha256": sidik_naskah}, ensure_ascii=False), encoding="utf8")
+
+
+def _laporan(ctx, n_matan, n_fn, sidik_naskah):
+    """Baris laporan `cek`: ringkasan, GAGAL, perhatian, catatan kaki tanpa bukti."""
+    blok, pustaka, catatan, ayat_idx = ctx.blok, ctx.pustaka, ctx.catatan, ctx.ayat_idx
+    hadits_idx, galat, perhatian, folder = ctx.hadits_idx, ctx.galat, ctx.perhatian, ctx.folder
     n_bukti = sum(c["bukti"] for c in catatan)
     n_luar = sum(c["luar"] for c in catatan)  # disebut di ringkasan: tanda yang bisa menyembunyikan kutipan karangan
     n_pdf = sum(c["pdf"] for c in catatan)
@@ -3589,8 +3694,7 @@ def periksa(folder, keluar=None):
     lap.append(f"catatan kaki tanpa bukti (selain rujukan ayat dan rujukan kitab di atas): {len(fn_tanpa)}")
     lap += [f"  - {f}" for f in fn_tanpa]
     lap.append(f"NASKAH_SHA256={sidik_naskah}")
-    ctx.galat, ctx.perhatian = galat, perhatian
-    return ctx, lap
+    return lap
 
 
 def _ringkas(t, maks=200):
