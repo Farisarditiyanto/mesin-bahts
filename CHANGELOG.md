@@ -5,6 +5,18 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- Audit #154/#155:
+  - pembersih `.rakit-*` tidak lagi mengikuti tautan folder/junction atau menganggap direktori/tautan bernama `rakit.sementara` sebagai izin menghapus; penanda dipulihkan bila isi sudah terhapus tetapi direktori masih terkunci;
+  - `tahap` tidak membuat atau menulis metadata kunci rakit; sidik laporan yang rusak menjadi TIDAK_DIKETAHUI, dan nama laporan potongan yang bukan nomor/rentang sah diabaikan;
+  - bab «مقدمة في …»/«خاتمة في …» tidak lagi dianggap المقدمة/الخاتمة bahts; judul bagian dengan keterangan sesudah titik dua tetap dikenali; «مخلصا» bukan tanda hasil penelitian;
+  - «آفاق البحث» mengikuti ص197: sisi lain di luar yang dibahas, bukan «حدود البحث»;
+  - pemisah sumber dinilai di tiap batas: perantara/label satu pasangan dan «؛» dalam data cetak tidak membebaskan koma antarsumber lain;
+  - rujukan kitab bernomor dengan nol di depan tetap dihitung sebagai kitab yang sama; tahun lima digit tidak lagi cocok sebagai tahun cetak empat digit;
+  - `kartu` membuang gelar berharakat sambil mempertahankan harakat nama;
+  - judul kitab di tempat judul (awal rujukan, sesudah «؛»، «انظر:», atau titik dua lain) tidak lagi dibaca sebagai gelar («سماحة الإسلام»، «معالي الهمم»); nama sesudah «،», sesudah peran («تحقيق:»، «بعناية:»), dan di awal baris #R bergaya muallif tetap dinilai;
+  - penerbit «دار ابن …» (juga muhaqqiq «… بن …») kini dikenali sebagai data cetak walau tanpa tahun;
+  - folder `.rakit-*` yang memuat tautan folder/junction kini dibuang: hanya tautannya yang dihapus, isi tujuannya tidak disentuh. Dulu folder itu tertahan selamanya dengan pesan «berkas masih terbuka».
+
 - Baru, dari أبو سليمان، كتابة البحث العلمي (Shamela 8350); semuanya perhatian (tidak ada GAGAL baru), jadi naskah lama bisa mendapat perhatian baru:
   - rujukan pertama tiap kitab (di luar takhrij dan kitab hadits) tanpa data cetak: dicocokkan ke penerbit, muhaqqiq, atau tahun cetak di `kartu` kitab itu (ص170);
   - beberapa sumber di satu catatan kaki dipisah «،», bukan «؛» (ص176);
