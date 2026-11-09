@@ -137,7 +137,7 @@ riset.txt (di folder bahts, di samping naskah.txt): jejak langkah riset yang tid
                       belum tercatat = perhatian, juga baris riset.txt yang rusak atau kunci takhrij8 yang tidak ada di naskah.
                       Tidak pernah GAGAL: isinya ditulis agen sendiri, jadi mesin hanya menunjuk yang belum dicatat
 """
-import bisect, difflib, functools, hashlib, io, json, os, re, tempfile, unicodedata, zlib
+import bisect, difflib, functools, hashlib, io, itertools, json, os, re, tempfile, unicodedata, zlib
 from pathlib import Path
 
 import norma
@@ -3082,37 +3082,52 @@ def porsi_kutipan(blok, catatan):
 DIRASAT = "الدراسات السابقة"
 # tiap studi wajib menyebut tiga hal ini (AGENTS.md الدراسات السابقة; التقويم = «دراسة نقدية فاحصة… تقويمًا لمحتواها»,
 # أبو سليمان، كتابة البحث العلمي، ص60)
-DIRASAT_LABEL = (("وجه الاتفاق", r"الاتفاق"), ("وجه الاختلاف", r"الاختلاف"), ("التقويم", r"تقويم|التقويم"))
+DIRASAT_LABEL = (("وجه الاتفاق:", r"أ?وجه\s+الاتفاق\s*:"), ("وجه الاختلاف:", r"أ?وجه\s+(?:الاختلاف|الافتراق)\s*:"),
+                 ("التقويم:", r"التقويم\s*:"))
+TAHUN_TERBIT = re.compile(r"(?<!\d)(1[3-4]\d\d|19\d\d|20\d\d)(?!\d)\s*(م|هـ)")
+TINGKAT_JUDUL = {"K": 0, "F": 0, "R": 0, "B": 1, "M": 2, "S": 3}
 
 
 def periksa_dirasat(blok, catatan):
-    """Perhatian tiap studi di bagian berjudul «الدراسات السابقة» (sampai judul berikutnya). Studi = paragraf yang
-    catatan kakinya bersumber di luar Shamela (<<luar…>>); paragraf pengantar dan الإضافة العلمية tidak dinilai.
-    Satu perhatian per studi, berisi semua kekurangannya: label وجه الاتفاق/الاختلاف/التقويم, PDF yang tidak dibaca
-    (bukti hanya <<luar>>, tanpa <<luar|berkas.pdf|hal>>), dan tahun yang lebih dulu dari studi sebelumnya."""
-    hasil, di_bagian, tahun_lalu = [], False, None
+    """Perhatian tiap studi di bagian berjudul «الدراسات السابقة» (judul tingkat apa pun, harakat diabaikan) sampai
+    judul setingkat atau lebih tinggi. Studi = paragraf yang bercatatan kaki di luar Shamela (<<luar…>>), memuat salah
+    satu label, atau menyebut tahun terbit («…م»/«…هـ»); pengantar dan الإضافة العلمية tidak dinilai. Satu perhatian per
+    studi, berisi semua kekurangannya: label «وجه الاتفاق:»/«وجه الاختلاف:»/«التقويم:», PDF yang tidak dibaca (tanpa
+    <<luar|berkas.pdf|hal>>), dan tahun terbit yang lebih dulu dari studi sebelumnya. Tahun terbit = tahun terakhir
+    sebelum catatan kaki pertama (tahun di judul studi, mis. «رؤية 2030م», ada di depannya)."""
+    hasil, bagian, tahun_lalu = [], None, None
     for b in blok:
-        if b["k"] in ("K", "F", "B", "M", "S", "R"):
-            di_bagian, tahun_lalu = b["k"] == "S" and DIRASAT in b.get("judul", ""), None
+        if b["k"] in TINGKAT_JUDUL:
+            if bagian is not None and TINGKAT_JUDUL[b["k"]] <= bagian:
+                bagian = None
+            if bagian is None and DIRASAT in norma.HARAKAT.sub("", b.get("judul", "")):
+                bagian, tahun_lalu = TINGKAT_JUDUL[b["k"]], None
             continue
-        if not di_bagian or b["k"] != "P":
+        if bagian is None or b["k"] != "P":
             continue
         fn = [catatan[r["fn"]] for r in b["runs"] if "fn" in r]
-        if not any(c["luar"] or c["pdf"] for c in fn):
+        teks = norma.HARAKAT.sub("", "".join(r.get("t", "") for r in b["runs"])).translate(ANGKA_LATIN)
+        awal = norma.HARAKAT.sub("", "".join(r.get("t", "") for r in itertools.takewhile(lambda r: "fn" not in r, b["runs"])))
+        label = [bool(re.search(pola, teks)) for _, pola in DIRASAT_LABEL]
+        tahun_semua = TAHUN_TERBIT.findall(awal.translate(ANGKA_LATIN)) if fn else TAHUN_TERBIT.findall(teks)
+        if not (any(c["luar"] or c["pdf"] for c in fn) or any(label) or tahun_semua):
             continue
-        teks = "".join(r.get("t", "") for r in b["runs"]).translate(ANGKA_LATIN)
-        kurang = [f"belum ada «{nama}»" for nama, pola in DIRASAT_LABEL if not re.search(pola, teks)]
+        kurang = [f"belum ada «{nama}»" for (nama, _), ada in zip(DIRASAT_LABEL, label) if not ada]
+        if not all(label):
+            kurang[-1] += " (satu studi satu paragraf: label dicari di paragraf ini)"
+        isi_fn = " ".join(r.get("t", "") for c in fn for r in c["runs"])
         if not any(c["pdf"] for c in fn):
-            kurang.append("PDF-nya belum dibaca: unduh lewat `dirasat-pdf` lalu rujuk <<luar|berkas.pdf|hal>>; PDF memang "
+            kurang.append("hanya dari ringkasan («اطلعت على ملخصه»): sebut di laporan akhir" if "اطلعت على ملخص" in isi_fn else
+                          "PDF-nya belum dibaca: unduh lewat `dirasat-pdf` lalu rujuk <<luar|berkas.pdf|hal>>; PDF memang "
                           "tidak bisa didapat → tulis «اطلعت على ملخصه» di catatan kakinya dan sebut di laporan akhir")
-        th = re.search(r"(?<!\d)(1[3-4]\d\d|19\d\d|20\d\d)(?!\d)\s*(م|هـ)", teks)
-        if th:  # tahun hijriah dibandingkan sebagai masehi (kira-kira; cukup untuk urutan)
-            tahun = int(th.group(1)) if th.group(2) == "م" else round(int(th.group(1)) * 0.970224 + 621.5643)
+        if tahun_semua:  # tahun hijriah dibandingkan sebagai masehi (kira-kira; cukup untuk urutan)
+            angka, akhiran = tahun_semua[-1] if fn else tahun_semua[0]
+            tahun = int(angka) if akhiran == "م" else round(int(angka) * 0.970224 + 621.5643)
             if tahun_lalu and tahun < tahun_lalu[0]:
-                kurang.append(f"tahun {th.group(1)}{th.group(2)} lebih dulu daripada studi sebelumnya ({tahun_lalu[1]}): "
+                kurang.append(f"tahun {angka}{akhiran} lebih dulu daripada studi sebelumnya ({tahun_lalu[1]}): "
                               f"urutkan dari yang terlama")
             else:
-                tahun_lalu = (tahun, th.group(1) + th.group(2))
+                tahun_lalu = (tahun, angka + akhiran)
         if kurang:
             hasil.append(f"baris {b['n']}: {DIRASAT}: " + "; ".join(kurang))
     return hasil
