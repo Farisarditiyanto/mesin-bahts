@@ -48,7 +48,7 @@ def jejak_kartu(sid):
             judul |= dua  # judul/pengarang: ada di rujukan mana pun, jadi bukan tanda data cetak
             continue
         pasangan |= dua
-        tahun |= set(re.findall(r"\d{3,4}", nilai.translate(str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789"))))
+        tahun |= set(re.findall(r"(?<!\d)\d{3,4}(?!\d)", nilai.translate(str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789"))))
     # judul katalog juga: deskripsi tanpa kunci bisa mengulang judul («الشرح الكبير … «حاشية الدسوقي» عليه», kartu 21604)
     kata = _kata(m.get("title_ar", "").split(" - ")[0].replace("=", " "))
     judul |= {f"{x} {y}" for x, y in zip(kata, kata[1:])}
@@ -63,7 +63,7 @@ def _berdata(bagian, sid):
     if any(f"{x} {y}" in pasangan for x, y in zip(kata, kata[1:])):
         return True
     angka = bagian.translate(str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789"))
-    return any(t in tahun for t in re.findall(r"(\d{3,4})\s*[هـم]", angka))
+    return any(t in tahun for t in re.findall(r"(?<!\d)(\d{3,4})\s*[هـم]", angka))
 
 
 def data_cetak(isi, terbukti, sudah):
@@ -74,7 +74,7 @@ def data_cetak(isi, terbukti, sudah):
     takhrij = TAKHRIJ_AWAL.match(teks) or teks.lstrip().startswith(BUKAN_RUJUKAN)
     hasil = []
     for bagian, bb in bagian_kitab(isi, terbukti):
-        for sid in dict.fromkeys(b[0] for b in bb):
+        for sid in dict.fromkeys(str(int(b[0])) for b in bb):
             if sid in sudah:
                 continue
             berdata = _berdata(bagian, sid)
@@ -93,15 +93,22 @@ def pemisah_sumber(isi, terbukti):
     """Perhatian kalau beberapa sumber di satu catatan kaki (bukan takhrij) dipisah «،», bukan «؛» (ص176 no. 15), atau
     None. Sumber «نقلا عن/مقتبس من» (satu sumber lewat perantara) dan sumber berlabel («وفي الأثر: …») tidak dinilai."""
     teks = norma.HARAKAT.sub("", isi)
-    if (TAKHRIJ_AWAL.match(teks) or PERANTARA.search(teks)
-            or re.search(r"(?<![ء-ي])و?في\s+[^:،؛.]{1,40}:", teks)):
+    if TAKHRIJ_AWAL.match(teks):
         return None
     bagian = bagian_kitab(isi, terbukti)
     for (a, _), (b, _) in zip(bagian, bagian[1:]):
-        # batas potongan bisa jatuh di nama pengarang («ص10؛ والسبل، الصنعاني»): «؛» di potongan itu = sudah dipisah
-        # «…ص10، وينظر: سبل السلام…»: kata rujukan di ujung potongan bukan pemisah, yang dinilai tanda sebelumnya
-        ujung = re.sub(r"\s*و?(?:انظر|ينظر|راجع)\s*:?\s*$", "", a.rstrip())
-        if "؛" not in a and ujung[-1:] in "،,":
+        # Hanya hubungan di batas dua kitab ini yang dinilai. Perantara/label di tempat lain dalam catatan kaki
+        # tidak membebaskan sumber ketiga, dan «؛» di data muhaqqiq tidak menggantikan pemisah antarsumber.
+        a = norma.HARAKAT.sub("", a).rstrip()
+        if (any(not a[m.end():].strip() for m in PERANTARA.finditer(a))
+                or re.search(r"(?<![ء-ي])و?في\s+[^:،؛.]{1,40}:\s*$", a)):
+            continue
+        ujung = re.sub(r"\s*و?(?:انظر|ينظر|راجع)\s*:?\s*$", "", a).rstrip()
+        # Judul singkat yang tidak dikenali bisa masih di ujung potongan sebelumnya: «…ص10؛ والسبل، |الصنعاني…».
+        # Satu bidang di antara «؛» dan nama pengarang itu adalah judulnya, bukan koma antarsumber.
+        if "؛" in ujung and re.fullmatch(r"\s*[ء-ي][^،,؛]*[،,]\s*", ujung.rsplit("؛", 1)[1]):
+            continue
+        if ujung.endswith(("،", ",")):
             return (f"beberapa sumber dipisah «،»: pisahkan dengan «؛» («…، 7/43؛ الإنصاف، …») "
                     f"(أبو سليمان، كتابة البحث العلمي، ص176)  || fn: {isi[:45]}")
     return None

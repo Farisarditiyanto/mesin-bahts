@@ -19,6 +19,7 @@ Folder .rakit-* punya keadaannya sendiri: berkas.FolderKerja. Satu langkah berik
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+import re
 
 from berkas import FolderKerja
 from shamela import perintah
@@ -47,7 +48,7 @@ KETERANGAN_HASIL = {
     Hasil.BELUM: "belum dirakit",
     Hasil.TERKINI: "dirakit dari naskah.txt versi ini (templat .docx dan versi mesin tidak dibandingkan)",
     Hasil.USANG: "dirakit dari naskah.txt versi lain (naskah diubah sesudah `rakit`)",
-    Hasil.TIDAK_DIKETAHUI: "versi naskahnya tidak tercatat (laporan dari mesin versi lama): rakit ulang supaya pasti",
+    Hasil.TIDAK_DIKETAHUI: "sidik versi naskah tidak tercatat atau tidak sah: rakit ulang supaya pasti",
 }
 
 
@@ -56,10 +57,11 @@ def naskah(galat, perhatian):
 
 
 def sidik_laporan(laporan):
-    """NASKAH_SHA256 yang tercatat di laporan hasil rakit; None = tidak tercatat (laporan versi lama)."""
+    """NASKAH_SHA256 sah di laporan hasil rakit; None = tidak tercatat (versi lama) atau rusak."""
     for b in laporan.read_text(encoding="utf8", errors="replace").splitlines():
         if b.startswith("NASKAH_SHA256="):
-            return b.split("=", 1)[1].strip()
+            nilai = b.split("=", 1)[1].strip()
+            return nilai if re.fullmatch(r"[0-9a-f]{64}", nilai) else None
     return None
 
 

@@ -270,7 +270,7 @@ def utama():
         out = cek("المقدمة رسالة", dasar.replace("@jenis: مثال تجريبي", "@jenis: رسالة ماجستير"))
         assert "المقدمة belum menyebut: " in out and "قيمة البحث وأهميته" in out, out
         lengkap = dasar.replace("#K المقدمة\n", "#K المقدمة\nموضوع البحث وأهميته وأسباب اختياره وحدوده وإجراءاته ومنهجه "
-                                "ومصطلحاته والدراسات السابقة وخطته.\n", 1)
+                                "ومصطلحاته وآفاقه والدراسات السابقة وخطته.\n", 1)
         assert "\n#K المقدمة\n" in dasar and "المقدمة belum" not in cek(
             "المقدمة رسالة lengkap", lengkap.replace("@jenis: مثال تجريبي", "@jenis: رسالة ماجستير"))
         assert "المقدمة belum" not in cek("المقدمة بحث صفي", dasar)
@@ -386,7 +386,7 @@ def utama():
         assert "HASIL=TIDAK_DIKETAHUI" in out and "naskah diubah" not in out.split("HASIL fasl")[0], out
         # bertahap per فصل: potongan terakhir yang dirakit menentukan; potongan lama yang USANG tidak disuruh rakit
         (ikhlas / "laporan.txt").unlink()
-        (ikhlas / "laporan-fasl1.txt").write_text(f"POTONGAN=--fasl 1: المقدمة\nNASKAH_SHA256=lama\n", encoding="utf8")
+        (ikhlas / "laporan-fasl1.txt").write_text(f"POTONGAN=--fasl 1: المقدمة\nNASKAH_SHA256={'0' * 64}\n", encoding="utf8")
         (ikhlas / "laporan-fasl2.txt").write_text(f"POTONGAN=--fasl 2: الفصل\nNASKAH_SHA256={sidik}\n", encoding="utf8")
         (ikhlas / "ikhlas - الفصل.pdf").write_bytes(b"%PDF")
         (ikhlas / "laporan-fasl10.txt").write_text("HALAMAN=1\n", encoding="utf8")  # tanpa baris POTONGAN

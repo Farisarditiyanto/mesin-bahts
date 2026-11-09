@@ -263,6 +263,14 @@ def nama_potongan(berkas, label, fasl):
     return f"{berkas} - {nama or 'fasl' + fasl}"
 
 
+def rentang_fasl(fasl):
+    """Nomor/rentang sah untuk hasil per فصل; dipakai perakit dan pembaca laporan tahap."""
+    m = re.fullmatch(r"([1-9][0-9]*)(?:-([1-9][0-9]*))?", fasl)
+    if not m or (m[2] and int(m[2]) < int(m[1])):
+        raise TandaRusak(f"--fasl «{fasl}»: tulis nomor #F, mis. «--fasl 2», atau rentang dari kecil ke besar, mis. «--fasl 1-2»")
+    return int(m[1]), int(m[2] or m[1])
+
+
 def potong(d, fasl):
     """`rakit <folder> --fasl n` (atau a-b): bahan rakit `d` (hasil utama, seluruh naskah sudah dicek) dipangkas jadi
     #F ke-n saja, untuk dosen yang meminta bahts dikumpulkan bertahap per فصل. Bentuknya mengikuti potongan yang dulu
@@ -270,10 +278,7 @@ def potong(d, fasl):
     sebelumnya, mis. المقدمة); المصادر dan الفهارس hanya di potongan yang memuat #F terakhir (bersama yang sesudahnya,
     mis. الخاتمة), dan فهرسnya hanya berisi isi potongan itu; nomor halaman tiap potongan mulai ١.
     Kembalikan label potongan (mis. «المقدمة والفصل الأول»), yang juga ditambahkan ke nama berkas hasil."""
-    m = re.fullmatch(r"([1-9][0-9]*)(?:-([1-9][0-9]*))?", fasl)
-    if not m or (m[2] and int(m[2]) < int(m[1])):
-        raise TandaRusak(f"--fasl «{fasl}»: tulis nomor #F, mis. «--fasl 2», atau rentang dari kecil ke besar, mis. «--fasl 1-2»")
-    dari, sampai = int(m[1]), int(m[2] or m[1])
+    dari, sampai = rentang_fasl(fasl)
     blok = d["blok"]
     awal_f = [i for i, b in enumerate(blok) if b["k"] == "F"]
     if sampai > len(awal_f):

@@ -56,7 +56,7 @@ from pathlib import Path
 
 import dirasat, hadits, norma, shamela  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
 from shamela import perintah
-from berkas import FolderKerja, PemulihanGagal, bahan, kosongkan_penulis, kunci, pemegang, terbitkan
+from berkas import FolderKerja, PemulihanGagal, bahan, kosongkan_penulis, kunci, terbitkan
 
 MESIN = Path(__file__).resolve().parent
 AKAR = MESIN.parent
@@ -393,8 +393,10 @@ def _tunggu_ps_yatim():
 def _ps_yatim():
     """rakit.ps1 masih memegang RAKIT_PS_KUNCI (dibuka tanpa berbagi selama ia hidup)? Dipakai rakit dan `tahap`."""
     try:
-        with open(RAKIT_PS_KUNCI, "ab"):
+        with open(RAKIT_PS_KUNCI, "rb"):
             return False
+    except FileNotFoundError:
+        return False
     except PermissionError:
         return True
 
@@ -638,8 +640,8 @@ def perintah_bukti(a):
 def perintah_tahap(a):
     """`tahap <folder>`: keadaan bahts dibaca ulang dari barang aslinya; mesin keadaannya di tahap.py. Folder bahts dan
     bahan `cek` di mesin/_tmp tidak disentuh (bahannya ditulis ke folder sementara)."""
-    import olah, tahap
-    from berkas import cadangan_tertinggal
+    import dasar, olah, tahap
+    from berkas import cadangan_tertinggal, lihat_kunci
     f = folder_bahts(a[0])
     with tempfile.TemporaryDirectory(prefix="bahts-tahap-") as t:
         ctx, lap = olah.periksa(f, Path(t) / "bahan.json")
@@ -649,23 +651,25 @@ def perintah_tahap(a):
     hasil = [tahap.Produk(f / "laporan.txt", tahap.hasil(pdf, f / "laporan.txt", sidik), pdf)]
 
     def urut(lp):  # laporan-fasl2 sebelum laporan-fasl10, laporan-fasl1 sebelum laporan-fasl1-2
-        m = re.fullmatch(r"laporan-fasl(\d+)(?:-(\d+))?", lp.stem)
-        return (int(m[1]), int(m[2] or m[1])) if m else (math.inf, 0)
+        try:
+            return olah.rentang_fasl(lp.stem.removeprefix("laporan-fasl"))
+        except dasar.TandaRusak:
+            return math.inf, 0
     for lp in sorted(f.glob("laporan-fasl*.txt"), key=urut):
         fasl = lp.stem.removeprefix("laporan-fasl")
+        if urut(lp)[0] == math.inf:
+            continue  # catatan/salinan laporan bukan produk `rakit --fasl`; jangan menyarankan perintah palsu
         label = next((b.split(": ", 1)[1] for b in lp.read_text(encoding="utf8", errors="replace").splitlines()
                       if b.startswith(f"POTONGAN=--fasl {fasl}: ")), None)
         pdf = None if label is None else f / f"{olah.nama_potongan(berkas, label, fasl)}.pdf"
         hasil.append(tahap.Produk(lp, tahap.hasil(pdf, lp, sidik), pdf, f"--fasl {fasl}"))
     rel = f.relative_to(AKAR).as_posix()
-    try:  # kunci dipegang sebentar: rakit yang masuk saat itu antre sendiri, rakit.ps1 tidak dimulai selama itu
-        with kunci(RAKIT_PEKERJAAN, apa=f"tahap {rel} (hanya melihat, selesai sebentar lagi)"):
-            rakit_, siapa = (tahap.Rakit.YATIM if _ps_yatim() else tahap.Rakit.BEBAS), ""
-    except RuntimeError:  # rakit lain memegangnya
-        rakit_, siapa = tahap.Rakit.JALAN, pemegang(RAKIT_PEKERJAAN)
+    siapa = lihat_kunci(RAKIT_PEKERJAAN)
+    rakit_ = tahap.Rakit.JALAN if siapa is not None else tahap.Rakit.YATIM if _ps_yatim() else tahap.Rakit.BEBAS
+    siapa = siapa or ""
     k = tahap.Keadaan(jalur=a[0].rstrip("/\\") or a[0], naskah=tahap.naskah(ctx.galat, ctx.perhatian),
                       galat=len(ctx.galat), perhatian=len(ctx.perhatian), tertolak=bool(ctx.tertolak), hasil=hasil,
-                      rakit=rakit_, siapa=siapa, rakit_sini=siapa.startswith(rel + ","),
+                      rakit=rakit_, siapa=siapa, rakit_sini=os.path.normcase(siapa).startswith(os.path.normcase(rel + ",")),
                       kerja=[(x.path.name, x.keadaan()) for x in FolderKerja.semua(f)], arsip=cadangan_tertinggal(f))
     print("\n".join(tahap.baris(k)))
 

@@ -239,13 +239,14 @@ def periksa_dirasat(blok, catatan):
 
 
 # Isi المقدمة menurut أبو سليمان، كتابة البحث العلمي، ص196-197, sembilan butir, dengan nama butir kitab itu (dikenali
-# lewat kata yang biasa dipakai di judul atau paragraf المقدمة; «الآفاق» butir 4 biasa ditulis «حدود البحث»). Hanya untuk رسالة/بحث تكميلي (@jenis):
+# lewat kata yang biasa dipakai di judul atau paragraf المقدمة). «الآفاق» butir 4 adalah sisi penelitian lain di luar
+# yang dibahas, bukan batas penelitian ini (ص197). Hanya untuk رسالة/بحث تكميلي (@jenis):
 # بحث صفي mengikuti خطة dosen (AGENTS.md: «خطة dosen menyebut isi المقدمة → sub-judul المقدمة ikut itu»).
 MUQADDIMAH = (
     ("تحديد موضوع البحث", r"موضوع|مشكل|إشكال|تساؤل|أسئل[ةه]"),
     ("قيمة البحث وأهميته", r"أهمي|قيم[ةه]"),
     ("أسباب الاختيار", r"أسباب|سبب|دوافع|بواعث|دواعي"),
-    ("آفاق البحث (الحدود)", r"حدود|نطاق|آفاق"),
+    ("آفاق البحث الأخرى", r"آفاق|(?:جوانب|مجالات|أبعاد)\s+أخرى"),
     ("طرق الوصول إلى النتائج", r"إجراءات|طريق[ةه] البحث|طرق البحث|خطوات البحث|طريقتي"),
     ("المنهج", r"منهج"),
     ("المصطلحات", r"مصطلح|تعريف"),
@@ -259,10 +260,12 @@ def _bagian(blok, kata):
     """(baris judul #K/#F bernama `kata` — «#K المقدمة»، «#K مقدمة البحث»، «#F الفصل الأول: المقدمة»، «#F الفصل الخامس:
     الخاتمة والتوصيات» —, teks judul dan paragrafnya sampai #K/#F berikutnya), atau None. Kata pertama judul (sesudah
     «…:») harus kata itu sendiri: «المقدمات اللغوية» dan «الخاتم في اللغة» adalah bab isi."""
-    pola = re.compile(rf"(?:ال)?{kata}[ةه](?![ء-ي])")
+    pola = re.compile(rf"(?:ال)?{kata}[ةه](?:\s+(?:البحث|الدراس[ةه]|الرسال[ةه]))?"
+                      r"(?:\s+و(?:التوصيات|النتائج))*(?:\s*[:：،–-].*)?")
     for i, b in enumerate(blok):
-        nama = norma.HARAKAT.sub("", b.get("judul", "")).rsplit(":", 1)[-1].strip()
-        if b["k"] in ("K", "F") and pola.match(nama):
+        nama = norma.HARAKAT.sub("", b.get("judul", "")).strip()
+        nama = re.sub(r"^(?:الفصل|الباب|المبحث)\s+[^:：]+[:：]\s*", "", nama)
+        if b["k"] in ("K", "F") and pola.fullmatch(nama):
             isi = []
             for x in blok[i + 1:]:
                 if x["k"] in ("K", "F", "R"):
@@ -290,7 +293,8 @@ def periksa_khatimah(blok):
     """Perhatian kalau الخاتمة berisi tetapi tidak menyebut hasil penelitian: الخاتمة «تعلن فيها الأحكام، وتقرر النتائج»
     (أبو سليمان، كتابة البحث العلمي، ص198). التوصيات tidak diminta: kitab itu menyebutnya «أحيانًا»."""
     m = _bagian(blok, "خاتم")  # hasil penelitian: «النتائج»، «تبين لي»، «توصلت»، «خلاصة»
-    if not m or not m[1].strip() or re.search(r"نتائج|نتيج[ةه]|توصل|تبين|تبيّن|خلص|خلاص[ةه]", m[1]):
+    if not m or not m[1].strip() or re.search(
+            r"نتائج|نتيج[ةه]|توصل|تبين|(?<![ء-ي])[وف]?خلص(?:ت|نا|وا)?(?![ء-ي])|خلاص[ةه]", m[1]):
         return []
     return [f"baris {m[0]}: الخاتمة belum menyebut النتائج: tulis hasil penelitian ini («أهم النتائج: …») "
             f"(أبو سليمان، كتابة البحث العلمي، ص198); التوصيات tidak wajib"]

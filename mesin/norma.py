@@ -59,9 +59,17 @@ def buang_gelar(baris):
     """Satu baris data cetak tanpa gelar di awal nama: «المحقق: الدكتور عبد الله …، الدكتور …» -> tanpa «الدكتور».
     Baris judul («الكتاب:») dan baris tanpa «kunci:» dibiarkan."""
     m = KUNCI_NAMA.match(baris)
-    if not m or m[1].strip() == "الكتاب":
+    if not m or HARAKAT.sub("", m[1]).strip() == "الكتاب":
         return baris
-    return baris[:m.end()] + GELAR.sub(r"\1\2", baris[m.end():])
+    nilai = baris[m.end():]
+    asal = [i for i, c in enumerate(nilai) if not HARAKAT.fullmatch(c)]
+    polos = "".join(nilai[i] for i in asal)
+    # Cari di tulisan tanpa harakat, tetapi cabut hanya rentang gelarnya dari tulisan asli. Harakat nama tetap
+    # utuh; `kartu` dan `cek` mengenali gelar yang sama meskipun sumber menulis «الدُّكْتُور».
+    for g in reversed(list(GELAR.finditer(polos))):
+        awal, akhir = g.span("gelar")
+        nilai = nilai[:asal[awal]] + nilai[asal[akhir] if akhir < len(asal) else len(nilai):]
+    return baris[:m.end()] + nilai
 
 
 BAGIAN = (("body", ""), ("footnotes", " [حاشية]"))  # bagian rekaman kitab, dan tandanya di keluaran
