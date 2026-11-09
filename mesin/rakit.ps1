@@ -446,20 +446,29 @@ try {
     }
     # nomor tercetak: mulai 1 lagi tiap halaman (ULANG 2) atau bersambung. Catatan kaki yang nomornya salah dibuat ulang
     # di tempat yang sama (tanda buatan sendiri tidak bisa diganti); itu bisa menggeser halaman, jadi diulang sampai tetap.
+    # Catatan kaki di batas halaman bisa bolak-balik tanpa ujung: nomor awal halaman (١) lebih sempit daripada nomor
+    # sambungan halaman sebelumnya (١٢), barisnya naik ke halaman itu, nomornya salah lagi (bahts 143 catatan kaki: 3 rakit
+    # gagal). Catatan kaki yang salah lagi pada putaran berikutnya: jarak huruf paragraf matannya digeser sedikit (seperti
+    # BarisPendek), supaya batas halamannya pindah dari tempat itu.
+    function SalahNomor {
+        $doc.Repaginate()
+        # halaman hanya dibaca untuk nomor yang mulai ulang tiap halaman, dan hanya kalau ada catatan kaki: AwalHalaman
+        # membaca awal tiap halaman (bentuk kitab 187 halaman tanpa catatan kaki: ±6 detik untuk apa-apa)
+        $ulangHal = $ULANG -eq 2 -and $doc.Footnotes.Count -gt 0
+        if ($ulangHal) { $awal = AwalHalaman }
+        $salah = @(); $hal = -1; $n = 0; $i = 0
+        foreach ($fn in $doc.Footnotes) {
+            $i++
+            if ($ulangHal) { $p = HalamanDi $awal $fn.Reference.Start; if ($p -ne $hal) { $n = 0; $hal = $p } }
+            $n++
+            if ($fn.Reference.Text -ne (Angka $n)) { $salah += , @($i, (Angka $n)) }
+        }
+        return , $salah
+    }
     function NomorCatatan {
-        for ($putaran = 1; $putaran -le 5; $putaran++) {
-            $doc.Repaginate()
-            # halaman hanya dibaca untuk nomor yang mulai ulang tiap halaman, dan hanya kalau ada catatan kaki: AwalHalaman
-            # membaca awal tiap halaman (bentuk kitab 187 halaman tanpa catatan kaki: ±6 detik untuk apa-apa)
-            $ulangHal = $ULANG -eq 2 -and $doc.Footnotes.Count -gt 0
-            if ($ulangHal) { $awal = AwalHalaman }
-            $salah = @(); $hal = -1; $n = 0; $i = 0
-            foreach ($fn in $doc.Footnotes) {
-                $i++
-                if ($ulangHal) { $p = HalamanDi $awal $fn.Reference.Start; if ($p -ne $hal) { $n = 0; $hal = $p } }
-                $n++
-                if ($fn.Reference.Text -ne (Angka $n)) { $salah += , @($i, (Angka $n)) }
-            }
+        $geser = @{}; $salahLalu = @{}                   # nomor urut Word -> langkah jarak huruf yang sudah dipakai
+        for ($putaran = 1; $putaran -le 12; $putaran++) {
+            $salah = SalahNomor
             if (-not $salah.Count) { return }
             [array]::Reverse($salah)
             foreach ($s in $salah) {
@@ -467,9 +476,19 @@ try {
                 $lama = $doc.Footnotes.Item($s[0]); $pos = $lama.Reference.Start; $lama.Delete()
                 [void](BuatCatatan $doc.Range($pos, $pos) $asalCatatan[$s[0] - 1] $s[1])
             }
+            $kini = @{}
+            foreach ($s in $salah) {
+                $i = $s[0]; $kini[$i] = 1
+                if (-not $salahLalu.ContainsKey($i)) { continue }
+                $k = [int]$geser[$i]; if ($k -ge $GESER_CATATAN.Count) { continue }
+                $geser[$i] = $k + 1
+                $doc.Footnotes.Item($i).Reference.Paragraphs(1).Range.Font.Spacing = $GESER_CATATAN[$k]
+            }
+            $salahLalu = $kini
         }
-        throw "Nomor catatan kaki belum tetap sesudah 5 putaran penyusunan halaman."
+        throw "Nomor catatan kaki belum tetap sesudah 12 putaran penyusunan halaman."
     }
+    $GESER_CATATAN = -0.1, -0.2, -0.3, 0.1, 0.2       # pt; sama kecilnya dengan perapatan BarisPendek
     # baris terakhir paragraf yang cuma 1-2 kata ("runt"): jarak huruf paragraf itu dirapatkan 0,1 s.d. 0,3 pt sampai kata
     # itu naik ke baris sebelumnya; tidak berhasil sampai 0,3 = dibiarkan. Hanya paragraf rata kanan-kiri di luar tabel,
     # bukan sub-judul #S (tebal seluruhnya). Nomor baris (Information 10) hanya ada di Print Layout (di Draft -1).
@@ -812,14 +831,20 @@ try {
         return $n
     }
     # {P:kunci} di catatan kaki: tiap ⟦h_…⟧ / ⟦a_…⟧ diganti nomor halaman hadits {H:} atau titik rujukan {A:} itu
-    # (satu catatan kaki bisa memuat beberapa)
-    foreach ($fn in $doc.Footnotes) {
-        foreach ($k in @([regex]::Matches($fn.Range.Text, '⟦([ha]_[^⟧]+)⟧') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)) {
-            $rg = $fn.Range; $f = $rg.Find; $f.ClearFormatting(); $f.Replacement.ClearFormatting()
-            [void]$f.Execute(('⟦' + $k + '⟧'), $true, $false, $false, $false, $false, $true, 0, $false, (Angka (Hal $k)), 2)
+    # (satu catatan kaki bisa memuat beberapa). Angkanya bisa menggeser halaman, jadi nomor catatan kaki dicek lagi;
+    # catatan kaki yang dibuat ulang NomorCatatan kembali ke ⟦…⟧ dan diisi lagi
+    function IsiRujukanHalaman {
+        foreach ($fn in $doc.Footnotes) {
+            foreach ($k in @([regex]::Matches($fn.Range.Text, '⟦([ha]_[^⟧]+)⟧') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)) {
+                $rg = $fn.Range; $f = $rg.Find; $f.ClearFormatting(); $f.Replacement.ClearFormatting()
+                [void]$f.Execute(('⟦' + $k + '⟧'), $true, $false, $false, $false, $false, $true, 0, $false, (Angka (Hal $k)), 2)
+            }
         }
+        foreach ($fn in $doc.Footnotes) { if ($fn.Range.Text.Contains('⟦')) { throw "Nomor halaman {P:...} gagal diisi di catatan kaki: $($fn.Range.Text.Trim())" } }
     }
-    foreach ($fn in $doc.Footnotes) { if ($fn.Range.Text.Contains('⟦')) { throw "Nomor halaman {P:...} gagal diisi di catatan kaki: $($fn.Range.Text.Trim())" } }
+    IsiRujukanHalaman
+    for ($k = 1; $k -le 3 -and (SalahNomor).Count; $k++) { NomorCatatan; IsiRujukanHalaman }
+    if ((SalahNomor).Count) { throw "Nomor catatan kaki berubah lagi sesudah nomor halaman {P:...} diisi." }
     $doc.Repaginate()
     # tabel فهرس: angka asli («٢٤، ٣٠») bisa lebih lebar daripada '00', barisnya melipat, dan judul sesudahnya pindah halaman
     # (فهرس الموضوعات pernah mencetak 41 padahal judulnya di halaman 42): isi, Repaginate, ulangi sampai tidak ada yang berubah
