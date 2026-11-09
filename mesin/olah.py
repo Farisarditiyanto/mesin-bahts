@@ -87,6 +87,9 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       Kamus (bidang Shamela الغريب والمعاجم) boleh dirujuk lewat materinya tanpa juz/halaman, «مادة (قدر)»
                       atau «(قدر)»; materinya harus ada di halaman bukti: [^القاموس المحيط، الفيروزآبادي، مادة (قدر). <<7283|-|460>>]
                       Beberapa kitab di catatan kaki «انظر:»: urut dari pengarang yang lebih dulu wafat, kalau tidak = perhatian
+                      Beberapa sumber di satu catatan kaki (bukan takhrij) dipisah «؛», dipisah «،» = perhatian.
+                      Rujukan pertama tiap kitab (di luar takhrij) memuat data cetak dari `kartu`, kalau tidak = perhatian;
+                      nama tanpa gelar di depannya («تحقيق: د. …»، «، الشيخ …» = perhatian, juga di baris #R)
   <<sid|juz|hal|potongan>>   bukti dengan potongan lafaz sendiri (untuk nukilan makna «انظر», tanpa tanda petik).
                       #123 = nomor hadits: harus berdiri sebagai kepala hadits di halaman itu («123 - حدثنا», «36 - (123)», «(123) - حدثنا»).
                       Kutipan bertanda petik sebelum catatan kaki tetap dicek ke halaman bukti itu
@@ -143,9 +146,10 @@ from pathlib import Path
 import norma
 import shamela
 from berkas import bahan, sementara
-from cek_seluruh import periksa_dirasat, periksa_riset, porsi_kutipan
+from cek_seluruh import periksa_dirasat, periksa_khatimah, periksa_muqaddimah, periksa_riset, porsi_kutipan
 from cek_rujukan import rujukan_halaman
 from cek_sumber import standar_baris
+from cek_tautsiq import gelar
 from dasar import AD, ANGKA_LATIN, BELUM_DIUNDUH, HERE, HURUF_LATIN, LUAR, SURAH, TandaRusak
 from laporan import gabung_kembar
 from naskah import Pemeriksaan, urai
@@ -400,6 +404,9 @@ def _urai_baris(ctx, baris):
                 blok.append({"k": k, "runs": [{"t": t, "b": True}], "judul": t, "n": n})
         elif "#R" in di_baris:
             pustaka.append(b.strip())
+            g = gelar(b, "pustaka")
+            if g:
+                perhatian.append(g)
         else:
             try:
                 blok.append({"k": "P", "runs": urai(b, ctx), "n": n})
@@ -465,6 +472,9 @@ def _cek_sesudah_naskah(ctx):
     perhatian += standar_baris(ctx.standar); ctx.standar.clear()
     perhatian += porsi_kutipan(blok, catatan)
     perhatian += periksa_dirasat(blok, catatan)
+    if ctx.meta.get("bentuk") != "kitab":  # muqarrar (@bentuk: kitab; ctx.bentuk baru diisi _cek_bentuk) tanpa المقدمة/الخاتمة bahts
+        perhatian += periksa_muqaddimah(blok, ctx.meta.get("jenis", ""))
+        perhatian += periksa_khatimah(blok)
     for r in ctx.rujuk_silang:
         if r["k"] not in ctx.jangkar:
             dulu = any(h["k"] == "h_" + r["k"] for h in hadits_idx)
@@ -530,13 +540,16 @@ def _urutkan_fihris(ctx):
     """Urutan المصادر (القرآن الكريم paling atas), nama surat فهرس الآيات, urutan فهرس الأحاديث.
     Kembalikan baris pustaka القرآن الكريم."""
     pustaka, ayat_idx, hadits_idx = ctx.pustaka, ctx.ayat_idx, ctx.hadits_idx
-    def kunci_urut(s):
+    def kunci_urut(s, pengarang=False):
         s = norma.HARAKAT.sub("", s.replace("**", "").replace("__", ""))  # tanda tebal/miring @pustaka_gaya: muallif
+        if pengarang:  # baris diawali nama pengarang: «ابن/أبو» tidak dihitung, «ابن القيم» di ق (أبو سليمان ص204)
+            s = re.sub(r"^(?:(?:ابن|أبو|أبي|أبا|ابو|ابي|ابا)\s+)+", "", s)
         if not s.startswith("الله"):
             s = re.sub(r"^ال", "", s)
         return re.sub("[إأآ]", "ا", s)
     quran = [p for p in pustaka if norma.HARAKAT.sub("", p.replace("**", "").replace("__", "")).startswith("القرآن")]  # tanpa nomor, paling atas
-    pustaka = quran + sorted([p for p in pustaka if p not in quran], key=kunci_urut)
+    pengarang = ctx.meta.get("pustaka_gaya") == "muallif"
+    pustaka = quran + sorted([p for p in pustaka if p not in quran], key=lambda p: kunci_urut(p, pengarang))
     for a in ayat_idx:
         a["surah"] = SURAH[a["s"] - 1]
     hadits_idx.sort(key=lambda h: kunci_urut(h["t"]))

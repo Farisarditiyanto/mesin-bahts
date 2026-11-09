@@ -11,6 +11,7 @@ from cek_hadits import hadits_janggal, hadits_lain, periksa_derajat, periksa_tak
 from cek_kutipan import cek, cek_pdf
 from cek_rujukan import cocok_halaman, judul_kitab, judul_shamela, kitab_lain, rujukan_halaman
 from cek_sumber import standar_sumber, urutan_sumber
+from cek_tautsiq import data_cetak, gelar, pemisah_sumber
 from dasar import ANGKA_LATIN, AYAT_DI_KUTIPAN, DIPOTONG, HURUF_LATIN, LUAR, SURAH, TandaRusak, TIDAK_KETEMU
 from kitab_lokal import rentang_halaman, salah_halaman, salah_juz
 from petik import (
@@ -74,6 +75,7 @@ class Pemeriksaan:
     jangkar: set = dataclasses.field(default_factory=set)  # kunci {A:} naskah ini
     rujuk_silang: list = dataclasses.field(default_factory=list)  # {P:k} yang belum menunjuk {H:}: harus menunjuk {A:k}
     standar: list = dataclasses.field(default_factory=list)  # catatan standar_sumber yang belum dinilai (per bagian)
+    dirujuk: set = dataclasses.field(default_factory=set)  # kitab yang sudah dirujuk (rujukan pertama: cek_tautsiq.data_cetak)
     # bahan rakit selain catatan kaki dan فهرس (diisi `periksa`)
     meta: dict = dataclasses.field(default_factory=dict)  # @kunci: nilai
     di_baris: dict = dataclasses.field(default_factory=dict)  # @kunci dan #R -> nomor barisnya (galat yang ketahuan belakangan)
@@ -255,6 +257,7 @@ class Pengurai:
         self._cek_tanpa_bukti(c)
         if not c.diam:
             self._cek_penisbatan(c)
+            self._cek_tautsiq(c)
         self._pasang_catatan(c)
 
     def _baca_catatan(self):
@@ -553,6 +556,13 @@ class Pengurai:
         # halaman yang salah dibetulkan dulu: letak kitab di catatan kaki itu bisa ikut berubah
         u = urutan_sumber(isi, terbukti) if not self.di_catatan and not salah_hal else None
         perhatian += [u] if u else []
+
+    def _cek_tautsiq(self, c):
+        """Bentuk rujukan (cek_tautsiq): data cetak di rujukan pertama tiap kitab, «؛» antarsumber, nama tanpa gelar."""
+        self.perhatian.extend(data_cetak(c.isi, c.terbukti, self.ctx.dirujuk))
+        for p in (pemisah_sumber(c.isi, c.terbukti) if len(c.terbukti) > 1 else None, gelar(c.isi, "fn")):
+            if p:
+                self.perhatian.append(p)
 
     def _pasang_catatan(self, c):
         """Catatan kaki jadi bahan rakit: diurai sendiri, rumuz-nya dicetak, nomornya dipasang di matan."""

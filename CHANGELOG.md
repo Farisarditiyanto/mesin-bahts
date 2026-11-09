@@ -5,6 +5,14 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- Baru, dari أبو سليمان، كتابة البحث العلمي (Shamela 8350); semuanya perhatian (tidak ada GAGAL baru), jadi naskah lama bisa mendapat perhatian baru:
+  - rujukan pertama tiap kitab (di luar takhrij dan kitab hadits) tanpa data cetak: dicocokkan ke penerbit, muhaqqiq, atau tahun cetak di `kartu` kitab itu (ص170);
+  - beberapa sumber di satu catatan kaki dipisah «،», bukan «؛» (ص176);
+  - gelar di awal nama, di catatan kaki dan المصادر («تحقيق: د. …»، «، الشيخ …»; ص175-176). `kartu` kini membuang gelar di awal nama; jabatan di belakang nama («الأستاذ المساعد») dan nama yang memuat «الشيخ» («يوسف الشيخ محمد») tidak disentuh;
+  - الخاتمة (juga «#F … الخاتمة») yang tidak menyebut hasil penelitian (النتائج، تبين، توصل، خلاصة; ص198);
+  - المقدمة رسالة/بحث تكميلي (juga «#F … المقدمة») yang belum menyebut sembilan isinya menurut ص196-197. بحث صفي tidak dinilai.
+- Perbaikan: dengan `@pustaka_gaya: muallif`, المصادر diurutkan tanpa menghitung «ابن/أبو» (ابن القيم di ق, أبو داود di د; ص204). Dulu masuk huruf ا.
+
 - Baru: `tahap <folder>` mencetak tahap bahts sekarang dan satu langkah berikutnya, tanpa mengubah apa pun: naskah (`NASKAH=` GAGAL/PERHATIAN/LOLOS), PDF hasil rakit (`HASIL=` BELUM/TERKINI/USANG/TIDAK_DIKETAHUI; USANG = naskah diubah sesudah `rakit`, TIDAK_DIKETAHUI = laporan dari mesin versi lama; juga untuk tiap potongan `--fasl`), rakit yang sedang jalan (`RAKIT=JALAN` dengan folder, proses, dan jam mulainya), serta folder `.rakit-*` dan cadangan `_arsip/rakit-*` yang tidak pernah dibuang mesin (`PERLU PEMAKAI`). Perhatian yang tidak bisa dibereskan tidak menahan langkah berikutnya, dan rakit bahts lain tidak menahan membetulkan naskah ini. Dulu semuanya hanya bisa ditebak dari berkas di folder.
 - Perbaikan: folder `.rakit-*` yang gagal dibuang sebagian (berkas di dalamnya masih terbuka) kini tetap dibuang oleh `rakit` berikutnya. Dulu penandanya ikut terhapus duluan, lalu folder itu «dibiarkan» selamanya.
 - Perbaikan: `{A:kunci` tanpa penutup `}` kini ditolak `cek`; dulu tanda rujukan itu lolos dan ikut tercetak. Pemeriksaan penutup membaca daftar penangan tanda yang sama dengan pengurai.

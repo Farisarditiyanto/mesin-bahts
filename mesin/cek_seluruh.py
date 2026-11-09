@@ -236,3 +236,61 @@ def periksa_dirasat(blok, catatan):
         if kurang:
             hasil.append(f"baris {b['n']}: {DIRASAT}: " + "; ".join(kurang))
     return hasil
+
+
+# Isi المقدمة menurut أبو سليمان، كتابة البحث العلمي، ص196-197, sembilan butir, dengan nama butir kitab itu (dikenali
+# lewat kata yang biasa dipakai di judul atau paragraf المقدمة; «الآفاق» butir 4 biasa ditulis «حدود البحث»). Hanya untuk رسالة/بحث تكميلي (@jenis):
+# بحث صفي mengikuti خطة dosen (AGENTS.md: «خطة dosen menyebut isi المقدمة → sub-judul المقدمة ikut itu»).
+MUQADDIMAH = (
+    ("تحديد موضوع البحث", r"موضوع|مشكل|إشكال|تساؤل|أسئل[ةه]"),
+    ("قيمة البحث وأهميته", r"أهمي|قيم[ةه]"),
+    ("أسباب الاختيار", r"أسباب|سبب|دوافع|بواعث|دواعي"),
+    ("آفاق البحث (الحدود)", r"حدود|نطاق|آفاق"),
+    ("طرق الوصول إلى النتائج", r"إجراءات|طريق[ةه] البحث|طرق البحث|خطوات البحث|طريقتي"),
+    ("المنهج", r"منهج"),
+    ("المصطلحات", r"مصطلح|تعريف"),
+    ("الدراسات السابقة", r"الدراسات السابق|دراسات سابق"),
+    ("التقسيمات", r"خط[ةهت]|تقسيم|هيكل|مباحث|فصول"),
+)
+JENIS_RISALAH = re.compile(r"رسال[ةه]|تكميلي|ماجستير|دكتوراه|أطروح")
+
+
+def _bagian(blok, kata):
+    """(baris judul #K/#F bernama `kata` — «#K المقدمة»، «#K مقدمة البحث»، «#F الفصل الأول: المقدمة»، «#F الفصل الخامس:
+    الخاتمة والتوصيات» —, teks judul dan paragrafnya sampai #K/#F berikutnya), atau None. Kata pertama judul (sesudah
+    «…:») harus kata itu sendiri: «المقدمات اللغوية» dan «الخاتم في اللغة» adalah bab isi."""
+    pola = re.compile(rf"(?:ال)?{kata}[ةه](?![ء-ي])")
+    for i, b in enumerate(blok):
+        nama = norma.HARAKAT.sub("", b.get("judul", "")).rsplit(":", 1)[-1].strip()
+        if b["k"] in ("K", "F") and pola.match(nama):
+            isi = []
+            for x in blok[i + 1:]:
+                if x["k"] in ("K", "F", "R"):
+                    break
+                isi.append(x.get("judul") or "".join(r.get("t", "") for r in x.get("runs", [])))
+            return b["n"], norma.HARAKAT.sub("", "\n".join(isi))
+    return None
+
+
+def periksa_muqaddimah(blok, jenis):
+    """Satu perhatian kalau المقدمة رسالة/بحث تكميلي tidak menyebut salah satu isi MUQADDIMAH (judul atau paragrafnya)."""
+    if not JENIS_RISALAH.search(norma.HARAKAT.sub("", jenis or "")):
+        return []
+    m = _bagian(blok, "مقدم")
+    if not m or not m[1].strip():  # tanpa المقدمة, atau masih kosong (sudah jadi perhatian «masih kosong»)
+        return []
+    kurang = [nama for nama, pola in MUQADDIMAH if not re.search(pola, m[1])]
+    if not kurang:
+        return []
+    return [f"baris {m[0]}: المقدمة belum menyebut: {'، '.join(kurang)} (isi المقدمة رسالة menurut أبو سليمان، كتابة البحث "
+            f"العلمي، ص196-197); tulis yang diminta خطة dosen, yang tidak diminta biarkan dan sebut di laporan akhir"]
+
+
+def periksa_khatimah(blok):
+    """Perhatian kalau الخاتمة berisi tetapi tidak menyebut hasil penelitian: الخاتمة «تعلن فيها الأحكام، وتقرر النتائج»
+    (أبو سليمان، كتابة البحث العلمي، ص198). التوصيات tidak diminta: kitab itu menyebutnya «أحيانًا»."""
+    m = _bagian(blok, "خاتم")  # hasil penelitian: «النتائج»، «تبين لي»، «توصلت»، «خلاصة»
+    if not m or not m[1].strip() or re.search(r"نتائج|نتيج[ةه]|توصل|تبين|تبيّن|خلص|خلاص[ةه]", m[1]):
+        return []
+    return [f"baris {m[0]}: الخاتمة belum menyebut النتائج: tulis hasil penelitian ini («أهم النتائج: …») "
+            f"(أبو سليمان، كتابة البحث العلمي، ص198); التوصيات tidak wajib"]

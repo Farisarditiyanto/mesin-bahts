@@ -36,6 +36,34 @@ PRESENTASI = re.compile(r"[\u0675-\u0678\ufb50-\ufdfc\ufe70-\ufefc]")  # bentuk 
 SYAI = re.compile(r"شئ(?![ء-ي])")
 SYAI_TANPA_HAMZAH = re.compile(r"(?<![ء-ي])([وفبلك]{0,2}(?:ال)?)شي(?![ء-ي])")  # «شي» = «شيء»; «يمشي», «شيئا» tidak
 IBNU = re.compile(r"(?<![ء-ي])ابن(?![ء-ي])")
+# Gelar ilmiah/jabatan di depan nama: «إلغاء الألقاب -سواء كانت علمية، أو وظيفية- لدى ذكر أسماء المؤلفين» (أبو سليمان،
+# كتابة البحث العلمي، ص175-176). Satu tempat untuk `cek` (perhatian) dan `kartu` (data cetak tanpa gelar), supaya data
+# yang disalin dari `kartu` tidak ditandai lagi. Gelar hanya dikenali di awal nama: di awal teks, sesudah «: ، ؛ - /», atau
+# sesudah «و» («ود. عبد الفتاح»). Di tengah nama ia bagian nama («راجعه: يوسف الشيخ محمد البقاعي», kartu 11825), dan di
+# judul kitab didahului spasi biasa («مجموع فتاوى ورسائل فضيلة الشيخ …»). «الأستاذ المساعد/المشارك» = jabatan di belakang
+# nama, bukan gelar (kartu 2, 22793).
+# «د.ت»/«د.ط»/«د.ن»/«د.م» (دون تاريخ/طبعة/ناشر/مكان) di data cetak bukan gelar «د.»
+_GELAR_KATA = (r"(?:أ\s*\.\s*د\s*[./]|د\s*[./](?!\s*[تطنم](?![ء-ي]))|(?:الدكتور[ةه]?|الأستاذ[ةه]?(?!\s+(?:ال)?(?:مساعد|مشارك))|الشيخ|العلام[ةه]|"
+               r"المحامي|فضيل[ةه]|سماح[ةه]|معالي)(?![ء-ي]))\s*/?\s*")
+GELAR = re.compile(r"(^\s*|[،,؛;:/\-–]\s*|\s(?=و))(و?)(?P<gelar>(?:" + _GELAR_KATA + r")+)")
+KUNCI_NAMA = re.compile(r"^([^:\n]{1,40}):")  # baris data cetak `kartu` «kunci: nilai»; «الكتاب:» = judul, tidak disentuh
+
+
+def nama_bergelar(teks):
+    """Gelar pertama di awal sebuah nama di `teks` (tanpa harakat dan tanda **/__), atau None."""
+    g = GELAR.search(HARAKAT.sub("", teks.replace("**", "").replace("__", "")))
+    return g["gelar"].strip() if g else None
+
+
+def buang_gelar(baris):
+    """Satu baris data cetak tanpa gelar di awal nama: «المحقق: الدكتور عبد الله …، الدكتور …» -> tanpa «الدكتور».
+    Baris judul («الكتاب:») dan baris tanpa «kunci:» dibiarkan."""
+    m = KUNCI_NAMA.match(baris)
+    if not m or m[1].strip() == "الكتاب":
+        return baris
+    return baris[:m.end()] + GELAR.sub(r"\1\2", baris[m.end():])
+
+
 BAGIAN = (("body", ""), ("footnotes", " [حاشية]"))  # bagian rekaman kitab, dan tandanya di keluaran
 PENANDA = re.compile(r"⦗([٠-٩]+)⦘")  # awal halaman cetak berikutnya di dalam satu rekaman
 

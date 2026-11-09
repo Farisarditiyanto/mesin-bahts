@@ -61,6 +61,13 @@ for a, harus, jangan in ((["cari", "1082", "العربان"], ["ج5 ص40", "ج5 
     salah = [h for h in harus if h not in out] + [f"ada {j}" for j in jangan if j in out]
     if kode or salah:
         gagal.append(f"{' '.join(a)}: kode {kode}, {salah}; keluaran {out[:300]!r} {err[-200:]!r}")
+# `kartu`: data cetak disalin apa adanya ke catatan kaki, jadi gelar di awal nama muhaqqiq dibuang («إلغاء الألقاب»،
+# أبو سليمان ص175-176); «الشيخ» di tengah nama adalah bagian nama («يوسف الشيخ محمد البقاعي», 11825)
+for sid, harus, jangan in (("2348", "تعليق وتحقيق: ماهر ياسين الفحل", "الدكتور ماهر"),
+                           ("11825", "راجعه: يوسف الشيخ محمد البقاعي", None)):
+    kode, out, err = jalankan("kartu", sid)
+    if kode or harus not in out or (jangan and jangan in out):
+        gagal.append(f"kartu {sid}: harus memuat «{harus}»" + (f" tanpa «{jangan}»" if jangan else "") + f"; keluaran {out[:300]!r}")
 kode, out, err = jalankan("kartu", "11223", "--potongan")
 if kode != 1 or "berlebih" not in err:
     gagal.append(f"kartu 11223 --potongan: harus ditolak (bendera hanya untuk cari/teks/bab); kode {kode}, galat {err[:80]!r}")
