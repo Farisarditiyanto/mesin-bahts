@@ -43,16 +43,38 @@ IBNU = re.compile(r"(?<![ء-ي])ابن(?![ء-ي])")
 # judul kitab didahului spasi biasa («مجموع فتاوى ورسائل فضيلة الشيخ …»). «الأستاذ المساعد/المشارك» = jabatan di belakang
 # nama, bukan gelar (kartu 2, 22793).
 # «د.ت»/«د.ط»/«د.ن»/«د.م» (دون تاريخ/طبعة/ناشر/مكان) di data cetak bukan gelar «د.»
-_GELAR_KATA = (r"(?:أ\s*\.\s*د\s*[./]|د\s*[./](?!\s*[تطنم](?![ء-ي]))|(?:الدكتور[ةه]?|الأستاذ[ةه]?(?!\s+(?:ال)?(?:مساعد|مشارك))|الشيخ|العلام[ةه]|"
-               r"المحامي|فضيل[ةه]|سماح[ةه]|معالي)(?![ء-ي]))\s*/?\s*")
-GELAR = re.compile(r"(^\s*|[،,؛;:/\-–]\s*|\s(?=و))(و?)(?P<gelar>(?:" + _GELAR_KATA + r")+)")
+# Gelar yang tidak pernah jadi awal judul kitab (singkatan dan sebutan akademik/profesi) dinilai di awal nama mana pun;
+# gelar yang juga awal judul («الشيخ محمد بن عبد الوهاب عقيدته السلفية»، «سماحة الإسلام»، «معالي الهمم») hanya di tempat
+# nama, lihat GELAR_NAMA.
+_PASTI = (r"(?:أ\s*\.\s*د\s*[./]|د\s*[./](?!\s*[تطنم](?![ء-ي]))|"
+          r"(?:الدكتور[ةه]?|الأستاذ[ةه]?(?!\s+(?:ال)?(?:مساعد|مشارك))|المحامي)(?![ء-ي]))")
+_RAGU = r"(?:(?:الشيخ|العلام[ةه]|فضيل[ةه]|سماح[ةه]|معالي)(?![ء-ي]))"
+_GELAR_KATA = rf"(?:{_PASTI}|{_RAGU})\s*/?\s*"
+_AWAL = r"(^\s*|[،,؛;:/\-–]\s*|\s(?=و))(و?)"
+GELAR = re.compile(_AWAL + r"(?P<gelar>(?:" + _GELAR_KATA + r")+)")
+GELAR_PASTI = re.compile(_AWAL + r"(?P<gelar>" + _PASTI + r"\s*/?\s*(?:" + _GELAR_KATA + r")*)")
 KUNCI_NAMA = re.compile(r"^([^:\n]{1,40}):")  # baris data cetak `kartu` «kunci: nilai»; «الكتاب:» = judul, tidak disentuh
+# Tempat nama di rujukan yang ditulis (catatan kaki, #R): sesudah «،» (pengarang/penerbit sesudah judul) atau sesudah
+# peran «تحقيق: …»; awal rujukan, «؛», «انظر:», dan titik dua lain («وفي المثل: …») juga tempat judul.
+_PERAN = (r"(?<![ء-ي])(?:تحقيق|حقق|المحقق|المحققون|تعليق|علق|راجعه|مراجع[ةه]|ضبط|إشراف|أشرف|تقديم|قدم|إعداد|أعد|"
+          r"جمع|ترجم[ةه]|اعتنى|عناي[ةت]|بعناي[ةت]|صور|تأليف|المؤلف|بقلم|شرح|خرج|تخريج|دراس[ةه])[^:،؛\n]{0,15}:\s*")
+_GELAR_NAMA = r"(?P<gelar>(?:" + _GELAR_KATA + r")+)"
+GELAR_NAMA = re.compile(r"(?:[،,/\-–]\s*|" + _PERAN + r"|\s(?=و))(?:و?)" + _GELAR_NAMA)
+GELAR_NAMA_AWAL = re.compile(r"(?:^\s*|[،,/\-–]\s*|" + _PERAN + r"|\s(?=و))(?:و?)" + _GELAR_NAMA)
+# Di catatan kaki, sumber bisa ditulis pengarang dulu («؛ الشيخ ابن عثيمين، الشرح الممتع»): di tempat judul gelar ragu
+# tetap dinilai kalau langsung disusul nama bernasab («ابن/أبو …» atau «… بن …» sebelum «،»).
+GELAR_NASAB = re.compile(r"(?:^\s*|[؛;:]\s*)(?:و?)" + _GELAR_NAMA +
+                         r"(?=(?:ابن|أبو|أبي|أبا)\s|[^،؛:\n]{0,30}\sبن\s)")
 
 
-def nama_bergelar(teks):
-    """Gelar pertama di awal sebuah nama di `teks` (tanpa harakat dan tanda **/__), atau None."""
-    g = GELAR.search(HARAKAT.sub("", teks.replace("**", "").replace("__", "")))
-    return g["gelar"].strip() if g else None
+def nama_bergelar(teks, awal_nama=False, catatan_kaki=False):
+    """Gelar pertama di awal sebuah nama di rujukan `teks` (tanpa harakat dan tanda **/__), atau None.
+    `awal_nama` = rujukan ini diawali nama pengarang (#R @pustaka_gaya: muallif, «**pengarang** …»);
+    `catatan_kaki` = sumber di dalamnya boleh ditulis pengarang dulu (GELAR_NASAB)."""
+    teks = HARAKAT.sub("", teks.replace("**", "").replace("__", ""))
+    pola = [GELAR_PASTI, GELAR_NAMA_AWAL if awal_nama else GELAR_NAMA] + ([GELAR_NASAB] if catatan_kaki else [])
+    g = [m for m in (p.search(teks) for p in pola) if m]
+    return min(g, key=lambda m: m.start("gelar"))["gelar"].strip() if g else None
 
 
 def buang_gelar(baris):

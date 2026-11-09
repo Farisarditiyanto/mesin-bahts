@@ -72,6 +72,30 @@ def utama():
                 harus(teks, "rujukan pertama", True)
         uji("tahun lima digit bukan tahun cetak kartu", tahun_palsu)
 
+        # pemeriksa independen PR #156: penerbit «دار ابن …» tanpa tahun tetap data cetak
+        ibnu = dasar.replace("#K الخاتمة", "وانظر[^انظر: سبل السلام، الصنعاني، تحقيق: محمد حلاق، دار ابن الجوزي، "
+                             "الدمام، 1/5. <<1082|1|5|إن الحمد لله نحمده>>].\n#K الخاتمة")
+        uji("«دار ابن الجوزي» adalah data cetak", lambda: harus(ibnu, "rujukan pertama «سبل", False))
+
+        # judul kitab di tempat judul (awal rujukan, sesudah «؛»/«انظر:»/titik dua lain) bukan gelar; nama sesudah «،»
+        # atau «تحقيق:» tetap dinilai, juga awal baris #R bergaya muallif («**الشيخ …**»)
+        judul_bergelar = (("#R", "سماحة الإسلام، عمر قريشي، 1400هـ."),
+                          ("#R", "الشيخ محمد بن عبد الوهاب عقيدته السلفية، أحمد آل بوطامي، 1400هـ."),
+                          ("fn", "وفي المثل: الشيخ في قومه كالنبي في أمته، ص5"),
+                          ("fn", "انظر: معالي الهمم، فلان، ص5"))
+        for tempat, teks in judul_bergelar:
+            t = (dasar.rstrip("\n") + "\n" + teks + "\n" if tempat == "#R" else
+                 dasar.replace("#K الخاتمة", f"وانظر[^{teks}. <<11223|-|5|توحيد الربوبية وهو إفراد الله تعالى بالخلق>>].\n#K الخاتمة"))
+            uji(f"judul «{teks[:20]}» bukan gelar", lambda t=t: harus(t, "di depan nama", False))
+        # «د.»/«الدكتور» tidak pernah awal judul: tetap dinilai di awal rujukan dan sesudah «انظر:»
+        for teks in ("انظر: د. محمد بن صالح العثيمين، رسالة في القضاء والقدر، ص5", "د. محمد بن صالح العثيمين، رسالة في القضاء والقدر، ص5"):
+            t = dasar.replace("#K الخاتمة", f"وانظر[^{teks}. <<11223|-|5|توحيد الربوبية وهو إفراد الله تعالى بالخلق>>].\n#K الخاتمة")
+            uji(f"gelar «د.» di «{teks[:12]}» tetap ditandai", lambda t=t: harus(t, "gelar «د.» di depan nama", True))
+        for teks in ("رسالة في القضاء والقدر، الشيخ محمد بن صالح العثيمين، دار الوطن، 1423هـ.",
+                     "**الشيخ محمد بن صالح العثيمين**. __رسالة في القضاء والقدر__. دار الوطن، 1423هـ."):
+            uji(f"gelar nama «{teks[:20]}» tetap ditandai",
+                lambda teks=teks: harus(dasar.rstrip("\n") + "\n" + teks + "\n", "gelar «الشيخ» di depan nama", True))
+
         def kartu_berharakat():
             p = akar / "kitab" / "2348" / "book_metadata.json"
             asal = p.read_bytes()
@@ -167,6 +191,22 @@ def utama():
                     if tautan.exists():
                         tautan.rmdir()  # hanya junction TEMP ini, bukan isi tujuannya
             uji("rakit tidak menghapus isi junction .rakit", junction)
+
+            def junction_di_dalam():
+                tujuan = akar / "milik-pemakai-2"
+                tujuan.mkdir()
+                penting = tujuan / "penting.txt"
+                penting.write_text("milik pemakai", encoding="utf8")
+                folder = f / ".rakit-berjunction"
+                folder.mkdir()
+                (folder / "rakit.sementara").write_text("")
+                r = subprocess.run(["cmd", "/c", "mklink", "/J", str(folder / "j"), str(tujuan)], capture_output=True)
+                assert r.returncode == 0, r.stderr
+                r = jalan("rakit", "@fromat: salah\n" + dasar)
+                assert r.returncode != 0 and "Belum dirakit" in r.stderr, r.stdout + r.stderr
+                assert penting.read_text(encoding="utf8") == "milik pemakai", "isi tujuan junction terhapus"
+                assert not folder.exists(), "folder sementara berisi junction tidak pernah dibuang: " + r.stderr[-300:]
+            uji("junction di dalam folder sementara: tautannya saja yang dibuang", junction_di_dalam)
 
             def folder_terkunci():
                 folder = f / ".rakit-terkunci"

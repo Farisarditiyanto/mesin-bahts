@@ -200,7 +200,12 @@ class FolderKerja:
         for isi in self.path.iterdir():
             if isi.name == self.SEMENTARA:
                 continue
-            if isi.is_dir() and not isi.is_symlink():
+            if isi.is_symlink() or isi.is_junction():
+                try:  # hanya tautannya yang dibuang, isi tujuannya tidak disentuh
+                    os.rmdir(isi) if isi.is_dir() else isi.unlink()
+                except OSError:
+                    pass
+            elif isi.is_dir():
                 shutil.rmtree(isi, ignore_errors=True)
             else:
                 try:
