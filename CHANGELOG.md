@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- Perbaikan: `rakit` dengan nomor catatan kaki mulai ١ tiap halaman tidak lagi berhenti «Nomor catatan kaki belum tetap sesudah 5 putaran». Catatan kaki di batas halaman bisa bolak-balik pindah halaman tiap nomornya dibetulkan (١ lebih sempit daripada ١٢); kini jarak huruf paragraf matannya digeser 0,1-0,3 pt sampai nomornya tetap. Nomor catatan kaki juga diperiksa lagi sesudah nomor halaman `{P:}` diisi.
 - Baru: `@qism:` mengganti baris «قسم الشريعة» di sampul `qism`/`jakarta` (mis. qism lain atau nama lembaga); « // » = pindah baris.
 - Perbaikan: PDF tidak lagi berakhir dengan halaman kosong bernomor saat tabel فهرس terakhir pas memenuhi halaman.
 - Baru: `@format: tatbiqi_16` = Traditional Arabic, matan 16, catatan kaki 12, spasi 1,5, judul utama (#K/#F) 18, sub-judul (#B/#M/#S) 16. Profil lain bisa memakai kunci `judul_sub` di `mesin/format.json` untuk ukuran sub-judul.
