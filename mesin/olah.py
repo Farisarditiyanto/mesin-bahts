@@ -3079,6 +3079,45 @@ def porsi_kutipan(blok, catatan):
     return hasil
 
 
+DIRASAT = "الدراسات السابقة"
+# tiap studi wajib menyebut tiga hal ini (AGENTS.md الدراسات السابقة; التقويم = «دراسة نقدية فاحصة… تقويمًا لمحتواها»,
+# أبو سليمان، كتابة البحث العلمي، ص60)
+DIRASAT_LABEL = (("وجه الاتفاق", r"الاتفاق"), ("وجه الاختلاف", r"الاختلاف"), ("التقويم", r"تقويم|التقويم"))
+
+
+def periksa_dirasat(blok, catatan):
+    """Perhatian tiap studi di bagian berjudul «الدراسات السابقة» (sampai judul berikutnya). Studi = paragraf yang
+    catatan kakinya bersumber di luar Shamela (<<luar…>>); paragraf pengantar dan الإضافة العلمية tidak dinilai.
+    Satu perhatian per studi, berisi semua kekurangannya: label وجه الاتفاق/الاختلاف/التقويم, PDF yang tidak dibaca
+    (bukti hanya <<luar>>, tanpa <<luar|berkas.pdf|hal>>), dan tahun yang lebih dulu dari studi sebelumnya."""
+    hasil, di_bagian, tahun_lalu = [], False, None
+    for b in blok:
+        if b["k"] in ("K", "F", "B", "M", "S", "R"):
+            di_bagian, tahun_lalu = b["k"] == "S" and DIRASAT in b.get("judul", ""), None
+            continue
+        if not di_bagian or b["k"] != "P":
+            continue
+        fn = [catatan[r["fn"]] for r in b["runs"] if "fn" in r]
+        if not any(c["luar"] or c["pdf"] for c in fn):
+            continue
+        teks = "".join(r.get("t", "") for r in b["runs"]).translate(ANGKA_LATIN)
+        kurang = [f"belum ada «{nama}»" for nama, pola in DIRASAT_LABEL if not re.search(pola, teks)]
+        if not any(c["pdf"] for c in fn):
+            kurang.append("PDF-nya belum dibaca: unduh lewat `dirasat-pdf` lalu rujuk <<luar|berkas.pdf|hal>>; PDF memang "
+                          "tidak bisa didapat → tulis «اطلعت على ملخصه» di catatan kakinya dan sebut di laporan akhir")
+        th = re.search(r"(?<!\d)(1[3-4]\d\d|19\d\d|20\d\d)(?!\d)\s*(م|هـ)", teks)
+        if th:  # tahun hijriah dibandingkan sebagai masehi (kira-kira; cukup untuk urutan)
+            tahun = int(th.group(1)) if th.group(2) == "م" else round(int(th.group(1)) * 0.970224 + 621.5643)
+            if tahun_lalu and tahun < tahun_lalu[0]:
+                kurang.append(f"tahun {th.group(1)}{th.group(2)} lebih dulu daripada studi sebelumnya ({tahun_lalu[1]}): "
+                              f"urutkan dari yang terlama")
+            else:
+                tahun_lalu = (tahun, th.group(1) + th.group(2))
+        if kurang:
+            hasil.append(f"baris {b['n']}: {DIRASAT}: " + "; ".join(kurang))
+    return hasil
+
+
 def utama(folder, keluar=None):
     """Olah naskah di `folder`. Kembalikan (jumlah galat, baris laporan, [(sid, kutipan)] yang «teks TIDAK KETEMU di kitab»)."""
     folder = Path(folder)
@@ -3164,7 +3203,7 @@ def utama(folder, keluar=None):
             pustaka.append(b.strip())
         else:
             try:
-                blok.append({"k": "P", "runs": urai(b, catatan, ayat_idx, hadits_idx, galat, perhatian, rumuz=rumuz, warna=warna, folder=folder)})
+                blok.append({"k": "P", "runs": urai(b, catatan, ayat_idx, hadits_idx, galat, perhatian, rumuz=rumuz, warna=warna, folder=folder), "n": n})
             except TandaRusak as e:
                 galat.append(f"baris {n}: tanda rusak — {e}")
             except (KeyError, IndexError, ValueError) as e:  # bukan salah tulis naskah: mesinnya yang keliru di baris ini
@@ -3180,6 +3219,7 @@ def utama(folder, keluar=None):
             r["n"] = n
     perhatian += standar_baris(STANDAR); STANDAR.clear()
     perhatian += porsi_kutipan(blok, catatan)
+    perhatian += periksa_dirasat(blok, catatan)
     for r in RUJUK_SILANG:
         if r["k"] not in JANGKAR:
             dulu = any(h["k"] == "h_" + r["k"] for h in hadits_idx)

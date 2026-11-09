@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- Baru: standar الدراسات السابقة dari أبو سليمان، كتابة البحث العلمي (ص60): tiap penelitian ditulis dengan isinya, «وجه الاتفاق»، «وجه الاختلاف»، dan «التقويم» (penilaian kritis), urut dari yang terlama, dan dibaca dari PDF-nya. `cek` memberi satu perhatian per penelitian di bagian berjudul «الدراسات السابقة» yang tanpa PDF (`<<luar|berkas.pdf|hal>>`), tanpa salah satu label itu, atau tidak urut tahunnya. Naskah lama bisa mendapat perhatian baru (tidak ada GAGAL baru).
 - Perbaikan: `rakit` dengan nomor catatan kaki mulai ١ tiap halaman tidak lagi berhenti «Nomor catatan kaki belum tetap sesudah 5 putaran». Catatan kaki di batas halaman bisa bolak-balik pindah halaman tiap nomornya dibetulkan (١ lebih sempit daripada ١٢); kini jarak huruf paragraf matannya dirapatkan 0,1-0,3 pt (atau dilonggarkan 0,1-0,2 pt) sampai nomornya tetap. Nomor catatan kaki juga diperiksa lagi sesudah nomor halaman `{P:}` diisi.
 - Baru: `@qism:` mengganti baris «قسم الشريعة» di sampul `qism`/`jakarta` (mis. qism lain atau nama lembaga); « // » = pindah baris.
 - Perbaikan: PDF tidak lagi berakhir dengan halaman kosong bernomor saat tabel فهرس terakhir pas memenuhi halaman.
