@@ -166,17 +166,31 @@ def porsi_kutipan(blok, catatan):
 DIRASAT = "الدراسات السابقة"
 # tiap studi wajib menyebut tiga hal ini (AGENTS.md الدراسات السابقة; التقويم = «دراسة نقدية فاحصة… تقويمًا لمحتواها»,
 # أبو سليمان، كتابة البحث العلمي، ص60)
-DIRASAT_LABEL = (("وجه الاتفاق:", r"أ?وجه\s+الاتفاق\s*:"), ("وجه الاختلاف:", r"أ?وجه\s+(?:الاختلاف|الافتراق)\s*:"),
-                 ("التقويم:", r"التقويم\s*:"))
+# kata utuh, boleh berawalan و/ف («ووجه»، «فالتقويم») dan أوجه dengan/tanpa hamzah («اوجه»), bukan potongan kata («عدموجه»)
+DIRASAT_LABEL = (("وجه الاتفاق:", r"(?<!\w)[وف]?[اأإ]?وجه\s+الاتفاق\s*:"),
+                 ("وجه الاختلاف:", r"(?<!\w)[وف]?[اأإ]?وجه\s+(?:الاختلاف|الافتراق)\s*:"),
+                 ("التقويم:", r"(?<!\w)[وف]?التقويم\s*:"))
 TAHUN_TERBIT = re.compile(r"(?<!\d)(1[3-4]\d\d|19\d\d|20\d\d)(?!\d)\s*(م|هـ)")
 TINGKAT_JUDUL = {"K": 0, "F": 0, "R": 0, "B": 1, "M": 2, "S": 3}
+
+
+def _label_dirasat(teks):
+    """Label utuh dan isinya sampai label berikutnya. Tanda baca/angka saja bukan pembahasan;
+    teks label berikutnya tidak boleh menjadi isi label yang masih kosong."""
+    semua = sorted((m.start(), m.end(), i) for i, (_, pola) in enumerate(DIRASAT_LABEL)
+                   for m in re.finditer(pola, teks))
+    ada, terisi = [False] * len(DIRASAT_LABEL), [False] * len(DIRASAT_LABEL)
+    for (_, akhir, i), (batas, _, _) in zip(semua, semua[1:] + [(len(teks), 0, 0)]):
+        ada[i] = True
+        terisi[i] |= bool(re.search(r"[^\W\d_]", teks[akhir:batas]))
+    return ada, terisi
 
 
 def periksa_dirasat(blok, catatan):
     """Perhatian tiap studi di bagian berjudul «الدراسات السابقة» (judul tingkat apa pun, harakat diabaikan) sampai
     judul setingkat atau lebih tinggi. Studi = paragraf yang bercatatan kaki di luar Shamela (<<luar…>>), memuat salah
     satu label, atau menyebut tahun terbit («…م»/«…هـ»); pengantar dan الإضافة العلمية tidak dinilai. Satu perhatian per
-    studi, berisi semua kekurangannya: label «وجه الاتفاق:»/«وجه الاختلاف:»/«التقويم:», PDF yang tidak dibaca (tanpa
+    studi, berisi semua kekurangannya: label «وجه الاتفاق:»/«وجه الاختلاف:»/«التقويم:» yang hilang atau kosong, PDF yang tidak dibaca (tanpa
     <<luar|berkas.pdf|hal>>), dan tahun terbit yang lebih dulu dari studi sebelumnya. Tahun terbit = tahun terakhir
     sebelum catatan kaki pertama dan label pertama (tahun di judul studi, mis. «رؤية 2030م», ada di depannya).
     Paragraf yang diawali «الإضافة العلمية» bukan studi walau menyebut tahun."""
@@ -198,12 +212,13 @@ def periksa_dirasat(blok, catatan):
         data = norma.HARAKAT.sub("", "".join(r.get("t", "") for r in itertools.takewhile(lambda r: "fn" not in r, b["runs"])))
         data = data.translate(ANGKA_LATIN)
         data = data[:min([m.start() for _, pola in DIRASAT_LABEL for m in [re.search(pola, data)] if m] + [len(data)])]
-        label = [bool(re.search(pola, teks)) for _, pola in DIRASAT_LABEL]
+        label, terisi = _label_dirasat(teks)
         tahun_semua = TAHUN_TERBIT.findall(data)
         if not (any(c["luar"] or c["pdf"] for c in fn) or any(label) or tahun_semua):
             continue
-        kurang = [f"belum ada «{nama}»" for (nama, _), ada in zip(DIRASAT_LABEL, label) if not ada]
-        if not all(label):
+        kurang = [(f"«{nama}» masih kosong" if ada else f"belum ada «{nama}»")
+                  for (nama, _), ada, isi in zip(DIRASAT_LABEL, label, terisi) if not isi]
+        if kurang:
             kurang[-1] += " (satu studi satu paragraf: label dicari di paragraf ini)"
         isi_fn = " ".join(r.get("t", "") for c in fn for r in c["runs"])
         if not any(c["pdf"] for c in fn):

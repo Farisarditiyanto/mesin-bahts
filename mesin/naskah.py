@@ -230,8 +230,9 @@ class Pengurai:
             raise TandaRusak("tanda (( tidak ditutup dengan ))")
         if re.search(rf"<<(?:\d+\||{LUAR}(?:>>|\|))", polos):
             raise TandaRusak("bukti <<...>> hanya boleh di dalam catatan kaki [^...]; di luar itu ia ikut tercetak")
-        if re.search(r"\{(?:Q|H2|H|P):", polos):
-            raise TandaRusak("tanda {Q:/{H:/{H2:/{P: tidak ditutup dengan }")
+        kurawal = [t for t in self.PENANGAN if t.startswith("{")]
+        if any(t in polos for t in kurawal):
+            raise TandaRusak(f"tanda {'/'.join(kurawal)} tidak ditutup dengan }}")
         ketik = None if self.di_catatan else ayat_ketik(polos[self.seg:])  # sesudah catatan kaki terakhir (atau baris tanpa catatan kaki)
         if ketik:
             self.perhatian.append(f"ayat diketik langsung «{ketik[:40]}»: tidak dicek ke mushaf; tulis lewat {{Q:surah:ayat}}")
