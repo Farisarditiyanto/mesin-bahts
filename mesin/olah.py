@@ -143,7 +143,7 @@ from pathlib import Path
 import norma
 import shamela
 from berkas import bahan, sementara
-from cek_naskah import periksa_dirasat, periksa_riset, porsi_kutipan
+from cek_seluruh import periksa_dirasat, periksa_riset, porsi_kutipan
 from cek_rujukan import rujukan_halaman
 from cek_sumber import standar_baris
 from dasar import AD, ANGKA_LATIN, BELUM_DIUNDUH, HERE, HURUF_LATIN, LUAR, SURAH, TandaRusak
@@ -354,35 +354,13 @@ def _baca_naskah(folder):
 def _urai_baris(ctx, baris):
     """Tiap baris naskah: @data, judul #…, rujukan sesudah #R, atau paragraf (diurai `urai`).
     Tiap galat dan perhatian diberi nomor barisnya."""
-    meta, di_baris, blok, pustaka = ctx.meta, ctx.di_baris, ctx.blok, ctx.pustaka
-    galat, perhatian, rumuz, warna = ctx.galat, ctx.perhatian, ctx.rumuz, ctx.warna
+    di_baris, blok, pustaka, galat, perhatian = ctx.di_baris, ctx.blok, ctx.pustaka, ctx.galat, ctx.perhatian
     for n, b in baris:
         if AWAL_BAGIAN.match(b) and ctx.standar:  # bagian baru: nilai standar sumber bagian sebelumnya
             perhatian += standar_baris(ctx.standar); ctx.standar.clear()
         g0, p0, u0, s0, r0 = len(galat), len(perhatian), len(ctx.penunjuk), len(ctx.standar), len(ctx.rujuk_silang)
         if b.startswith("@"):
-            k, _, v = b[1:].partition(":")
-            if k.strip() not in META:
-                mirip = difflib.get_close_matches(k.strip(), sorted(META), n=1)
-                galat.append(f"baris {n}: @{k.strip()}: data tidak dikenal" +
-                             (f"; maksudnya @{mirip[0]}?" if mirip else "; lihat `tanda` untuk daftar data naskah"))
-            meta[k.strip()] = v.strip()
-            di_baris["@" + k.strip()] = n
-            if k.strip() == "rumuz":
-                for pasang in re.split(r"[,،]", v):
-                    sid, _, z = pasang.partition("=")
-                    if not re.fullmatch(r"\d+", sid.strip()) or not z.strip():
-                        galat.append(f"@rumuz: «{pasang.strip()}»: bentuknya sid=huruf (atau sid=- tanpa rumuz), "
-                                     f"mis. «@rumuz: 12010=-، 900002=ف»"); continue
-                    rumuz[sid.strip()] = z.strip()
-            if k.strip() == "warna":
-                for pasang in re.split(r"[,،]", v):
-                    sid, _, w = pasang.partition("=")
-                    if not re.fullmatch(r"\d+", sid.strip()) or w.strip() not in WARNA:
-                        galat.append(f"@warna: «{pasang.strip()}»: bentuknya sid=warna (warna yang ada: {'، '.join(WARNA)}), "
-                                     f"mis. «@warna: 900002=biru»"); continue
-                    rr, gg, bb = WARNA[w.strip()]
-                    warna[sid.strip()] = rr + gg * 256 + bb * 65536
+            _baca_data(ctx, n, b)
         elif "#R" in di_baris and b.startswith("#"):
             galat.append(f"baris {n}: {b.split()[0]} sesudah #R di baris {di_baris['#R']} tidak dirakit: "
                          "pindahkan bagian isi sebelum #R; sesudah #R hanya satu rujukan per baris")
@@ -433,6 +411,45 @@ def _urai_baris(ctx, baris):
             c["n"] = n
         for r in ctx.rujuk_silang[r0:]:
             r["n"] = n
+
+
+def _baca_data(ctx, n, b):
+    """Baris «@kunci: nilai» (baris ke-n): simpan di meta; kunci yang punya pembaca di PEMBACA_DATA diurai sekarang,
+    karena dipakai `urai` untuk baris-baris sesudahnya. Nilai kunci lain dicek sesudah seluruh naskah dibaca."""
+    k, _, v = b[1:].partition(":")
+    k = k.strip()
+    if k not in META:
+        mirip = difflib.get_close_matches(k, sorted(META), n=1)
+        ctx.galat.append(f"baris {n}: @{k}: data tidak dikenal" +
+                         (f"; maksudnya @{mirip[0]}?" if mirip else "; lihat `tanda` untuk daftar data naskah"))
+    ctx.meta[k] = v.strip()
+    ctx.di_baris["@" + k] = n
+    if k in PEMBACA_DATA:
+        PEMBACA_DATA[k](ctx, v)
+
+
+def _baca_rumuz(ctx, v):
+    """@rumuz: sid=huruf, …"""
+    for pasang in re.split(r"[,،]", v):
+        sid, _, z = pasang.partition("=")
+        if not re.fullmatch(r"\d+", sid.strip()) or not z.strip():
+            ctx.galat.append(f"@rumuz: «{pasang.strip()}»: bentuknya sid=huruf (atau sid=- tanpa rumuz), "
+                             f"mis. «@rumuz: 12010=-، 900002=ف»"); continue
+        ctx.rumuz[sid.strip()] = z.strip()
+
+
+def _baca_warna(ctx, v):
+    """@warna: sid=warna, … -> warna Word (BGR)."""
+    for pasang in re.split(r"[,،]", v):
+        sid, _, w = pasang.partition("=")
+        if not re.fullmatch(r"\d+", sid.strip()) or w.strip() not in WARNA:
+            ctx.galat.append(f"@warna: «{pasang.strip()}»: bentuknya sid=warna (warna yang ada: {'، '.join(WARNA)}), "
+                             f"mis. «@warna: 900002=biru»"); continue
+        rr, gg, bb = WARNA[w.strip()]
+        ctx.warna[sid.strip()] = rr + gg * 256 + bb * 65536
+
+
+PEMBACA_DATA = {"rumuz": _baca_rumuz, "warna": _baca_warna}  # @data yang langsung dipakai `urai`
 
 
 def _cek_sesudah_naskah(ctx):

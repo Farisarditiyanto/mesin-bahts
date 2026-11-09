@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Akses kitab Shamela yang sudah diunduh: rekaman per juz/halaman, juz dan halaman yang tidak ada, teks
-beberapa halaman yang disambung, dan bagian kitab (المقدمة، الكتاب…) tempat sebuah kutipan."""
-import functools, re
+beberapa halaman yang disambung, bagian kitab (المقدمة، الكتاب…) tempat sebuah kutipan, dan letak bagian-bagian
+kutipan di teks sebuah kitab (dipakai `cek` dan `cek --jejak`)."""
+import bisect, functools, re
 
 import norma
 import shamela
@@ -205,3 +206,88 @@ def kitab_meta(sid):
     except ValueError:
         wafat = 99999
     return {"wafat": wafat, "kategori": int(m.get("category_id") or 0), "judul": m.get("title_ar") or str(sid)}
+
+
+def _rangkaian(padat_, ix):
+    """Rangkaian rekaman kitab dari teks `padat`-nya (`norma.Padat`): [(juz, tanda, teks, ruas)], teks dalam `bait`.
+    Aturannya sama dengan `gabung`: urut halaman, dan hanya rekaman yang halamannya bersambung (sama atau +1) di juz
+    yang sama yang dirangkai. ruas = (padat_, bagian, awal tiap rekaman di teks, nomor rekamannya), dibaca `halaman_di`."""
+    hasil = []
+    juz = {}
+    for i, x in enumerate(ix):
+        juz.setdefault(x[0], []).append(i)
+    for j, ii in juz.items():
+        urut = sorted(ii, key=lambda i: ix[i][1] or 0)
+        for s, (_, tanda) in enumerate(norma.BAGIAN):
+            t, mulai = padat_.teks[s], padat_.deret[s]["mulai"]
+            rek, awal, panjang, akhir = [], [], 0, 0
+            for i in urut:
+                n = ix[i][1]
+                if panjang and not (n and akhir <= n <= akhir + 1):
+                    hasil.append((j, tanda, b"".join(t[mulai[r]:mulai[r + 1]] for r in rek), (padat_, s, awal, rek)))
+                    rek, awal, panjang, akhir = [], [], 0, 0
+                rek.append(i); awal.append(panjang)
+                panjang += mulai[i + 1] - mulai[i]
+                akhir = max(akhir, ix[i][2])
+            if panjang:
+                hasil.append((j, tanda, b"".join(t[mulai[r]:mulai[r + 1]] for r in rek), (padat_, s, awal, rek)))
+    return hasil
+
+
+@functools.lru_cache(maxsize=4)  # banyak GAGAL di kitab yang sama tidak membaca ulang; memori tetap kecil
+def rangkaian_kitab(sid):
+    """`_rangkaian` kitab sid; `jejak` melepasnya tiap kitab."""
+    return _rangkaian(shamela._cache(sid), shamela.indeks(sid))
+
+
+def halaman_di(ruas, a, z):
+    """Rentang halaman cetak (kecil-besar) potongan teks[a:z] rangkaian yang ruasnya `ruas` (lihat `_rangkaian`):
+    halaman awal ruas pertama yang berakhir sesudah a, halaman akhir ruas pertama yang berakhir di z atau sesudahnya."""
+    padat_, s, awal, rek = ruas
+    d = padat_.deret[s]
+
+    def ruas_di(x, cari):  # ruas rekaman yang memuat letak x (rekaman kosong tidak memuat apa pun)
+        k = bisect.bisect_right(awal, x) - 1
+        i = rek[k]
+        return d["h1"], d["h2"], cari(d["akhir"], x - awal[k], d["ruas"][i], d["ruas"][i + 1])
+    h1s, _, k1 = ruas_di(a, bisect.bisect_right)
+    _, h2s, k2 = ruas_di(z - 1, lambda deret, x, lo, hi: bisect.bisect_left(deret, x + 1, lo, hi))
+    h1, h2 = (None if x == norma.TANPA_HAL else x for x in (h1s[k1], h2s[k2]))
+    return (h2, h1) if (h1 or 0) > (h2 or 0) else (h1, h2)  # penanda halaman yang menurun di satu rekaman
+
+
+def tempat_kitab(rangkaian, bagian):
+    """Juz, rentang halaman, dan tanda (matan/حاشية) tempat SEMUA bagian kutipan berurutan: boleh menyambung ke halaman
+    berikutnya, paling lebar RENTANG_MAKS halaman. None kalau tidak ada. Hanya petunjuk: putusannya tetap milik `cek`.
+    Yang ditunjuk rentang tersempit: kutipan ber-... tidak boleh ditunjuk di tempat bagian umumnya kebetulan berjauhan."""
+    terbaik = None
+    for juz, tanda, teks, ruas in rangkaian:
+        for letak in susunan_bagian(teks, bagian, len(teks)):
+            h1, h2 = halaman_di(ruas, letak[0][0], letak[-1][1])
+            lebar = (h2 or 0) - (h1 or 0)
+            if lebar <= RENTANG_MAKS and (terbaik is None or lebar < terbaik[0]):
+                terbaik = lebar, ("-" if juz is None else juz), (h1, h2), tanda
+            if lebar == 0:
+                return terbaik[1:]
+    return terbaik[1:] if terbaik else None
+
+
+def susunan_bagian(pd, q, maks=50, cocok=None):
+    """Tiap susunan letak [(awal, akhir)] bagian-bagian q di pd: bagian berikutnya yang terdekat dan lolos `cocok`,
+    kalau diberikan (halaman/batas kata); calon yang ditolak tidak menutupi kemunculan sah sesudahnya."""
+    def berikut(i, awal):
+        j = pd.find(q[i], awal)
+        while j >= 0 and cocok is not None and not cocok(i, j, j + len(q[i])):
+            j = pd.find(q[i], j + 1)
+        return j
+    j = berikut(0, 0)
+    while j >= 0 and maks:
+        letak, k = [(j, j + len(q[0]))], j + len(q[0])
+        for i, b in enumerate(q[1:], 1):
+            n = berikut(i, k)
+            if n < 0:
+                return
+            letak.append((n, n + len(b))); k = n + len(b)
+        yield letak
+        maks -= 1
+        j = berikut(0, j + 1)

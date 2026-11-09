@@ -247,7 +247,7 @@ def baru(nama, judul):
                 isi = re.sub(rf"^@{k}:[ \t]*$", lambda m: f"@{k}: {v.strip()}", isi, flags=re.M)
             else:  # kunci yang tidak ada di kerangka (mis. @thalibah) ikut ditulis
                 isi = isi.replace("@berkas:", f"@{k}: {v.strip()}\n@berkas:", 1)
-    riset = (MESIN / "riset_baru.txt").read_text(encoding="utf8")  # jejak langkah connector (cek_naskah.periksa_riset)
+    riset = (MESIN / "riset_baru.txt").read_text(encoding="utf8")  # jejak langkah connector (cek_seluruh.periksa_riset)
     f.mkdir(parents=True)
     (f / "riset.txt").write_text(riset, encoding="utf8")
     (f / "naskah.txt").write_text(isi, encoding="utf8")
@@ -678,7 +678,7 @@ POTONGAN = ("cari", "teks", "bab")  # perintah yang menerima --potongan (frasa b
 
 
 def tanda():
-    """Daftar tanda naskah: ditulis sekali di kepala olah.py (tempat tanda itu diurai), dicetak dari sana."""
+    """Daftar tanda naskah: ditulis sekali di kepala olah.py (pintu `cek`; penguraiannya di naskah.py), dicetak dari sana."""
     import olah
     return olah.__doc__[olah.__doc__.index("Tanda di naskah"):].rstrip()
 

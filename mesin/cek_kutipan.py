@@ -12,10 +12,9 @@ from cek_hadits import nomor_hadits
 from dasar import (
     ANGKA_LATIN, AYAT_DI_KUTIPAN, AYAT_KITAB, DIPOTONG, ELIPSIS, KUTIPAN_MIN, LUAR, POTONGAN_MIN, QAUL,
     RUJUKAN_AYAT, TIDAK_KETEMU)
-from jejak import rangkaian_kitab, susunan_bagian, tempat_kitab
 from kitab_lokal import (
-    cari_di, gabung, halaman_janggal, kitab, rekaman, rekaman_dulu, rentang_halaman, salah_halaman, salah_juz,
-    urut_juz)
+    cari_di, gabung, halaman_janggal, kitab, rangkaian_kitab, rekaman, rekaman_dulu, rentang_halaman, salah_halaman,
+    salah_juz, susunan_bagian, tempat_kitab, urut_juz)
 
 NASKAH_TULISAN = re.compile("(?:الكتاب|البحث) (?:مخطوط|غير مطبوع)")  # nomornya nomor lembar naskah tulisan/ketikan
 # tambahan peneliti di dalam kutipan: «[هكذا]» sesudah salah yang disalin apa adanya, atau kata yang dibetulkan di dalam

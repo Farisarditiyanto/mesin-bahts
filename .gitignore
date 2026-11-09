@@ -20,7 +20,7 @@
 !/dok/
 /contoh/*
 !/contoh/naskah.txt
-# jejak langkah riset contoh (dibaca `cek`, lihat olah.periksa_riset)
+# jejak langkah riset contoh (dibaca `cek`, lihat cek_seluruh.periksa_riset)
 !/contoh/riset.txt
 # naskah jebakan: tiap baris di bawah #S menghasilkan persis yang disebut judulnya (diperiksa .github/uji_jebakan.py)
 !/contoh/jebakan/
