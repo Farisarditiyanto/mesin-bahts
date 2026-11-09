@@ -10,7 +10,7 @@ from pathlib import Path
 
 AKAR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(AKAR / "mesin"))
-import olah  # noqa: E402  bentuk awal «baris …: » ditulis di satu tempat: olah.pisah_baris
+import laporan  # noqa: E402  bentuk awal «baris …: » ditulis di satu tempat: laporan.pisah_baris
 NASKAH = AKAR / "contoh" / "jebakan" / "naskah.txt"
 HARUS = {"GAGAL": (1, 0), "perhatian": (0, 1), "lolos": (0, 0)}  # (galat, perhatian) tiap baris
 
@@ -24,8 +24,8 @@ ada = {"✗": collections.Counter(), "!": collections.Counter()}
 salah = []
 pesan_perhatian = collections.Counter()
 for tanda, isi in re.findall(r"^  ([✗!]) (.*)$", keluar, re.M):
-    # perhatian gabungan («baris 77, 81-83: …», olah.gabung_kembar dan riset per langkah) dihitung satu di tiap barisnya
-    nn, pesan = olah.pisah_baris(isi)
+    # perhatian gabungan («baris 77, 81-83: …», laporan.gabung_kembar dan riset per langkah) dihitung satu di tiap barisnya
+    nn, pesan = laporan.pisah_baris(isi)
     if "GALAT MESIN" in isi:  # pengecualian di dalam mesin yang tertangkap sebagai galat: tetap merah walau jumlahnya pas
         salah.append(isi[:120])
     if not nn:

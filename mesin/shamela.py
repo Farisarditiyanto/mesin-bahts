@@ -1016,7 +1016,7 @@ def bab(sid, frasa, potongan=False):
     return False
 
 
-# kalimat di kartu kitab Shamela yang berarti nomor halamannya bukan nomor cetakan (dipakai `cek` di olah.py dan `scan`)
+# kalimat di kartu kitab Shamela yang berarti nomor halamannya bukan nomor cetakan (dipakai `cek` di cek_kutipan.py dan `scan`)
 OTOMATIS = re.compile("مرقمة? آليا|بترقيم الشاملة")
 
 # Scan cetakan di turath.io: berkas data tiap kitab dan PDF-nya. Dibaca dari kode situs app.turath.io (17 Okt 2026), tidak

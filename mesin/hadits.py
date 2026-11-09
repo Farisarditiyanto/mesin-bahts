@@ -61,11 +61,11 @@ def _lokal(hits):
             perlu.setdefault(sid, set()).update(_nomor(h["_source"]))
     tempat = {}
     if perlu:
-        import olah  # kepala hadits dibaca dengan aturan yang sama dengan `cek` (#nomor, takhrij)
+        import cek_hadits  # kepala hadits dibaca dengan aturan yang sama dengan `cek` (#nomor, takhrij)
     for sid, nomor in perlu.items():
         for p in shamela._rekaman_di(sid, range(len(shamela.indeks(sid)))):
             for hal, b in norma.per_halaman(p):
-                for n in {n for _, n in olah.kepala_hadits(b)[1]} & nomor:
+                for n in {n for _, n in cek_hadits.kepala_hadits(b)[1]} & nomor:
                     tempat.setdefault((sid, n), f"{shamela._juz(p)}/{hal}")
         shamela.lepas()
     return judul, tempat

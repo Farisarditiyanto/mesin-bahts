@@ -200,14 +200,14 @@ def utama():
         n += 1
     # `kartu`: baris bukti siap pakai memakai juz yang diterima `cek` dan halaman yang terbaca, juga untuk kitab berjilid
     # yang halamannya bersambung («متسلسلة الترقيم», 6178): dulu agent menulis juz "-" lalu GAGAL «berjilid»
-    import olah
+    import kitab_lokal
     for sid in dipilih:
         baris = keluaran(shamela.kartu, sid)[1].splitlines()[-1]
         m = (re.search(rf"mis\. <<{sid}\|([^|<>]+)\|(\d+)>>", baris)
              or re.search(rf"<<{sid}\|(-)\|<hal>>> \(kitab satu jilid: juz \"-\"; halaman (\d+)-", baris))
         assert m, f"kartu {sid}: baris bukti tidak ada atau bentuknya lain: {baris!r}"
         juz, hal = m.groups()
-        assert olah.salah_juz(sid, juz, hal) == "", f"kartu {sid}: {baris!r} -> {olah.salah_juz(sid, juz, hal)}"
+        assert kitab_lokal.salah_juz(sid, juz, hal) == "", f"kartu {sid}: {baris!r} -> {kitab_lokal.salah_juz(sid, juz, hal)}"
         assert keluaran(shamela.halaman, sid, juz, hal)[0], f"kartu {sid}: halaman {juz}/{hal} tidak terbaca"
         n += 1
     print(f"halaman: {n} panggilan sama dengan cara lama")
