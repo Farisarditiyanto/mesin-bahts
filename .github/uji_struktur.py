@@ -2,7 +2,7 @@
 """Regresi struktur lewat CLI asli di salinan TEMP, memakai contoh dan kitab asli.
 Tidak menjalankan Word: naskah yang kehilangan isi harus ditolak sebelum perakit dipanggil.
 """
-import json, os, re, shutil, subprocess, sys, tempfile
+import json, os, random, re, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
 AKAR = Path(__file__).resolve().parent.parent
@@ -220,6 +220,38 @@ def utama():
         assert "@nama: صاحب المستودع" in (akar / "milikku" / "naskah.txt").read_text(encoding="utf8"), r.stdout
         saya.unlink()
         hasil.append("data diri sampul_saya.txt tidak ke bahts orang lain")
+
+        # Label wajib punya isi, dan harus satu kata utuh; catatan kaki bukan isi label di matan.
+        studi = "بحث باحث، 2020م. وجه الاتفاق: الموضوع. وجه الاختلاف: النطاق. التقويم: محدود."
+        def dirasat(teks):
+            return cek("label الدراسات السابقة", sisip("#S الدراسات السابقة\n" + teks))
+
+        for nama in ("وجه الاتفاق:", "وجه الاختلاف:", "التقويم:"):
+            isi_label = {"وجه الاتفاق:": "الموضوع.", "وجه الاختلاف:": "النطاق.", "التقويم:": "محدود."}[nama]
+            out = dirasat(studi.replace(isi_label, "..."))
+            assert f"«{nama}» masih kosong" in out, out
+            out = dirasat(studi.replace(nama, "عدم" + nama))
+            assert f"belum ada «{nama}»" in out, out
+        out = dirasat("بحث باحث، 2020م. وجه الاتفاق: وجه الاختلاف: التقويم:")
+        assert out.count("masih kosong") == 3, out
+        out = dirasat(studi.replace("الموضوع.", "[^توضيح من المحقق.]"))
+        assert "«وجه الاتفاق:» masih kosong" in out, out
+        out = dirasat(studi.replace("وجه الاتفاق:", "وأوجه الاتفاق:").replace("وجه الاختلاف:", "وأوجه الافتراق:"))
+        assert "belum ada «" not in out and "masih kosong" not in out, out
+        for tanda in ("#K", "#F", "#B", "#M", "#S"):
+            out = cek("tingkat الدراسات السابقة", sisip(tanda + " الدِّرَاسَاتُ السَّابِقَةُ\n" + studi))
+            assert "الدراسات السابقة: PDF-nya belum dibaca" in out, out
+        out = dirasat(studi + "\n#S قسم آخر\nبحث باحث، 2021م.")
+        assert out.count("الدراسات السابقة:") == 1, out
+        rng = random.Random(148)
+        for _ in range(36):
+            nama = rng.choice(("وجه الاتفاق:", "وجه الاختلاف:", "التقويم:"))
+            isi_label = {"وجه الاتفاق:": "الموضوع.", "وجه الاختلاف:": "النطاق.", "التقويم:": "محدود."}[nama]
+            # Properti: tanda baca dan angka berapa pun tidak mengisi pembahasan yang diwajibkan label.
+            kosong = "".join(rng.choices(" .،؛:-_0123456789٠١٢٣", k=rng.randrange(1, 60)))
+            out = dirasat(studi.replace(isi_label, kosong))
+            assert f"«{nama}» masih kosong" in out, out
+        hasil.append("label الدراسات السابقة utuh dan berisi, di tiap tingkat judul")
 
         # Salinan PDF: tanpa keluaran_saya.txt tidak ada apa-apa; dengan berkas itu tersalin per orang.
         salin = ("import sys; sys.argv=['bahts']; import bahts\n"

@@ -397,7 +397,10 @@ try {
             $l = $rg.Duplicate; $l.SetRange($awal + $a.Index, $awal + $a.Index + $a.Length); $l.Select(); $word.Selection.LtrRun()
         }
     }
-    function TeksRuns($runs) { $s = ''; foreach ($r in $runs) { if ($null -ne $r.t) { $s += $r.t } elseif ($r.pg) { $s += '⟦' + $r.pg + '⟧' } }; return $s }
+    # Nomor sementara pendek: panjang kunci {P:} bukan isi cetak dan tidak boleh mengubah susunan halaman.
+    $PENANDA_HALAMAN = '00'
+    $rujukanHalaman = @{}; $script:nRujukanHalaman = 0
+    function TeksRuns($runs) { $s = ''; foreach ($r in $runs) { if ($null -ne $r.t) { $s += $r.t } elseif ($r.pg) { $s += $PENANDA_HALAMAN } }; return $s }
     # nomor catatan kaki = tanda buatan sendiri, bukan nomor otomatis Word: nomor otomatis Word selalu 0-9
     # (Options.ArabicNumeral tidak berlaku untuknya). Nomornya dibetulkan NomorCatatan sesudah halaman tersusun.
     $asalCatatan = New-Object System.Collections.ArrayList   # nomor urut Word -> indeks bahan (bukti diam/potongan bisa melompat)
@@ -428,8 +431,13 @@ try {
         $off = 1
         foreach ($r in $c.runs) {
             $len = 0
-            if ($null -ne $r.t) { $len = $r.t.Length } elseif ($r.pg) { $len = $r.pg.Length + 2 }
+            if ($null -ne $r.t) { $len = $r.t.Length } elseif ($r.pg) { $len = $PENANDA_HALAMAN.Length }
             if ($r.q) { $q = $fn.Range; $q.SetRange($fr.Start + $off, $fr.Start + $off + $len); $q.Font.Name = $QF; $q.Font.NameBi = $QF }
+            if ($r.pg) {
+                $q = $fn.Range.Duplicate; $q.SetRange($fr.Start + $off, $fr.Start + $off + $len)
+                $script:nRujukanHalaman++; $nama = "pgn_$script:nRujukanHalaman"
+                [void]$doc.Bookmarks.Add($nama, $q); $rujukanHalaman[$nama] = $r.pg
+            }
             $off += $len
         }
         # nomor di catatan kaki: (1) ukuran normal, bukan superskrip
@@ -830,22 +838,27 @@ try {
         if ($ABJAD -and $r.Sections(1).Index -eq $bagianDepan) { return [string]$HURUF_NOMOR[$n - 1] }
         return $n
     }
-    # {P:kunci} di catatan kaki: tiap ⟦h_…⟧ / ⟦a_…⟧ diganti nomor halaman hadits {H:} atau titik rujukan {A:} itu
-    # (satu catatan kaki bisa memuat beberapa). Angkanya bisa menggeser halaman, jadi nomor catatan kaki dicek lagi;
-    # catatan kaki yang dibuat ulang NomorCatatan kembali ke ⟦…⟧ dan diisi lagi
+    # {P:kunci}: tiap angka punya bookmark sejak BuatCatatan, termasuk catatan kaki yang dibuat ulang NomorCatatan.
+    # Isian bisa memindahkan targetnya ke halaman lain: perbarui lagi sampai nomor halaman dan catatan kaki tetap.
+    # Jangan mencari angka biasa: itu bisa mengubah angka isi naskah.
     function IsiRujukanHalaman {
-        foreach ($fn in $doc.Footnotes) {
-            foreach ($k in @([regex]::Matches($fn.Range.Text, '⟦([ha]_[^⟧]+)⟧') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)) {
-                $rg = $fn.Range; $f = $rg.Find; $f.ClearFormatting(); $f.Replacement.ClearFormatting()
-                [void]$f.Execute(('⟦' + $k + '⟧'), $true, $false, $false, $false, $false, $true, 0, $false, (Angka (Hal $k)), 2)
+        $ubah = 0
+        foreach ($nama in @($rujukanHalaman.Keys)) {
+            if (-not $doc.Bookmarks.Exists($nama)) { $rujukanHalaman.Remove($nama); continue } # catatan dibuat ulang
+            $rg = $doc.Bookmarks.Item($nama).Range; $pg = Angka (Hal $rujukanHalaman[$nama])
+            if ($rg.Text -ne $pg) {
+                $rg.Text = $pg; [void]$doc.Bookmarks.Add($nama, $rg); $ubah++
             }
         }
-        foreach ($fn in $doc.Footnotes) { if ($fn.Range.Text.Contains('⟦')) { throw "Nomor halaman {P:...} gagal diisi di catatan kaki: $($fn.Range.Text.Trim())" } }
+        return $ubah
     }
-    IsiRujukanHalaman
-    for ($k = 1; $k -le 3 -and (SalahNomor).Count; $k++) { NomorCatatan; IsiRujukanHalaman }
-    if ((SalahNomor).Count) { throw "Nomor catatan kaki berubah lagi sesudah nomor halaman {P:...} diisi." }
-    $doc.Repaginate()
+    for ($putaran = 1; $putaran -le 12; $putaran++) {
+        NomorCatatan
+        $ubah = IsiRujukanHalaman
+        $doc.Repaginate()
+        if (-not $ubah -and -not (SalahNomor).Count) { break }
+    }
+    if ($putaran -gt 12) { throw "Nomor halaman {P:...} atau nomor catatan kaki belum tetap sesudah 12 putaran." }
     # tabel فهرس: angka asli («٢٤، ٣٠») bisa lebih lebar daripada '00', barisnya melipat, dan judul sesudahnya pindah halaman
     # (فهرس الموضوعات pernah mencetak 41 padahal judulnya di halaman 42): isi, Repaginate, ulangi sampai tidak ada yang berubah
     $isiLama = @{}
