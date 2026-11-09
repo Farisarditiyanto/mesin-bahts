@@ -400,7 +400,9 @@ try {
     # Nomor sementara pendek: panjang kunci {P:} bukan isi cetak dan tidak boleh mengubah susunan halaman.
     $PENANDA_HALAMAN = '00'
     $rujukanHalaman = @{}; $script:nRujukanHalaman = 0
-    function TeksRuns($runs) { $s = ''; foreach ($r in $runs) { if ($null -ne $r.t) { $s += $r.t } elseif ($r.pg) { $s += $PENANDA_HALAMAN } }; return $s }
+    # $pg = isi tempat {P:}: '00' untuk teks yang dimasukkan; '__' (bukan angka, sama panjang) untuk mencari angka di teks
+    # catatan kaki, supaya nomor halaman sementara tidak ikut dijadikan run kiri-ke-kanan @angka_ayat: latin
+    function TeksRuns($runs, $pg = $PENANDA_HALAMAN) { $s = ''; foreach ($r in $runs) { if ($null -ne $r.t) { $s += $r.t } elseif ($r.pg) { $s += $pg } }; return $s }
     # nomor catatan kaki = tanda buatan sendiri, bukan nomor otomatis Word: nomor otomatis Word selalu 0-9
     # (Options.ArabicNumeral tidak berlaku untuknya). Nomornya dibetulkan NomorCatatan sesudah halaman tersusun.
     $asalCatatan = New-Object System.Collections.ArrayList   # nomor urut Word -> indeks bahan (bukti diam/potongan bisa melompat)
@@ -422,7 +424,7 @@ try {
         $fp = $fr.Paragraphs(1); $fp.ReadingOrder = 0; $fp.Alignment = 3
         $fr.Select(); $word.Selection.RtlRun()
         if ($c.al) {   # @angka_ayat: latin: angka di run kiri-ke-kanan dicetak Word 0-9 walau angka konteks
-            foreach ($a in [regex]::Matches((TeksRuns $c.runs), '[0-9]+(?:[-–][0-9]+)*')) {
+            foreach ($a in [regex]::Matches((TeksRuns $c.runs '__'), '[0-9]+(?:[-–][0-9]+)*')) {
                 $l = $fn.Range; $l.SetRange($fr.Start + 1 + $a.Index, $fr.Start + 1 + $a.Index + $a.Length); $l.Select(); $word.Selection.LtrRun()
             }
         }

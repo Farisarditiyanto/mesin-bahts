@@ -241,6 +241,8 @@ def utama():
         # awalan ف seperti و: label tetap dikenali (pola sebelum #153 juga menerimanya)
         out = dirasat(studi.replace("وجه الاتفاق:", "فوجه الاتفاق:").replace("التقويم:", "فالتقويم:"))
         assert "belum ada «" not in out and "masih kosong" not in out, out
+        out = dirasat(studi.replace("وجه الاتفاق:", "اوجه الاتفاق:").replace("وجه الاختلاف:", "وإوجه الاختلاف:"))
+        assert "belum ada «" not in out and "masih kosong" not in out, out
         for tanda in ("#K", "#F", "#B", "#M", "#S"):
             out = cek("tingkat الدراسات السابقة", sisip(tanda + " الدِّرَاسَاتُ السَّابِقَةُ\n" + studi))
             assert "الدراسات السابقة: PDF-nya belum dibaca" in out, out
