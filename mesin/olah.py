@@ -3094,7 +3094,8 @@ def periksa_dirasat(blok, catatan):
     satu label, atau menyebut tahun terbit («…م»/«…هـ»); pengantar dan الإضافة العلمية tidak dinilai. Satu perhatian per
     studi, berisi semua kekurangannya: label «وجه الاتفاق:»/«وجه الاختلاف:»/«التقويم:», PDF yang tidak dibaca (tanpa
     <<luar|berkas.pdf|hal>>), dan tahun terbit yang lebih dulu dari studi sebelumnya. Tahun terbit = tahun terakhir
-    sebelum catatan kaki pertama (tahun di judul studi, mis. «رؤية 2030م», ada di depannya)."""
+    sebelum catatan kaki pertama dan label pertama (tahun di judul studi, mis. «رؤية 2030م», ada di depannya).
+    Paragraf yang diawali «الإضافة العلمية» bukan studi walau menyebut tahun."""
     hasil, bagian, tahun_lalu = [], None, None
     for b in blok:
         if b["k"] in TINGKAT_JUDUL:
@@ -3107,9 +3108,14 @@ def periksa_dirasat(blok, catatan):
             continue
         fn = [catatan[r["fn"]] for r in b["runs"] if "fn" in r]
         teks = norma.HARAKAT.sub("", "".join(r.get("t", "") for r in b["runs"])).translate(ANGKA_LATIN)
-        awal = norma.HARAKAT.sub("", "".join(r.get("t", "") for r in itertools.takewhile(lambda r: "fn" not in r, b["runs"])))
+        if re.match(r"\W*و?(?:الإضافة العلمية|إضافة البحث)", teks):
+            continue
+        # data studi = sebelum catatan kaki pertama dan sebelum label pertama; tahun terbit = tahun terakhirnya
+        data = norma.HARAKAT.sub("", "".join(r.get("t", "") for r in itertools.takewhile(lambda r: "fn" not in r, b["runs"])))
+        data = data.translate(ANGKA_LATIN)
+        data = data[:min([m.start() for _, pola in DIRASAT_LABEL for m in [re.search(pola, data)] if m] + [len(data)])]
         label = [bool(re.search(pola, teks)) for _, pola in DIRASAT_LABEL]
-        tahun_semua = TAHUN_TERBIT.findall(awal.translate(ANGKA_LATIN)) if fn else TAHUN_TERBIT.findall(teks)
+        tahun_semua = TAHUN_TERBIT.findall(data)
         if not (any(c["luar"] or c["pdf"] for c in fn) or any(label) or tahun_semua):
             continue
         kurang = [f"belum ada «{nama}»" for (nama, _), ada in zip(DIRASAT_LABEL, label) if not ada]
@@ -3121,7 +3127,7 @@ def periksa_dirasat(blok, catatan):
                           "PDF-nya belum dibaca: unduh lewat `dirasat-pdf` lalu rujuk <<luar|berkas.pdf|hal>>; PDF memang "
                           "tidak bisa didapat → tulis «اطلعت على ملخصه» di catatan kakinya dan sebut di laporan akhir")
         if tahun_semua:  # tahun hijriah dibandingkan sebagai masehi (kira-kira; cukup untuk urutan)
-            angka, akhiran = tahun_semua[-1] if fn else tahun_semua[0]
+            angka, akhiran = tahun_semua[-1]
             tahun = int(angka) if akhiran == "م" else round(int(angka) * 0.970224 + 621.5643)
             if tahun_lalu and tahun < tahun_lalu[0]:
                 kurang.append(f"tahun {angka}{akhiran} lebih dulu daripada studi sebelumnya ({tahun_lalu[1]}): "
