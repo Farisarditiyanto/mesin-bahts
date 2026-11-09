@@ -2,6 +2,7 @@
 """Penulisan berkas utuh dan penerbitan hasil dengan cadangan; tanpa layanan luar."""
 import hashlib, os, re, shutil, tempfile, time, zipfile
 from contextlib import contextmanager
+from enum import Enum
 from pathlib import Path
 
 
@@ -54,6 +55,16 @@ def _pemegang(h):
         return ""
 
 
+def pemegang(f):
+    """Keterangan pemegang kunci `f` tanpa menyentuh kuncinya («» kalau belum tercatat). Hanya bermakna sesudah
+    `kunci(f)` gagal: pemegang yang mati meninggalkan keterangannya walau kuncinya sudah dilepas OS."""
+    try:
+        with open(f, "rb") as h:
+            return _pemegang(h)
+    except OSError:
+        return ""
+
+
 @contextmanager
 def kunci(f, tunggu=0, apa=""):
     """Kunci antarproses yang dilepas OS saat proses mati, meliputi seluruh pekerjaan rakit.
@@ -99,6 +110,86 @@ def kunci(f, tunggu=0, apa=""):
                 fcntl.flock(h, fcntl.LOCK_UN)
 
 
+class FolderKerja:
+    """Folder kerja .rakit-* di folder bahts. Keadaannya hanya dibaca dari berkas penanda di dalamnya, di sini saja:
+      SEMENTARA  bahan sementara rakit versi ini (penanda SEMENTARA)       -> dibuang sendiri oleh rakit berikutnya
+      SIMPAN     hasil baru yang belum terpasang (penanda SIMPAN, menang)  -> tidak pernah dibuang mesin
+      ASING      tanpa penanda (rakit versi lama, atau dibuat tangan)       -> tidak pernah dibuang mesin
+    Perpindahan: buat() -> SEMENTARA; simpan(): keadaan apa pun -> SIMPAN (hanya menambah perlindungan);
+    buang(): hanya dari SEMENTARA, keadaan lain ditolak."""
+    SEMENTARA = "rakit.sementara"
+    SIMPAN = "JANGAN_DIHAPUS.txt"
+
+    class Keadaan(Enum):
+        SEMENTARA = "SEMENTARA"
+        SIMPAN = "SIMPAN"
+        ASING = "ASING"
+
+    KETERANGAN = {
+        Keadaan.SEMENTARA: "bahan sementara rakit; dibuang sendiri oleh rakit berikutnya (jangan dihapus selama rakit jalan)",
+        Keadaan.SIMPAN: "hasil baru yang belum terpasang (pemulihan rakit gagal): selamatkan isinya, lalu hapus sendiri",
+        Keadaan.ASING: "tanpa penanda (rakit versi lama, atau dibuat tangan): mungkin berisi hasil yang sengaja disimpan; "
+                       "periksa isinya, lalu hapus sendiri",
+    }
+
+    def __init__(self, path):
+        self.path = Path(path)
+
+    @classmethod
+    def buat(cls, folder):
+        k = cls(tempfile.mkdtemp(prefix=".rakit-", dir=folder))
+        (k.path / cls.SEMENTARA).write_text("Bahan sementara `rakit`; dibuang sendiri oleh rakit berikutnya.\n", encoding="utf8")
+        return k
+
+    @classmethod
+    def semua(cls, folder):
+        return [cls(p) for p in sorted(Path(folder).glob(".rakit-*")) if p.is_dir()]
+
+    def keadaan(self):
+        if (self.path / self.SIMPAN).exists():
+            return self.Keadaan.SIMPAN
+        return self.Keadaan.SEMENTARA if (self.path / self.SEMENTARA).exists() else self.Keadaan.ASING
+
+    def simpan(self):
+        (self.path / self.SIMPAN).write_text("Hasil baru yang belum terpasang (pemulihan rakit gagal; lihat pesan rakit).\n"
+                                             "`rakit` tidak membuang folder ini: selamatkan isinya, lalu hapus sendiri.\n",
+                                             encoding="utf8")
+        try:  # SIMPAN sudah melindunginya; penanda sementara dicabut supaya versi lain pun tidak membuangnya
+            (self.path / self.SEMENTARA).unlink()
+        except OSError:
+            pass
+
+    def buang(self):
+        """Hapus folder SEMENTARA; True = sudah hilang, False = masih ada (berkas yang masih terbuka). Penandanya dibuang
+        paling akhir: yang gagal dibuang sebagian tetap SEMENTARA (dicoba lagi rakit berikutnya), bukan jadi ASING."""
+        k = self.keadaan()
+        if k is not self.Keadaan.SEMENTARA:
+            raise ValueError(f"{self.path.name} ({k.value}) bukan bahan sementara rakit: tidak dibuang")
+        for isi in self.path.iterdir():
+            if isi.name == self.SEMENTARA:
+                continue
+            if isi.is_dir() and not isi.is_symlink():
+                shutil.rmtree(isi, ignore_errors=True)
+            else:
+                try:
+                    isi.unlink()
+                except OSError:
+                    pass
+        if [x.name for x in self.path.iterdir()] == [self.SEMENTARA]:
+            shutil.rmtree(self.path, ignore_errors=True)
+        return not self.path.exists()
+
+
+ARSIP, CADANGAN = "_arsip", "rakit-"  # cadangan hasil lama selama `terbitkan`: <folder>/_arsip/rakit-*
+
+
+def cadangan_tertinggal(folder):
+    """Cadangan _arsip/rakit-* yang tertinggal: `terbitkan` membuangnya sendiri kalau berhasil atau pulih lengkap, jadi
+    yang masih ada = PemulihanGagal, atau rakit yang dimatikan di tengah penggantian hasil."""
+    arsip = Path(folder) / ARSIP
+    return sorted(p.name for p in arsip.glob(CADANGAN + "*") if p.is_dir()) if arsip.is_dir() else []
+
+
 class PemulihanGagal(RuntimeError):
     """Hasil lama belum bisa dipasang kembali: cadangan dan hasil baru sengaja ditinggalkan untuk diselamatkan."""
 
@@ -110,9 +201,9 @@ def terbitkan(kerja, folder, nama):
     atomik pasangan. Bila proses dimatikan di tengah, hasil dapat belum lengkap, tetapi hasil baru tidak
     dipasangkan dengan hasil lama.
     """
-    arsip = folder / "_arsip"
+    arsip = folder / ARSIP
     arsip.mkdir(exist_ok=True)
-    cadangan = Path(tempfile.mkdtemp(prefix="rakit-", dir=arsip))
+    cadangan = Path(tempfile.mkdtemp(prefix=CADANGAN, dir=arsip))
     lama, baru = [], []
     try:
         for n in nama:

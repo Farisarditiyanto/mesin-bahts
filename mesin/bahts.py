@@ -16,6 +16,10 @@ Bahts (tiap bahts = satu folder berisi naskah.txt):
   rakit <folder> [--fasl n]    cek, lalu rakit .docx + .pdf (Word) ke dalam folder itu; --fasl 2 (atau 1-2): hanya #F
                                ke-2, untuk bahts yang dikumpulkan bertahap per فصل (lihat `tanda`); `cek` tetap
                                memeriksa seluruh naskah
+  tahap <folder>               tahap bahts sekarang dan satu langkah berikutnya: naskah (GAGAL/PERHATIAN/LOLOS), hasil
+                               rakit (BELUM/TERKINI/USANG, juga tiap --fasl), rakit yang sedang jalan, folder .rakit-*
+                               dan _arsip/rakit-*. Folder bahts tidak disentuh; untuk sesi baru yang tidak tahu bahts
+                               ini sampai mana
   tanda                        daftar tanda yang dipakai di naskah.txt
 
 Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
@@ -52,7 +56,7 @@ from pathlib import Path
 
 import dirasat, hadits, norma, shamela  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
 from shamela import perintah
-from berkas import PemulihanGagal, bahan, kosongkan_penulis, kunci, terbitkan
+from berkas import FolderKerja, PemulihanGagal, bahan, kosongkan_penulis, kunci, pemegang, terbitkan
 
 MESIN = Path(__file__).resolve().parent
 AKAR = MESIN.parent
@@ -347,17 +351,17 @@ def cek(nama, keluar=None, jejak=False, ringkas=False):
 
 
 RAKIT_ANTRE = 30 * 60  # detik; rakit terlama yang tercatat ±10 menit: dua rakit di depan masih tertampung
+RAKIT_PEKERJAAN = MESIN / "_tmp" / "rakit.pekerjaan"  # kunci seluruh pekerjaan rakit (berkas.kunci): satu rakit sekali jalan
 RAKIT_PS_KUNCI = MESIN / "_tmp" / "rakit.kunci"  # dibuka rakit.ps1 tanpa berbagi selama ia hidup (dilepas OS saat mati)
 RAKIT_GALAT = "rakit.galat"  # di folder kerja: pesan galat rakit.ps1 (UTF-8), ditulis sebelum PowerShell berhenti
-RAKIT_SEMENTARA = "rakit.sementara"  # penanda folder .rakit-* bahan sementara rakit versi ini: boleh dibuang rakit berikutnya
-RAKIT_SIMPAN = "JANGAN_DIHAPUS.txt"  # pengganti penanda di atas bila folder itu berisi hasil baru yang belum terpasang (PemulihanGagal)
+RAKIT_SEMENTARA, RAKIT_SIMPAN = FolderKerja.SEMENTARA, FolderKerja.SIMPAN  # penanda keadaan folder .rakit-* (berkas.FolderKerja)
 
 
 def rakit(nama, fasl=None):
     if os.name == "nt":
         try:
             apa = folder_bahts(nama).relative_to(AKAR).as_posix()
-            with kunci(MESIN / "_tmp" / "rakit.pekerjaan", tunggu=RAKIT_ANTRE, apa=apa):
+            with kunci(RAKIT_PEKERJAAN, tunggu=RAKIT_ANTRE, apa=apa):
                 _tunggu_ps_yatim()
                 _rakit(nama, fasl)
         except PermissionError as e:  # hasil lama (atau yang baru) sedang dibuka aplikasi lain; hasil lama tetap utuh
@@ -376,18 +380,23 @@ def _tunggu_ps_yatim():
     kerjanya: tunggu sampai ia berhenti sendiri, supaya Word tidak dipakai berdua dan foldernya tidak dibuang saat masih
     ditulisi. Word-nya dibereskan rakit.ps1 itu sendiri (atau rakit.ps1 berikutnya, lewat catatan Word yatim)."""
     batas, kabar = time.monotonic() + RAKIT_ANTRE, False
-    while True:
-        try:
-            with open(RAKIT_PS_KUNCI, "ab"):
-                return
-        except PermissionError:
-            if time.monotonic() >= batas:
-                raise RuntimeError("rakit.ps1 dari rakit yang dimatikan masih jalan: tunggu sampai berhenti, lalu ulangi.") from None
-            if not kabar:
-                print("rakit.ps1 dari rakit sebelumnya yang dimatikan masih memakai Word: menunggu sampai berhenti sendiri "
-                      "(jangan matikan Word atau PowerShell-nya)...", flush=True)
-                kabar = True
-            time.sleep(2)
+    while _ps_yatim():
+        if time.monotonic() >= batas:
+            raise RuntimeError("rakit.ps1 dari rakit yang dimatikan masih jalan: tunggu sampai berhenti, lalu ulangi.")
+        if not kabar:
+            print("rakit.ps1 dari rakit sebelumnya yang dimatikan masih memakai Word: menunggu sampai berhenti sendiri "
+                  "(jangan matikan Word atau PowerShell-nya)...", flush=True)
+            kabar = True
+        time.sleep(2)
+
+
+def _ps_yatim():
+    """rakit.ps1 masih memegang RAKIT_PS_KUNCI (dibuka tanpa berbagi selama ia hidup)? Dipakai rakit dan `tahap`."""
+    try:
+        with open(RAKIT_PS_KUNCI, "ab"):
+            return False
+    except PermissionError:
+        return True
 
 
 def _buang_sisa(f, kerja):
@@ -396,18 +405,14 @@ def _buang_sisa(f, kerja):
     jadi tidak ada rakit lain yang masih memakainya. Dipanggil sesudah rakit.ps1, yang menghentikan Word yatim rakit lama
     (Word itu masih membuka berkas di foldernya). Yang dibuang hanya folder bertanda RAKIT_SEMENTARA (bahan sementara versi
     ini). Tanpa penanda itu (hasil baru yang belum terpasang, atau folder dari versi lama yang mungkin sengaja disimpan)
-    hanya disebut, tidak pernah dibuang."""
-    for sisa in sorted(f.glob(".rakit-*")):
-        if not sisa.is_dir():
-            continue
-        if (sisa / RAKIT_SIMPAN).exists() or not (sisa / RAKIT_SEMENTARA).exists():
-            print(f"Folder {sisa.name} dibiarkan: mungkin berisi hasil yang sengaja disimpan; periksa isinya, lalu hapus sendiri.")
-            continue
-        shutil.rmtree(sisa, ignore_errors=True)
-        if sisa.exists():
-            print(f"Bahan sementara rakit belum bisa dibuang (ada berkas yang masih terbuka; `rakit` berikutnya mencoba lagi): {sisa}")
-        elif sisa != kerja:
-            print(f"Sisa rakit yang terhenti dibuang: {sisa.name}")
+    hanya disebut, tidak pernah dibuang. Keadaan dan perpindahannya: berkas.FolderKerja."""
+    for sisa in FolderKerja.semua(f):
+        if sisa.keadaan() is not FolderKerja.Keadaan.SEMENTARA:
+            print(f"Folder {sisa.path.name} dibiarkan: mungkin berisi hasil yang sengaja disimpan; periksa isinya, lalu hapus sendiri.")
+        elif not sisa.buang():
+            print(f"Bahan sementara rakit belum bisa dibuang (ada berkas yang masih terbuka; `rakit` berikutnya mencoba lagi): {sisa.path}")
+        elif sisa.path != kerja:
+            print(f"Sisa rakit yang terhenti dibuang: {sisa.path.name}")
 
 
 def _word_gagal(kode, galat):
@@ -426,18 +431,12 @@ def _word_gagal(kode, galat):
 
 def _rakit(nama, fasl=None):
     f = folder_bahts(nama)
-    kerja = Path(tempfile.mkdtemp(prefix=".rakit-", dir=f))
-    (kerja / RAKIT_SEMENTARA).write_text("Bahan sementara `rakit`; dibuang sendiri oleh rakit berikutnya.\n", encoding="utf8")
+    folder_kerja = FolderKerja.buat(f)  # keadaan dan perpindahannya: berkas.FolderKerja
+    kerja = folder_kerja.path
     try:
         _rakit_di(nama, f, kerja, fasl)
     except PemulihanGagal:  # hasil baru masih di folder kerja: jangan dibuang, juga oleh rakit berikutnya
-        (kerja / RAKIT_SIMPAN).write_text("Hasil baru yang belum terpasang (pemulihan rakit gagal; lihat pesan rakit).\n"
-                                          "`rakit` tidak membuang folder ini: selamatkan isinya, lalu hapus sendiri.\n",
-                                          encoding="utf8")
-        try:  # RAKIT_SIMPAN sudah melindunginya; penanda sementara dicabut supaya versi lain pun tidak membuangnya
-            (kerja / RAKIT_SEMENTARA).unlink()
-        except OSError:
-            pass
+        folder_kerja.simpan()
         print(f"Bahan percobaan disimpan: {kerja}")
         raise
     finally:  # berhasil, atau galat cek, Word gagal, berkas terkunci: hasil lama utuh, bahan sementara tidak dibutuhkan
@@ -636,6 +635,41 @@ def perintah_bukti(a):
     ketemu(penunjuk.bukti(folder_bahts(a[0]), dari, sampai))
 
 
+def perintah_tahap(a):
+    """`tahap <folder>`: keadaan bahts dibaca ulang dari barang aslinya; mesin keadaannya di tahap.py. Folder bahts dan
+    bahan `cek` di mesin/_tmp tidak disentuh (bahannya ditulis ke folder sementara)."""
+    import olah, tahap
+    from berkas import cadangan_tertinggal
+    f = folder_bahts(a[0])
+    with tempfile.TemporaryDirectory(prefix="bahts-tahap-") as t:
+        ctx, lap = olah.periksa(f, Path(t) / "bahan.json")
+    sidik = lap[-1].removeprefix("NASKAH_SHA256=")
+    berkas = ctx.meta["berkas"]
+    pdf = f / f"{berkas}.pdf"
+    hasil = [tahap.Produk(f / "laporan.txt", tahap.hasil(pdf, f / "laporan.txt", sidik), pdf)]
+
+    def urut(lp):  # laporan-fasl2 sebelum laporan-fasl10, laporan-fasl1 sebelum laporan-fasl1-2
+        m = re.fullmatch(r"laporan-fasl(\d+)(?:-(\d+))?", lp.stem)
+        return (int(m[1]), int(m[2] or m[1])) if m else (math.inf, 0)
+    for lp in sorted(f.glob("laporan-fasl*.txt"), key=urut):
+        fasl = lp.stem.removeprefix("laporan-fasl")
+        label = next((b.split(": ", 1)[1] for b in lp.read_text(encoding="utf8", errors="replace").splitlines()
+                      if b.startswith(f"POTONGAN=--fasl {fasl}: ")), None)
+        pdf = None if label is None else f / f"{olah.nama_potongan(berkas, label, fasl)}.pdf"
+        hasil.append(tahap.Produk(lp, tahap.hasil(pdf, lp, sidik), pdf, f"--fasl {fasl}"))
+    rel = f.relative_to(AKAR).as_posix()
+    try:  # kunci dipegang sebentar: rakit yang masuk saat itu antre sendiri, rakit.ps1 tidak dimulai selama itu
+        with kunci(RAKIT_PEKERJAAN, apa=f"tahap {rel} (hanya melihat, selesai sebentar lagi)"):
+            rakit_, siapa = (tahap.Rakit.YATIM if _ps_yatim() else tahap.Rakit.BEBAS), ""
+    except RuntimeError:  # rakit lain memegangnya
+        rakit_, siapa = tahap.Rakit.JALAN, pemegang(RAKIT_PEKERJAAN)
+    k = tahap.Keadaan(jalur=a[0].rstrip("/\\") or a[0], naskah=tahap.naskah(ctx.galat, ctx.perhatian),
+                      galat=len(ctx.galat), perhatian=len(ctx.perhatian), tertolak=bool(ctx.tertolak), hasil=hasil,
+                      rakit=rakit_, siapa=siapa, rakit_sini=siapa.startswith(rel + ","),
+                      kerja=[(x.path.name, x.keadaan()) for x in FolderKerja.semua(f)], arsip=cadangan_tertinggal(f))
+    print("\n".join(tahap.baris(k)))
+
+
 def perintah_rakit(a):
     """`rakit <folder> [--fasl n]`: bendera boleh sebelum/sesudah folder."""
     a = list(a)
@@ -658,6 +692,7 @@ PERINTAH = {  # nama: (jumlah argumen minimal, maksimal (None = diperiksa pemang
     "cek": (0, None, perintah_cek),
     "rakit": (1, None, perintah_rakit),
     "bukti": (1, 2, perintah_bukti),
+    "tahap": (1, 1, perintah_tahap),
     "tanda": (0, 0, lambda a: print(tanda())),
     "kitab": (0, 0, lambda a: shamela.daftar()),
     "katalog": (1, 1, lambda a: ketemu(shamela.katalog(pola(a[0])))),
