@@ -247,7 +247,7 @@ def baru(nama, judul):
                 isi = re.sub(rf"^@{k}:[ \t]*$", lambda m: f"@{k}: {v.strip()}", isi, flags=re.M)
             else:  # kunci yang tidak ada di kerangka (mis. @thalibah) ikut ditulis
                 isi = isi.replace("@berkas:", f"@{k}: {v.strip()}\n@berkas:", 1)
-    riset = (MESIN / "riset_baru.txt").read_text(encoding="utf8")  # jejak langkah connector (olah.periksa_riset)
+    riset = (MESIN / "riset_baru.txt").read_text(encoding="utf8")  # jejak langkah connector (cek_naskah.periksa_riset)
     f.mkdir(parents=True)
     (f / "riset.txt").write_text(riset, encoding="utf8")
     (f / "naskah.txt").write_text(isi, encoding="utf8")
@@ -326,7 +326,8 @@ def cek(nama, keluar=None, jejak=False, ringkas=False):
     if tertolak:
         if jejak:
             print("petunjuk dari kitab lain (hanya petunjuk, bukan bukti; putusan tetap milik `cek`):")
-            print("\n".join(olah.jejak(tertolak)))
+            import jejak as cari_jejak  # bendera `jejak` menutupi nama modulnya
+            print("\n".join(cari_jejak.jejak(tertolak)))
         else:
             n = len({norma.padat(t) for _, t in tertolak})
             print(f"{n} teks tidak ditemukan di kitab yang dirujuk; cari di kitab lain yang sudah diunduh: "
@@ -453,12 +454,12 @@ def _rakit_di(nama, f, kerja, fasl=None):
     if not font_terpasang():
         sys.exit(f"Font mushaf belum terpasang: {perintah('siapkan')}, lalu ulangi.")
     d = json.loads(build.read_text(encoding="utf8"))
-    import olah
+    import dasar, olah
     laporan = "laporan.txt"
     if fasl:  # seluruh naskah sudah dicek di atas; yang dirakit hanya potongannya
         try:
             lap = [f"POTONGAN=--fasl {fasl}: {olah.potong(d, fasl)}"] + lap
-        except olah.TandaRusak as e:
+        except dasar.TandaRusak as e:
             sys.exit(f"Belum dirakit: {e}")
         build.write_text(json.dumps(d, ensure_ascii=False), encoding="utf8")
         laporan = f"laporan-fasl{fasl}.txt"  # laporan seluruh naskah (rakit tanpa --fasl) tidak tertimpa
@@ -624,15 +625,15 @@ def perintah_cek(a):
 
 
 def perintah_bukti(a):
-    """`bukti <folder> [baris|awal-akhir]`: penunjuk untuk pemeriksa (lihat olah.bukti); 0 yang dicetak = kode keluar 1."""
-    import olah
+    """`bukti <folder> [baris|awal-akhir]`: penunjuk untuk pemeriksa (lihat penunjuk.bukti); 0 yang dicetak = kode keluar 1."""
+    import penunjuk
     dari = sampai = None
     if len(a) == 2:
         m = re.fullmatch(r"(\d+)(?:\s*-\s*(\d+))?", a[1].strip())
         if not m or int(m[2] or m[1]) < int(m[1]):
             raise ValueError(f"baris ditulis angka (mis. 15) atau rentang awal-akhir (mis. 10-40), bukan «{a[1]}»")
         dari, sampai = int(m[1]), int(m[2] or m[1])
-    ketemu(olah.bukti(folder_bahts(a[0]), dari, sampai))
+    ketemu(penunjuk.bukti(folder_bahts(a[0]), dari, sampai))
 
 
 def perintah_rakit(a):

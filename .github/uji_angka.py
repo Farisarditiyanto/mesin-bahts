@@ -3,7 +3,7 @@
 «ص5», «1423هـ», nim «123456789» (contoh sendiri «-»: tidak tercetak), dan «آية: ٢». Tanpa @angka, semua angka di teks Arab bahan rakit harus ٠-٩
 (bug yang pernah terjadi: PDF mencetak «آية: ٢» di samping «ص5» dan «1423هـ»).
 Dengan «@angka_ayat: latin», hanya catatan kaki rujukan ayat yang 0-9 (dan ditandai "al" untuk rakit.ps1); sisanya tetap ٠-٩.
-Dengan «@angka: latin», semua angka di teks Arab bahan rakit 0-9 (jalur else di mesin/olah.py ±1904: ubah = latin).
+Dengan «@angka: latin», semua angka di teks Arab bahan rakit 0-9 (mesin/olah.py, _format_dan_angka: ubah = latin).
 Tautan/DOI di catatan kaki tetap 0-9 dan titiknya tetap, juga DOI tanpa huruf di depannya, dan pola "tautan" bahan
 (dipakai rakit.ps1 untuk mencetaknya kiri-ke-kanan) menangkap seluruhnya tanpa titik penutup kalimat (bug yang pernah
 terjadi: PDF mencetak «doi.org/١٠,٢١٦٠٨/jasis.٢٠٢١,١٨٣١٣١»)."""

@@ -38,7 +38,7 @@ def utama():
         mulakhas = dasar.replace("#K المقدمة", "#K الملخص\n" + "كلمة " * 600 + "\n#K المقدمة", 1)
         isi = perkiraan.search(cek("الملخص panjang sebelum المقدمة", mulakhas)).group(1)
         assert isi == isi_asli, f"perkiraan halaman isi ikut menghitung الملخص: ±{isi}, contoh ±{isi_asli}"
-        # riset.txt: jejak langkah connector hanya pernah jadi perhatian, apa pun isinya (olah.periksa_riset)
+        # riset.txt: jejak langkah connector hanya pernah jadi perhatian, apa pun isinya (cek_naskah.periksa_riset)
         riset = f / "riset.txt"
         for nama, isi, pesan in (
                 ("tanpa riset.txt", None, "tafsir belum tercatat di riset.txt untuk 1 ayat: 1:2 →"),
