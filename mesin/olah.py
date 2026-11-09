@@ -137,7 +137,7 @@ riset.txt (di folder bahts, di samping naskah.txt): jejak langkah riset yang tid
                       belum tercatat = perhatian, juga baris riset.txt yang rusak atau kunci takhrij8 yang tidak ada di naskah.
                       Tidak pernah GAGAL: isinya ditulis agen sendiri, jadi mesin hanya menunjuk yang belum dicatat
 """
-import bisect, difflib, functools, hashlib, io, itertools, json, os, re, tempfile, unicodedata, zlib
+import bisect, dataclasses, difflib, functools, hashlib, io, itertools, json, os, re, tempfile, unicodedata, zlib
 from pathlib import Path
 
 import norma
@@ -340,15 +340,9 @@ NAFI = {"لا", "فلا", "ولا", "ما", "فما", "وما", "ليس", "ول�
 HENTI = re.compile(r"[.،,؛;؟?!:]")  # tanda akhir kalimat di teks kitab: kata nafi di depannya milik kalimat sebelumnya
 BELUM_DIUNDUH = "kitab {} belum diunduh"  # pesan GAGAL per bukti; ringkasan di `utama` mengumpulkan nomornya dari pesan ini
 BELUM_DIUNDUH_RE = re.compile(re.escape(BELUM_DIUNDUH).replace(r"\{\}", r"(\d+)"))
-# kutipan yang tidak ada di kitab buktinya; pesan yang sama dikenali `urai` untuk TERTOLAK (`cek --jejak`)
+# kutipan yang tidak ada di kitab buktinya; pesan yang sama dikenali `urai` untuk Pemeriksaan.tertolak (`cek --jejak`)
 TIDAK_KETEMU = "teks TIDAK KETEMU di kitab {}"
 TIDAK_KETEMU_RE = re.compile(re.escape(TIDAK_KETEMU).replace(r"\{\}", r"(\d+)"))
-TERTOLAK = []  # (sid, kutipan) yang GAGAL «teks TIDAK KETEMU di kitab»; diisi `urai`, dikembalikan `utama` (untuk `cek --jejak`)
-# ayat {Q:} dan catatan kaki berbukti, urut naskah, dengan nomor barisnya: dibaca `bukti`, dikosongkan tiap `utama`
-#   {"n", "ayat": spec, "t": teks tercetak} atau {"n", "bukti": [sid|juz|hal…], "kutipan": teks yang dibuktikan, "catatan": isi}
-PENUNJUK = []
-JANGKAR = set()  # kunci {A:} naskah ini; dikosongkan tiap `utama`
-RUJUK_SILANG = []  # {P:k} yang tidak menunjuk {H:} sebelumnya: harus menunjuk {A:k} (dicek sesudah semua baris, `utama`)
 SEKITAR = 300  # huruf teks kitab yang dicetak `bukti` sebelum dan sesudah letak kutipan
 
 
@@ -2472,7 +2466,6 @@ def urutan_sumber(isi, bukti):
     return None
 
 
-STANDAR = []  # catatan standar_sumber yang belum dinilai; diisi urai, dinilai per bagian oleh olah (standar_baris)
 AWAL_BAGIAN = re.compile(r"^(?:\*\*)?(?:#[KFBMSR](?![^\s])|القول|الرأي|المذهب)")  # judul, atau awal pendapat baru
 
 
@@ -2499,9 +2492,34 @@ def standar_baris(catat):
     return hasil
 
 
-def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False, rumuz=None, warna=None, folder=None):
-    """Pecah satu baris jadi 'runs'. Catatan kaki ([^...]) diurai rekursif. rumuz = {sid: huruf} dari @rumuz;
-    warna = {sid: warna Word (BGR)} dari @warna; folder = folder bahts (tempat PDF bukti <<luar|berkas|hal>>)."""
+@dataclasses.dataclass
+class Pemeriksaan:
+    """Semua yang dikumpulkan selama satu naskah diurai: bahan rakit (catatan, ayat, hadits), putusan (galat, perhatian),
+    dan catatan yang baru dinilai sesudah barisnya atau sesudah seluruh naskah. Satu objek per `utama`, jadi dua naskah
+    yang diperiksa dalam satu proses (mis. `bukti` lalu `cek`) tidak saling mewarisi isi."""
+    folder: Path | None = None  # folder bahts (tempat PDF bukti <<luar|berkas|hal>>)
+    rumuz: dict = dataclasses.field(default_factory=dict)  # @rumuz: sid -> huruf
+    warna: dict = dataclasses.field(default_factory=dict)  # @warna: sid -> warna Word (BGR)
+    catatan: list = dataclasses.field(default_factory=list)  # catatan kaki: {"runs", "bukti", "luar", "pdf"}
+    ayat_idx: list = dataclasses.field(default_factory=list)  # {Q:} di matan, untuk فهرس الآيات
+    hadits_idx: list = dataclasses.field(default_factory=list)  # {H:}, untuk فهرس الأحاديث
+    galat: list = dataclasses.field(default_factory=list)
+    perhatian: list = dataclasses.field(default_factory=list)
+    # (sid, kutipan) yang GAGAL «teks TIDAK KETEMU di kitab»; dikembalikan `utama` (untuk `cek --jejak`)
+    tertolak: list = dataclasses.field(default_factory=list)
+    # ayat {Q:} dan catatan kaki berbukti, urut naskah, dengan nomor barisnya (dibaca `bukti`):
+    #   {"n", "ayat": spec, "t": teks tercetak} atau {"n", "bukti": [sid|juz|hal…], "kutipan": teks yang dibuktikan, "catatan": isi}
+    penunjuk: list = dataclasses.field(default_factory=list)
+    jangkar: set = dataclasses.field(default_factory=set)  # kunci {A:} naskah ini
+    rujuk_silang: list = dataclasses.field(default_factory=list)  # {P:k} yang belum menunjuk {H:}: harus menunjuk {A:k}
+    standar: list = dataclasses.field(default_factory=list)  # catatan standar_sumber yang belum dinilai (per bagian)
+
+
+def urai(teks, ctx, di_catatan=False):
+    """Pecah satu baris jadi 'runs'; yang terkumpul (catatan kaki, فهرس, galat, perhatian) masuk `ctx` (Pemeriksaan).
+    Catatan kaki ([^...]) diurai rekursif dengan di_catatan=True."""
+    catatan, ayat_idx, hadits_idx, galat, perhatian = ctx.catatan, ctx.ayat_idx, ctx.hadits_idx, ctx.galat, ctx.perhatian
+    rumuz, warna, folder = (None, None, None) if di_catatan else (ctx.rumuz, ctx.warna, ctx.folder)
     runs, tebal, merah, i = [], False, False, 0
     q_akhir = None  # ayat terakhir di baris ini (untuk mencocokkan catatan kaki «سورة …»)
     polos = ""  # teks polos berjalan (untuk mencari kutipan sebelum catatan kaki)
@@ -2533,7 +2551,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
         elif tok.startswith("{Q:"):
             t, s, a = ayat(tok[3:-1])
             q_akhir = (s, a)
-            PENUNJUK.append({"ayat": tok[3:-1], "t": t})
+            ctx.penunjuk.append({"ayat": tok[3:-1], "t": t})
             polos += penanda_ayat(tok[3:-1])
             runs.append({"t": "﴿", "b": False}); runs.append({"t": t, "q": True}); runs.append({"t": "﴾", "b": False})
             if not di_catatan:
@@ -2558,7 +2576,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 raise TandaRusak(f"{tok}: kunci hanya boleh huruf a-z")
             if any(r["k"] == "h_" + kunci for r in hadits_idx):
                 raise TandaRusak(f"{tok}: kunci «{kunci}» sudah dipakai (pakai {{H2:{kunci}}})")
-            if kunci in JANGKAR:
+            if kunci in ctx.jangkar:
                 raise TandaRusak(f"{tok}: kunci «{kunci}» sudah dipakai {{A:{kunci}}}")
             hadits_idx.append({"k": "h_" + kunci, "t": taraf, "r": rawi})
             h_pos = len(polos)
@@ -2569,7 +2587,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
             if any(r["k"] == "h_" + tok[3:-1] for r in hadits_idx):
                 runs.append({"pg": "h_" + tok[3:-1]})
             else:  # {A:} boleh sesudahnya («سيأتي في ص{P:k}»): dipastikan ada sesudah semua baris dibaca (utama)
-                RUJUK_SILANG.append({"k": tok[3:-1]})
+                ctx.rujuk_silang.append({"k": tok[3:-1]})
                 runs.append({"pg": "a_" + tok[3:-1]})
         elif tok.startswith("{A:"):
             kunci = tok[3:-1]
@@ -2577,9 +2595,9 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 raise TandaRusak(f"{tok}: titik rujukan hanya boleh di matan, bukan di catatan kaki")
             if not KUNCI.fullmatch(kunci):
                 raise TandaRusak(f"{tok}: kunci hanya boleh huruf a-z")
-            if kunci in JANGKAR or any(r["k"] == "h_" + kunci for r in hadits_idx):
+            if kunci in ctx.jangkar or any(r["k"] == "h_" + kunci for r in hadits_idx):
                 raise TandaRusak(f"{tok}: kunci «{kunci}» sudah dipakai {{A:}} atau {{H:}} lain")
-            JANGKAR.add(kunci)
+            ctx.jangkar.add(kunci)
             runs.append({"bm": "a_" + kunci})
         elif tok == "[^":
             if di_catatan:
@@ -2676,7 +2694,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                     raise TandaRusak(f"<<{LUAR}|{'|'.join(f)}>>: bentuknya <<{LUAR}|berkas.pdf|hal>>, hal = urutan halaman di berkas")
             bukti = [b for b in bukti if b.split("|")[0] != LUAR]
             if bukti:
-                PENUNJUK.append({"bukti": bukti, "kutipan": penggal if diam else mk, "catatan": isi})
+                ctx.penunjuk.append({"bukti": bukti, "kutipan": penggal if diam else mk, "catatan": isi})
             terbukti = []  # (sid, juz, p1, p2) tiap bukti, untuk dicocokkan dengan yang tercetak
             p_awal = len(perhatian)  # perhatian catatan kaki ini mulai di sini
             kutipan_4 = []  # hasil cek kutipan ke tiap bukti berpotongan sendiri: (pesan, perhatian)
@@ -2718,7 +2736,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                         # yang dicek: kutipan sebelum catatan kaki, paragraf salinan (diam), atau potongan bukti itu sendiri
                         t = (penggal if diam else mk) if (len(f) == 3 or diam) else pot4
                         if t:
-                            TERTOLAK.append((sid_bersih, t))
+                            ctx.tertolak.append((sid_bersih, t))
             # Tiap bukti tanpa potongan harus memuat kutipannya, bukan cukup salah satunya: <<sid|juz|hal>> menyatakan
             # «kutipan ini ada di sini», jadi kitab kedua yang tidak memuatnya (sumber salah, atau penisbatan palsu) tetap
             # GAGAL. Kutipan yang terbukti di bukti lain catatan kaki ini: pesannya menunjuk bentuk untuk bukti takhrij
@@ -2744,7 +2762,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 galat.append(e + f"  || fn: {isi[:45]}")
                 sid_bersih = str(int(b.split("|")[0]))
                 if e.startswith(TIDAK_KETEMU.format(sid_bersih)):
-                    TERTOLAK.append((sid_bersih, mk))
+                    ctx.tertolak.append((sid_bersih, mk))
             periksa_derajat(isi, terbukti, periksa_takhrij(isi, bukti, terbukti, mk, perhatian), galat, perhatian)
             # kutipan bertanda petik tetap dicek walau buktinya membawa potongan sendiri: cukup ada di salah satu bukti itu
             if kutipan_4 and all(e for e, _ in kutipan_4):
@@ -2755,7 +2773,7 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 if mk:
                     m = TIDAK_KETEMU_RE.search(kutipan_4[0][0])
                     if m:
-                        TERTOLAK.append((str(int(m.group(1))), mk))
+                        ctx.tertolak.append((str(int(m.group(1))), mk))
             else:
                 # yang sudah disebut cek potongannya (bagian muhaqqiq, حاشية) tidak diulang untuk kutipannya
                 sudah = {x.split(" :: ")[0] for x in perhatian[p_awal:]}
@@ -2832,11 +2850,11 @@ def urai(teks, catatan, ayat_idx, hadits_idx, galat, perhatian, di_catatan=False
                 galat += [f"{g}  || fn: {isi[:45]}"] if g else []
                 perhatian += [f"{p}  || fn: {isi[:45]}"] if p else []
                 c = standar_sumber(penggal, isi, [b[0] for b in terbukti]) if not di_catatan else None
-                STANDAR.extend([c] if c else [])
+                ctx.standar.extend([c] if c else [])
                 # halaman yang salah dibetulkan dulu: letak kitab di catatan kaki itu bisa ikut berubah
                 u = urutan_sumber(isi, terbukti) if not di_catatan and not salah_hal else None
                 perhatian += [u] if u else []
-            sub = urai(isi, None, ayat_idx, hadits_idx, galat, perhatian, di_catatan=True)
+            sub = urai(isi, ctx, di_catatan=True)
             runs += [{"z": z} for z in zz]
             catatan.append({"runs": sub, "bukti": len(bukti), "luar": luar, "pdf": len(pdf)})
             if not diam:
@@ -3141,6 +3159,12 @@ def periksa_dirasat(blok, catatan):
 
 def utama(folder, keluar=None):
     """Olah naskah di `folder`. Kembalikan (jumlah galat, baris laporan, [(sid, kutipan)] yang «teks TIDAK KETEMU di kitab»)."""
+    ctx, lap = periksa(folder, keluar)
+    return len(ctx.galat), lap, list(ctx.tertolak)
+
+
+def periksa(folder, keluar=None):
+    """Urai dan periksa naskah di `folder`, tulis bahan rakit ke `keluar`. Kembalikan (Pemeriksaan, baris laporan)."""
     folder = Path(folder)
     try:
         naskah = (folder / "naskah.txt").read_bytes()
@@ -3151,20 +3175,16 @@ def utama(folder, keluar=None):
             "simpan ulang sebagai UTF-8 di editormu (atau dari terminal, mis. untuk UTF-16: "
             "iconv -f UTF-16 -t UTF-8 naskah.txt > naskah8.txt, lalu ganti naskah.txt dengan naskah8.txt)")
             + ", lalu ulangi `cek`.") from None
-    blok, catatan, ayat_idx, hadits_idx, galat, perhatian, pustaka = [], [], [], [], [], [], []
-    TERTOLAK.clear()
-    STANDAR.clear()
-    PENUNJUK.clear()
-    JANGKAR.clear()
-    RUJUK_SILANG.clear()
+    ctx = Pemeriksaan(folder=folder)
+    catatan, ayat_idx, hadits_idx, galat, perhatian = ctx.catatan, ctx.ayat_idx, ctx.hadits_idx, ctx.galat, ctx.perhatian
+    rumuz, warna = ctx.rumuz, ctx.warna
+    blok, pustaka = [], []
     meta = {"berkas": folder.name}
     di_baris = {}  # @kunci dan #R -> nomor barisnya, untuk galat yang baru ketahuan sesudah semua baris dibaca
-    rumuz = {}  # @rumuz: sid -> huruf
-    warna = {}  # @warna: sid -> warna Word (BGR)
     for n, b in baris:
-        if AWAL_BAGIAN.match(b) and STANDAR:  # bagian baru: nilai standar sumber bagian sebelumnya
-            perhatian += standar_baris(STANDAR); STANDAR.clear()
-        g0, p0, u0, s0, r0 = len(galat), len(perhatian), len(PENUNJUK), len(STANDAR), len(RUJUK_SILANG)
+        if AWAL_BAGIAN.match(b) and ctx.standar:  # bagian baru: nilai standar sumber bagian sebelumnya
+            perhatian += standar_baris(ctx.standar); ctx.standar.clear()
+        g0, p0, u0, s0, r0 = len(galat), len(perhatian), len(ctx.penunjuk), len(ctx.standar), len(ctx.rujuk_silang)
         if b.startswith("@"):
             k, _, v = b[1:].partition(":")
             if k.strip() not in META:
@@ -3208,7 +3228,7 @@ def utama(folder, keluar=None):
                 if k == "V":  # kata yang dipecah «...~» dicek dan dicetak utuh, bukan sebagai dua bagian kutipan
                     t = GABUNG_PARUH.sub("", t)
                 try:
-                    blok.append({"k": k, "runs": urai(t, catatan, ayat_idx, hadits_idx, galat, perhatian, rumuz=rumuz, warna=warna, folder=folder)})
+                    blok.append({"k": k, "runs": urai(t, ctx)})
                 except TandaRusak as e:
                     galat.append(f"baris {n}: tanda rusak — {e}")
                 except (KeyError, IndexError, ValueError) as e:  # bukan salah tulis naskah: mesinnya yang keliru di baris ini
@@ -3224,7 +3244,7 @@ def utama(folder, keluar=None):
             pustaka.append(b.strip())
         else:
             try:
-                blok.append({"k": "P", "runs": urai(b, catatan, ayat_idx, hadits_idx, galat, perhatian, rumuz=rumuz, warna=warna, folder=folder), "n": n})
+                blok.append({"k": "P", "runs": urai(b, ctx), "n": n})
             except TandaRusak as e:
                 galat.append(f"baris {n}: tanda rusak — {e}")
             except (KeyError, IndexError, ValueError) as e:  # bukan salah tulis naskah: mesinnya yang keliru di baris ini
@@ -3232,17 +3252,17 @@ def utama(folder, keluar=None):
         # tiap galat dan perhatian menyebut barisnya: pemakai langsung tahu tempatnya, tes jebakan mencocokkan per baris
         galat[g0:] = [g if g.startswith("baris ") else f"baris {n}: {g}" for g in galat[g0:]]
         perhatian[p0:] = [p if p.startswith("baris ") else f"baris {n}: {p}" for p in perhatian[p0:]]
-        for u in PENUNJUK[u0:]:
+        for u in ctx.penunjuk[u0:]:
             u["n"] = n
-        for c in STANDAR[s0:]:
+        for c in ctx.standar[s0:]:
             c["n"] = n
-        for r in RUJUK_SILANG[r0:]:
+        for r in ctx.rujuk_silang[r0:]:
             r["n"] = n
-    perhatian += standar_baris(STANDAR); STANDAR.clear()
+    perhatian += standar_baris(ctx.standar); ctx.standar.clear()
     perhatian += porsi_kutipan(blok, catatan)
     perhatian += periksa_dirasat(blok, catatan)
-    for r in RUJUK_SILANG:
-        if r["k"] not in JANGKAR:
+    for r in ctx.rujuk_silang:
+        if r["k"] not in ctx.jangkar:
             dulu = any(h["k"] == "h_" + r["k"] for h in hadits_idx)
             galat.append(f"baris {r['n']}: {{P:{r['k']}}}: " + (
                 f"{{H:…|{r['k']}}} baru ditulis sesudah catatan kaki ini; «سبق تخريجه» menunjuk hadits yang sudah ditakhrij"
@@ -3451,7 +3471,8 @@ def utama(folder, keluar=None):
     lap.append(f"catatan kaki tanpa bukti (selain rujukan ayat dan rujukan kitab di atas): {len(fn_tanpa)}")
     lap += [f"  - {f}" for f in fn_tanpa]
     lap.append(f"NASKAH_SHA256={sidik_naskah}")
-    return len(galat), lap, list(TERTOLAK)
+    ctx.galat, ctx.perhatian = galat, perhatian
+    return ctx, lap
 
 
 def _ringkas(t, maks=200):
@@ -3532,8 +3553,8 @@ def bukti(folder, dari=None, sampai=None):
     kutipan. Naskahnya diurai `utama` (sama dengan `cek`), tetapi laporan dan putusannya tidak dicetak.
     Tiap baris keluaran diawali «baris n», supaya bisa disaring. Kembalikan jumlah yang dicetak."""
     with tempfile.TemporaryDirectory() as d:
-        utama(folder, Path(d) / "bahan.json")
-    pilih = [u for u in PENUNJUK if (dari is None or dari <= u["n"]) and (sampai is None or u["n"] <= sampai)]
+        ctx, _ = periksa(folder, Path(d) / "bahan.json")
+    pilih = [u for u in ctx.penunjuk if (dari is None or dari <= u["n"]) and (sampai is None or u["n"] <= sampai)]
     ke = {}
     for u in pilih:
         if "ayat" in u:
