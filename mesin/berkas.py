@@ -55,16 +55,6 @@ def _pemegang(h):
         return ""
 
 
-def pemegang(f):
-    """Keterangan pemegang kunci `f` tanpa menyentuh kuncinya («» kalau belum tercatat). Hanya bermakna sesudah
-    `kunci(f)` gagal: pemegang yang mati meninggalkan keterangannya walau kuncinya sudah dilepas OS."""
-    try:
-        with open(f, "rb") as h:
-            return _pemegang(h)
-    except OSError:
-        return ""
-
-
 def _pegang(h):
     h.seek(0)
     if os.name == "nt":
