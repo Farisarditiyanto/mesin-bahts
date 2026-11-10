@@ -18,10 +18,11 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       termasuk nomor halaman, nomor catatan kaki, dan فهرس. Naskah boleh ditulis dengan angka mana saja
                       angka_ayat (bawaan = @angka): angka di catatan kaki rujukan ayat [^سورة …، آية: n.] saja,
                       mis. «@angka_ayat: latin» = nomor ayat di catatan kaki 0123, sisanya tetap ٠١٢٣
-                      tanpa (yang tidak dicetak: فهرس ayat, hadits, maudhuat, dan pustaka = المصادر والمراجع
+                      tanpa (yang tidak dicetak: فهرس ayat, hadits, alam, maudhuat, dan pustaka = المصادر والمراجع
                       bila dosen minta sumber cukup di catatan kaki; mis. «@tanpa: ayat, hadits»).
-                      فهرس الآيات dan فهرس الأحاديث yang kosong tidak dicetak dengan sendirinya
-                      pustaka (akhir = urutan خطة yang menaruh فهرس المصادر والمراجع sesudah فهرس الأحاديث, dengan judul itu;
+                      فهرس الآيات، فهرس الأحاديث، dan فهرس الأعلام yang kosong tidak dicetak dengan sendirinya
+                      pustaka (akhir = urutan خطة yang menaruh فهرس المصادر والمراجع sesudah فهرس الأحاديث (dan فهرس الأعلام
+                      kalau ada), dengan judul itu;
                       bawaan: المصادر والمراجع sebelum فهرس الآيات)
                       templat (berkas .docx di folder bahts): Word mahasiswa sendiri; halaman pertamanya jadi sampul
                       apa adanya (data sampul di naskah tidak dipakai), kepala halamannya (termasuk judul di dalamnya) dipakai
@@ -75,6 +76,11 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       Di dalam kutipan: cetak persis sebatas ayat yang dikutip kitab di situ (lebih panjang/lain = GAGAL)
   {H:طرف|راوٍ|kunci}   daftarkan hadits/atsar ke فهرس الأحاديث; taruh di matan, tepat sebelum «matan», bukan di catatan kaki. Kunci: huruf kecil a-z, satu kunci satu hadits
   {H2:kunci}          halaman tambahan untuk hadits yang sama
+  {N:nama}            daftarkan nama orang ke فهرس الأعلام (tidak tercetak); tempelkan langsung ke namanya di matan, tanpa spasi
+                      sesudahnya («قال {N:ابن منظور}ابن منظور»; spasi di kedua sisinya jadi dua spasi), bukan di catatan kaki
+                      atau judul. Nama yang sama tiap kali (beda harakat/hamzah tetap satu) = satu baris فهرس dengan semua
+                      halamannya, halaman berurutan jadi rentang (٢٥-٢٩). Urut abjad tanpa «ال/ابن/أبو/أبي» di depan
+                      («ابن القيم» di ق). فهرس الأعلام dicetak sesudah فهرس الأحاديث
   {A:kunci}           titik rujukan silang di matan (tidak tercetak), mis. di awal paragraf yang mau ditunjuk
   {P:kunci}           nomor halaman {H:..|kunci} atau {A:kunci}; hanya di dalam catatan kaki: [^سبق تخريجه، ص{P:kunci}.],
                       [^انظر: ص{P:kunci} من هذا البحث.]. {A:} boleh sesudah {P:}-nya («سيأتي»); nomornya diisi `rakit`
@@ -119,7 +125,7 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       tengahnya atau disambung ... dengan kutipan lain, dan tanda petik tanpa pasangan
                       (…) tepat sebelum catatan kaki berbukti yang diantar «قال …:»، «ﷺ:», atau tepat sesudah {H:} = kutipan,
                       dicek seperti "…". Kutipan pendek (≤3 kata) yang diantar «قال …:» juga dicek; tanpa pengantar = istilah
-  Judul (#K/#F/#B/#M/#S/#R) tidak boleh memuat [^, <<, {Q:/{H:/{A: atau ** ({A:} ditaruh di awal paragraf sesudahnya)
+  Judul (#K/#F/#B/#M/#S/#R) tidak boleh memuat [^, <<, {Q:/{H:/{A:/{N: atau ** ({A:} ditaruh di awal paragraf sesudahnya)
   Contoh: قال ابن القيم: "…"[^مدارج السالكين، ابن القيم، 2/15. <<8370|2|15>>].
 
 Bahts dikumpulkan bertahap per فصل: tetap SATU naskah; tiap potongan dirakit dengan «rakit <folder> --fasl n» (#F ke-n;
@@ -162,7 +168,7 @@ WAJIB = {"bahts": ("judul", "jenis", "nama", "nim", "fasl"), "kitab": ("judul",)
 # nomor mahasiswa tanpa «الرقم الجامعي:»
 SAMPUL = {"qism": ("judul", "nama"), "mahad": WAJIB["bahts"], "jakarta": ("judul", "nama")}
 HALAMAN_BARU = ("B", "M")  # judul yang bisa dibuat mulai halaman baru lewat @halaman_baru; K dan F selalu
-TANPA = ("ayat", "hadits", "maudhuat", "pustaka")  # فهرس dan المصادر yang boleh dibuang lewat @tanpa; perakitnya di rakit.ps1
+TANPA = ("ayat", "hadits", "alam", "maudhuat", "pustaka")  # فهرس dan المصادر yang boleh dibuang lewat @tanpa; perakitnya di rakit.ps1
 # @angka: yang pertama = bawaan. Pedoman Jāmiʿat al-Imām tidak menyebut jenis angka; contoh resminya (pedoman 1443هـ,
 # مجلة العلوم الشرعية) memakai hindi di nomor halaman, catatan kaki, rujukan, tahun, ayat, dan فهرس
 ANGKA = ("hindi", "latin")
@@ -317,6 +323,12 @@ def potong(d, fasl):
         if ks:  # {H:} di potongan lain, {H2:} di sini: halaman di فهرس hanya yang di sini
             hadits.append({**h, "k": ks[0], "lagi": ks[1:]})
     d["hadits"] = hadits
+    alam = []
+    for a in d.get("alam", []):  # nama yang juga disebut di potongan lain: halaman di فهرس hanya yang di sini
+        ks = [k for k in a["k"] if k in bm]
+        if ks:
+            alam.append({**a, "k": ks})
+    d["alam"] = alam
     return label
 
 
@@ -401,7 +413,7 @@ def _urai_baris(ctx, baris):
                 except (KeyError, IndexError, ValueError) as e:  # bukan salah tulis naskah: mesinnya yang keliru di baris ini
                     galat.append(galat_mesin(n, e))
             elif re.search(r"\[\^|<<|\{|\*\*", t):  # judul tercetak apa adanya (juga di فهرس الموضوعات): tanda ini ikut tercetak
-                galat.append(f"baris {n}: judul tidak boleh memuat catatan kaki [^, bukti <<, tanda {{Q:/{{H:/{{A: atau **: "
+                galat.append(f"baris {n}: judul tidak boleh memuat catatan kaki [^, bukti <<, tanda {{Q:/{{H:/{{A:/{{N: atau **: "
                              f"pindahkan ke paragraf sesudahnya :: {b[:40]}")
             else:
                 if k == "R":
@@ -558,6 +570,13 @@ def _urutkan_fihris(ctx):
     for a in ayat_idx:
         a["surah"] = SURAH[a["s"] - 1]
     hadits_idx.sort(key=lambda h: kunci_urut(h["t"]))
+    # فهرس الأعلام: satu baris per nama (semua penandanya), urut tanpa «ال/ابن/أبو» seperti pengarang di المصادر
+    # nama yang hanya beda harakat atau hamzah («ابنُ عثيمين»، «احمد») = orang yang sama: satu baris, bentuk pertamanya
+    gabung = {}
+    for a in ctx.alam_idx:
+        kunci = re.sub("[إأآ]", "ا", norma.HARAKAT.sub("", a["t"]))
+        gabung.setdefault(kunci, {"t": a["t"], "k": []})["k"].append(a["k"])
+    ctx.alam = sorted(gabung.values(), key=lambda a: kunci_urut(a["t"], True))
     ctx.pustaka = pustaka
     return quran
 
@@ -724,7 +743,7 @@ def _tulis_bahan(ctx, keluar, profil, quran, sumber, sidik_naskah):
     ayat_idx, hadits_idx, folder = ctx.ayat_idx, ctx.hadits_idx, ctx.folder
     with sementara(keluar or bahan(folder)) as part:
         part.write_text(json.dumps({"meta": meta, "format": profil, "blok": blok, "catatan": catatan,
-                                   "ayat": ayat_idx, "hadits": hadits_idx, "pustaka": pustaka,
+                                   "ayat": ayat_idx, "hadits": hadits_idx, "alam": ctx.alam, "pustaka": pustaka,
                                    "quran": bool(quran), "tautan": TAUTAN.pattern, "sumber": sumber,
                                    "naskah_sha256": sidik_naskah}, ensure_ascii=False), encoding="utf8")
 

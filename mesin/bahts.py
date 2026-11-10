@@ -308,6 +308,7 @@ def perkiraan_halaman(d):
     for nama, n, per in (("المصادر", len(d["pustaka"]) if "pustaka" not in tanpa and (not kitab or d["pustaka"]) else 0, 12),
                          ("فهرس الآيات", 0 if "ayat" in tanpa else len(d["ayat"]), 26),
                          ("فهرس الأحاديث", 0 if "hadits" in tanpa else len(d["hadits"]), 20),
+                         ("فهرس الأعلام", 0 if "alam" in tanpa else len(d.get("alam", [])), 20),
                          ("فهرس الموضوعات", 0 if "maudhuat" in tanpa else max(judul, 1), 25)):
         rinci[nama] = math.ceil(n / per)  # baris per halaman dari 30 PDF bahts nyata (selisih paling banyak 1 halaman)
     return isi, isi + sum(rinci.values()), {k: v for k, v in rinci.items() if v}

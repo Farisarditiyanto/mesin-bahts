@@ -573,10 +573,10 @@ def utama():
             isi = "نص الفصل للتجربة."
             teks = ("@judul: المطلوب\n@nama: اسم\n@berkas: hasil\n#K المقدمة\n" + isi + "\n"
                     "#F الفصل الأول: أ\nقال تعالى: {Q:1:2}[^سورة الفاتحة، آية: ٢.].\n"
-                    "{H:إنما الأعمال بالنيات|عمر|niyya}قال: إنما الأعمال بالنيات[^أخرجه البخاري.].\n"
+                    "{N:عمر بن الخطاب}{H:إنما الأعمال بالنيات|عمر|niyya}قال: إنما الأعمال بالنيات[^أخرجه البخاري.].\n"
                     "#F الفصل الثاني: ب\nقال تعالى: {Q:1:5}[^سورة الفاتحة، آية: ٥.].\n{H2:niyya}قال: إنما الأعمال بالنيات[^PG].\n"
                     "#F الفصل الثالث: ج\nقال تعالى: {Q:1:4}[^سورة الفاتحة، آية: ٤.].\n"
-                    "{H:الدين النصيحة|تميم|nasiha}قال: الدين النصيحة[^أخرجه مسلم.].\n{H2:nasiha}قال: الدين النصيحة[^سبق تخريجه، ص{P:nasiha}.].\n"
+                    "{N:عمر بن الخطاب}{N:تميم الداري}{H:الدين النصيحة|تميم|nasiha}قال: الدين النصيحة[^أخرجه مسلم.].\n{H2:nasiha}قال: الدين النصيحة[^سبق تخريجه، ص{P:nasiha}.].\n"
                     "#K الخاتمة\n" + isi + "\n#R المصادر والمراجع\nالقرآن الكريم.\n")
             (folder / "laporan.txt").write_text("LAPORAN-UTUH", encoding="utf8")
 
@@ -593,7 +593,7 @@ def utama():
             r, b = rakit_fasl("1")
             assert r.returncode == 0, r.stdout + r.stderr
             assert judul(b) == ["المقدمة", "الفصل الأول: أ"], judul(b)
-            assert not b["meta"].get("tanpa_sampul") and b["meta"]["tanpa"] == "ayat, hadits, maudhuat, pustaka", b["meta"]
+            assert not b["meta"].get("tanpa_sampul") and b["meta"]["tanpa"] == "ayat, hadits, alam, maudhuat, pustaka", b["meta"]
             assert b["meta"]["berkas"] == "hasil - المقدمة والفصل الأول" and (folder / "hasil - المقدمة والفصل الأول.pdf").is_file()
             assert [a["a"] for a in b["ayat"]] == ["2"] and [h["k"] for h in b["hadits"]] == ["h_niyya"], (b["ayat"], b["hadits"])
             assert (folder / "laporan-fasl1.txt").read_text(encoding="utf8").startswith("POTONGAN=--fasl 1: المقدمة والفصل الأول")
@@ -601,12 +601,14 @@ def utama():
             r, b = rakit_fasl("2")  # {H2:} di sini, {H:}-nya di potongan 1: halaman فهرسnya hanya yang di sini
             assert r.returncode == 0, r.stdout + r.stderr
             assert judul(b) == ["الفصل الثاني: ب"] and b["meta"]["tanpa_sampul"], (judul(b), b["meta"])
-            assert [h["k"] for h in b["hadits"]] == ["h_niyya_1"] and b["meta"]["tanpa"] == "ayat, hadits, maudhuat, pustaka"
+            assert [h["k"] for h in b["hadits"]] == ["h_niyya_1"] and b["meta"]["tanpa"] == "ayat, hadits, alam, maudhuat, pustaka"
             r, b = rakit_fasl("3")
             assert r.returncode == 0, r.stdout + r.stderr
             assert judul(b) == ["الفصل الثالث: ج", "الخاتمة"] and b["meta"]["tanpa_sampul"] and not b["meta"].get("tanpa"), b["meta"]
             assert b["meta"]["berkas"] == "hasil - الفصل الثالث والخاتمة" and b["pustaka"] == ["القرآن الكريم."]
             assert [a["a"] for a in b["ayat"]] == ["4"] and [h["k"] for h in b["hadits"]] == ["h_nasiha"], (b["ayat"], b["hadits"])
+            # {N:} yang sama di potongan lain: halaman فهرس الأعلام hanya yang di sini; urut tanpa «ال/ابن/أبو»
+            assert [(a["t"], len(a["k"])) for a in b["alam"]] == [("تميم الداري", 1), ("عمر بن الخطاب", 1)], b["alam"]
             r, b = rakit_fasl("1-3")
             assert r.returncode == 0 and len(judul(b)) == 5 and not b["meta"].get("tanpa_sampul") and not b["meta"].get("tanpa")
             # {P:} ke hadits di potongan lain: nomor halamannya tidak ada di PDF potongan itu; berhenti sebelum Word

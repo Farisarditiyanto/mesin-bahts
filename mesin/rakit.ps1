@@ -38,10 +38,11 @@ $JUDUL1 = $JUDUL; $JUDUL2 = ''
 if ($JUDUL -match '^(.+?)\s+[-–—]\s*(.+)$') { $JUDUL1 = $Matches[1].Trim(); $JUDUL2 = $Matches[2].Trim() }
 $MUSYRIF = if ($M.musyrif -and $M.musyrif -ne '-') { [string]$M.musyrif } else { '' }
 $JABATAN = if ($MUSYRIF -and $M.jabatan -and $M.jabatan -ne '-') { [string]$M.jabatan } else { '' }
-# فهرس dicetak kalau ada isinya dan tidak disebut di @tanpa (ayat, hadits, maudhuat)
+# فهرس dicetak kalau ada isinya dan tidak disebut di @tanpa (ayat, hadits, alam, maudhuat)
 $TANPA = @(([string]$M.tanpa -split '[,، ]+') | Where-Object { $_ })
 $adaAy = [bool]@($DATA.ayat).Count -and $TANPA -notcontains 'ayat'
 $adaHd = [bool]@($DATA.hadits).Count -and $TANPA -notcontains 'hadits'
+$adaAl = [bool]@($DATA.alam).Count -and $TANPA -notcontains 'alam'   # {N:nama}: فهرس الأعلام sesudah فهرس الأحاديث (urutan خطة)
 $adaTo = $TANPA -notcontains 'maudhuat'
 $KITAB = $M.bentuk -eq 'kitab'           # @bentuk: kitab = tanpa sampul bahts, judul di kepala halaman, hanya #K (dan @halaman_baru) halaman baru
 $adaPu = $TANPA -notcontains 'pustaka' -and (-not $KITAB -or @($DATA.pustaka).Count)   # @tanpa: pustaka = sumber cukup di catatan kaki
@@ -784,6 +785,14 @@ try {
     }
     Sel-Akhir
     }
+    if ($adaAl) {
+    $nT++; JudulFihris 'فهرس الأعلام' "t_$nT"; [void]$toc.Add(@{ t = 'فهرس الأعلام'; bm = "t_$nT"; lvl = 0 })
+    $tAl = Tabel ($DATA.alam.Count + 1) @(10.0, 5.0) 1; Sel $tAl 1 1 'العلم' 1 1; Sel $tAl 1 2 'الصفحة' 1 1
+    $r = 1
+    foreach ($a in $DATA.alam) { $r++; Sel $tAl $r 1 $a.t 3 0; Sel $tAl $r 2 (Angka '00') 1 0 }
+    $tAl.Rows(1).HeadingFormat = -1                      # judul kolom diulang di halaman sambungan
+    Sel-Akhir
+    }
     if ($adaPu -and $PUSTAKA_AKHIR) { Tulis-Pustaka 'فهرس المصادر والمراجع' }
     if ($adaTo) {
     $nT++; JudulFihris 'فهرس الموضوعات' "t_$nT"
@@ -843,6 +852,17 @@ try {
     # {P:kunci}: tiap angka punya bookmark sejak BuatCatatan, termasuk catatan kaki yang dibuat ulang NomorCatatan.
     # Isian bisa memindahkan targetnya ke halaman lain: perbarui lagi sampai nomor halaman dan catatan kaki tetap.
     # Jangan mencari angka biasa: itu bisa mengubah angka isi naskah.
+    # halaman فهرس الأعلام: angka berurutan jadi rentang («25-29»); nomor huruf (@nomor) apa adanya
+    function Rentang($hal) {
+        $angka = @($hal | Where-Object { $_ -is [int] } | Sort-Object -Unique); $lain = @($hal | Where-Object { $_ -isnot [int] })
+        $out = @($lain)
+        for ($i = 0; $i -lt $angka.Count; $i++) {
+            $j = $i; while ($j + 1 -lt $angka.Count -and $angka[$j + 1] -eq $angka[$j] + 1) { $j++ }
+            $out += if ($j - $i -ge 2) { "$($angka[$i])-$($angka[$j])" } elseif ($j -gt $i) { "$($angka[$i])"; "$($angka[$j])" } else { "$($angka[$i])" }
+            $i = $j
+        }
+        return ($out -join '، ')
+    }
     function IsiRujukanHalaman {
         $ubah = 0
         foreach ($nama in @($rujukanHalaman.Keys)) {
@@ -868,6 +888,7 @@ try {
         $ubah = 0
         if ($adaAy) { $r = 1; foreach ($key in $urut) { $r++; $pg = Angka (($ay[$key].bm | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '); if ($isiLama["a$r"] -ne $pg) { $isiLama["a$r"] = $pg; $ubah++; Sel $tAy $r $cP $pg 1 ([int]$AYAT_SURAH) } } }
         if ($adaHd) { $r = 1; foreach ($h in $DATA.hadits) { $r++; $ks = @($h.k); if ($h.lagi) { $ks += $h.lagi }; $pg = Angka (($ks | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '); if ($isiLama["h$r"] -ne $pg) { $isiLama["h$r"] = $pg; $ubah++; Sel $tHd $r $cH $pg 1 ([int]$HADITS_RINGKAS) } } }
+        if ($adaAl) { $r = 1; foreach ($a in $DATA.alam) { $r++; $pg = Angka (Rentang @(@($a.k) | ForEach-Object { Hal $_ } | Select-Object -Unique)); if ($isiLama["n$r"] -ne $pg) { $isiLama["n$r"] = $pg; $ubah++; Sel $tAl $r 2 $pg 1 0 } } }
         if ($adaTo -and $TO_TITIK) {
             $r = 0
             foreach ($e in $toc) {
