@@ -50,7 +50,7 @@ def _takhrij_dulu(mk, dulu_h, perhatian):
     return any(not h.get("bukti") and h.get("kutipan") and kata(mk).strip() and kata(mk) in kata(h["kutipan"]) for h in dulu_h)
 
 
-TOKEN = re.compile(r"(\*\*|\(\(|\)\)|\{(?:Q|H2|H|P|A):[^}]*\}|\[\^|\])")
+TOKEN = re.compile(r"(\*\*|\(\(|\)\)|\{(?:Q|H2|H|P|A|N):[^}]*\}|\[\^|\])")
 KUNCI = re.compile(r"[a-z]+")
 
 
@@ -65,6 +65,8 @@ class Pemeriksaan:
     catatan: list = dataclasses.field(default_factory=list)  # catatan kaki: {"runs", "bukti", "luar", "pdf"}
     ayat_idx: list = dataclasses.field(default_factory=list)  # {Q:} di matan, untuk فهرس الآيات
     hadits_idx: list = dataclasses.field(default_factory=list)  # {H:}, untuk فهرس الأحاديث
+    alam_idx: list = dataclasses.field(default_factory=list)  # {N:}, untuk فهرس الأعلام: {"k": penanda, "t": nama}
+    alam: list = dataclasses.field(default_factory=list)  # فهرس الأعلام: {"t": nama, "k": [penanda]}, urut (diisi olah)
     galat: list = dataclasses.field(default_factory=list)
     perhatian: list = dataclasses.field(default_factory=list)
     # (sid, kutipan) yang GAGAL «teks TIDAK KETEMU di kitab»; dikembalikan `olah.utama` (untuk `cek --jejak`)
@@ -200,6 +202,20 @@ class Pengurai:
         hadits_idx.append({"k": "h_" + kunci, "t": taraf, "r": rawi})
         self.h_pos = len(self.polos)
         self.runs.append({"bm": "h_" + kunci})
+
+    def _alam(self, tok):
+        """{N:nama}: penanda tak tercetak untuk فهرس الأعلام, di matan dekat nama orang itu. Nama yang sama = satu baris
+        فهرس dengan semua halamannya; tulis namanya persis sama tiap kali (mis. «ابن القيم» di ق, «آل بورنو، محمد صدقي»)."""
+        nama = re.sub(r"\s+", " ", tok[3:-1]).strip()
+        if self.di_catatan:  # nomor halaman catatan kaki tidak bisa dibaca seperti matan
+            raise TandaRusak(f"{tok}: tidak boleh di dalam catatan kaki: فهرس الأعلام hanya untuk nama di matan")
+        if not nama or not re.search(r"[؀-ۿ]", nama):
+            raise TandaRusak(f"{tok}: tulis nama orangnya dengan huruf Arab, mis. {{N:ابن رجب}}")
+        if "|" in nama:
+            raise TandaRusak(f"{tok}: bentuknya {{N:nama}} saja, tanpa |")
+        kunci = f"n_{len(self.ctx.alam_idx)}"
+        self.ctx.alam_idx.append({"k": kunci, "t": nama})
+        self.runs.append({"bm": kunci})
 
     def _rujuk_halaman(self, tok):
         if not self.di_catatan:
@@ -575,4 +591,4 @@ class Pengurai:
             self.seg_run_bukti = len(self.runs)
 
     PENANGAN = {"**": _tebal, "((": _matn, "))": _matn, "{Q:": _ayat, "{H2:": _hadits_lagi, "{H:": _hadits,
-                "{P:": _rujuk_halaman, "{A:": _jangkar, "[^": _catatan_kaki, "]": _kurung_nyasar}
+                "{P:": _rujuk_halaman, "{A:": _jangkar, "{N:": _alam, "[^": _catatan_kaki, "]": _kurung_nyasar}

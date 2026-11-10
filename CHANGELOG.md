@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- فهرس الأعلام: tanda baru `{N:nama}` di matan (tidak tercetak) mendaftarkan nama orang; `rakit` mencetak فهرس الأعلام (العلم | الصفحة) sesudah فهرس الأحاديث, urut abjad tanpa «ال/ابن/أبو/أبي», dengan semua halaman tiap nama (berurutan jadi rentang ٢٥-٢٩; nama beda harakat/hamzah tetap satu baris). `{N:}` di catatan kaki, tanpa nama Arab, atau bermuatan `|` = GAGAL. `@tanpa: alam` membuangnya; `rakit --fasl` hanya memuat nama di potongan itu.
 - Audit #154/#155:
   - pembersih `.rakit-*` tidak lagi mengikuti tautan folder/junction atau menganggap direktori/tautan bernama `rakit.sementara` sebagai izin menghapus; penanda dipulihkan bila isi sudah terhapus tetapi direktori masih terkunci;
   - `tahap` tidak membuat atau menulis metadata kunci rakit; sidik laporan yang rusak menjadi TIDAK_DIKETAHUI, dan nama laporan potongan yang bukan nomor/rentang sah diabaikan;
