@@ -11,7 +11,7 @@ Mesin untuk menulis **بحث** (makalah syar'i berbahasa Arab) bersama agent AI.
 ## Untuk agent
 
 1. Aturan kerja ada di [`AGENTS.md`](AGENTS.md). Mulai dari bagian «Pemakai baru». Pemakai cukup menjawab pertanyaan; semua perintah kamu yang jalankan.
-2. **Connector `shamela` wajib.** Jangan mengumpulkan bahan sebelum alat `shamela_*` tersedia. Cara mencari, mendaftarkan, dan masuk akunnya: `AGENTS.md` «Pemakai baru» langkah 4.
+2. **Connector `shamela` wajib.** Jangan mengumpulkan bahan sebelum alat connector `shamela` tersedia (ada `shamela_search_phrase`; `shamela_find` milik `shamela_resmi`). Cara mencari, mendaftarkan, dan masuk akunnya: `AGENTS.md` «Pemakai baru» langkah 4.
 3. Perintah: `python mesin/bahts.py` (daftar perintah), `python mesin/bahts.py tanda` (daftar tanda naskah), `python mesin/bahts.py periksa` (kebutuhan komputer dan cara membereskannya). Contoh naskah yang lolos `cek`: [`contoh/naskah.txt`](contoh/naskah.txt).
 
 ## Untuk pemakai: mulai
@@ -104,7 +104,7 @@ Mac/Linux bisa menulis dan `cek`, tanpa Word dan PDF. `cek` dan `rakit` sendiri 
 ### Connector dan kunci
 
 - **`shamela`** (wajib, butuh akun shamela.link): mencari di seluruh kitab Shamela, termasuk yang belum diunduh.
-- **Tanpa akun, ikut dipasang:** `turath` (isi semua kitab), `hadithunlocked` (hadits, derajat, syarah, sejarah), `tafsir` (tafsir per ayat, sebab turun, qiraat, i'rab), `quran` (teks ayat, morfologi, sebaran kata). Agent meminta izin sekali untuk semuanya. Kalau salah satunya mati, kerja tetap jalan.
+- **Tanpa akun, ikut dipasang:** `shamela_resmi` (MCP resmi shamela.ws: isi semua kitab, buka halaman atau satu bab utuh), `turath` (isi semua kitab), `hadithunlocked` (hadits, derajat, syarah, sejarah), `tafsir` (tafsir per ayat, sebab turun, qiraat, i'rab), `quran` (teks ayat, morfologi, sebaran kata). Agent meminta izin sekali untuk semuanya. Kalau salah satunya mati, kerja tetap jalan.
 - Semua connector = layanan orang lain dan hanya penunjuk jalan: kitabnya tetap di-`ambil`, kutipannya tetap harus lolos `cek`.
 - **Kunci OpenAlex** (wajib kalau dosen minta الدراسات السابقة, selain itu tidak perlu) untuk `dirasat` (penelitian terdahulu): tanpa kunci jatahnya kecil dan `dirasat-pdf` tertutup. Daftar di https://openalex.org, salin dari Settings > API key, simpan sebagai satu baris di `kunci_openalex.txt` (atau variabel `OPENALEX_API_KEY`).
 

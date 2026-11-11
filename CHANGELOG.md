@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- Connector baru `shamela_resmi` (MCP resmi shamela.ws, tanpa akun) di `.mcp.json` dan `opencode.json`, ikut dipasang bersama connector tanpa akun lainnya. AGENTS.md: sebelum mengutip dari satu halaman kitab, agent wajib membaca seluruh bab-nya: kitab lokal lewat `bab` + `halaman`, kitab yang belum diunduh lewat `shamela_open_many` (`scope: "section"`), dan bab yang terlalu panjang untuk server itu lewat `shamela_get_book_section`; pemeriksa langkah 5 ikut menilainya. Kuota `shamela` habis → cadangan pertama `shamela_resmi`, lalu `turath`. `shamela` (shamela.link) tetap wajib: pencarian resmi bukan frasa persis dan tidak punya `silent`, `verify_quote`, atau tafsir per ayat (angka uji di `dok/uji-riset.md`).
 - Cara menukil: AGENTS.md kini memuat tujuh cara menukil dari أبو سليمان، كتابة البحث العلمي (ص112-115), dengan urutan pemakaian yang ditetapkan repo (kitab itu tidak mengurutkannya): bawaannya kutipan lafaz kunci yang pendek digabung ringkasan atau uraian sendiri; yang wajib dikutip utuh tetap dikutip walau dosen minta semuanya diparafrase; di بحث صفي kalimat sendiri jadi tubuh pembahasan; aturan repo: kutipan bertanda petik lain paling panjang ±60 kata, yang lebih panjang diringkas (pedoman risalah Jāmiʿat al-Imām memisahnya jadi paragraf sendiri, tetapi mesin belum punya tanda kutipan blok).
 
 ## 9.2.0 — 2026-11-10
