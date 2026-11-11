@@ -55,7 +55,7 @@
 | بيانات النشر | `kartu <id>` | التوثيق الأول والمصادر |
 | قراءة النص | `cari`، `teks`، `bab`، `halaman` | نص محلي يُنسخ كما هو |
 | الفحص | `cek <folder>` (و`--jejak` للنقل غير الموجود) | `GAGAL: n`، تنبيهات، `NASKAH_SHA256` |
-| المراجِع | `bukti <folder> [awal-akhir]` | نص الصفحة حول كل حاشية |
+| المراجِع | `bukti <folder> [awal-akhir]` | نص الصفحة حول كل حاشية، والفقرات التي بلا حاشية |
 | الإخراج | `rakit <folder> [--fasl n]` (Windows + Word) | `.docx` + `.pdf` (الغلاف، الحواشي، المصادر والمراجع، الفهارس)، `HALAMAN_ISI`، `HALAMAN` |
 | الحالة | `tahap <folder>` | `NASKAH=`، `HASIL=`، `RAKIT=`، `BERIKUTNYA` |
 

@@ -5,6 +5,8 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- Klaim tanpa catatan kaki: `bukti` kini juga mencetak tiap paragraf isi yang tidak punya catatan kaki («baris n tanpa catatan kaki: «…»»), dan pemeriksa langkah 5 wajib menilai semuanya. Sebelumnya `cek`, `bukti`, dan pemeriksa hanya melihat catatan kaki yang sudah ada, sehingga penisbatan ke mazhab atau ulama tanpa sumber lolos (di 51 naskah, umumnya 15-25% paragraf isi tanpa catatan kaki, paling banyak 48%). AGENTS.md langkah 3 kini menyebut nukilan makna («انظر:») wajib bercatatan kaki.
+
 - README kini ada versi Arab (`README.ar.md`); pilihan bahasa di bagian atas keduanya. Isinya dikelompokkan jadi tiga bagian (Mulai, Cara kerja, Repo) dan pembukanya dipadatkan. `.github/uji_readme.py` menjaga keduanya tetap sejajar. Gambar `dok/alur.svg` dan `dok/bukti.svg` yang tidak dipakai lagi dihapus.
 - Command Code kini bisa memakai connector `shamela`: AGENTS.md «Pemakai baru» langkah 4 memasang entri lokal dengan `clientId` repo (klien publik `native` di shamela.link), lalu `commandcode mcp auth shamela`. Sebelumnya Command Code ditulis «belum bisa».
 - README ditulis ulang untuk agent: alur perintah per langkah, apa yang dibuktikan `cek`, kebutuhan, tabel agent dan cara masuk `shamela`, peta repo, standar halaman, dan pesan yang perlu disampaikan ke pemakai. Templat isian pemakai dan gambar `dok/alur.svg`/`dok/bukti.svg` tidak lagi di README. Kalimat lama «ganti `mesin/sampul_qism.docx`» (bertentangan dengan AGENTS.md) dibuang.
