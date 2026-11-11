@@ -92,6 +92,31 @@ Delapan kutipan: satu benar dan tujuh dirusak.
 
 `cek` tetap putusan utama. `shamela_verify_quote` tanpa `book_id` berguna saat kitab belum diunduh, tetapi hasil teratasnya bisa kitab penukil.
 
+## MCP resmi Shamela (`shamela_resmi`)
+
+Diuji 11 November 2026: `mcp.shamela.ws` (server `shamela` 8.1.0, milik shamela.ws, tanpa akun, 4 alat) langsung dari PC, dan `shamela.link` (34 alat) lewat Toolport. Waktu kedua sisi tidak diukur dari tempat yang sama.
+
+| Uji | `shamela_resmi` | `shamela` (shamela.link) |
+|---|---|---|
+| Waktu per panggilan | 0,6–2,4 detik (`shamela_find`, rata-rata 1,6) | 0,27–1,7 detik, tengah 0,4 (`search_phrase`) |
+| Panggilan berurutan | 120, 0 gagal | 117, 0 gagal |
+| 20 / 60 pencarian sekaligus | 16 / 56 dibalas `busy` | tidak bisa diuji: Toolport mengantre satu-satu |
+| Nomor cetak الإنصاف 21609, `page_id` 1981 | ٤/ ٣٥٧ | 4/ 357 (`cari` lokal: ج4 ص357) |
+| Kata tunggal `العربون`, 34 kitab `dok/mutamad.md` | 23 halaman, 16 kitab | 23 halaman |
+| Frasa `بيع العربون`, 34 kitab yang sama | 14 halaman memuat frasa, 60 panggilan | 17 halaman, 1 panggilan |
+| Takhrij `البينة على المدعي`, kategori 8 | 35 halaman sesudah 40 panggilan, belum habis | `total_count` 85 halaman |
+| Takhrij `كل مسكر حرام`, kategori 8 | 65 halaman sesudah 40 panggilan, belum habis | `total_count` 189 halaman |
+| Frasa karangan `خيار العربون` | 20 hasil, 0 memuat frasa | 0 |
+| Kalimat karangan `قطار كهربائي فائق السرعة في الصحراء` | 30 kitab | 0 |
+| `إنما الأعمال بالنيات`, kategori 6 | berharakat 1 hasil; tanpa harakat 33 halaman sesudah 15 panggilan, belum habis | 231 halaman, berharakat atau tidak |
+| `بيع العربون` tanpa kategori | teratas fatwa ابن عثيمين، المنجد | teratas الإشراف لابن المنذر، التنبيه، المقنع |
+| Sumber tertua `لا ضرر ولا ضرار` | `date_to: 300`: الموطأ، مسند الشافعي، مسند أحمد; `sort: date_asc`: ديوان عمرو بن قميئة tanpa frasa | `period_to: 300`: teratas الخراج، الموطأ (49 halaman; `period_basis` bawaan ikut memuat kitab baru seperti التعليق الممجد) |
+| Satu bab: الإنصاف «باب الشروط في البيع» (23 halaman) | panggilan pertama 15 halaman, 27.745 huruf; seluruh bab 3 panggilan; `end_page_id` lebih satu halaman (1987 = باب الخيار) | `get_toc` + `get_book_section` (6 halaman, 10.870 huruf) + 3× `get_pages_range` = 5 panggilan; `end_page_id` 1986 benar |
+| Bab panjang: الإنصاف `page_id` 600 (باب صفة الصلاة) | 1 halaman, tanpa `section`, tanpa `partial`: gagal tanpa pesan | `get_toc` menemukan bab-nya |
+| Bab `المجموع` 2186, `page_id` 4000 | `skipped` tidak memuat 4022-4024 padahal masih dalam `section` | belum diuji |
+
+Pencarian `shamela_resmi` mengurutkan kecocokan kata, bukan frasa persis, dan hampir tidak pernah kosong. Balasan kosong muncul di tengah paging walau `next_cursor` masih ada. `limit` dan `book_ids` paling banyak 20. Alat `silent`, `verify_quote`, wildcard, judul bab, tafsir per ayat, dan data kitab tidak ada. Tidak ada kasus yang hanya bisa di `shamela_resmi` selain tanpa akun; bab pendek dan sedang terbaca dengan panggilan lebih sedikit, bab panjang tidak.
+
 ## Jebakan alat
 
 - `shamela_resolve` hasil pertama salah kitab pada empat judul: `مواهب الجليل`, `تحفة المحتاج`, `أسنى المطالب`, `حاشية الدسوقي`.
