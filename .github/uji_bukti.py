@@ -6,7 +6,8 @@ Yang diuji (kalau rusak, pemeriksa membaca teks yang salah tanpa sadar):
 - bukti yang menunjuk halaman lain: dikatakan «TIDAK ketemu» dan yang dicetak awal halaman yang dirujuk itu,
   bukan halaman lain tempat kutipannya berada;
 - ayat {Q:} dicetak persis teks mushaf mesin;
-- `bukti contoh <baris>` hanya mencetak baris itu, dan tiap baris keluaran diawali «baris n».
+- `bukti contoh <baris>` hanya mencetak baris itu, dan tiap baris keluaran diawali «baris n»;
+- paragraf isi tanpa catatan kaki ikut dicetak (pemeriksa menilai klaim yang tidak bersumber), المقدمة/الخاتمة tidak.
 """
 import json, shutil, subprocess, sys, tempfile
 from pathlib import Path
@@ -62,7 +63,14 @@ try:
     print("lolos: hanya baris yang diminta")
 
     naskah = AKAR / "contoh" / "naskah.txt"
-    naskah.write_text(naskah.read_text(encoding="utf-8-sig").replace("<<11223|-|5>>", "<<11223|-|6>>"), encoding="utf-8")
+    asli = naskah.read_text(encoding="utf-8-sig")
+    naskah.write_text(asli.replace("\n\n#K الخاتمة", "\nوذهب الجمهور إلى ذلك.\n\n#K الخاتمة"), encoding="utf-8")
+    kode, keluar = jalan("bukti", "contoh")
+    tanpa = [b for b in keluar.splitlines() if " tanpa catatan kaki: " in b]
+    assert tanpa == ["baris 16 tanpa catatan kaki: «وذهب الجمهور إلى ذلك.»"], keluar
+    print("lolos: paragraf isi tanpa catatan kaki dicetak; المقدمة dan الخاتمة tidak")
+
+    naskah.write_text(asli.replace("<<11223|-|5>>", "<<11223|-|6>>"), encoding="utf-8")
     kode, keluar = jalan("bukti", "contoh", "15")
     print(keluar)
     _, halaman6 = jalan("halaman", "11223", "-", "6")

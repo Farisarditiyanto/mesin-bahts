@@ -11,7 +11,8 @@ Bahts (tiap bahts = satu folder berisi naskah.txt):
                                --jejak: teks yang tidak ada di kitabnya dicari di kitab lain yang sudah diunduh
   bukti <folder> [baris|awal-akhir]   untuk pemeriksa: tiap catatan kaki berbukti <<sid|juz|hal>> (kalimat yang
                                dibuktikan, isi catatan kaki, nama kitab, bab, dan teks halaman itu di sekitar kutipan)
-                               dan teks tiap ayat {Q:} persis seperti tercetak; tiap baris keluaran diawali «baris n».
+                               dan teks tiap ayat {Q:} persis seperti tercetak, juga tiap paragraf isi tanpa catatan
+                               kaki (untuk dinilai: penisbatan tanpa sumber); tiap baris keluaran diawali «baris n».
                                Penunjuk saja, putusan tetap `cek`
   rakit <folder> [--fasl n]    cek, lalu rakit .docx + .pdf (Word) ke dalam folder itu; --fasl 2 (atau 1-2): hanya #F
                                ke-2, untuk bahts yang dikumpulkan bertahap per فصل (lihat `tanda`); `cek` tetap

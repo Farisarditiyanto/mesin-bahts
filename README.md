@@ -53,7 +53,7 @@ Kebutuhan komputer dan cara membereskannya ada di satu tempat: `python mesin/bah
 | Data cetak | `kartu <id>` | rujukan pertama dan المصادر |
 | Baca teks | `cari`, `teks`, `bab`, `halaman` | teks lokal untuk disalin persis |
 | Periksa | `cek <folder>` (`--jejak` untuk kutipan yang tidak ketemu) | `GAGAL: n`, perhatian, `NASKAH_SHA256` |
-| Pemeriksa | `bukti <folder> [awal-akhir]` | teks halaman di sekitar tiap catatan kaki |
+| Pemeriksa | `bukti <folder> [awal-akhir]` | teks halaman di sekitar tiap catatan kaki, dan paragraf isi tanpa catatan kaki |
 | Rakit | `rakit <folder> [--fasl n]` (Windows + Word) | `.docx` + `.pdf` (sampul, catatan kaki, المصادر والمراجع, الفهارس), `HALAMAN_ISI`, `HALAMAN` |
 | Status | `tahap <folder>` | `NASKAH=`, `HASIL=`, `RAKIT=`, `BERIKUTNYA` |
 

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """`bukti <folder>`: untuk pemeriksa, tiap catatan kaki berbukti dicetak bersama teks kitab di sekitar letak
-kutipannya, dan tiap {Q:} dengan teks ayatnya."""
+kutipannya, tiap {Q:} dengan teks ayatnya, dan tiap paragraf isi tanpa catatan kaki."""
 import re, tempfile
 from pathlib import Path
 
@@ -85,16 +85,42 @@ def _penunjuk_bukti(sid, juz, hal, kutipan):
     return hasil + [f"{shamela.letak(juz, (p1, p2))}: {sebab}; awal halaman: {raw[:2 * SEKITAR]}{'…' * (len(raw) > 2 * SEKITAR)}"]
 
 
+def _tanpa_catatan(blok):
+    """(baris, teks) tiap paragraf isi tanpa satu pun catatan kaki. Isi = bab #F (bukan yang bernama مقدمة/خاتمة) dan
+    #B/#M di bawahnya, atau #B/#M langsung sesudah #K المقدمة; #K dan المصادر (#R) bukan isi. `cek` tidak bisa
+    menilai kalimat tanpa catatan kaki, jadi pemeriksa langkah 5 yang menilai apakah ada penisbatan atau fakta di
+    dalamnya yang perlu sumber (bahts/taufiq, 11 Nov 2026: «وثمرة الخلاف أن الحنفية…» lolos tanpa sumber)."""
+    di_isi, bab_luar = False, False  # bab_luar: #F terakhir bernama مقدمة/خاتمة
+    for b in blok:
+        if b["k"] == "R":
+            return
+        if b["k"] in ("K", "F"):
+            bab_luar = b["k"] == "F" and bool(re.search(r"مقدم[ةه]|خاتم[ةه]", norma.HARAKAT.sub("", b.get("judul", ""))))
+            di_isi = b["k"] == "F" and not bab_luar
+        elif b["k"] in ("B", "M"):
+            di_isi = not bab_luar
+        elif di_isi and b["k"] == "P" and not any("fn" in r for r in b["runs"]):
+            teks = "".join(r.get("t", "") for r in b["runs"]).strip()
+            if teks:
+                yield b["n"], teks
+
+
 def bukti(folder, dari=None, sampai=None):
     """`bukti`: untuk tiap catatan kaki berbukti <<sid|juz|hal…>> dan ayat {Q:} di baris dari..sampai (None = semua):
     kalimat yang dibuktikan, isi catatan kakinya, lalu nama kitab, rantai judul, dan teks halaman kitab di sekitar letak
-    kutipan. Naskahnya diurai `olah.periksa` (sama dengan `cek`), tetapi laporan dan putusannya tidak dicetak.
+    kutipan; juga tiap paragraf isi tanpa catatan kaki (_tanpa_catatan), di urutan barisnya. Naskahnya diurai
+    `olah.periksa` (sama dengan `cek`), tetapi laporan dan putusannya tidak dicetak.
     Tiap baris keluaran diawali «baris n», supaya bisa disaring. Kembalikan jumlah yang dicetak."""
     with tempfile.TemporaryDirectory() as d:
         ctx, _ = periksa(folder, Path(d) / "bahan.json")
-    pilih = [u for u in ctx.penunjuk if (dari is None or dari <= u["n"]) and (sampai is None or u["n"] <= sampai)]
+    dalam = lambda n: (dari is None or dari <= n) and (sampai is None or n <= sampai)
+    polos = [{"n": n, "polos": t} for n, t in _tanpa_catatan(ctx.blok) if dalam(n)]
+    pilih = sorted([u for u in ctx.penunjuk if dalam(u["n"])] + polos, key=lambda u: u["n"])  # sorted stabil
     ke = {}
     for u in pilih:
+        if "polos" in u:
+            print(f"baris {u['n']} tanpa catatan kaki: «{_ringkas(u['polos'], 600)}»")
+            continue
         if "ayat" in u:
             print(f"baris {u['n']} ayat {{Q:{u['ayat']}}}: ﴿{u['t']}﴾")
             continue
