@@ -2,9 +2,11 @@
 
 Prototipe ini membandingkan normalisasi Arab Rust melalui PyO3 (jembatan Rust–Python), mesin Python asli, dan cache Python. Ini **bukan migrasi mesin**. Tidak ada impor tambahan di `mesin/`, dependensi pemakai tidak berubah, dan menjalankan `bahts.py` langsung tetap memakai Python asli.
 
+Fase kedua menambahkan `paket.py` untuk membuat wheel dan memasangnya di venv bersih, `ram.py` untuk puncak RAM proses asli, dan uji perakit dokumen. Hasil versi 0.1.0 di `HASIL.md`/`hasil.json` tetap merupakan bukti historis; perubahan NFKC versi 0.2.0 dijelaskan di bawah.
+
 ## Cara mencoba
 
-Syarat: Python dan pustaka mesin sudah siap, Rust/Cargo tersedia, serta kitab lokal tersedia. Pembuatan modul pertama mengunduh crate Rust. `cek` dan pengukuran sesudah build tetap bekerja tanpa internet. Windows memerlukan toolchain beserta linker yang sesuai; eksperimen Windows ini memakai GNU dan GCC. Tidak ada wheel siap pakai dalam PR ini.
+Syarat build: Python dan pustaka mesin sudah siap, Rust/Cargo serta maturin tersedia, dan kitab lokal tersedia. Pembuatan modul pertama mengunduh crate Rust. `cek` dan pengukuran sesudah build tetap bekerja tanpa internet. Windows memerlukan toolchain beserta linker yang sesuai; eksperimen lokal memakai GNU dan GCC. Workflow `paket-rust-eksperimen` membuat wheel untuk tiap sistem yang diuji; wheel belum dirilis ke PyPI.
 
 1. Jalankan `python mesin/bahts.py ambil 11223 1727` dari akar repo.
 2. Arahkan `CARGO_TARGET_DIR` ke direktori sementara agar hasil kompilasi tidak masuk repo.
@@ -37,7 +39,9 @@ python dok/eksperimen-rust/jalankan.py --mode rust-cache --library <jalur-modul>
 
 Manifest hasil mencatat ID kitab dan SHA-256 `pages.jsonl.gz` setiap kitab sampel. Isi corpus mengikuti pustaka lokal saat pengukuran; seed yang sama tanpa pustaka yang sama tidak menentukan corpus yang sama.
 
-Normalisasi Rust membaca pola regex, tabel huruf, dan tabel ejaan dari `mesin/norma.py`. Urutan algoritme serta langkah ligatur dalam Rust merupakan port eksperimen; kesamaan hasil harus diuji ulang setiap kali mesin atau dependensi berubah. Unicode Rust dan Python dapat berbeda versinya. Pembacaan masukan Rust menerima string UTF-8 yang sah, bukan surrogate tunggal Python.
+Normalisasi Rust membaca pola regex, tabel huruf, dan tabel ejaan dari `mesin/norma.py`. Urutan algoritme serta langkah ligatur dalam Rust merupakan port eksperimen; kesamaan hasil harus diuji ulang setiap kali mesin atau dependensi berubah. Pengujian Python 3.12 menemukan perbedaan pada U+1CCF0: basis Unicode Rust dan Python berbeda. Versi 0.2.0 memakai fungsi NFKC Python host untuk langkah kompatibilitas Unicode, sementara langkah lain tetap Rust. Modul kemudian diuji ulang pada Python 3.12 dan 3.14. Pembacaan masukan Rust menerima string UTF-8 yang sah, bukan surrogate tunggal Python.
+
+`paket.py --out <folder-baru> --interpreter <python-3.12> --interpreter <python-3.14>` membangun wheel dari salinan source di temp, menyertakan LICENSE asli, lalu menguji pemasangan tanpa akses jaringan dan tanpa Rust di PATH venv. Setelah wheel dipasang, `jalankan.py --mode rust mesin/bahts.py cek contoh` dapat memakai modul terpasang tanpa `--library`. Wheel hanya berisi normalizer; mesin, data Quran, kitab, dan Word tetap terpisah.
 
 ## Batas keputusan
 

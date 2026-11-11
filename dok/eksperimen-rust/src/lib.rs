@@ -6,7 +6,6 @@ use fancy_regex::Regex as Fancy;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use regex::Regex;
-use unicode_normalization::UnicodeNormalization;
 
 #[pyclass]
 struct Normalizer {
@@ -22,6 +21,7 @@ struct Normalizer {
     ibnu: Fancy,
     sama: Vec<Option<char>>,
     ejaan: Vec<(String, String)>,
+    nfkc: Py<PyAny>,
 }
 
 fn invalid(e: impl std::fmt::Display) -> PyErr { PyValueError::new_err(e.to_string()) }
@@ -29,7 +29,7 @@ fn invalid(e: impl std::fmt::Display) -> PyErr { PyValueError::new_err(e.to_stri
 #[pymethods]
 impl Normalizer {
     #[new]
-    fn new(patterns: HashMap<String, String>, sama: Vec<(char, char)>, ejaan: Vec<(String, String)>) -> PyResult<Self> {
+    fn new(patterns: HashMap<String, String>, sama: Vec<(char, char)>, ejaan: Vec<(String, String)>, nfkc: Py<PyAny>) -> PyResult<Self> {
         let get = |name: &str| patterns.get(name).ok_or_else(|| invalid(format!("missing rule: {name}")));
         let re = |name: &str| Regex::new(get(name)?).map_err(invalid);
         let fancy = |name: &str| Fancy::new(get(name)?).map_err(invalid);
@@ -40,20 +40,21 @@ impl Normalizer {
             ligatur: re("LIGATUR_HORMAT")?, presentasi: re("PRESENTASI")?,
             bukan_huruf: re("BUKAN_HURUF")?, bukan_abjad: re("BUKAN_ABJAD")?,
             syai: fancy("SYAI")?, tanpa_hamzah: fancy("SYAI_TANPA_HAMZAH")?, ibnu: fancy("IBNU")?,
-            sama: letters, ejaan,
+            sama: letters, ejaan, nfkc,
         })
     }
 
-    fn norm(&self, text: &str) -> PyResult<String> { self.convert(text, false) }
-    fn padat(&self, text: &str) -> PyResult<String> { self.convert(text, true) }
+    fn norm(&self, py: Python<'_>, text: &str) -> PyResult<String> { self.convert(py, text, false) }
+    fn padat(&self, py: Python<'_>, text: &str) -> PyResult<String> { self.convert(py, text, true) }
 }
 
 impl Normalizer {
-    fn convert(&self, text: &str, compact: bool) -> PyResult<String> {
+    fn convert(&self, py: Python<'_>, text: &str, compact: bool) -> PyResult<String> {
         let mut s = text.replace(['ﷺ', 'ﷻ'], " ");
         if let Cow::Owned(v) = self.ligatur.replace_all(&s, " ") { s = v; }
         if s.contains('﷽') { s = s.replace('﷽', " بسم الله الرحمن الرحيم "); }
-        if self.presentasi.is_match(&s) { s = s.nfkc().collect(); }
+        // Match the host Python's Unicode database, including older supported Pythons.
+        if self.presentasi.is_match(&s) { s = self.nfkc.call1(py, ("NFKC", &s))?.extract(py)?; }
         if let Cow::Owned(v) = self.tags.replace_all(&s, "") { s = v; }
         if let Cow::Owned(v) = self.harakat.replace_all(&s, "") { s = v; }
         if let Cow::Owned(v) = self.hormat.replace_all(&s, " ") { s = v; }
