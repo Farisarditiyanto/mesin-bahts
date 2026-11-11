@@ -12,7 +12,6 @@ import subprocess
 import sys
 import tempfile
 import time
-import venv
 import zipfile
 
 HERE = Path(__file__).resolve().parent

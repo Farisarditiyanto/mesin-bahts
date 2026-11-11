@@ -1,4 +1,6 @@
-# Hasil eksperimen Rust — 11 November 2026
+# Hasil eksperimen Rust versi 0.1.0 — 11 November 2026
+
+Data historis fase pertama, sesuai commit `6776124`. Untuk paket versi 0.2.0, RAM, Word, dan perakit alternatif, baca `LANJUTAN.md`.
 
 Rust memberi hasil menjanjikan pada normalisasi padat dan pembuatan cache, tetapi data ini belum membenarkan rewrite seluruh mesin. Implementasi Python asli tetap dipakai oleh perintah normal. Eksperimen bersifat opt-in dan ditujukan untuk PR tanpa merge.
 

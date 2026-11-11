@@ -1,8 +1,5 @@
 name: paket-rust-eksperimen
 on:
-  push:
-    branches: [claude/rust-experiment]
-    paths: ["dok/eksperimen-rust/**", ".github/workflows/eksperimen-rust.yml"]
   pull_request:
     paths: ["dok/eksperimen-rust/**", ".github/workflows/eksperimen-rust.yml"]
 permissions:
@@ -25,11 +22,12 @@ jobs:
         id: py314
         with:
           python-version: "3.14"
-      - run: python -m pip install maturin
+      - run: python -m pip install maturin==1.16.0 psutil==7.2.2
       - run: rustup toolchain install 1.99.1 --profile minimal --no-self-update
       - run: rustup default 1.99.1
       - name: Build wheel; install and verify without Rust in fresh Python 3.12 and 3.14
         run: python dok/eksperimen-rust/paket.py --out wheel-results --interpreter "${{ steps.py312.outputs.python-path }}" --interpreter "${{ steps.py314.outputs.python-path }}"
+      - run: python dok/eksperimen-rust/uji_lanjutan.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:

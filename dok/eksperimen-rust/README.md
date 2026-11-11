@@ -24,7 +24,7 @@ python dok/eksperimen-rust/jalankan.py --mode cache mesin/bahts.py cek contoh
 python dok/eksperimen-rust/jalankan.py --mode rust-cache --library <jalur-modul> mesin/bahts.py cek contoh
 ```
 
-`cache` dan `rust-cache` sama-sama membatasi cache `norm` dan `padat` pada 4096 masukan per fungsi. Itu batas percobaan, bukan rekomendasi kebutuhan memori. Pemakaian RAM belum diukur. Peluncur berlaku dalam proses saat ini; subprocess yang dibuat skrip tujuan tidak otomatis memakai Rust.
+`cache` dan `rust-cache` sama-sama membatasi cache `norm` dan `padat` pada 4096 masukan per fungsi. Itu batas jumlah masukan, bukan batas byte. Pengukuran RAM proses asli ada di `LANJUTAN.md` dan `hasil-lanjutan.json`. Peluncur berlaku dalam proses saat ini; subprocess yang dibuat skrip tujuan tidak otomatis memakai Rust.
 
 `--folder <folder-bahts>` pada `ukur.py` menambah pengukuran naskah lokal; boleh diulang. JSON hasil hanya memuat label `manuscript-1`, `manuscript-2`, jumlah, hash kode, dan durasi. Isi, nama, jalur, dan hash naskah tidak disimpan ke hasil publik.
 
@@ -45,7 +45,7 @@ Normalisasi Rust membaca pola regex, tabel huruf, dan tabel ejaan dari `mesin/no
 
 ## Batas keputusan
 
-Angka satu PC tidak membuktikan kecepatan di semua komputer. PR ini tidak membuktikan port seluruh mesin, paket satu executable, pengganti Word, atau distribusi wheel Windows/Linux/macOS. Hasil Word tetap dibentuk perakit Word yang sama. Tidak ada klaim bahwa waktu `rakit` berkurang berdasarkan pengukuran normalisasi.
+Angka satu PC tidak membuktikan kecepatan di semua komputer. Wheel normalizer kini diuji di Windows x86-64, Linux x86-64, dan macOS ARM64; itu bukan aplikasi Bahts mandiri. Uji Word dan perakit alternatif di `LANJUTAN.md` belum membuktikan kesetaraan penuh atau kelayakan mengganti Word.
 
 `hasil.json` menyimpan ukuran tanpa teks pribadi. `HASIL.md` mencatat keputusan dan pemeriksaan. Keduanya adalah hasil eksperimen yang diminta, bukan aturan baru untuk mesin.
 
@@ -60,7 +60,7 @@ Crate normalisasi Arab umum tidak dipakai sebagai pengganti aturan mesin: aturan
 
 | Paket/sistem | Pemeriksaan | Keputusan eksperimen |
 |---|---|---|
-| PyO3, regex, fancy-regex, unicode-normalization | Dikompilasi dan dipakai prototipe ini; versi terkunci di Cargo.lock. | Pakai komponen komunitas untuk jembatan, pencocokan pola, dan Unicode. |
+| PyO3, regex, fancy-regex | Dikompilasi dan dipakai versi 0.2.0; versi terkunci di Cargo.lock. | Jembatan dan pencocokan pola memakai komponen komunitas; NFKC memakai Python host. Versi 0.1.0 dahulu memakai unicode-normalization. |
 | [arabic-normalize 0.1.0](https://github.com/AbdeldjalilChougui/arabic-normalize) | Source dan dokumentasi dibaca; crate preset `search` dikompilasi pada delapan contoh kompatibilitas terpilih. | Bukan pengganti langsung: kedelapan contoh berbeda; perlu adapter untuk aturan mesin. Angka ini bukan frekuensi perbedaan pada seluruh kitab. |
 | [orjson](https://github.com/ijl/orjson) | Wheel Rust untuk Python dipasang di temp; seluruh objek JSON kitab 1727 dibandingkan dengan `json.loads`, lalu waktu parse diukur. | Kandidat pembaca JSON siap pakai; hasil ini belum membuktikan percepatan CLI atau kesamaan seluruh perilaku parser. |
 | [docx-rs](https://github.com/bokuweb/docx-rs) | README, source paragraf, dan contoh footnote diperiksa. | Penulis DOCX yang patut diuji; belum dibuktikan memenuhi semua aturan halaman bahts atau menghasilkan PDF setara. |
