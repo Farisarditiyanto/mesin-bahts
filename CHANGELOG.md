@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- README kini ada versi Arab (`README.ar.md`); pilihan bahasa di bagian atas keduanya. Isinya dikelompokkan jadi tiga bagian (Mulai, Cara kerja, Repo) dan pembukanya dipadatkan. `.github/uji_readme.py` menjaga keduanya tetap sejajar. Gambar `dok/alur.svg` dan `dok/bukti.svg` yang tidak dipakai lagi dihapus.
 - Command Code kini bisa memakai connector `shamela`: AGENTS.md «Pemakai baru» langkah 4 memasang entri lokal dengan `clientId` repo (klien publik `native` di shamela.link), lalu `commandcode mcp auth shamela`. Sebelumnya Command Code ditulis «belum bisa».
 - README ditulis ulang untuk agent: alur perintah per langkah, apa yang dibuktikan `cek`, kebutuhan, tabel agent dan cara masuk `shamela`, peta repo, standar halaman, dan pesan yang perlu disampaikan ke pemakai. Templat isian pemakai dan gambar `dok/alur.svg`/`dok/bukti.svg` tidak lagi di README. Kalimat lama «ganti `mesin/sampul_qism.docx`» (bertentangan dengan AGENTS.md) dibuang.
 - Baca bab wajib: sebelum mengutip dari satu halaman kitab, agent membaca seluruh bab-nya (kitab lokal lewat `bab` + `halaman`, kitab yang belum diunduh lewat `shamela_get_toc` + `shamela_get_book_section`); pemeriksa langkah 5 ikut menilainya. MCP resmi shamela.ws diuji terhadap shamela.link dan sengaja tidak dipasang: pencariannya bukan frasa persis (angka uji di `dok/uji-riset.md`).
