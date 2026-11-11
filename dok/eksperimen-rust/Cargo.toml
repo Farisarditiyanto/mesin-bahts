@@ -1,0 +1,16 @@
+[package]
+name = "bahts-rust-experiment"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[lib]
+name = "_bahts_rust"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "=0.30.1", features = ["extension-module", "abi3-py312"] }
+regex = "1"
+fancy-regex = "0.16"
+unicode-normalization = "0.1"
