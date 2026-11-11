@@ -6,129 +6,107 @@
 [![rilis](https://img.shields.io/github/v/release/Farisarditiyanto/mesin-bahts?label=rilis)](https://github.com/Farisarditiyanto/mesin-bahts/releases)
 [![lisensi](https://img.shields.io/badge/lisensi-AGPLv3%2B-blue)](LICENSE)
 
-Mesin untuk menulis **بحث** (makalah syar'i berbahasa Arab) bersama agent AI. Agent AI bisa mengarang kutipan, jadi tiap kutipan dicocokkan ke halaman kitabnya sebelum jadi Word dan PDF.
+Mesin untuk menulis **بحث** (makalah syar'i berbahasa Arab) lewat coding agent. Satu bahts = satu folder berisi `naskah.txt`. Tiap kutipan di naskah membawa alamat kitab Shamela (`<<sid|juz|hal>>`). `cek` mencocokkan kutipan ke halaman kitab yang sudah diunduh, lalu `rakit` membuat Word dan PDF.
 
-## Untuk agent
+README ini untuk agent. **Pemakai manusia:** tempel tautan repo ini ke coding agent (daftarnya di «[Agent dan connector](#agent-dan-connector)»), lalu jawab pertanyaannya.
 
-1. Aturan kerja ada di [`AGENTS.md`](AGENTS.md). Mulai dari bagian «Pemakai baru». Pemakai cukup menjawab pertanyaan; semua perintah kamu yang jalankan.
-2. **Connector `shamela` wajib.** Jangan mengumpulkan bahan sebelum alat connector `shamela` tersedia (ada `shamela_search_phrase`; `shamela_find` milik `shamela_resmi`). Cara mencari, mendaftarkan, dan masuk akunnya: `AGENTS.md` «Pemakai baru» langkah 4.
-3. Perintah: `python mesin/bahts.py` (daftar perintah), `python mesin/bahts.py tanda` (daftar tanda naskah), `python mesin/bahts.py periksa` (kebutuhan komputer dan cara membereskannya). Contoh naskah yang lolos `cek`: [`contoh/naskah.txt`](contoh/naskah.txt).
+## Mulai
 
-## Untuk pemakai: mulai
+1. Baca [`AGENTS.md`](AGENTS.md) seluruhnya. Itu aturan kerjanya; README ini hanya peta. Mulai dari «Pemakai baru».
+2. Jalankan `python mesin/bahts.py periksa` (Linux/macOS: `python3`). Bereskan tiap baris `BELUM` dengan perintah yang disebutnya.
+3. Pastikan connector `shamela` tersambung: ada alat `shamela_search_phrase`. `shamela_find` milik `shamela_resmi`, bukan `shamela`. Cara mendaftarkan dan masuk per agent: `AGENTS.md` «Pemakai baru» langkah 4.
+4. Sesi lanjutan, atau tidak tahu bahts sampai mana: `python mesin/bahts.py tahap <folder>`. Ikuti baris `BERIKUTNYA`.
 
-1. Buka agent AI yang membaca `AGENTS.md` (pilihannya di «[Agent AI](#agent-ai)»; ada yang gratis).
-2. Tempel kalimat ini, ganti judulnya:
+## Alur satu bahts
 
-   > Pakai https://github.com/Farisarditiyanto/mesin-bahts untuk membuatkan saya bahts tentang الإخلاص وأثره في قبول العمل. Susunannya: مقدمة, satu فصل berisi dua مبحث, خاتمة. Kira-kira 6 halaman.
-
-   Supaya agent tidak banyak bertanya, tempel templat ini dan isi semampumu. Baris kosong ditanyakan agent atau memakai bawaan.
-
-   ```
-   Pakai https://github.com/Farisarditiyanto/mesin-bahts untuk membuatkan saya bahts.
-
-   Data diri:
-   - Nama (Arab):
-   - Nomor mahasiswa:
-   - Jenis tugas (Arab): بحث صفي للمستوى ...
-   - Semester (Arab): الفصل الدراسي ...
-   - Mahasiswa/mahasiswi:
-   - Kampus: معهد العلوم الإسلامية والعربية في جاكرتا، كلية الشريعة (ya/tidak)
-
-   Bahts:
-   - Judul (Arab):
-   - Pembimbing (Arab) dan jabatannya:
-   - Halaman isi (المقدمة sampai الخاتمة): kira-kira ... halaman
-   - Susunan: مقدمة، ... فصل/مبحث، خاتمة (atau: terserah agent)
-   - Isi المقدمة yang diminta dosen:
-   - الدراسات السابقة: ya/tidak
-   - Kitab yang wajib atau dilarang dipakai:
-   - Angka: ٠١٢٣ / 0123 / hanya nomor ayat di catatan kaki 0123
-   - فهرس yang tidak dicetak: tidak ada / ayat / hadits / maudhuat
-   - Sumber cukup di catatan kaki (tanpa المصادر والمراجع): ya/tidak
-   - Aturan bentuk halaman lain dari dosen: tidak ada / ...
-   - Nama folder (huruf Latin, tanpa spasi):
-   ```
-
-3. Siapkan akun [shamela.link](https://shamela.link): agent memintamu masuk sekali.
-4. Jawab pertanyaan agent yang tersisa. Kamu tidak perlu mengetik perintah.
-
-Hasilnya ada di folder `mesin-bahts` di dalam folder Dokumen-mu.
-
-## Cara kerjanya
-
-- Agent mengutip kitab المكتبة الشاملة yang sudah diunduh ke komputer pemakai. Sumber lain (jurnal, PDF penelitian) ditandai untuk diperiksa sendiri.
-- Tiap kutipan membawa alamat di catatan kakinya: kitab, juz, halaman.
-- `cek` membuka alamat itu. Kutipan yang tidak ada di sana, atau tanpa alamat, ditolak. Ayat dan angka di dalam kutipan dicocokkan pada kemunculan berkata utuh di halaman bukti; angka dari halaman tetangga tidak membuktikannya. Juz/halaman yang tercetak ikut dicocokkan.
-- Kutipan yang tidak ditemukan di kitab yang dirujuk bisa dicari di kitab lain yang sudah diunduh: `python mesin/bahts.py cek "<folder>" --jejak`. Lafaz yang sedikit berbeda ditunjuk sebagai «Paling mirip». Hasilnya maksimal tiga kitab per teks (kitab + juz/halaman), hanya petunjuk; putusan tetap dari `cek`. Semua bagian lafaz harus berurutan; kutipan yang menyambung ke halaman berikutnya ditunjuk rentangnya (mis. ص21-22). Kitab lain yang rusak dilewati dengan peringatan «jejak belum lengkap»; hasil kosong hanya berlaku untuk kitab yang berhasil dibaca. Pencarian pertama menyiapkan teks kitab yang belum pernah dicari, jadi bisa lama.
-- Ayat ditulis dari mushaf مجمع الملك فهد lewat `{Q:surah:ayat}`. Ayat yang diketik sendiri dalam ﴿…﴾ tidak bisa dicek ke mushaf: dengan rujukan «سورة …» ditolak, tanpa rujukan masuk `perhatian`. Ayat tanpa ﴿…﴾ sesudah «قال الله تعالى» yang dirujuk «سورة …» juga ditolak. `rakit` membuat Word dan PDF lengkap: sampul, catatan kaki, المصادر والمراجع, dan الفهارس.
-
-<img src="dok/alur.svg" width="100%" alt="Sepuluh langkah: kamu meminta, agent menyiapkan komputer dan menulis naskah, mesin mengecek kutipan dan merakit, agent kedua memeriksa ulang, kamu mengumpulkan">
-
-<img src="dok/bukti.svg" width="100%" alt="Cara cek bekerja: alamat di catatan kaki menunjuk kitab, juz, dan halaman; hasilnya lolos, tidak ketemu (dengan kata yang berbeda bila hampir cocok), atau ketemu di halaman lain; kalau ketemu di kitab lain, cek --jejak menunjuknya">
-
-## Batasnya
-
-- `cek` membuktikan bahwa teksnya ada di halaman itu. Ia juga menjaga beberapa hal lain: nama kitab di catatan kaki harus sesuai buktinya, derajat hadits di takhrij harus terbaca di halaman bukti, dan kutipan di حاشية المحقق atau yang di kitab diantar «قال …» orang lain jadi perhatian. Ia tidak menilai siapa yang berkata di luar itu, apakah kitabnya mu'tamad, kutipan tanpa catatan kaki, atau sumber di luar Shamela (PDF penelitian di folder bahts, `<<luar|berkas.pdf|hal>>`, hanya ditunjukkan halamannya). Itu diperiksa agent kedua (tanpa subagent: sesi agent baru), yang membuka halaman tiap catatan kaki lewat `bukti`, lalu kamu. **Periksa sendiri kutipan utamamu.**
-- `<<sid|juz|hal|#123>>` hanya lolos kalau 123 berdiri sebagai kepala hadits di awal baris halaman itu («123 - حدثنا», «36 - (123)», «(123) - حدثنا»). Nomor ayat dan catatan ditolak. Nomor hadits lain atau daftar bernomor di halaman yang sama tetap bisa tertukar, jadi `#123` membuktikan nomornya ada, bukan lafaznya.
-- Takhrij `رقم الحديث (123)، 4/56.` yang langsung diikuti bukti halaman itu dicocokkan otomatis: nomornya harus kepala hadits di sekitar halaman itu, dan lafaz buktinya harus ada di hadits bernomor itu. Hasilnya `perhatian`, bukan GAGAL.
-- Teks kitab = ketikan Shamela, jadi bisa salah ketik. Ayat kitab yang salah ketik biasanya ditandai `cek` sebagai perhatian: cocokkan ke scan cetakannya.
-- Model AI gratis lebih sering salah langkah; pemeriksaan ulang makin penting.
-- Nama di sampul namamu: isinya tanggung jawabmu. Tanyakan ke dosen apakah bantuan AI dibolehkan.
-- Proyek ini tidak mewakili kampus mana pun.
-
-## Yang dibutuhkan
-
-| Untuk | Butuh |
-|---|---|
-| Menulis bahts | Agent AI yang membaca `AGENTS.md`, dengan connector `shamela` (akun shamela.link) untuk mengumpulkan bahan |
-| Semua perintah | Python 3.12 ke atas; internet saat mengunduh kitab |
-| Word dan PDF (`rakit`) | Windows dan Microsoft Word desktop |
-
-Mac/Linux bisa menulis dan `cek`, tanpa Word dan PDF. `cek` dan `rakit` sendiri tidak butuh connector.
-
-### Agent AI
-
-| Agent | Biaya | Connector |
+| Langkah | Perintah | Hasil |
 |---|---|---|
-| [OpenCode](https://opencode.ai) | Gratis. Punya model gratis; daftarnya berganti-ganti (`/models`) | Terbaca sendiri dari `opencode.json` |
-| [Hermes Agent](https://hermes-agent.nousresearch.com) | Gratis, sumber terbuka. Modelnya disambungkan sendiri | Agent mendaftarkannya sesudah minta izin |
-| [Claude Code](https://claude.com/claude-code) | Berbayar | Terbaca sendiri dari `.mcp.json` |
-| Codex | Akun ChatGPT | Agent mendaftarkannya sesudah minta izin |
-| [Command Code](https://commandcode.ai) | Mulai $1/bulan (paket Go), termasuk model gratis; daftarnya berganti-ganti | **Belum bisa dipakai**: `shamela` belum bisa masuk di sana |
+| Buat folder | `baru <folder> "<judul>"` | `naskah.txt` (kerangka), `riset.txt` |
+| Cari bahan | connector `shamela_*`, `temukan`, `katalog`, `hadits`, `dirasat` | nomor kitab + juz/halaman (penunjuk) |
+| Unduh kitab | `ambil <id>` atau `ambil <folder>` | `kitab/<id>/` |
+| Data cetak | `kartu <id>` | rujukan pertama dan المصادر |
+| Baca teks | `cari`, `teks`, `bab`, `halaman` | teks lokal untuk disalin persis |
+| Periksa | `cek <folder>` (`--jejak` untuk kutipan yang tidak ketemu) | `GAGAL: n`, perhatian, `NASKAH_SHA256` |
+| Pemeriksa | `bukti <folder> [awal-akhir]` | teks halaman di sekitar tiap catatan kaki |
+| Rakit | `rakit <folder> [--fasl n]` (Windows + Word) | `.docx` + `.pdf` (sampul, catatan kaki, المصادر والمراجع, الفهارس), `HALAMAN_ISI`, `HALAMAN` |
+| Status | `tahap <folder>` | `NASKAH=`, `HASIL=`, `RAKIT=`, `BERIKUTNYA` |
 
-- Sebagian model gratis memakai isi obrolan untuk melatih modelnya. Baca keterangan modelnya sebelum memilih.
-- Semua agent di atas membaca `AGENTS.md`, jadi caranya sama. Connector = sambungan MCP.
-- Aplikasi Claude: tab Code = Claude Code, jadi `.mcp.json` terbaca, begitu juga connector dari menu Connectors aplikasi Claude. Aplikasi Codex memakai pengaturan connector yang sama dengan Codex di terminal. Aplikasi desktop OpenCode dan Command Code belum dicoba.
-- Mode obrolan biasa (Claude chat, ChatGPT) tidak bisa menjalankan mesin: pilih mode yang membuka folder dan menjalankan perintah.
+Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumennya: `python mesin/bahts.py`. Daftar tanda naskah (`#F`, `{Q:}`, `{H:}`, `@format`, …): `python mesin/bahts.py tanda`. Naskah contoh yang lolos `cek`: [`contoh/naskah.txt`](contoh/naskah.txt) (`ambil 11223`, lalu `cek contoh`).
 
-### Connector dan kunci
+## Yang dibuktikan `cek`
 
-- **`shamela`** (wajib, butuh akun shamela.link): mencari di seluruh kitab Shamela, termasuk yang belum diunduh.
-- **Tanpa akun, ikut dipasang:** `shamela_resmi` (MCP resmi shamela.ws: isi semua kitab, buka halaman atau satu bab utuh), `turath` (isi semua kitab), `hadithunlocked` (hadits, derajat, syarah, sejarah), `tafsir` (tafsir per ayat, sebab turun, qiraat, i'rab), `quran` (teks ayat, morfologi, sebaran kata). Agent meminta izin sekali untuk semuanya. Kalau salah satunya mati, kerja tetap jalan.
-- Semua connector = layanan orang lain dan hanya penunjuk jalan: kitabnya tetap di-`ambil`, kutipannya tetap harus lolos `cek`.
-- **Kunci OpenAlex** (wajib kalau dosen minta الدراسات السابقة, selain itu tidak perlu) untuk `dirasat` (penelitian terdahulu): tanpa kunci jatahnya kecil dan `dirasat-pdf` tertutup. Daftar di https://openalex.org, salin dari Settings > API key, simpan sebagai satu baris di `kunci_openalex.txt` (atau variabel `OPENALEX_API_KEY`).
+- Tiap kutipan bertanda petik harus terbaca di juz/halaman kitab yang dirujuk. Tidak ada di sana, atau tanpa alamat = `GAGAL`.
+- Juz/halaman yang tercetak di catatan kaki dicocokkan dengan alamat buktinya. Nama kitab di catatan kaki harus sesuai buktinya, dan derajat hadits di takhrij harus terbaca di halaman bukti. Kutipan di حاشية المحقق, atau yang di kitab diantar «قال …» orang lain, jadi perhatian.
+- Ayat dan angka di kutipan dicocokkan pada kemunculan berkata utuh di halaman bukti; angka dari halaman tetangga tidak dihitung.
+- Ayat dicetak dari mushaf Hafs rasm Utsmani (`mesin/quran_hafs_v22.json`) lewat `{Q:surah:ayat}`. Ayat yang diketik sendiri dalam ﴿…﴾ dengan rujukan «سورة …» = `GAGAL`; tanpa rujukan = perhatian. Ayat tanpa ﴿…﴾ sesudah «قال الله تعالى» yang dirujuk «سورة …» juga `GAGAL`.
+- `<<sid|juz|hal|#123>>` lolos hanya kalau 123 kepala hadits di awal baris halaman itu («123 - حدثنا», «36 - (123)», «(123) - حدثنا»); nomor ayat dan nomor catatan ditolak. Ini membuktikan nomornya ada, bukan lafaznya.
+- Takhrij «رقم الحديث (123)، 4/56.» yang langsung diikuti bukti: nomornya harus kepala hadits di sekitar halaman itu, lafaz buktinya harus di hadits bernomor itu. Hasilnya perhatian, bukan `GAGAL`.
+- `cek --jejak`: kutipan yang tidak ketemu dicari di kitab lain yang sudah diunduh, paling banyak 3 kitab per teks; lafaz yang sedikit berbeda ditunjuk sebagai «Paling mirip»; kutipan yang menyambung ke halaman berikutnya ditunjuk rentangnya (ص21-22). Hanya petunjuk. Kitab yang tidak terbaca dilewati dengan peringatan «jejak belum lengkap». Pencarian pertama menyiapkan teks kitab, jadi bisa lama.
+- Sumber di luar Shamela: `<<luar|berkas.pdf|hal>>` hanya ditunjuk halamannya, tidak pernah diloloskan.
+- Yang tidak bisa dinilai `cek` (pembicara, mu'tamad tidaknya kitab, kutipan tanpa catatan kaki): akhir «Alur kerja» di `AGENTS.md`. Itu tugas pemeriksa langkah 5.
 
-## Tanpa agent
+`cek` dan `rakit` tidak memakai internet atau connector: hasilnya harus sama tanpa jaringan.
 
-```bash
-git clone https://github.com/Farisarditiyanto/mesin-bahts.git
-cd mesin-bahts
-python mesin/bahts.py periksa
-```
+## Kebutuhan
 
-Coba contohnya: `python mesin/bahts.py ambil 11223`, lalu `python mesin/bahts.py cek contoh`.
+Kebutuhan komputer dan cara membereskannya ada di satu tempat: `python mesin/bahts.py periksa`. `rakit` butuh Windows + Microsoft Word desktop; Linux/macOS bisa menulis dan `cek`, tanpa Word dan PDF. Bahan butuh connector `shamela` (akun shamela.link); الدراسات السابقة butuh kunci OpenAlex (`AGENTS.md` «Pemakai baru» langkah 6).
+
+## Agent dan connector
+
+| Agent | Membaca daftar connector dari |
+|---|---|
+| [Claude Code](https://claude.com/claude-code) (juga tab Code aplikasi Claude) | `.mcp.json`, plus menu Connectors aplikasi Claude |
+| [OpenCode](https://opencode.ai) (gratis) | `opencode.json` |
+| [Command Code](https://commandcode.ai) | `.mcp.json`, plus entri `shamela` lokal yang membawa `clientId` |
+| Codex (CLI dan aplikasinya) | didaftarkan agent |
+| [Hermes Agent](https://hermes-agent.nousresearch.com) (gratis) | didaftarkan agent |
+
+- Perintah mendaftarkan dan masuk `shamela` per agent: `AGENTS.md` «Pemakai baru» langkah 4 (satu-satunya tempat).
+- Mode obrolan biasa (Claude chat, ChatGPT) tidak bisa menjalankan mesin. Model gratis lebih sering salah langkah, jadi pemeriksa langkah 5 makin penting.
+- Connector: `shamela` wajib; `shamela_resmi`, `turath`, `hadithunlocked`, `tafsir`, `quran` tanpa akun. Gunanya dan urutan cadangannya: `AGENTS.md` langkah 4-5 dan Alur kerja langkah 2. Angka uji tiap connector: [`dok/uji-riset.md`](dok/uji-riset.md).
+- Semua connector hanya penunjuk jalan: kitabnya tetap di-`ambil`, kutipannya tetap harus lolos `cek`.
+
+## Peta repo
+
+| Letak | Isi |
+|---|---|
+| `mesin/bahts.py` | satu-satunya pintu perintah |
+| `mesin/olah.py`, `naskah.py`, `cek_*.py`, dan modul pembantunya | `cek`; pembagian tiap berkas: `AGENTS.md` «Letak kode `cek`» |
+| `mesin/quran_hafs_v22.json`, `nama_surah.json` | teks mushaf dan nama surat |
+| `mesin/shamela.py` | unduh kitab, katalog, `temukan`, `scan` |
+| `mesin/hadits.py`, `dirasat.py` | penunjuk takhrij, penelitian terdahulu |
+| `mesin/tahap.py`, `berkas.py` | keadaan bahts dan folder `.rakit-*` |
+| `mesin/rakit.ps1`, `teks_pdf.py` | perakit Word/PDF dan teks PDF |
+| `mesin/format.json` | profil bentuk halaman (`@format`) |
+| `mesin/sampul_qism.docx`, `sampul.doc`, `sampul_jakarta.docx`, `kepala_kotak.docx` | templat sampul dan kepala halaman |
+| `mesin/naskah_baru.txt`, `riset_baru.txt` | kerangka dari `baru` |
+| `contoh/` | `naskah.txt` + `riset.txt` contoh dan `jebakan/` untuk tes |
+| `.mcp.json`, `opencode.json` | daftar connector (`opencode.json` = salinan untuk OpenCode) |
+| `dok/` | `mutamad.md` (kitab mu'tamad tiap mazhab), `uji-riset.md`, `takhrij.md`, audit |
+| `.github/` | `uji_*.py`, `workflows/tes.yml` |
+| `kitab/`, `bahts/`, `sampul_saya.txt`, `keluaran_saya.txt`, `kunci_openalex.txt` | data pemakai di komputernya, tidak di git |
 
 ## Standar halaman
 
-<img src="dok/standar.svg" width="100%" alt="Asal tiap aturan bentuk halaman: aturan kampus, catatan dosen, atau pilihan mesin">
+- Dasarnya «[القواعد المنظمة لتسجيل الرسالة العلمية وكتابتها وطباعتها وتقديمها](https://units.imamu.edu.sa/colleges/cmc/AcademicDepts/SiteAssets/Pages/d_j_e_p/%D8%A7%D9%84%D9%82%D9%88%D8%A7%D8%B9%D8%AF%20%D8%A7%D9%84%D9%85%D9%86%D8%B8%D9%85%D8%A9%20%D9%84%D8%AA%D8%B3%D8%AC%D9%8A%D9%84%20%D8%A7%D9%84%D8%B1%D8%B3%D8%A7%D9%84%D8%A9%20%D8%A7%D9%84%D8%B9%D9%84%D9%85%D9%8A%D8%A9.pdf)» (جامعة الإمام, 1442 H) dan catatan dosen bahts kelas معهد العلوم الإسلامية والعربية في جاكرتا. Asal tiap aturan: [`dok/standar.svg`](dok/standar.svg).
+- Dosen minta bentuk lain: lihat `AGENTS.md` «Sebelum tiap bahts» (`@format`, `@templat`, `@sampul`, `@spasi`, `@catatan_kaki`). Di folder pemakai jangan mengubah berkas `mesin/`; profil baru di `mesin/format.json` = perubahan mesin.
+- Angka: aturan kampus dan catatan dosen tidak menyebut jenis angka. Contoh resmi kampus memakai ٠١٢٣ di nomor halaman, catatan kaki, rujukan, tahun, nomor ayat, dan فهرس: «[دليل إعداد وكتابة الرسائل العلمية](https://units.imamu.edu.sa/shis/sij/FilesLibrary/Documents/Guide%20to%20preparing%20and%20writing%20scientific%20theses.pdf)» (جامعة الإمام, cetakan kedua) dan «[مجلة العلوم الشرعية](https://journals.imamu.edu.sa/index.php/jis)». Jadi PDF mencetak ٠١٢٣ di semua tempat itu, apa pun angka yang diketik di naskah. Tautan dan DOI (`https://…`, `www.…`, `doi.org/…`, `10.xxxx/…`) dicetak kiri-ke-kanan apa adanya.
+- Dosen minta 0123 → `@angka: latin`. Hanya nomor ayat di catatan kaki → `@angka_ayat: latin`.
 
-- Dasarnya «[القواعد المنظمة لتسجيل الرسالة العلمية وكتابتها وطباعتها وتقديمها](https://units.imamu.edu.sa/colleges/cmc/AcademicDepts/SiteAssets/Pages/d_j_e_p/%D8%A7%D9%84%D9%82%D9%88%D8%A7%D8%B9%D8%AF%20%D8%A7%D9%84%D9%85%D9%86%D8%B8%D9%85%D8%A9%20%D9%84%D8%AA%D8%B3%D8%AC%D9%8A%D9%84%20%D8%A7%D9%84%D8%B1%D8%B3%D8%A7%D9%84%D8%A9%20%D8%A7%D9%84%D8%B9%D9%84%D9%85%D9%8A%D8%A9.pdf)» (جامعة الإمام, 1442 H) dan catatan dosen bahts kelas معهد العلوم الإسلامية والعربية في جاكرتا.
-- Kampus atau dosen lain: ganti `mesin/sampul_qism.docx` dan tambah profil di `mesin/format.json`. Sampul bawaan = model قسم الشريعة; sampul معهد العلوم الإسلامية والعربية: `@sampul: mahad`.
-- Angka: aturan kampus dan catatan dosen tidak menyebut jenis angka. Contoh resmi kampus memakai ٠١٢٣ di nomor halaman, catatan kaki, rujukan, tahun, nomor ayat, dan فهرس: «[دليل إعداد وكتابة الرسائل العلمية](https://units.imamu.edu.sa/shis/sij/FilesLibrary/Documents/Guide%20to%20preparing%20and%20writing%20scientific%20theses.pdf)» (جامعة الإمام, cetakan kedua) dan «[مجلة العلوم الشرعية](https://journals.imamu.edu.sa/index.php/jis)». Jadi PDF mencetak ٠١٢٣ di semua tempat itu, apa pun angka yang diketik di naskah. Kecuali tautan dan DOI (`https://…`, `www.…`, `doi.org/…`, `10.xxxx/…`): dicetak kiri-ke-kanan apa adanya, dengan 0123 dan titiknya, supaya tetap bisa dipakai.
-- Dosen minta 0123 → `@angka: latin` di naskah. Cuma nomor ayat di catatan kaki («سورة الفتح، آية: 29.») yang 0123 → `@angka_ayat: latin`.
+## Sampaikan ke pemakai
 
-## Lain-lain
+- Nama di sampul nama pemakai: isinya tanggung jawabnya. Ia perlu bertanya ke dosen apakah bantuan AI dibolehkan.
+- `cek` tidak menggantikan membaca: minta pemakai memeriksa sendiri kutipan utamanya.
+- Sebagian model gratis memakai isi obrolan untuk melatih modelnya.
+- Proyek ini tidak mewakili kampus mana pun.
 
-- Naskah, PDF, `sampul_saya.txt`, dan `kitab/` tetap di komputer pemakai, tidak ikut repo.
-- Lisensi kode: GNU AGPLv3 atau versi sesudahnya ([`LICENSE`](LICENSE)); versi sebelum perubahan ini (sampai 94d62d3, termasuk rilis 7.0.0) tetap MIT. Bahts hasil mesin milik penulisnya; templat yang tersalin ke bahts boleh dipakai tanpa syarat (izin tambahan di `NOTICE`). Teks mushaf, font, logo, dan teks kitab: [`NOTICE`](NOTICE).
-- Masalah: buka issue dengan keluaran `periksa`, perintahnya, dan pesannya. Perubahan: pull request dengan tes hijau. Riwayat: [`CHANGELOG.md`](CHANGELOG.md).
+## Mengubah mesin
+
+- Aturannya: `AGENTS.md` «Untuk yang mengubah mesin».
+- Tes: `python .github/uji_semua.py` (daftar dibaca dari `.github/workflows/tes.yml`; kitab tes: baris `ambil` di berkas itu).
+- Perubahan yang dirasakan pemakai masuk [`CHANGELOG.md`](CHANGELOG.md) bagian «Belum dirilis».
+- Masalah: issue berisi keluaran `periksa`, perintahnya, dan pesannya.
+
+## Lisensi
+
+Kode: GNU AGPLv3 atau versi sesudahnya ([`LICENSE`](LICENSE)); versi sampai 94d62d3 (termasuk rilis 7.0.0) tetap MIT. Bahts hasil mesin milik penulisnya; templat yang tersalin ke bahts boleh dipakai tanpa syarat (izin tambahan di `NOTICE`). Teks mushaf, font, logo, dan teks kitab: [`NOTICE`](NOTICE).
