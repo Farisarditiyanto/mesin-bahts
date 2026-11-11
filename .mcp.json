@@ -4,10 +4,6 @@
       "type": "http",
       "url": "https://shamela.link/mcp"
     },
-    "shamela_resmi": {
-      "type": "http",
-      "url": "https://mcp.shamela.ws"
-    },
     "turath": {
       "type": "http",
       "url": "https://mcp.turath.io/mcp/"

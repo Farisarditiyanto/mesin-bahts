@@ -92,11 +92,13 @@ Delapan kutipan: satu benar dan tujuh dirusak.
 
 `cek` tetap putusan utama. `shamela_verify_quote` tanpa `book_id` berguna saat kitab belum diunduh, tetapi hasil teratasnya bisa kitab penukil.
 
-## MCP resmi Shamela (`shamela_resmi`)
+## MCP resmi Shamela (tidak dipasang)
+
+Diuji sebagai connector `shamela_resmi`, lalu dibuang pada hari yang sama: frasa karangan dan kalimat ngawur tetap memberi hasil, dan yang hanya dia punya (tanpa akun, bab pendek dengan lebih sedikit panggilan) sudah tertutup `turath`, login Command Code ke shamela.link, dan baca bab dari kitab lokal.
 
 Diuji 11 November 2026: `mcp.shamela.ws` (server `shamela` 8.1.0, milik shamela.ws, tanpa akun, 4 alat) langsung dari PC, dan `shamela.link` (34 alat) lewat Toolport. Waktu kedua sisi tidak diukur dari tempat yang sama.
 
-| Uji | `shamela_resmi` | `shamela` (shamela.link) |
+| Uji | `mcp.shamela.ws` | `shamela` (shamela.link) |
 |---|---|---|
 | Waktu per panggilan | 0,6–2,4 detik (`shamela_find`, rata-rata 1,6) | 0,27–1,7 detik, tengah 0,4 (`search_phrase`) |
 | Panggilan berurutan | 120, 0 gagal | 117, 0 gagal |
@@ -115,7 +117,7 @@ Diuji 11 November 2026: `mcp.shamela.ws` (server `shamela` 8.1.0, milik shamela.
 | Bab panjang: الإنصاف `page_id` 600 (باب صفة الصلاة) | 1 halaman, tanpa `section`, tanpa `partial`: gagal tanpa pesan | `get_toc` menemukan bab-nya |
 | Bab `المجموع` 2186, `page_id` 4000 | `skipped` tidak memuat 4022-4024 padahal masih dalam `section` | belum diuji |
 
-Pencarian `shamela_resmi` mengurutkan kecocokan kata, bukan frasa persis, dan hampir tidak pernah kosong. Balasan kosong muncul di tengah paging walau `next_cursor` masih ada. `limit` dan `book_ids` paling banyak 20. Alat `silent`, `verify_quote`, wildcard, judul bab, tafsir per ayat, dan data kitab tidak ada. Tidak ada kasus yang hanya bisa di `shamela_resmi` selain tanpa akun; bab pendek dan sedang terbaca dengan panggilan lebih sedikit, bab panjang tidak.
+Pencarian `mcp.shamela.ws` mengurutkan kecocokan kata, bukan frasa persis, dan hampir tidak pernah kosong. Balasan kosong muncul di tengah paging walau `next_cursor` masih ada. `limit` dan `book_ids` paling banyak 20. Alat `silent`, `verify_quote`, wildcard, judul bab, tafsir per ayat, dan data kitab tidak ada. Tidak ada kasus yang hanya bisa di `mcp.shamela.ws` selain tanpa akun; bab pendek dan sedang terbaca dengan panggilan lebih sedikit, bab panjang tidak.
 
 ## Jebakan alat
 

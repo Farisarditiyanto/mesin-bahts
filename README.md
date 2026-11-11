@@ -14,7 +14,7 @@ README ini untuk agent. **Pemakai manusia:** tempel tautan repo ini ke coding ag
 
 1. Baca [`AGENTS.md`](AGENTS.md) seluruhnya. Itu aturan kerjanya; README ini hanya peta. Mulai dari «Pemakai baru».
 2. Jalankan `python mesin/bahts.py periksa` (Linux/macOS: `python3`). Bereskan tiap baris `BELUM` dengan perintah yang disebutnya.
-3. Pastikan connector `shamela` tersambung: ada alat `shamela_search_phrase`. `shamela_find` milik `shamela_resmi`, bukan `shamela`. Cara mendaftarkan dan masuk per agent: `AGENTS.md` «Pemakai baru» langkah 4.
+3. Pastikan connector `shamela` tersambung: ada alat `shamela_search_phrase`. Cara mendaftarkan dan masuk per agent: `AGENTS.md` «Pemakai baru» langkah 4.
 4. Sesi lanjutan, atau tidak tahu bahts sampai mana: `python mesin/bahts.py tahap <folder>`. Ikuti baris `BERIKUTNYA`.
 
 ## Alur satu bahts
@@ -63,7 +63,7 @@ Kebutuhan komputer dan cara membereskannya ada di satu tempat: `python mesin/bah
 
 - Perintah mendaftarkan dan masuk `shamela` per agent: `AGENTS.md` «Pemakai baru» langkah 4 (satu-satunya tempat).
 - Mode obrolan biasa (Claude chat, ChatGPT) tidak bisa menjalankan mesin. Model gratis lebih sering salah langkah, jadi pemeriksa langkah 5 makin penting.
-- Connector: `shamela` wajib; `shamela_resmi`, `turath`, `hadithunlocked`, `tafsir`, `quran` tanpa akun. Gunanya dan urutan cadangannya: `AGENTS.md` langkah 4-5 dan Alur kerja langkah 2. Angka uji tiap connector: [`dok/uji-riset.md`](dok/uji-riset.md).
+- Connector: `shamela` wajib; `turath`, `hadithunlocked`, `tafsir`, `quran` tanpa akun. Gunanya dan urutan cadangannya: `AGENTS.md` langkah 4-5 dan Alur kerja langkah 2. Angka uji tiap connector, termasuk MCP resmi shamela.ws yang sengaja tidak dipasang: [`dok/uji-riset.md`](dok/uji-riset.md).
 - Semua connector hanya penunjuk jalan: kitabnya tetap di-`ambil`, kutipannya tetap harus lolos `cek`.
 
 ## Peta repo

@@ -8,10 +8,6 @@
         "clientId": "nQdugxEIvOoIvVpBDTmTDKyFOAjjUKCn"
       }
     },
-    "shamela_resmi": {
-      "type": "remote",
-      "url": "https://mcp.shamela.ws"
-    },
     "turath": {
       "type": "remote",
       "url": "https://mcp.turath.io/mcp/"
