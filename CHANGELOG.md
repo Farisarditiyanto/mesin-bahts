@@ -5,7 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
-- Cara menukil: AGENTS.md kini memuat tujuh cara menukil dari أبو سليمان، كتابة البحث العلمي (ص112-115), dengan urutan pemakaian yang ditetapkan repo (kitab itu tidak mengurutkannya): bawaannya kutipan lafaz kunci yang pendek digabung ringkasan atau uraian sendiri; yang wajib dikutip utuh tetap dikutip walau dosen minta semuanya diparafrase.
+- Cara menukil: AGENTS.md kini memuat tujuh cara menukil dari أبو سليمان، كتابة البحث العلمي (ص112-115), dengan urutan pemakaian yang ditetapkan repo (kitab itu tidak mengurutkannya): bawaannya kutipan lafaz kunci yang pendek digabung ringkasan atau uraian sendiri; yang wajib dikutip utuh tetap dikutip walau dosen minta semuanya diparafrase; di بحث صفي kalimat sendiri jadi tubuh pembahasan; aturan repo: kutipan bertanda petik lain paling panjang ±60 kata, yang lebih panjang diringkas (pedoman risalah Jāmiʿat al-Imām memisahnya jadi paragraf sendiri, tetapi mesin belum punya tanda kutipan blok).
 
 ## 9.2.0 — 2026-11-10
 
