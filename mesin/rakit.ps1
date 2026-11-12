@@ -636,7 +636,7 @@ try {
             $rf = $tbl.Range.ParagraphFormat
             $rf.ReadingOrder = 0; $rf.FirstLineIndent = 0; $rf.LeftIndent = 0; $rf.RightIndent = 0
             $rf.SpaceBefore = 0; $rf.SpaceAfter = 0; $rf.LineSpacingRule = 0; $rf.KeepWithNext = 0; $rf.PageBreakBefore = 0
-            $uTabel = $uMatan - 2                          # sel sempit: dua poin lebih kecil daripada matan
+            $uTabel = [single][Math]::Ceiling(($uMatan + $uCatatan) / 2)   # sel sempit: di antara matan dan catatan kaki (teks_pdf.periksa membaca huruf ini sebagai matan)
             for ($r = 0; $r -lt $baris.Count; $r++) {
                 $isi = @($baris[$r].sel)
                 for ($c = 0; $c -lt $nk; $c++) {
