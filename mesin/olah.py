@@ -66,6 +66,10 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       «#L **Abstract**» (satu baris penuh diapit **) = judul Latin tebal di tengah; paragraf #L
                       sesudahnya diberi jarak antar paragraf (6 pt) sampai blok bukan #L
   #T teks             kotak matn: paragraf dalam bingkai, seluruhnya merah (boleh memuat catatan kaki)
+  #J sel | sel | sel  satu baris tabel (mis. جدول المقارنة); sel dipisah « | ». Baris #J berturut-turut = satu tabel bergaris
+                      selebar halaman; baris pertamanya = kepala (tebal, berlatar abu-abu, diulang di halaman berikutnya).
+                      Tiap baris tabel itu harus sama jumlah selnya. Sel boleh memuat catatan kaki dan kutipan berbukti
+                      (dicek seperti paragraf). Judul tabelnya ditulis sebagai #S atau paragraf sebelum baris #J pertama
   #R teks             awal المصادر والمراجع; sesudahnya satu kitab per baris (diurutkan abjad otomatis, القرآن الكريم paling atas).
                       Wajib, kecuali «@tanpa: pustaka»; semua bagian isi harus sebelum #R (tidak boleh ada judul/#T/#H sesudahnya)
   **...**             tebal
@@ -377,6 +381,28 @@ def _baca_naskah(folder):
     return naskah, baris
 
 
+def _baris_tabel(ctx, n, t):
+    """«#J sel | sel»: tiap sel diurai seperti paragraf (catatan kaki dan kutipannya dicek per sel). Baris #J sesudah
+    baris #J (tanpa judul atau paragraf di antaranya) = tabel yang sama, jadi jumlah selnya harus sama."""
+    sel = [s.strip() for s in t.split(" | ")]
+    if len(sel) < 2 or not all(sel):
+        ctx.galat.append(f"baris {n}: #J butuh paling sedikit dua sel berisi, dipisah « | » :: #J {t[:40]}")
+        return
+    sebelum = ctx.blok[-1] if ctx.blok else None
+    if sebelum and sebelum["k"] == "J" and len(sebelum["sel"]) != len(sel):
+        ctx.galat.append(f"baris {n}: tabel ini {len(sebelum['sel'])} kolom (baris {sebelum['n']}), "
+                         f"baris ini {len(sel)} sel :: #J {t[:40]}")
+        return
+    try:
+        isi = [urai(s, ctx) for s in sel]
+    except TandaRusak as e:
+        ctx.galat.append(f"baris {n}: tanda rusak — {e}"); return
+    except (KeyError, IndexError, ValueError) as e:  # bukan salah tulis naskah: mesinnya yang keliru di baris ini
+        ctx.galat.append(galat_mesin(n, e)); return
+    # runs = gabungan semua sel (untuk perkiraan halaman dan penghitung lain); rakit.ps1 memakai sel
+    ctx.blok.append({"k": "J", "sel": isi, "runs": [r for s in isi for r in (*s, {"t": " "})], "n": n})
+
+
 def _urai_baris(ctx, baris):
     """Tiap baris naskah: @data, judul #…, rujukan sesudah #R, atau paragraf (diurai `urai`).
     Tiap galat dan perhatian diberi nomor barisnya."""
@@ -394,9 +420,11 @@ def _urai_baris(ctx, baris):
             blok.append({"k": "H", "runs": [], "n": n})
         elif b.startswith("#"):
             k, _, t = b[1:].partition(" ")
-            if k not in ("K", "F", "B", "M", "S", "R", "T", "V", "L") or not t.strip():
-                galat.append(f"baris {n}: judul harus «#K/#F/#B/#M/#S/#R/#T/#V/#L teks» :: {b[:40]}"); continue
-            if k == "L":  # tercetak apa adanya, kiri ke kanan; tanda naskah tidak diurai
+            if k not in ("K", "F", "B", "M", "S", "R", "T", "V", "L", "J") or not t.strip():
+                galat.append(f"baris {n}: judul harus «#K/#F/#B/#M/#S/#R/#T/#V/#L/#J teks» :: {b[:40]}"); continue
+            if k == "J":  # baris tabel: sel dipisah « | »; baris #J berturut-turut = satu tabel, dicetak rakit.ps1
+                _baris_tabel(ctx, n, t)
+            elif k == "L":  # tercetak apa adanya, kiri ke kanan; tanda naskah tidak diurai
                 if re.search(r"\[\^|<<|\{", t):
                     galat.append(f"baris {n}: #L tidak boleh memuat catatan kaki, bukti, atau tanda {{Q:/{{H: :: {b[:40]}")
                 m = re.fullmatch(r"\*\*([^*]+)\*\*", t.strip())  # «#L **Abstract**»: judul Latin tebal di tengah

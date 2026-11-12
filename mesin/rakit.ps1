@@ -614,6 +614,40 @@ try {
             $nKotak++; [void]$doc.Bookmarks.Add("kotak_$nKotak", $doc.Range($awal, $sel.Start))   # bingkainya dipasang sesudah isi selesai
             $sel.TypeParagraph()
         }
+        elseif ($blk.k -eq 'J') {                         # tabel: baris #J berturut-turut; baris pertama = kepala
+            $baris = @($blk)
+            while ($i + 1 -lt $DATA.blok.Count -and $DATA.blok[$i + 1].k -eq 'J') { $i++; $baris += $DATA.blok[$i] }
+            Para 1 6 0
+            HalamanBaru
+            $nk = @($baris[0].sel).Count
+            $tbl = $doc.Tables.Add($sel.Range, [int]$baris.Count, [int]$nk)
+            $tbl.TableDirection = 0                       # kanan ke kiri: kolom pertama naskah di kanan
+            $tbl.Borders.Enable = 1
+            $tbl.Rows.Alignment = 1
+            $tbl.PreferredWidthType = 2; $tbl.PreferredWidth = 100   # selebar halaman
+            $tbl.Rows.AllowBreakAcrossPages = -1
+            if ($nk -ge 3) {                              # kolom pertama (nama baris) lebih sempit, sisanya dibagi rata
+                $tbl.Columns.PreferredWidthType = 2
+                $tbl.Columns(1).PreferredWidth = 18
+                for ($c = 2; $c -le $nk; $c++) { $tbl.Columns($c).PreferredWidth = 82 / ($nk - 1) }
+            }
+            $tbl.Rows(1).HeadingFormat = -1                # kepala diulang di halaman berikutnya
+            $tbl.Rows(1).Shading.BackgroundPatternColor = 14277081   # abu-abu muda (RGB 217,217,217)
+            $rf = $tbl.Range.ParagraphFormat
+            $rf.ReadingOrder = 0; $rf.FirstLineIndent = 0; $rf.LeftIndent = 0; $rf.RightIndent = 0
+            $rf.SpaceBefore = 0; $rf.SpaceAfter = 0; $rf.LineSpacingRule = 0; $rf.KeepWithNext = 0; $rf.PageBreakBefore = 0
+            $uTabel = $uMatan - 2                          # sel sempit: dua poin lebih kecil daripada matan
+            for ($r = 0; $r -lt $baris.Count; $r++) {
+                $isi = @($baris[$r].sel)
+                for ($c = 0; $c -lt $nk; $c++) {
+                    $x = $tbl.Cell($r + 1, $c + 1).Range
+                    $x.ParagraphFormat.Alignment = $(if ($r -eq 0) { 1 } else { 2 })   # isi rata kanan: rata kanan-kiri melebarkan jarak kata di sel sempit
+                    $x.Collapse(1); $x.Select()
+                    Runs $isi[$c] $uTabel ($r -eq 0) $false
+                }
+            }
+            $doc.Range($tbl.Range.End, $tbl.Range.End).Select()
+        }
         elseif ($blk.k -eq 'V') {                         # bait syair: di tengah, tanpa awal alinea
             Para 1 2 0
             HalamanBaru
@@ -645,7 +679,7 @@ try {
             $sel.TypeParagraph()
         }
         else {
-            if ($diMulakhas) { Para 3 $(if ($DATA.blok[$i - 1].k -eq 'K') { 0 } else { 6 }) 0 } else { Para 3 0 ($word.CentimetersToPoints(0.8)); $sel.ParagraphFormat.SpaceAfter = $JARAK_P }
+            if ($diMulakhas) { Para 3 $(if ($DATA.blok[$i - 1].k -eq 'K') { 0 } else { 6 }) 0 } else { Para 3 $(if ($i -gt 0 -and $DATA.blok[$i - 1].k -eq 'J') { 6 } else { 0 }) ($word.CentimetersToPoints(0.8)); $sel.ParagraphFormat.SpaceAfter = $JARAK_P }   # sesudah tabel: berjarak
             HalamanBaru
             $awal = $sel.Start
             Runs $blk.runs $uMatan $false
