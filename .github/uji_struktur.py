@@ -361,6 +361,18 @@ def utama():
         (ikhlas / "laporan-fasl1.txt").write_text(f"POTONGAN=--fasl 1: المقدمة\nNASKAH_SHA256={sidik}\n", encoding="utf8")
         (ikhlas / "ikhlas - المقدمة.pdf").write_bytes(b"%PDF")
         assert "HASIL fasl1=TERKINI" in tahap()
+        # CETAK_SHA256: naskah yang hanya berubah di yang tidak tercetak (@minimal_*, baris kosong) tetap TERKINI;
+        # satu kata tercetak berubah = USANG. Laporan tanpa CETAK_SHA256 (atas) tetap dinilai dari naskah saja.
+        cetak = re.search(r"^CETAK_SHA256=(\w+)$", bahts("cek", "bahts/ahmad/ikhlas").stdout, re.M)[1]
+        (ikhlas / "laporan.txt").write_text(f"CETAK_SHA256={cetak}\nNASKAH_SHA256={sidik}\nHALAMAN=1\n", encoding="utf8")
+        (ikhlas / "naskah.txt").write_text(dasar.replace("@minimal_halaman: 0", "@minimal_halaman: 3\n"), encoding="utf8")
+        assert "HASIL=TERKINI" in tahap(), "setelan cek saja yang berubah: PDF tetap TERKINI"
+        (ikhlas / "naskah.txt").write_text(dasar.replace("الحمد لله", "الحمدُ لله", 1), encoding="utf8")
+        assert "HASIL=USANG" in tahap(), "kata tercetak berubah: PDF harus USANG"
+        (ikhlas / "naskah.txt").write_text(dasar, encoding="utf8")
+        (ikhlas / "laporan.txt").write_text(f"NASKAH_SHA256={sidik}\nHALAMAN=1\n", encoding="utf8")
+        lalu = (ikhlas / "laporan-fasl1.txt").stat().st_mtime - 10  # potongan tetap yang terakhir dirakit
+        os.utime(ikhlas / "laporan.txt", (lalu, lalu))
         (ikhlas / "naskah.txt").write_text(dasar + "\n", encoding="utf8")
         out = tahap()
         assert "HASIL=USANG" in out and "HASIL fasl1=USANG" in out and "rakit ulang" in out, out

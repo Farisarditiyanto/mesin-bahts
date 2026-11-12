@@ -207,6 +207,8 @@ MODEL = {"jakarta": {"sampul": "jakarta", "format": "jakarta", "kepala": "kotak"
 # Batas bawaan @minimal_*: 0 = tidak dinilai. Halaman = seluruh PDF (sampul s.d. فهرس), aturan pemakai; jumlah kitab
 # hanya dinilai kalau dosen menulis batasnya (mis. «@minimal_kitab: 20»)
 MINIMAL = {"halaman": 25, "kitab": 0}
+# @data yang hanya dibaca `cek` (tidak dibaca rakit.ps1): mengubahnya tidak membuat PDF usang (sidik_cetak)
+HANYA_CEK = frozenset(f"minimal_{k}" for k in MINIMAL)
 # perkiraan kasar kata per halaman isi pada huruf matan 18; angka pasti hanya dari Word
 KATA_PER_HALAMAN_18 = 260
 META = frozenset("judul jenis nama nim fasl musyrif jabatan thalibah basmalah sampul tahun berkas format angka angka_ayat tanpa pustaka templat halaman_baru nomor bentuk rumuz warna model kepala_judul sifat qism".split()) | {f"minimal_{k}" for k in MINIMAL} | TIMPA.keys() | GAYA.keys()
@@ -382,7 +384,7 @@ def periksa(folder, keluar=None):
         periksa_riset(folder, baris, ctx.perhatian)
     ctx.perhatian = gabung_kembar(ctx.perhatian)  # jumlah di ringkasan = baris yang dicetak
     _tulis_bahan(ctx, keluar, d)
-    return ctx, _laporan(ctx, n_matan, n_fn, sidik_naskah)
+    return ctx, _laporan(ctx, n_matan, n_fn, sidik_naskah, sidik_cetak(d))
 
 
 def _baca_naskah(folder):
@@ -901,13 +903,23 @@ def _bahan(ctx, profil, quran, sumber, sidik_naskah):
             "quran": bool(quran), "tautan": TAUTAN.pattern, "sumber": sumber, "naskah_sha256": sidik_naskah}
 
 
+def sidik_cetak(d):
+    """SHA-256 bahan rakit tanpa yang tidak mengubah PDF (sidik naskah, kunci yang hanya dibaca `cek`, nomor baris
+    naskah tiap blok): naskah yang hanya berubah di situ tetap punya hasil rakit TERKINI (tahap.hasil), jadi tidak
+    perlu dirakit ulang. Nomor baris (`n`) hanya untuk pesan `cek`; rakit.ps1 tidak membacanya."""
+    isi = {k: v for k, v in d.items() if k != "naskah_sha256"}
+    isi["meta"] = {k: v for k, v in d["meta"].items() if k not in HANYA_CEK}
+    isi["blok"] = [{k: v for k, v in b.items() if k != "n"} for b in d["blok"]]
+    return hashlib.sha256(json.dumps(isi, ensure_ascii=False, sort_keys=True).encode("utf8")).hexdigest()
+
+
 def _tulis_bahan(ctx, keluar, d):
     """Bahan rakit JSON."""
     with sementara(keluar or bahan(ctx.folder)) as part:
         part.write_text(json.dumps(d, ensure_ascii=False), encoding="utf8")
 
 
-def _laporan(ctx, n_matan, n_fn, sidik_naskah):
+def _laporan(ctx, n_matan, n_fn, sidik_naskah, sidik_isi):
     """Baris laporan `cek`: ringkasan, GAGAL, perhatian, catatan kaki tanpa bukti."""
     blok, pustaka, catatan, ayat_idx = ctx.blok, ctx.pustaka, ctx.catatan, ctx.ayat_idx
     hadits_idx, galat, perhatian, folder = ctx.hadits_idx, ctx.galat, ctx.perhatian, ctx.folder
@@ -931,5 +943,6 @@ def _laporan(ctx, n_matan, n_fn, sidik_naskah):
     lap += [f"  ! {p}" for p in perhatian]
     lap.append(f"catatan kaki tanpa bukti (selain rujukan ayat dan rujukan kitab di atas): {len(fn_tanpa)}")
     lap += [f"  - {f}" for f in fn_tanpa]
+    lap.append(f"CETAK_SHA256={sidik_isi}")
     lap.append(f"NASKAH_SHA256={sidik_naskah}")
     return lap

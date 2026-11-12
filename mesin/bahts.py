@@ -610,10 +610,10 @@ def perintah_tahap(a):
     f = folder_bahts(a[0])
     with tempfile.TemporaryDirectory(prefix="bahts-tahap-") as t:
         ctx, lap = olah.periksa(f, Path(t) / "bahan.json")
-    sidik = lap[-1].removeprefix("NASKAH_SHA256=")
+    sidik, cetak = (next(b.split("=", 1)[1] for b in lap if b.startswith(k + "=")) for k in ("NASKAH_SHA256", "CETAK_SHA256"))
     berkas = ctx.meta["berkas"]
     pdf = f / f"{berkas}.pdf"
-    hasil = [tahap.Produk(f / "laporan.txt", tahap.hasil(pdf, f / "laporan.txt", sidik), pdf)]
+    hasil = [tahap.Produk(f / "laporan.txt", tahap.hasil(pdf, f / "laporan.txt", sidik, cetak), pdf)]
 
     def urut(lp):  # laporan-fasl2 sebelum laporan-fasl10, laporan-fasl1 sebelum laporan-fasl1-2
         try:
@@ -627,7 +627,7 @@ def perintah_tahap(a):
         label = next((b.split(": ", 1)[1] for b in lp.read_text(encoding="utf8", errors="replace").splitlines()
                       if b.startswith(f"POTONGAN=--fasl {fasl}: ")), None)
         pdf = None if label is None else f / f"{olah.nama_potongan(berkas, label, fasl)}.pdf"
-        hasil.append(tahap.Produk(lp, tahap.hasil(pdf, lp, sidik), pdf, f"--fasl {fasl}"))
+        hasil.append(tahap.Produk(lp, tahap.hasil(pdf, lp, sidik, cetak), pdf, f"--fasl {fasl}"))
     rel = f.relative_to(AKAR).as_posix()
     siapa = lihat_kunci(RAKIT_PEKERJAAN)
     rakit_ = tahap.Rakit.JALAN if siapa is not None else tahap.Rakit.YATIM if _ps_yatim() else tahap.Rakit.BEBAS

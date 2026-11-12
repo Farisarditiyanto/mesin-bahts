@@ -6,7 +6,7 @@ NASKAH_SHA256 di laporan hasil rakit, kunci rakit, penanda folder .rakit-*, cada
 basi. Tiga sumbu:
 
   naskah  GAGAL ──betulkan ✗──▶ PERHATIAN ──bereskan !──▶ LOLOS            (dari `cek`; naskah diubah = dibaca ulang)
-  hasil   BELUM ──rakit──▶ TERKINI ──naskah.txt diubah──▶ USANG ──rakit──▶ TERKINI      (tiap laporan*.txt di folder)
+  hasil   BELUM ──rakit──▶ TERKINI ──isi tercetak naskah.txt diubah──▶ USANG ──rakit──▶ TERKINI   (tiap laporan*.txt di folder)
           TIDAK_DIKETAHUI = laporan versi lama tanpa NASKAH_SHA256 ──rakit──▶ TERKINI
   rakit   BEBAS │ JALAN (kunci rakit dipegang; bahts ini atau bahts lain) │ YATIM (rakit.ps1 rakit yang dimatikan)
 
@@ -33,7 +33,7 @@ class Naskah(Enum):
 
 class Hasil(Enum):
     BELUM = "BELUM"  # belum ada PDF + laporan dari `rakit` (atau @berkas diganti sesudahnya)
-    TERKINI = "TERKINI"  # PDF dirakit dari naskah.txt versi ini (NASKAH_SHA256 laporan = naskah sekarang)
+    TERKINI = "TERKINI"  # PDF dirakit dari naskah.txt versi ini, atau versi yang isi tercetaknya sama (CETAK_SHA256)
     USANG = "USANG"  # PDF dirakit dari naskah.txt versi lain: naskah diubah sesudah `rakit`
     TIDAK_DIKETAHUI = "TIDAK_DIKETAHUI"  # laporan versi lama tanpa NASKAH_SHA256, atau PDF potongan tidak diketahui namanya
 
@@ -46,8 +46,8 @@ class Rakit(Enum):
 
 KETERANGAN_HASIL = {
     Hasil.BELUM: "belum dirakit",
-    Hasil.TERKINI: "dirakit dari naskah.txt versi ini (templat .docx dan versi mesin tidak dibandingkan)",
-    Hasil.USANG: "dirakit dari naskah.txt versi lain (naskah diubah sesudah `rakit`)",
+    Hasil.TERKINI: "dirakit dari naskah.txt versi ini, atau versi lain yang isi tercetaknya sama (templat .docx dan versi mesin tidak dibandingkan)",
+    Hasil.USANG: "dirakit dari naskah.txt versi lain (isi tercetak naskah diubah sesudah `rakit`)",
     Hasil.TIDAK_DIKETAHUI: "sidik versi naskah tidak tercatat atau tidak sah: rakit ulang supaya pasti",
 }
 
@@ -56,16 +56,18 @@ def naskah(galat, perhatian):
     return Naskah.GAGAL if galat else Naskah.PERHATIAN if perhatian else Naskah.LOLOS
 
 
-def sidik_laporan(laporan):
-    """NASKAH_SHA256 sah di laporan hasil rakit; None = tidak tercatat (versi lama) atau rusak."""
+def sidik_laporan(laporan, kunci="NASKAH_SHA256"):
+    """Sidik `kunci` yang sah di laporan hasil rakit; None = tidak tercatat (versi lama) atau rusak."""
     for b in laporan.read_text(encoding="utf8", errors="replace").splitlines():
-        if b.startswith("NASKAH_SHA256="):
+        if b.startswith(kunci + "="):
             nilai = b.split("=", 1)[1].strip()
             return nilai if re.fullmatch(r"[0-9a-f]{64}", nilai) else None
     return None
 
 
-def hasil(pdf, laporan, sidik):
+def hasil(pdf, laporan, sidik, cetak=None):
+    """sidik = NASKAH_SHA256 naskah sekarang; cetak = CETAK_SHA256-nya (olah.sidik_cetak). Naskah yang berubah hanya
+    di bagian yang tidak tercetak (mis. @minimal_halaman) tetap TERKINI; laporan tanpa CETAK_SHA256 = naskah saja."""
     if pdf is None:
         return Hasil.TIDAK_DIKETAHUI if laporan.is_file() else Hasil.BELUM
     if not (pdf.is_file() and laporan.is_file()):
@@ -73,7 +75,9 @@ def hasil(pdf, laporan, sidik):
     tercatat = sidik_laporan(laporan)
     if tercatat is None:
         return Hasil.TIDAK_DIKETAHUI
-    return Hasil.TERKINI if tercatat == sidik else Hasil.USANG
+    if tercatat == sidik or (cetak and sidik_laporan(laporan, "CETAK_SHA256") == cetak):
+        return Hasil.TERKINI
+    return Hasil.USANG
 
 
 @dataclass
