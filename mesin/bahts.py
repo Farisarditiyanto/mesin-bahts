@@ -77,8 +77,6 @@ FORMAT = json.loads((MESIN / "format.json").read_text(encoding="utf8"))  # profi
 HURUF_SARAN = ("huruf ini ikut terpasang kalau Windows punya papan ketik Arab (Settings > Time & language > Language & region > Add a language > العربية).\n"
                "          Atau lewat PowerShell admin (pemakai cukup klik Yes): Start-Process powershell -Verb RunAs -Wait -ArgumentList "
                "\"Add-WindowsCapability -Online -Name Language.Fonts.Arab~~~und-ARAB~0.0.1.0\"")
-# perkiraan kasar kata per halaman isi pada huruf matan 18; angka pasti hanya dari Word
-KATA_PER_HALAMAN_18 = 260
 PUSTAKA = ("pyarrow", "pypdf", "fontTools")  # nama modul; nama pemasangannya di requirements.txt
 
 
@@ -275,47 +273,6 @@ def baru(nama, judul):
               + ("\nContoh @jenis (huruf Arab, tercetak di sampul): بحث صفي للمستوى الرابع" if "jenis" in kosong else ""))
 
 
-def perkiraan_halaman(d):
-    """Perkiraan kasar (isi, seluruh PDF, rincian) dari jumlah kata, untuk yang belum bisa `rakit`; None tanpa profil.
-    isi = المقدمة s.d. الخاتمة: tiap #K/#F (dan judul di @halaman_baru) mulai halaman baru; kata catatan kaki dihitung
-    menurut perbandingan luas hurufnya. Seluruh PDF = sampul + halaman sebelum المقدمة (@nomor) + isi + المصادر + فهرس,
-    yang dicetak sama dengan yang dicetak rakit.ps1 (@tanpa, @bentuk: kitab, فهرس kosong tidak dicetak)."""
-    fmt = d.get("format")
-    if not fmt:
-        return None
-    # huruf lebih kecil = lebih banyak kata, tetapi tidak sebanyak luasnya (pangkat 1,1, bukan 2: 3 PDF @format tatbiqi)
-    per_hal = KATA_PER_HALAMAN_18 * (18 / fmt["matan"]) ** 1.1 / fmt.get("spasi", 1)  # 1,5 spasi = baris lebih sedikit
-    import olah
-    kata, meta = olah.kata, d["meta"]
-
-    def halaman(blok):
-        bagian = []
-        for b in blok:
-            if b["k"] in ("K", "F", "H", *meta.get("halaman_baru", [])) or not bagian:
-                bagian.append(0.0)
-            fn = sum(kata(d["catatan"][r["fn"]]["runs"]) for r in b["runs"] if r.get("fn") is not None)
-            # tabel #J: sel sempit dan bergaris, jadi satu kata makan tempat lebih banyak daripada di paragraf
-            bagian[-1] += kata(b["runs"]) * (1.4 if b["k"] == "J" else 1) + fn * (fmt["catatan"] / fmt["matan"]) ** 2
-        return sum(max(1, math.ceil(x / per_hal)) for x in bagian)
-
-    blok = d["blok"]
-    blok = blok[:next((i for i, b in enumerate(blok) if b["k"] == "R"), len(blok))]
-    # الإهداء dst. sebelum المقدمة bukan halaman isi, dengan atau tanpa @nomor (sama dengan HALAMAN_ISI di rakit.ps1)
-    mula = next((i for i, b in enumerate(blok) if b.get("judul") == "المقدمة"), 0)
-    isi = halaman(blok[mula:])
-    tanpa = set(re.split(r"[,، ]+", meta.get("tanpa", "")))
-    kitab = meta.get("bentuk") == "kitab"
-    rinci = {"sampul": 0 if kitab else 1 + (meta.get("basmalah") == "ya"), "sebelum المقدمة": halaman(blok[:mula]) if mula else 0}
-    judul = sum(b["k"] in ("K", "F", "B", "M") for b in blok)  # baris فهرس الموضوعات
-    for nama, n, per in (("المصادر", len(d["pustaka"]) if "pustaka" not in tanpa and (not kitab or d["pustaka"]) else 0, 12),
-                         ("فهرس الآيات", 0 if "ayat" in tanpa else len(d["ayat"]), 26),
-                         ("فهرس الأحاديث", 0 if "hadits" in tanpa else len(d["hadits"]), 20),
-                         ("فهرس الأعلام", 0 if "alam" in tanpa else len(d.get("alam", [])), 20),
-                         ("فهرس الموضوعات", 0 if "maudhuat" in tanpa else max(judul, 1), 25)):
-        rinci[nama] = math.ceil(n / per)  # baris per halaman dari 30 PDF bahts nyata (selisih paling banyak 1 halaman)
-    return isi, isi + sum(rinci.values()), {k: v for k, v in rinci.items() if v}
-
-
 def cek(nama, keluar=None, jejak=False, ringkas=False):
     """ringkas (dipakai `rakit`): naskah yang lolos dicetak satu baris; rinciannya tetap di laporan yang dikembalikan."""
     import olah
@@ -342,7 +299,7 @@ def cek(nama, keluar=None, jejak=False, ringkas=False):
     elif jejak:
         print("jejak: tidak ada bukti yang gagal «teks TIDAK KETEMU di kitab».")
     try:
-        n = perkiraan_halaman(json.loads((keluar or bahan(f)).read_text(encoding="utf8")))
+        n = olah.perkiraan_halaman(json.loads((keluar or bahan(f)).read_text(encoding="utf8")))
     except (OSError, ValueError, KeyError, IndexError, TypeError):
         n = None
     if n:
@@ -511,6 +468,10 @@ def _rakit_di(nama, f, kerja, fasl=None):
     for baris in (f / laporan).read_text(encoding="utf8").splitlines():
         if baris.startswith(("HALAMAN", "CATATAN_KAKI", "KATA")):
             print(baris)
+    batas, asal = olah.batas_minimal(d["meta"], "halaman")
+    if batas and not fasl and halaman < batas:  # potongan --fasl memang lebih pendek dari bahts utuh
+        print(f"PERINGATAN: PDF {halaman} halaman, kurang dari {batas} ({asal}): tambah pembahasan dari bahan yang "
+              "dibaca, atau tulis batas dari dosen di «@minimal_halaman: n»")
     print(f"Jadi: {f / berkas}.docx dan .pdf")
     salin_keluaran(f, berkas)
 

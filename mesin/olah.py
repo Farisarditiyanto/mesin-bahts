@@ -29,8 +29,11 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       di tiap halaman isi; nomor halaman di kaki hanya kalau kepala itu tidak memuat nomor halaman
                       nomor (abjad = halaman sebelum #F pertama bernomor huruf أ ب ت, mulai #F pertama nomornya ١، ٢، ٣)
                       (mukadimah = sama, tetapi nomor ١ mulai #K المقدمة; الإهداء dst. sebelumnya tetap huruf)
-                      minimal_kitab (bilangan; bawaan 25): kitab di المصادر (selain القرآن الكريم) kurang dari itu = perhatian.
-                      Dosen minta lebih sedikit atau lebih banyak → tulis jumlahnya, mis. «@minimal_kitab: 20»; 0 = tidak dinilai
+                      minimal_halaman (bilangan; bawaan 25): perkiraan halaman seluruh PDF (sampul s.d. فهرس) kurang dari
+                      itu = perhatian `cek`, HALAMAN sesudah `rakit` kurang dari itu = PERINGATAN. Dosen minta lain →
+                      tulis jumlahnya, mis. «@minimal_halaman: 20»; 0 = tidak dinilai
+                      minimal_kitab (bilangan; bawaan tidak dinilai): dosen menulis jumlah rujukan paling sedikit, mis.
+                      «لا يقل عن عشرين مرجعا» → «@minimal_kitab: 20»; kitab di المصادر (selain القرآن الكريم) kurang = perhatian
                       halaman_baru (B, M, atau keduanya): judul itu juga mulai halaman baru, mis. dosen minta
                       مبحث dan مطلب beda halaman, مبحث = #F dan مطلب = #B → «@halaman_baru: B»
                       Tata letak per bagian, bisa dicampur (nilai pertama = bawaan):
@@ -156,7 +159,7 @@ riset.txt (di folder bahts, di samping naskah.txt): jejak langkah riset yang tid
                       belum tercatat = perhatian, juga baris riset.txt yang rusak atau kunci takhrij8 yang tidak ada di naskah.
                       Tidak pernah GAGAL: isinya ditulis agen sendiri, jadi mesin hanya menunjuk yang belum dicatat
 """
-import difflib, hashlib, io, json, os, re
+import difflib, hashlib, io, json, math, os, re
 from pathlib import Path
 
 import norma
@@ -201,10 +204,12 @@ GAYA = {"kepala": ("-", "kotak"),            # kotak = judul kanan, nomor halama
 MODEL = {"jakarta": {"sampul": "jakarta", "format": "jakarta", "kepala": "kotak", "fihris_ayat": "surah",
                      "fihris_hadits": "ringkas", "maudhuat": "titik", "pustaka_gaya": "muallif", "pustaka": "akhir",
                      "judul_kanan": "B, M", "catatan_kaki": "bersambung", "fihris": "sambung", "rujukan_ayat": "matan"}}
-# @minimal_kitab bawaan: jumlah kitab paling sedikit di المصادر (selain القرآن الكريم). Aturan repo: dosen yang
-# menulis batasnya meminta 20 kitab (تعليمات كتابة البحث); bawaan dibuat 25 supaya ada lebihnya
-MINIMAL_KITAB = 25
-META = frozenset("judul jenis nama nim fasl musyrif jabatan thalibah basmalah sampul tahun berkas format angka angka_ayat tanpa pustaka templat halaman_baru nomor bentuk rumuz warna model kepala_judul sifat qism minimal_kitab".split()) | TIMPA.keys() | GAYA.keys()
+# Batas bawaan @minimal_*: 0 = tidak dinilai. Halaman = seluruh PDF (sampul s.d. فهرس), aturan pemakai; jumlah kitab
+# hanya dinilai kalau dosen menulis batasnya (mis. «@minimal_kitab: 20»)
+MINIMAL = {"halaman": 25, "kitab": 0}
+# perkiraan kasar kata per halaman isi pada huruf matan 18; angka pasti hanya dari Word
+KATA_PER_HALAMAN_18 = 260
+META = frozenset("judul jenis nama nim fasl musyrif jabatan thalibah basmalah sampul tahun berkas format angka angka_ayat tanpa pustaka templat halaman_baru nomor bentuk rumuz warna model kepala_judul sifat qism".split()) | {f"minimal_{k}" for k in MINIMAL} | TIMPA.keys() | GAYA.keys()
 # @warna: nama -> RGB. Biru tua: tetap nyaman dibaca untuk paragraf panjang dan jelas beda dari hitam serta merah lafaz matn
 WARNA = {"biru": (20, 60, 150)}
 # lambang hormat Unicode 14 (﵀-﵏ ﷾ ﷿) tidak ada di huruf cetak (Traditional Arabic, Sakkal Majalla): kotak kosong di PDF.
@@ -361,6 +366,7 @@ def periksa(folder, keluar=None):
     _cek_sesudah_naskah(ctx)
     _terapkan_model_gaya(ctx)
     _cek_bentuk(ctx)
+    _cek_minimal_rusak(ctx)
     quran = _urutkan_fihris(ctx)
     _cek_jumlah_kitab(ctx, quran)
     n_matan, n_fn = _hitung_kata(ctx)
@@ -369,11 +375,13 @@ def periksa(folder, keluar=None):
     _cek_tata_letak(ctx)
     profil = _format_dan_angka(ctx)
     _bait_syair(ctx)
+    sidik_naskah = hashlib.sha256(naskah).hexdigest()
+    d = _bahan(ctx, profil, quran, sumber, sidik_naskah)
     if ctx.bentuk != "kitab":  # muqarrar gabungan syarah (@bentuk: kitab) bukan riset baru
+        _cek_jumlah_halaman(ctx, d)
         periksa_riset(folder, baris, ctx.perhatian)
     ctx.perhatian = gabung_kembar(ctx.perhatian)  # jumlah di ringkasan = baris yang dicetak
-    sidik_naskah = hashlib.sha256(naskah).hexdigest()
-    _tulis_bahan(ctx, keluar, profil, quran, sumber, sidik_naskah)
+    _tulis_bahan(ctx, keluar, d)
     return ctx, _laporan(ctx, n_matan, n_fn, sidik_naskah)
 
 
@@ -628,21 +636,36 @@ def _mushaf(baris):
     return bool(MUSHAF.match(re.sub("[إأآ]", "ا", norma.HARAKAT.sub("", baris.replace("**", "").replace("__", ""))).strip()))
 
 
+def batas_minimal(meta, apa):
+    """(batas, asal) dari «@minimal_<apa>: n» atau bawaannya; batas 0 = tidak dinilai, None = nilainya rusak.
+    asal = teks untuk pesan: «@minimal_halaman: 20» atau «bawaan 25»."""
+    kunci = f"minimal_{apa}"
+    nilai = meta.get(kunci, "")
+    if kunci not in meta:
+        return MINIMAL[apa], f"bawaan {MINIMAL[apa]}"
+    if not nilai.isdecimal():  # isdecimal juga menerima ٢٠; kosong = rusak
+        return None, f"«@{kunci}: {nilai}»"
+    return int(nilai), f"«@{kunci}: {nilai}»"
+
+
+def _cek_minimal_rusak(ctx):
+    """@minimal_*: harus bilangan bulat (0 = tidak dinilai); kosong atau kata = GAGAL, bukan diam-diam kembali ke bawaan."""
+    for apa in MINIMAL:
+        if batas_minimal(ctx.meta, apa)[0] is None:
+            nilai = ctx.meta[f"minimal_{apa}"]
+            ctx.galat.append(ctx.di(f"@minimal_{apa}") + f"@minimal_{apa}: "
+                             + (f"«{nilai}» bukan bilangan bulat" if nilai else "kosong")
+                             + f"; tulis jumlah dari dosen (mis. 20; 0 = tidak dinilai) atau hapus barisnya (bawaan {MINIMAL[apa]})")
+
+
 def _cek_jumlah_kitab(ctx, quran):
     """@minimal_kitab: jumlah kitab di المصادر (selain القرآن الكريم) tidak boleh kurang dari batas dosen.
-    Kurang = perhatian, bukan GAGAL: dosen boleh meminta lebih sedikit, dan itu ditulis dengan «@minimal_kitab: n».
+    Kurang = perhatian, bukan GAGAL. Bawaan tidak dinilai (MINIMAL).
     Baris #R kembar (sama sesudah harakat, hamzah, dan tanda baca disamakan) dihitung sekali dan diberi perhatian."""
-    meta, di = ctx.meta, ctx.di
-    minimal = meta.get("minimal_kitab", "")
-    if "minimal_kitab" in meta and not minimal:
-        ctx.galat.append(di("@minimal_kitab") + "@minimal_kitab: kosong; tulis jumlah dari dosen (mis. 20; 0 = tidak dinilai) atau hapus barisnya (bawaan 25)")
-        return
-    if minimal and not minimal.isdecimal():
-        ctx.galat.append(di("@minimal_kitab") + f"@minimal_kitab: «{minimal}» bukan bilangan bulat (mis. 20; 0 = tidak dinilai)")
-        return
-    batas = int(minimal) if minimal else MINIMAL_KITAB  # int() juga membaca ٢٠
+    di = ctx.di
+    batas, asal = batas_minimal(ctx.meta, "kitab")
     # @bentuk: kitab, @tanpa: pustaka, dan #R yang kosong (sudah GAGAL di _cek_bentuk) tidak punya daftar untuk dihitung
-    if ctx.bentuk == "kitab" or "pustaka" in ctx.tanpa or not ctx.pustaka:
+    if batas is None or ctx.bentuk == "kitab" or "pustaka" in ctx.tanpa or not ctx.pustaka:
         return
     unik, kembar = set(), []
     for p in ctx.pustaka:
@@ -657,11 +680,62 @@ def _cek_jumlah_kitab(ctx, quran):
                              + (f" dan {len(kembar) - 1} lainnya" if len(kembar) > 1 else "") + "; hapus salah satunya")
     n = len(unik)
     if n < batas:
-        asal = f"«@minimal_kitab: {minimal}»" if minimal else f"bawaan {MINIMAL_KITAB}"
         ctx.perhatian.append(
             (di("@minimal_kitab") or di("#R")) + f"المصادر والمراجع baru {n} kitab (selain القرآن الكريم), kurang dari {batas} ({asal}): "
             "tambah kitab yang benar-benar dibaca dan dirujuk di catatan kaki; kalau dosen memang meminta lebih sedikit, "
             "tulis jumlah dari dosen di «@minimal_kitab: n»")
+
+
+def _cek_jumlah_halaman(ctx, d):
+    """@minimal_halaman: perkiraan halaman seluruh PDF (sampul s.d. فهرس) tidak boleh kurang dari batasnya (bawaan
+    MINIMAL). Perkiraan dari jumlah kata, jadi kurang = perhatian; angka pasti `HALAMAN` dinilai lagi sesudah `rakit`."""
+    batas, asal = batas_minimal(ctx.meta, "halaman")
+    n = perkiraan_halaman(d) if batas else None
+    if n and n[1] < batas:
+        ctx.perhatian.append(
+            (ctx.di("@minimal_halaman") or "") + f"perkiraan seluruh PDF ±{n[1]} halaman, kurang dari {batas} ({asal}): "
+            "tambah pembahasan dari bahan yang benar-benar dibaca (bukan mengulang atau memperbesar huruf); kalau dosen "
+            "meminta lebih sedikit, tulis jumlah dari dosen di «@minimal_halaman: n». Angka pasti = HALAMAN sesudah `rakit`")
+
+
+def perkiraan_halaman(d):
+    """Perkiraan kasar (isi, seluruh PDF, rincian) dari jumlah kata, untuk yang belum bisa `rakit`; None tanpa profil.
+    isi = المقدمة s.d. الخاتمة: tiap #K/#F (dan judul di @halaman_baru) mulai halaman baru; kata catatan kaki dihitung
+    menurut perbandingan luas hurufnya. Seluruh PDF = sampul + halaman sebelum المقدمة (@nomor) + isi + المصادر + فهرس,
+    yang dicetak sama dengan yang dicetak rakit.ps1 (@tanpa, @bentuk: kitab, فهرس kosong tidak dicetak)."""
+    fmt = d.get("format")
+    if not fmt:
+        return None
+    # huruf lebih kecil = lebih banyak kata, tetapi tidak sebanyak luasnya (pangkat 1,1, bukan 2: 3 PDF @format tatbiqi)
+    per_hal = KATA_PER_HALAMAN_18 * (18 / fmt["matan"]) ** 1.1 / fmt.get("spasi", 1)  # 1,5 spasi = baris lebih sedikit
+    meta = d["meta"]
+
+    def halaman(blok):
+        bagian = []
+        for b in blok:
+            if b["k"] in ("K", "F", "H", *meta.get("halaman_baru", [])) or not bagian:
+                bagian.append(0.0)
+            fn = sum(kata(d["catatan"][r["fn"]]["runs"]) for r in b["runs"] if r.get("fn") is not None)
+            # tabel #J: sel sempit dan bergaris, jadi satu kata makan tempat lebih banyak daripada di paragraf
+            bagian[-1] += kata(b["runs"]) * (1.4 if b["k"] == "J" else 1) + fn * (fmt["catatan"] / fmt["matan"]) ** 2
+        return sum(max(1, math.ceil(x / per_hal)) for x in bagian)
+
+    blok = d["blok"]
+    blok = blok[:next((i for i, b in enumerate(blok) if b["k"] == "R"), len(blok))]
+    # الإهداء dst. sebelum المقدمة bukan halaman isi, dengan atau tanpa @nomor (sama dengan HALAMAN_ISI di rakit.ps1)
+    mula = next((i for i, b in enumerate(blok) if b.get("judul") == "المقدمة"), 0)
+    isi = halaman(blok[mula:])
+    tanpa = set(re.split(r"[,، ]+", meta.get("tanpa", "")))
+    kitab = meta.get("bentuk") == "kitab"
+    rinci = {"sampul": 0 if kitab else 1 + (meta.get("basmalah") == "ya"), "sebelum المقدمة": halaman(blok[:mula]) if mula else 0}
+    judul = sum(b["k"] in ("K", "F", "B", "M") for b in blok)  # baris فهرس الموضوعات
+    for nama, n, per in (("المصادر", len(d["pustaka"]) if "pustaka" not in tanpa and (not kitab or d["pustaka"]) else 0, 12),
+                         ("فهرس الآيات", 0 if "ayat" in tanpa else len(d["ayat"]), 26),
+                         ("فهرس الأحاديث", 0 if "hadits" in tanpa else len(d["hadits"]), 20),
+                         ("فهرس الأعلام", 0 if "alam" in tanpa else len(d.get("alam", [])), 20),
+                         ("فهرس الموضوعات", 0 if "maudhuat" in tanpa else max(judul, 1), 25)):
+        rinci[nama] = math.ceil(n / per)  # baris per halaman dari 30 PDF bahts nyata (selisih paling banyak 1 halaman)
+    return isi, isi + sum(rinci.values()), {k: v for k, v in rinci.items() if v}
 
 
 def _hitung_kata(ctx):
@@ -820,15 +894,17 @@ def _bait_syair(ctx):
                     r["t"] = re.sub(r"\s*//\s*", "\v", re.sub(r"\s*\.\.\.\s*", "\u2003\u2003\u2003", r["t"]))
 
 
-def _tulis_bahan(ctx, keluar, profil, quran, sumber, sidik_naskah):
-    """Bahan rakit JSON (dibaca rakit.ps1)."""
-    meta, blok, pustaka, catatan = ctx.meta, ctx.blok, ctx.pustaka, ctx.catatan
-    ayat_idx, hadits_idx, folder = ctx.ayat_idx, ctx.hadits_idx, ctx.folder
-    with sementara(keluar or bahan(folder)) as part:
-        part.write_text(json.dumps({"meta": meta, "format": profil, "blok": blok, "catatan": catatan,
-                                   "ayat": ayat_idx, "hadits": hadits_idx, "alam": ctx.alam, "pustaka": pustaka,
-                                   "quran": bool(quran), "tautan": TAUTAN.pattern, "sumber": sumber,
-                                   "naskah_sha256": sidik_naskah}, ensure_ascii=False), encoding="utf8")
+def _bahan(ctx, profil, quran, sumber, sidik_naskah):
+    """Bahan rakit (dibaca rakit.ps1 dan perkiraan_halaman)."""
+    return {"meta": ctx.meta, "format": profil, "blok": ctx.blok, "catatan": ctx.catatan,
+            "ayat": ctx.ayat_idx, "hadits": ctx.hadits_idx, "alam": ctx.alam, "pustaka": ctx.pustaka,
+            "quran": bool(quran), "tautan": TAUTAN.pattern, "sumber": sumber, "naskah_sha256": sidik_naskah}
+
+
+def _tulis_bahan(ctx, keluar, d):
+    """Bahan rakit JSON."""
+    with sementara(keluar or bahan(ctx.folder)) as part:
+        part.write_text(json.dumps(d, ensure_ascii=False), encoding="utf8")
 
 
 def _laporan(ctx, n_matan, n_fn, sidik_naskah):
