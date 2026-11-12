@@ -67,7 +67,8 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       mis. pembuka المقدمة satu halaman sendiri, lalu «#H» sebelum «#S أهمية الدراسة»
   #V teks             bait syair di tengah halaman (boleh memuat catatan kaki): « ... » = jarak antara dua paruh bait, « ...~ » = dua paruh yang berbagi satu kata digabung,
                       « // » = bait berikutnya pada baris baru; kutipan bertanda petik boleh memuat keduanya
-  #L teks             paragraf bahasa Latin, kiri ke kanan (mis. الملخص bahasa Inggris); tanpa catatan kaki
+  #L teks             paragraf bahasa Latin, kiri ke kanan (mis. الملخص bahasa Inggris); tanpa catatan kaki; Times New Roman
+                      12 (judulnya 14), profil bisa mengubahnya lewat kunci "latin" di mesin/format.json
                       «#L **Abstract**» (satu baris penuh diapit **) = judul Latin tebal di tengah; paragraf #L
                       sesudahnya diberi jarak antar paragraf (6 pt) sampai blok bukan #L
   #T teks             kotak matn: paragraf dalam bingkai, seluruhnya merah (boleh memuat catatan kaki)
