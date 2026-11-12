@@ -9,6 +9,7 @@ import shamela
 from cek_ayat import ayat, ayat_ketik, penanda_ayat, rujukan_ayat
 from cek_hadits import hadits_janggal, hadits_lain, periksa_derajat, periksa_takhrij
 from cek_kutipan import cek, cek_pdf
+from cek_naql import isyarat, panjang, salinan
 from cek_rujukan import cocok_halaman, judul_kitab, judul_shamela, kitab_lain, rujukan_halaman
 from cek_sumber import standar_sumber, urutan_sumber
 from cek_tautsiq import data_cetak, gelar, pemisah_sumber
@@ -274,6 +275,7 @@ class Pengurai:
         if not c.diam:
             self._cek_penisbatan(c)
             self._cek_tautsiq(c)
+            self._cek_naql(c)
         self._pasang_catatan(c)
 
     def _baca_catatan(self):
@@ -577,6 +579,16 @@ class Pengurai:
         """Bentuk rujukan (cek_tautsiq): data cetak di rujukan pertama tiap kitab, «؛» antarsumber, nama tanpa gelar."""
         self.perhatian.extend(data_cetak(c.isi, c.terbukti, self.ctx.dirujuk))
         for p in (pemisah_sumber(c.isi, c.terbukti) if len(c.terbukti) > 1 else None, gelar(c.isi, "fn")):
+            if p:
+                self.perhatian.append(p)
+
+    def _cek_naql(self, c):
+        """Cara menukil (cek_naql): lafaz kitab di luar tanda petik, tanda «انظر», dan kutipan yang terlalu panjang."""
+        awal = len(self.polos) - len(c.penggal)
+        # lafaz matn ((…)) yang disyarah = nukilan yang sudah bertanda: hanya panjang kutipannya yang dinilai
+        matn = any(m >= awal for m in self.matn)
+        for p in (None if matn else salinan(c.penggal, c.mk, c.isi, c.terbukti),
+                  None if matn else isyarat(c.penggal, c.mk, c.isi, c.terbukti, c.kc), panjang(c.mk, c.isi)):
             if p:
                 self.perhatian.append(p)
 

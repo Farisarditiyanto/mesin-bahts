@@ -4,7 +4,7 @@ urutan sumber di catatan kaki «انظر:» dari pengarang yang lebih dulu wafat
 import functools, re
 
 import norma
-from dasar import HERE
+from dasar import HERE, MERUJUK_KATA
 from kitab_lokal import bagian_kitab, kitab_meta
 from petik import luar_petik, seragam
 
@@ -79,7 +79,7 @@ def standar_sumber(penggal, isi, sid_bukti):
     return {"isi": isi, "disebut": disebut, "ada": ada, "ijmak": bool(ijmak), "judul": judul, "n": None}
 
 
-MERUJUK = re.compile(r"^(?:انظر|ينظر|راجع)(?![ء-ي])")  # nukilan makna: beberapa sumber untuk satu hal
+MERUJUK = re.compile(rf"^(?:{MERUJUK_KATA})(?![ء-ي])")  # nukilan makna: beberapa sumber untuk satu hal
 
 
 def urutan_sumber(isi, bukti):
