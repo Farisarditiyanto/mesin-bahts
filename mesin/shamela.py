@@ -486,7 +486,7 @@ class _Lompat:
     ±LANGKAH byte isi dicatat titik lanjutnya (letak isi, letak di .gz, salinan keadaan zlib ±42 KB); bacaan berikutnya
     mulai dari titik terdekat sebelum a. Blok (isi antara dua titik) yang terakhir dibuka, dari kitab mana pun, disimpan
     sebentar (BLOK_MAKS).
-    Berkas .gz yang anggotanya lebih dari satu (bukan buatan `ambil`) dibuka utuh sekali, seperti dulu."""
+    Berkas .gz yang anggotanya lebih dari satu (bukan buatan `ambil`) dibuka utuh sekali."""
     LANGKAH = 1 << 19  # 512 KB isi: satu rekaman yang diminta = membuka paling banyak sebanyak ini lebih dulu
     POTONG = 1 << 16  # byte .gz yang diberikan ke zlib sekali jalan
     BLOK_MAKS = 32

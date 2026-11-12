@@ -1,8 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Jalankan di komputer sendiri semua tes yang dijalankan CI (`.github/workflows/tes.yml`), urut dan sama persis.
 
-Daftarnya dibaca dari tes.yml, jadi tes baru di sana otomatis ikut dan tidak ada yang terlewat (dulu `uji_word_startup`
-lupa dijalankan lokal, lalu CI Windows merah). Langkah persiapan (pip, siapkan, periksa, ambil) dilewati: kitabnya sudah
+Daftarnya dibaca dari tes.yml, jadi tes baru di sana otomatis ikut dan tidak ada yang terlewat. Langkah persiapan (pip, siapkan, periksa, ambil) dilewati: kitabnya sudah
 ada di komputer ini. Langkah «if: runner.os == 'Windows'» hanya jalan di Windows. Kode keluar 1 kalau ada yang gagal.
 uji_halaman memakai kitab CI secara tetap; `--penuh` secara eksplisit membandingkan seluruh pustaka lokal.
 Jumlah kitab pemakai dan perubahan cabang tidak mengubah cakupan tes rutin."""

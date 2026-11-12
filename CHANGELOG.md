@@ -2,23 +2,22 @@
 
 Yang baru di atas. Satu butir = satu perubahan yang dirasakan pemakai, satu-dua kalimat. Nomor versi = `besar.kecil.tambalan`:
 besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan baru, tambalan naik kalau hanya perbaikan.
-Rincian tiap rilis lama ada di [rilis GitHub](https://github.com/Farisarditiyanto/mesin-bahts/releases).
+Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Farisarditiyanto/mesin-bahts/releases).
 
 ## Belum dirilis
 
-- `tahap`: naskah yang berubah hanya di bagian yang tidak tercetak (mis. `@minimal_halaman`) tidak membuat PDF USANG: laporan `rakit` kini mencatat `CETAK_SHA256`, jadi tidak perlu rakit ulang.
-- Jumlah halaman dinilai: seluruh PDF kurang dari 25 halaman = perhatian `cek` (perkiraan) dan PERINGATAN sesudah `rakit`. Batas dosen: `@minimal_halaman: n`; `0` = tidak dinilai.
-- Jumlah kitab di المصادر dinilai hanya kalau dosen menulis batasnya: `@minimal_kitab: n`. Baris `#R` kembar dihitung sekali; mushaf ditulis «القران الكريم»/«المصحف الشريف» tetap bukan kitab.
-- `cek` menjaga cara menukil (أبو سليمان ص112-114، 123، 173): perhatian untuk 8 kata atau lebih yang sama persis dengan kitab di luar tanda petik, nukilan makna tanpa «انظر:», kutipan lafaz yang dirujuk «انظر:», dan kutipan lebih dari 60 kata. Naskah lama bisa mendapat perhatian baru; GAGAL tidak berubah.
+- Jumlah halaman dinilai: seluruh PDF kurang dari 25 halaman = perhatian `cek` (perkiraan) dan PERINGATAN sesudah `rakit`; potongan `--fasl` dan `@bentuk: kitab` tidak dinilai. Batas dosen: `@minimal_halaman: n`; `0` = tidak dinilai; kosong atau bukan bilangan = GAGAL.
+- Jumlah kitab di المصادر dinilai hanya kalau dosen menulis batasnya: `@minimal_kitab: n`; kosong = GAGAL. Baris `#R` kembar dihitung sekali. Mushaf ditulis «القران الكريم»/«المصحف الشريف» tetap bukan kitab; kitab berjudul «القرآن…» (mis. «القرآن والسنة…») kini dihitung dan diurutkan seperti kitab lain.
+- `cek` menjaga cara menukil (أبو سليمان ص112-114، 123، 173): perhatian untuk 8 kata atau lebih yang sama persis dengan kitab di luar tanda petik, nukilan makna tanpa «انظر:», kutipan lafaz yang dirujuk «انظر:», dan kutipan lebih dari 60 kata. Naskah lama bisa mendapat perhatian baru (bukan GAGAL).
 - `rakit` lebih cepat ±18% (BarisPendek dan putaran rujukan halaman); PDF sama persis.
-- Tabel di isi bahts: `#J sel | sel | sel` (baris pertama = kepala tabel).
+- Tabel di isi bahts: `#J sel | sel | sel` (baris pertama = kepala tabel). Baris `#J` dengan satu sel, sel kosong, atau jumlah sel berbeda dari baris sebelumnya di tabel itu = GAGAL.
 - `bukti` mencetak tiap paragraf isi tanpa catatan kaki; pemeriksa langkah 5 wajib menilainya.
 - Agent wajib membaca seluruh bab sebelum mengutip satu halaman kitab.
 - README berbahasa Arab (`README.ar.md`), README ditulis ulang untuk agent; Command Code bisa memakai connector `shamela`.
 
 ## 9.2.1 — 2026-11-11
 
-- AGENTS.md: tujuh cara menukil menurut أبو سليمان dengan urutan pemakaiannya.
+- AGENTS.md: tujuh cara menukil menurut أبو سليمان dengan urutan pemakaiannya. [Rincian](https://github.com/Farisarditiyanto/mesin-bahts/releases/tag/v9.2.1)
 
 ## 9.2.0 — 2026-11-10
 
@@ -106,7 +105,13 @@ Rincian tiap rilis lama ada di [rilis GitHub](https://github.com/Farisarditiyant
 
 ## 0.1.0 — 2026-10-10
 
-- `temukan`, `hadits`, baris `perhatian` di `cek`, `dirasat` di OpenAlex dan DOAJ.
+- `temukan "<frasa>"`: mencari frasa di isi semua kitab Shamela (lewat turath.io, tanpa akun), termasuk kitab yang belum diunduh; hasilnya nomor kitab untuk `ambil` dan juz/halaman.
+- `hadits "<طرف>"`: penunjuk takhrij dari «المنصة الحديثية»: kitab, كتاب/باب, nomor, juz/halaman, dan hukum ulama beserta kitabnya. Isinya tetap dibaca di kitabnya sendiri.
+- `cek` punya baris `perhatian` untuk yang lolos tetapi harus dilihat: bukti yang hanya ada di حاشية المحقق, dan kitab yang nomor halamannya buatan Shamela («مرقم آليا»).
+- `cek`: petunjuk «ketemu di ج… ص…» sekarang juga mencari di حاشية dan menyebut halaman tepatnya.
+- `dirasat` mencari di dua katalog (OpenAlex dan DOAJ) dan menerima kunci OpenAlex gratis di `kunci_openalex.txt`; satu katalog mati tidak menghentikan yang lain.
+- Perbaikan: ayat 95:1 dan 97:1 tercetak dengan basmalah di depannya, dan `{Q:95:1:i-j}` / `{Q:97:1:i-j}` bergeser empat kata. Naskah yang memakai nomor kata di dua ayat itu perlu disesuaikan.
+- `.mcp.json` mendaftarkan connector `turath` (pilihan, tanpa akun).
 
 ## 0.0.2 — 2026-10-09
 

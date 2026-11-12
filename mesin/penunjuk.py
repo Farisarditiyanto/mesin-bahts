@@ -89,7 +89,7 @@ def _tanpa_catatan(blok):
     """(baris, teks) tiap paragraf isi tanpa satu pun catatan kaki. Isi = bab #F (bukan yang bernama مقدمة/خاتمة) dan
     #B/#M di bawahnya, atau #B/#M langsung sesudah #K المقدمة; #K dan المصادر (#R) bukan isi. `cek` tidak bisa
     menilai kalimat tanpa catatan kaki, jadi pemeriksa langkah 5 yang menilai apakah ada penisbatan atau fakta di
-    dalamnya yang perlu sumber."""
+    dalamnya yang perlu sumber (mis. «وثمرة الخلاف أن الحنفية…» tanpa catatan kaki)."""
     di_isi, bab_luar = False, False  # bab_luar: #F terakhir bernama مقدمة/خاتمة
     for b in blok:
         if b["k"] == "R":
