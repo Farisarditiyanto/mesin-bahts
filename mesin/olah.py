@@ -602,7 +602,7 @@ def _urutkan_fihris(ctx):
         if not s.startswith("الله"):
             s = re.sub(r"^ال", "", s)
         return re.sub("[إأآ]", "ا", s)
-    quran = [p for p in pustaka if norma.HARAKAT.sub("", p.replace("**", "").replace("__", "")).startswith("القرآن")]  # tanpa nomor, paling atas
+    quran = [p for p in pustaka if _mushaf(p)]  # tanpa nomor, paling atas
     pengarang = ctx.meta.get("pustaka_gaya") == "muallif"
     pustaka = quran + sorted([p for p in pustaka if p not in quran], key=lambda p: kunci_urut(p, pengarang))
     for a in ayat_idx:
@@ -619,11 +619,24 @@ def _urutkan_fihris(ctx):
     return quran
 
 
+# Baris #R yang berupa mushaf: «القرآن الكريم» (boleh disusul «، رواية حفص…» atau «برواية…»), «القرآن.», «المصحف الشريف…».
+# Kitab yang judulnya hanya diawali «القرآن» («القرآن والسنة…»، «القرآن الكريم وعلومه») tetap kitab biasa
+MUSHAF = re.compile(r"^(?:القران(?:\s+الكريم)?|المصحف(?:\s+الشريف)?)\s*(?:$|[.،,:؛(\-–]|ب?رواي[ةه])")
+
+
+def _mushaf(baris):
+    return bool(MUSHAF.match(re.sub("[إأآ]", "ا", norma.HARAKAT.sub("", baris.replace("**", "").replace("__", ""))).strip()))
+
+
 def _cek_jumlah_kitab(ctx, quran):
     """@minimal_kitab: jumlah kitab di المصادر (selain القرآن الكريم) tidak boleh kurang dari batas dosen.
-    Kurang = perhatian, bukan GAGAL: dosen boleh meminta lebih sedikit, dan itu ditulis dengan «@minimal_kitab: n»."""
+    Kurang = perhatian, bukan GAGAL: dosen boleh meminta lebih sedikit, dan itu ditulis dengan «@minimal_kitab: n».
+    Baris #R kembar (sama sesudah harakat, hamzah, dan tanda baca disamakan) dihitung sekali dan diberi perhatian."""
     meta, di = ctx.meta, ctx.di
     minimal = meta.get("minimal_kitab", "")
+    if "minimal_kitab" in meta and not minimal:
+        ctx.galat.append(di("@minimal_kitab") + "@minimal_kitab: kosong; tulis jumlah dari dosen (mis. 20; 0 = tidak dinilai) atau hapus barisnya (bawaan 25)")
+        return
     if minimal and not minimal.isdecimal():
         ctx.galat.append(di("@minimal_kitab") + f"@minimal_kitab: «{minimal}» bukan bilangan bulat (mis. 20; 0 = tidak dinilai)")
         return
@@ -631,7 +644,18 @@ def _cek_jumlah_kitab(ctx, quran):
     # @bentuk: kitab, @tanpa: pustaka, dan #R yang kosong (sudah GAGAL di _cek_bentuk) tidak punya daftar untuk dihitung
     if ctx.bentuk == "kitab" or "pustaka" in ctx.tanpa or not ctx.pustaka:
         return
-    n = len(ctx.pustaka) - len(quran)
+    unik, kembar = set(), []
+    for p in ctx.pustaka:
+        if p in quran:
+            continue
+        kunci = norma.norm(p.replace("**", "").replace("__", ""))
+        if kunci in unik:
+            kembar.append(p)
+        unik.add(kunci)
+    if kembar:
+        ctx.perhatian.append(di("#R") + f"المصادر والمراجع memuat baris kembar (dihitung sekali): «{kembar[0]}»"
+                             + (f" dan {len(kembar) - 1} lainnya" if len(kembar) > 1 else "") + "; hapus salah satunya")
+    n = len(unik)
     if n < batas:
         asal = f"«@minimal_kitab: {minimal}»" if minimal else f"bawaan {MINIMAL_KITAB}"
         ctx.perhatian.append(

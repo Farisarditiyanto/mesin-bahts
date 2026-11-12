@@ -47,6 +47,18 @@ def utama():
         cek("batas bukan bilangan", dasar.replace("@minimal_kitab: 1", "@minimal_kitab: dua puluh"), True, "bukan bilangan bulat")
         out = cek("@tanpa: pustaka tidak dihitung", dasar.replace("@minimal_kitab: 1\n", "@tanpa: pustaka\n").split("#R")[0])
         assert "kurang dari" not in out, out
+        cek("@minimal_kitab kosong", dasar.replace("@minimal_kitab: 1", "@minimal_kitab:"), True, "@minimal_kitab: kosong")
+        # mushaf ditulis lain tetap bukan kitab; kitab berjudul «القرآن …» tetap kitab; baris kembar dihitung sekali
+        kitab = "رسالة في القضاء والقدر، محمد بن صالح بن محمد العثيمين، دار الوطن، 1423هـ.\n"
+        dua = dasar.replace("@minimal_kitab: 1", "@minimal_kitab: 2")
+        for nama, ganti, kurang in (
+                ("القران tanpa madda bukan kitab", ("القرآن الكريم.\n", "القُرَانُ الكَريم، رواية حفص.\n"), True),
+                ("المصحف bukan kitab", ("القرآن الكريم.\n", "المصحف الشريف برواية حفص.\n"), True),
+                ("kitab berjudul القرآن tetap kitab", (kitab, kitab + "القرآن والسنة في مواجهة البدع، فلان، 1430هـ.\n"), False),
+                ("#R kembar dihitung sekali", (kitab, kitab + "**رسالة في القضاء والقدر**، محمد بن صالح بن محمد العثيمين، دار الوطن، 1423هـ\n"), True)):
+            out = cek(nama, dua.replace(*ganti))
+            assert ("baru 1 kitab" in out) == kurang, (nama, out)
+        assert "baris kembar (dihitung sekali)" in out, out
         # #K sebelum المقدمة (الملخص dst.) bukan halaman isi, juga tanpa @nomor (HALAMAN_ISI rakit.ps1 sama)
         mulakhas = dasar.replace("#K المقدمة", "#K الملخص\n" + "كلمة " * 600 + "\n#K المقدمة", 1)
         isi = perkiraan.search(cek("الملخص panjang sebelum المقدمة", mulakhas)).group(1)
