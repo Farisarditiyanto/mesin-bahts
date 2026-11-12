@@ -33,7 +33,20 @@ def utama():
             return out
 
         perkiraan = re.compile(r"perkiraan halaman isi [^±]*±(\d+)")  # ± pertama = isi; sesudahnya «seluruh PDF: ±N»
-        isi_asli = perkiraan.search(cek("contoh asli", dasar)).group(1)
+        out = cek("contoh asli", dasar)
+        isi_asli = perkiraan.search(out).group(1)
+        # @minimal_kitab: bawaan 25 kitab di المصادر (selain القرآن الكريم); kurang = perhatian, contoh menulis 1
+        assert "kurang dari" not in out and "@minimal_kitab: 1\n" in dasar, out
+        cek("kitab kurang dari bawaan", dasar.replace("@minimal_kitab: 1\n", ""),
+            pesan="baru 1 kitab (selain القرآن الكريم), kurang dari 25 (bawaan 25)")
+        cek("batas dari dosen, angka hindi", dasar.replace("@minimal_kitab: 1", "@minimal_kitab: ٢"),
+            pesan="kurang dari 2 («@minimal_kitab: ٢»)")
+        for nama, nilai in (("batas nol", "0"), ("batas terpenuhi", "1")):
+            out = cek(nama, dasar.replace("@minimal_kitab: 1", f"@minimal_kitab: {nilai}"))
+            assert "kurang dari" not in out, (nama, out)
+        cek("batas bukan bilangan", dasar.replace("@minimal_kitab: 1", "@minimal_kitab: dua puluh"), True, "bukan bilangan bulat")
+        out = cek("@tanpa: pustaka tidak dihitung", dasar.replace("@minimal_kitab: 1\n", "@tanpa: pustaka\n").split("#R")[0])
+        assert "kurang dari" not in out, out
         # #K sebelum المقدمة (الملخص dst.) bukan halaman isi, juga tanpa @nomor (HALAMAN_ISI rakit.ps1 sama)
         mulakhas = dasar.replace("#K المقدمة", "#K الملخص\n" + "كلمة " * 600 + "\n#K المقدمة", 1)
         isi = perkiraan.search(cek("الملخص panjang sebelum المقدمة", mulakhas)).group(1)

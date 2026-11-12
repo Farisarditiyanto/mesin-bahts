@@ -29,6 +29,8 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       di tiap halaman isi; nomor halaman di kaki hanya kalau kepala itu tidak memuat nomor halaman
                       nomor (abjad = halaman sebelum #F pertama bernomor huruf أ ب ت, mulai #F pertama nomornya ١، ٢، ٣)
                       (mukadimah = sama, tetapi nomor ١ mulai #K المقدمة; الإهداء dst. sebelumnya tetap huruf)
+                      minimal_kitab (bilangan; bawaan 25): kitab di المصادر (selain القرآن الكريم) kurang dari itu = perhatian.
+                      Dosen minta lebih sedikit atau lebih banyak → tulis jumlahnya, mis. «@minimal_kitab: 20»; 0 = tidak dinilai
                       halaman_baru (B, M, atau keduanya): judul itu juga mulai halaman baru, mis. dosen minta
                       مبحث dan مطلب beda halaman, مبحث = #F dan مطلب = #B → «@halaman_baru: B»
                       Tata letak per bagian, bisa dicampur (nilai pertama = bawaan):
@@ -195,7 +197,10 @@ GAYA = {"kepala": ("-", "kotak"),            # kotak = judul kanan, nomor halama
 MODEL = {"jakarta": {"sampul": "jakarta", "format": "jakarta", "kepala": "kotak", "fihris_ayat": "surah",
                      "fihris_hadits": "ringkas", "maudhuat": "titik", "pustaka_gaya": "muallif", "pustaka": "akhir",
                      "judul_kanan": "B, M", "catatan_kaki": "bersambung", "fihris": "sambung", "rujukan_ayat": "matan"}}
-META = frozenset("judul jenis nama nim fasl musyrif jabatan thalibah basmalah sampul tahun berkas format angka angka_ayat tanpa pustaka templat halaman_baru nomor bentuk rumuz warna model kepala_judul sifat qism".split()) | TIMPA.keys() | GAYA.keys()
+# @minimal_kitab bawaan: jumlah kitab paling sedikit di المصادر (selain القرآن الكريم). Aturan repo: dosen yang
+# menulis batasnya meminta 20 kitab (تعليمات كتابة البحث); bawaan dibuat 25 supaya ada lebihnya
+MINIMAL_KITAB = 25
+META = frozenset("judul jenis nama nim fasl musyrif jabatan thalibah basmalah sampul tahun berkas format angka angka_ayat tanpa pustaka templat halaman_baru nomor bentuk rumuz warna model kepala_judul sifat qism minimal_kitab".split()) | TIMPA.keys() | GAYA.keys()
 # @warna: nama -> RGB. Biru tua: tetap nyaman dibaca untuk paragraf panjang dan jelas beda dari hitam serta merah lafaz matn
 WARNA = {"biru": (20, 60, 150)}
 # lambang hormat Unicode 14 (﵀-﵏ ﷾ ﷿) tidak ada di huruf cetak (Traditional Arabic, Sakkal Majalla): kotak kosong di PDF.
@@ -353,6 +358,7 @@ def periksa(folder, keluar=None):
     _terapkan_model_gaya(ctx)
     _cek_bentuk(ctx)
     quran = _urutkan_fihris(ctx)
+    _cek_jumlah_kitab(ctx, quran)
     n_matan, n_fn = _hitung_kata(ctx)
     _cek_sampul(ctx)
     sumber = _cek_bahan_sumber(ctx, naskah)
@@ -607,6 +613,27 @@ def _urutkan_fihris(ctx):
     ctx.alam = sorted(gabung.values(), key=lambda a: kunci_urut(a["t"], True))
     ctx.pustaka = pustaka
     return quran
+
+
+def _cek_jumlah_kitab(ctx, quran):
+    """@minimal_kitab: jumlah kitab di المصادر (selain القرآن الكريم) tidak boleh kurang dari batas dosen.
+    Kurang = perhatian, bukan GAGAL: dosen boleh meminta lebih sedikit, dan itu ditulis dengan «@minimal_kitab: n»."""
+    meta, di = ctx.meta, ctx.di
+    minimal = meta.get("minimal_kitab", "")
+    if minimal and not minimal.isdecimal():
+        ctx.galat.append(di("@minimal_kitab") + f"@minimal_kitab: «{minimal}» bukan bilangan bulat (mis. 20; 0 = tidak dinilai)")
+        return
+    batas = int(minimal) if minimal else MINIMAL_KITAB  # int() juga membaca ٢٠
+    # @bentuk: kitab, @tanpa: pustaka, dan #R yang kosong (sudah GAGAL di _cek_bentuk) tidak punya daftar untuk dihitung
+    if ctx.bentuk == "kitab" or "pustaka" in ctx.tanpa or not ctx.pustaka:
+        return
+    n = len(ctx.pustaka) - len(quran)
+    if n < batas:
+        asal = f"«@minimal_kitab: {minimal}»" if minimal else f"bawaan {MINIMAL_KITAB}"
+        ctx.perhatian.append(
+            (di("@minimal_kitab") or di("#R")) + f"المصادر والمراجع baru {n} kitab (selain القرآن الكريم), kurang dari {batas} ({asal}): "
+            "tambah kitab yang benar-benar dibaca dan dirujuk di catatan kaki; kalau dosen memang meminta lebih sedikit, "
+            "tulis jumlah dari dosen di «@minimal_kitab: n»")
 
 
 def _hitung_kata(ctx):
