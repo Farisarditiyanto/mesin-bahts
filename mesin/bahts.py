@@ -707,7 +707,7 @@ if __name__ == "__main__":
     if len(a) < paling_sedikit:
         sys.exit(f"Perintah «{cmd}» kurang argumen. Bentuknya:\n{bentuk}")
     if paling_banyak is not None and len(a) > paling_banyak:
-        # dulu ditelan diam-diam: `katalog "زاد" --mazhab hanbali` tidak tersaring, `halaman 1679 - 8 9` mengabaikan 9
+        # argumen berlebih ditolak, bukan ditelan: `halaman 1679 - 8 9` jangan diam-diam mengabaikan 9
         bendera = [x for x in a if x.startswith("--")]
         sys.exit(f"Argumen perintah «{cmd}» tidak dikenal atau berlebih: {a[paling_banyak:]}"
                  + (f" (perintah «{cmd}» tidak punya bendera {', '.join(bendera)})" if bendera else "")

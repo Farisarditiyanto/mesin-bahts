@@ -287,7 +287,7 @@ def nomor_judul_pokok(judul):
 TURATH = "https://api.turath.io/search"  # pencarian isi seluruh Shamela; nomor kitabnya = shamela_id (sama dengan `ambil`)
 TURATH_MAKS = 20  # turath menjawab sebanyak ini tiap pencarian
 # nomor bidang katalog Shamela (category_id), sama dengan nomor bidang turath. Saringan `cat`, `book`, dan `page` dibaca dari
-# kode situs app.turath.io (2 Nov 2026), tidak terdokumentasi, jadi bisa berubah tanpa kabar
+# kode situs app.turath.io, tidak terdokumentasi, jadi bisa berubah tanpa kabar
 MAZHAB = {"hanafi": 14, "maliki": 15, "syafii": 16, "hanbali": 17}
 
 
@@ -486,7 +486,7 @@ class _Lompat:
     ±LANGKAH byte isi dicatat titik lanjutnya (letak isi, letak di .gz, salinan keadaan zlib ±42 KB); bacaan berikutnya
     mulai dari titik terdekat sebelum a. Blok (isi antara dua titik) yang terakhir dibuka, dari kitab mana pun, disimpan
     sebentar (BLOK_MAKS).
-    Berkas .gz yang anggotanya lebih dari satu (bukan buatan `ambil`) dibuka utuh sekali, seperti dulu."""
+    Berkas .gz yang anggotanya lebih dari satu (bukan buatan `ambil`) dibuka utuh sekali."""
     LANGKAH = 1 << 19  # 512 KB isi: satu rekaman yang diminta = membuka paling banyak sebanyak ini lebih dulu
     POTONG = 1 << 16  # byte .gz yang diberikan ke zlib sekali jalan
     BLOK_MAKS = 32
@@ -1020,7 +1020,7 @@ def bab(sid, frasa, potongan=False):
 # kalimat di kartu kitab Shamela yang berarti nomor halamannya bukan nomor cetakan (dipakai `cek` di cek_kutipan.py dan `scan`)
 OTOMATIS = re.compile("مرقمة? آليا|بترقيم الشاملة")
 
-# Scan cetakan di turath.io: berkas data tiap kitab dan PDF-nya. Dibaca dari kode situs app.turath.io (17 Okt 2026), tidak
+# Scan cetakan di turath.io: berkas data tiap kitab dan PDF-nya. Dibaca dari kode situs app.turath.io, tidak
 # terdokumentasi, jadi bisa berubah tanpa kabar: hanya penunjuk jalan, `cek` dan `rakit` tidak memakainya.
 TURATH_FILES = "https://files.turath.io"
 # Kunci berkas books-v3 dipadatkan jadi satu huruf (U+064B + urutan nama di daftar ini); berkas yang punya `source`

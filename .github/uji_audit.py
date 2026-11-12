@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Regresi audit #154/#155 lewat CLI asli, tanpa bahan pribadi atau Word tiruan.
+"""Regresi pembersihan rakit dan pemeriksaan rujukan lewat CLI asli, tanpa bahan pribadi atau Word tiruan.
 
 Kegagalan rakit dihentikan oleh cek, sehingga pembersihan asli tetap diuji tanpa Word.
 Seluruh bahan dan tautan dibuat di TEMP; jaringan tidak dipakai.
@@ -72,7 +72,7 @@ def utama():
                 harus(teks, "rujukan pertama", True)
         uji("tahun lima digit bukan tahun cetak kartu", tahun_palsu)
 
-        # pemeriksa independen PR #156: penerbit «دار ابن …» tanpa tahun tetap data cetak
+        # penerbit «دار ابن …» tanpa tahun tetap data cetak
         ibnu = dasar.replace("#K الخاتمة", "وانظر[^انظر: سبل السلام، الصنعاني، تحقيق: محمد حلاق، دار ابن الجوزي، "
                              "الدمام، 1/5. <<1082|1|5|إن الحمد لله نحمده>>].\n#K الخاتمة")
         uji("«دار ابن الجوزي» adalah data cetak", lambda: harus(ibnu, "rujukan pertama «سبل", False))

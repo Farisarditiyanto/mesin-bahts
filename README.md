@@ -97,7 +97,7 @@ Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumenn
 | `mesin/naskah_baru.txt`, `riset_baru.txt` | kerangka dari `baru` |
 | `contoh/` | `naskah.txt` + `riset.txt` contoh dan `jebakan/` untuk tes |
 | `.mcp.json`, `opencode.json` | daftar connector (`opencode.json` = salinan untuk OpenCode) |
-| `dok/` | `mutamad.md` (kitab mu'tamad tiap mazhab), `uji-riset.md`, `takhrij.md`, audit |
+| `dok/` | `mutamad.md` (kitab mu'tamad tiap mazhab), `uji-riset.md`, `takhrij.md` |
 | `.github/` | `uji_*.py`, `workflows/tes.yml` |
 | `kitab/`, `bahts/`, `sampul_saya.txt`, `keluaran_saya.txt`, `kunci_openalex.txt` | data pemakai di komputernya, tidak di git |
 

@@ -25,7 +25,7 @@ def angka(x):
 
 def urai(semua):
     """Tiap rekaman diurai sekali untuk semua panggilan `halaman_lama` di kitab itu: (rekaman, juz, juz angka, potongan,
-    nomor halamannya). Hasilnya sama dengan mengurai ulang di tiap panggilan; dulu itu memakan sebagian besar waktu uji."""
+    nomor halamannya). Hasilnya sama dengan mengurai ulang di tiap panggilan, tanpa memakan sebagian besar waktu uji."""
     out = []
     for p in semua:
         pot = per_halaman(p)

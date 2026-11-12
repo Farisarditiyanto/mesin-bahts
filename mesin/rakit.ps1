@@ -509,8 +509,8 @@ try {
         $doc.ActiveWindow.View.Type = 3; $doc.Repaginate()
         # runt = kata ketiga dari belakang (huruf saja, bukan angka catatan kaki/tanda baca) ada di baris lain daripada akhir paragraf
         # «baris lain» dibaca dari jumlah baris: awal paragraf s.d. kata itu lebih sedikit barisnya daripada seluruh paragraf.
-        # Dulu Information(10)/(3) pada kata dan pada akhir paragraf: ±75 ms per panggilan, empat per paragraf (bahts 41
-        # halaman: BarisPendek ±80 detik, kini ±46). Rentangnya harus mulai di awal paragraf: jumlah baris rentang yang
+        # Jangan Information(10)/(3) per kata: ±75 ms per panggilan, empat per paragraf (BarisPendek dua kali lebih
+        # lama). Rentangnya harus mulai di awal paragraf: jumlah baris rentang yang
         # mulai di tengah paragraf tidak bisa dipakai (selalu 1)
         function Runt($r) {
             $ws = $r.Words; $i = $ws.Count; $n = 0
