@@ -510,7 +510,7 @@ try {
         # runt = kata ketiga dari belakang (huruf saja, bukan angka catatan kaki/tanda baca) ada di baris lain daripada akhir paragraf
         # «baris lain» dibaca dari jumlah baris: awal paragraf s.d. kata itu lebih sedikit barisnya daripada seluruh paragraf.
         # Dulu Information(10)/(3) pada kata dan pada akhir paragraf: ±75 ms per panggilan, empat per paragraf (bahts 41
-        # halaman: BarisPendek ±80 detik, kini ±15). Rentangnya harus mulai di awal paragraf: jumlah baris rentang yang
+        # halaman: BarisPendek ±80 detik, kini ±46). Rentangnya harus mulai di awal paragraf: jumlah baris rentang yang
         # mulai di tengah paragraf tidak bisa dipakai (selalu 1)
         function Runt($r) {
             $ws = $r.Words; $i = $ws.Count; $n = 0
@@ -913,7 +913,7 @@ try {
     }
     # Nomor catatan kaki sudah tetap sejak NomorCatatan di akhir bagian 4, dan sejak itu dokumen tidak diubah: putaran
     # pertama langsung mengisi {P:}. Tidak ada isian yang berubah = dokumennya masih yang diperiksa NomorCatatan terakhir,
-    # jadi selesai tanpa membaca semua nomor sekali lagi (SalahNomor: ±4 detik per panggilan pada 188 catatan kaki)
+    # jadi selesai tanpa membaca semua nomor sekali lagi (bahts 41 halaman: panggilan SalahNomor 7 -> 5)
     for ($putaran = 1; $putaran -le 12; $putaran++) {
         if ($putaran -gt 1) { NomorCatatan }
         $ubah = IsiRujukanHalaman
