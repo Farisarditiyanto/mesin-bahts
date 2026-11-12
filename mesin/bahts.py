@@ -294,7 +294,8 @@ def perkiraan_halaman(d):
             if b["k"] in ("K", "F", "H", *meta.get("halaman_baru", [])) or not bagian:
                 bagian.append(0.0)
             fn = sum(kata(d["catatan"][r["fn"]]["runs"]) for r in b["runs"] if r.get("fn") is not None)
-            bagian[-1] += kata(b["runs"]) + fn * (fmt["catatan"] / fmt["matan"]) ** 2
+            # tabel #J: sel sempit dan bergaris, jadi satu kata makan tempat lebih banyak daripada di paragraf
+            bagian[-1] += kata(b["runs"]) * (1.4 if b["k"] == "J" else 1) + fn * (fmt["catatan"] / fmt["matan"]) ** 2
         return sum(max(1, math.ceil(x / per_hal)) for x in bagian)
 
     blok = d["blok"]

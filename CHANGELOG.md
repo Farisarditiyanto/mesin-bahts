@@ -5,6 +5,7 @@ besar naik kalau naskah lama bisa berhenti jalan, kecil naik kalau ada kemampuan
 
 ## Belum dirilis
 
+- Tabel di isi bahts: tanda baru `#J sel | sel | sel`. Baris `#J` berturut-turut dirakit jadi satu tabel bergaris selebar halaman, kanan ke kiri; baris pertamanya kepala (tebal, berlatar abu-abu, diulang kalau tabel menyeberang halaman). Sel boleh memuat catatan kaki dan kutipan berbukti, dan dicek seperti paragraf. Sebelumnya mesin tidak bisa mencetak جدول المقارنة yang diminta dosen. Baris `#J` dengan satu sel, sel kosong, atau jumlah sel yang berbeda dari baris sebelumnya di tabel yang sama = GAGAL.
 - Klaim tanpa catatan kaki: `bukti` kini juga mencetak tiap paragraf isi yang tidak punya catatan kaki («baris n tanpa catatan kaki: «…»»), dan pemeriksa langkah 5 wajib menilai semuanya. Sebelumnya `cek`, `bukti`, dan pemeriksa hanya melihat catatan kaki yang sudah ada, sehingga penisbatan ke mazhab atau ulama tanpa sumber lolos (di 51 naskah, umumnya 15-25% paragraf isi tanpa catatan kaki, paling banyak 48%). AGENTS.md langkah 3 kini menyebut nukilan makna («انظر:») wajib bercatatan kaki.
 
 - README kini ada versi Arab (`README.ar.md`); pilihan bahasa di bagian atas keduanya. Isinya dikelompokkan jadi tiga bagian (Mulai, Cara kerja, Repo) dan pembukanya dipadatkan. `.github/uji_readme.py` menjaga keduanya tetap sejajar. Gambar `dok/alur.svg` dan `dok/bukti.svg` yang tidak dipakai lagi dihapus.
