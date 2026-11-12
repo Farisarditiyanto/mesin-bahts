@@ -19,6 +19,7 @@ $TA = [string]$FMT.huruf; $QF = 'KFGQPC HAFS Uthmanic Script'
 $uMatan = [single]$FMT.matan; $uCatatan = [single]$FMT.catatan; $uJudul = [single]$FMT.judul   # ukuran huruf (Word minta angka pecahan)
 $uJudulSub = if ($FMT.judul_sub) { [single]$FMT.judul_sub } else { $uJudul }   # ukuran #B/#M/#S; profil tanpa "judul_sub" = sama dengan judul
 $uAyat = if ($FMT.ayat) { [single]$FMT.ayat } else { $uMatan }   # ukuran ayat di matan dan فهرس الآيات; profil tanpa "ayat" = sama dengan matan
+$uLatin = if ($FMT.latin) { [single]$FMT.latin } else { [single]12 }   # paragraf #L (Times New Roman); bawaan 12, judul «#L **…**» 2 poin lebih besar. Times sebesar matan Arab tampak jauh lebih besar dan Abstract luber
 $ULANG = if ($FMT.catatan_ulang_tiap_halaman) { 2 } else { 0 }   # nomor catatan kaki: 2 = mulai ulang tiap halaman, 0 = bersambung
 $SPASI = if ($FMT.spasi) { [single]$FMT.spasi } else { 1 }   # jarak baris matan dan judul (kali satu baris); catatan kaki dan فهرس tetap satu spasi
 $MULAKHAS_JARAK = [bool]$FMT.mulakhas_berjarak   # paragraf di bawah #K الملخص/ملخص البحث: berjarak 6 pt, tanpa awal alinea menjorok
@@ -667,7 +668,7 @@ try {
             $sel.ParagraphFormat.Alignment = if ($judulL) { 1 } else { 3 }
             if ($judulL) { $sel.ParagraphFormat.KeepWithNext = -1 }
             $awal = $sel.Start
-            Tulis $blk.runs[0].t 'Times New Roman' $(if ($judulL) { $uJudul } else { $uMatan }) ([int]$judulL) 0
+            Tulis $blk.runs[0].t 'Times New Roman' $(if ($judulL) { $uLatin + 2 } else { $uLatin }) ([int]$judulL) 0
             $doc.Range($awal, $sel.Start).Select(); $word.Selection.LtrRun(); $sel.Collapse(0)
             $sel.TypeParagraph()
         }
