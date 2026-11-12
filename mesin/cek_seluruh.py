@@ -117,7 +117,7 @@ def periksa_riset(folder, baris, perhatian):
 
 
 # Kutipan bertanda petik yang memenuhi isi satu bagian: «تختفي شخصية الكاتب بين الاقتباسات الطويلة» (أبو سليمان، كتابة
-# البحث العلمي، ص121-123; kitab itu tidak memberi angka). Angka di sini aturan repo: di 38 naskah nyata (7 Nov 2026) hanya
+# البحث العلمي، ص121-123; kitab itu tidak memberi angka). Angka di sini aturan repo: di 38 naskah nyata hanya
 # 5 bagian, semuanya di satu naskah, yang lewat 2/3 (terberat 72%); bagian di bawah 600 huruf terlalu pendek untuk dinilai
 PORSI_KUTIPAN = 2 / 3
 PORSI_MIN = 600

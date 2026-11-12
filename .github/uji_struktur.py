@@ -275,7 +275,7 @@ def utama():
         assert "«وجه الاتفاق:» masih kosong" in out, out
         out = dirasat(studi.replace("وجه الاتفاق:", "وأوجه الاتفاق:").replace("وجه الاختلاف:", "وأوجه الافتراق:"))
         assert "belum ada «" not in out and "masih kosong" not in out, out
-        # awalan ف seperti و: label tetap dikenali (pola sebelum #153 juga menerimanya)
+        # awalan ف seperti و: label tetap dikenali
         out = dirasat(studi.replace("وجه الاتفاق:", "فوجه الاتفاق:").replace("التقويم:", "فالتقويم:"))
         assert "belum ada «" not in out and "masih kosong" not in out, out
         out = dirasat(studi.replace("وجه الاتفاق:", "اوجه الاتفاق:").replace("وجه الاختلاف:", "وإوجه الاختلاف:"))
@@ -300,7 +300,7 @@ def utama():
         out = cek("الخاتمة tanpa النتائج", dasar.replace(khatimah, "هذا آخر ما كتبته في هذا البحث."))
         assert "الخاتمة belum menyebut النتائج" in out, out
         assert "الخاتمة belum" not in cek("الخاتمة dengan النتائج", dasar)
-        # «#F الفصل الخامس: الخاتمة» juga الخاتمة (bahts nyata ihsan, shafira)
+        # «#F الفصل الخامس: الخاتمة» juga الخاتمة
         out = cek("الخاتمة di #F", dasar.replace(khatimah, "هذا آخر ما كتبته في هذا البحث.").replace(
             "#K الخاتمة", "#F الفصل الثاني: الخاتمة"))
         assert "الخاتمة belum menyebut النتائج" in out, out

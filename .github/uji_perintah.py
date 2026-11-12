@@ -3,7 +3,7 @@
 - `halaman` tidak mencetak «\\r» mentah Shamela: di konsol atau saat disalin «\\r» hilang, dua kata tersambung
   («نستعينالحمد»), lalu agent menyalinnya ke naskah dan `cek` meloloskannya karena spasi dipadatkan (kitab 11223 ص3);
 - argumen atau bendera di luar bentuk perintah ditolak (kode keluar 1, tanpa hasil), bukan ditelan diam-diam:
-  `katalog … --mazhab` dulu tidak tersaring, `cari <id> … --kitab` mencari di kitab pertama, `halaman … 8 9` mengabaikan 9;
+  `katalog … --mazhab` tetap tersaring, `cari <id> … --kitab` tidak mencari di kitab pertama, `halaman … 8 9` tidak mengabaikan 9;
 - `cari`/`teks`/`bab` mencocokkan kata utuh; yang menyeberang batas kata hanya disebut jumlahnya;
 - `hadits` menandai riwayat yang kitabnya sudah diunduh dengan juz/halaman edisi lokal (layanan alminasa ditiru).
 Kitabnya kitab CI (baris `ambil` di tes.yml)."""

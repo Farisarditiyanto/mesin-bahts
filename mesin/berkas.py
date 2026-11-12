@@ -231,7 +231,7 @@ class PemulihanGagal(RuntimeError):
 
 def terbitkan(kerja, folder, nama):
     """Pindahkan SEMUA hasil lama ke cadangan sebelum memasang hasil baru; pulihkan bila penggantian gagal.
-    Berhasil = cadangan dibuang (seperti dulu hasil lama ditimpa: semuanya bisa dirakit ulang dari naskah),
+    Berhasil = cadangan dibuang (semuanya bisa dirakit ulang dari naskah),
     supaya folder bahts tidak menumpuk satu cadangan tiap rakit. Rename berlaku per berkas, bukan transaksi
     atomik pasangan. Bila proses dimatikan di tengah, hasil dapat belum lengkap, tetapi hasil baru tidak
     dipasangkan dengan hasil lama.
