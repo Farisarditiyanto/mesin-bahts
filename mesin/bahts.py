@@ -610,8 +610,7 @@ def perintah_tahap(a):
     f = folder_bahts(a[0])
     with tempfile.TemporaryDirectory(prefix="bahts-tahap-") as t:
         ctx, lap = olah.periksa(f, Path(t) / "bahan.json")
-    sidik = lap[-1].removeprefix("NASKAH_SHA256=")
-    cetak = lap[-2].removeprefix("CETAK_SHA256=")
+    sidik, cetak = (next(b.split("=", 1)[1] for b in lap if b.startswith(k + "=")) for k in ("NASKAH_SHA256", "CETAK_SHA256"))
     berkas = ctx.meta["berkas"]
     pdf = f / f"{berkas}.pdf"
     hasil = [tahap.Produk(f / "laporan.txt", tahap.hasil(pdf, f / "laporan.txt", sidik, cetak), pdf)]

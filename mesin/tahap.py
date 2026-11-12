@@ -46,8 +46,8 @@ class Rakit(Enum):
 
 KETERANGAN_HASIL = {
     Hasil.BELUM: "belum dirakit",
-    Hasil.TERKINI: "dirakit dari naskah.txt versi ini (templat .docx dan versi mesin tidak dibandingkan)",
-    Hasil.USANG: "dirakit dari naskah.txt versi lain (naskah diubah sesudah `rakit`)",
+    Hasil.TERKINI: "dirakit dari naskah.txt versi ini, atau versi lain yang isi tercetaknya sama (templat .docx dan versi mesin tidak dibandingkan)",
+    Hasil.USANG: "dirakit dari naskah.txt versi lain (isi tercetak naskah diubah sesudah `rakit`)",
     Hasil.TIDAK_DIKETAHUI: "sidik versi naskah tidak tercatat atau tidak sah: rakit ulang supaya pasti",
 }
 
