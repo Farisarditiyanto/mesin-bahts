@@ -104,7 +104,11 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       nama tanpa gelar di depannya («تحقيق: د. …»، «، الشيخ …» = perhatian, juga di baris #R)
   <<sid|juz|hal|potongan>>   bukti dengan potongan lafaz sendiri (untuk nukilan makna «انظر», tanpa tanda petik).
                       #123 = nomor hadits: harus berdiri sebagai kepala hadits di halaman itu («123 - حدثنا», «36 - (123)», «(123) - حدثنا»).
-                      Kutipan bertanda petik sebelum catatan kaki tetap dicek ke halaman bukti itu
+                      Kutipan bertanda petik sebelum catatan kaki tetap dicek ke halaman bukti itu.
+                      Potongan hanya membuktikan potongannya, bukan kalimat yang dirujuk. Cara menukil = perhatian: deret kata
+                      panjang di luar tanda petik yang sama persis dengan halaman bukti (lafaz kitab tanpa tanda petik),
+                      nukilan makna tanpa «انظر:»/«راجع:», kutipan lafaz yang diantar «قال …:» tetapi dirujuk «انظر:»,
+                      dan kutipan yang terlalu panjang di luar ayat dan hadits (batasnya: mesin/cek_naql.py)
                       juz "-" = kitab tanpa juz di rekamannya; kitab berjilid walau halamannya bersambung tetap ditulis
                       juz-nya (bentuknya: baris «bukti:» di `kartu <id>`); hal boleh rentang 12-14. Kitab yang bagiannya
                       bernama (المقدمة، الكتاب): "-" dibaca di bagian tempat kutipannya cocok; ada di dua bagian = tulis
