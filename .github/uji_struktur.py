@@ -35,22 +35,34 @@ def utama():
         perkiraan = re.compile(r"perkiraan halaman isi [^±]*±(\d+)")  # ± pertama = isi; sesudahnya «seluruh PDF: ±N»
         out = cek("contoh asli", dasar)
         isi_asli = perkiraan.search(out).group(1)
-        # @minimal_kitab: bawaan 25 kitab di المصادر (selain القرآن الكريم); kurang = perhatian, contoh menulis 1
-        assert "kurang dari" not in out and "@minimal_kitab: 1\n" in dasar, out
-        cek("kitab kurang dari bawaan", dasar.replace("@minimal_kitab: 1\n", ""),
-            pesan="baru 1 kitab (selain القرآن الكريم), kurang dari 25 (bawaan 25)")
-        cek("batas dari dosen, angka hindi", dasar.replace("@minimal_kitab: 1", "@minimal_kitab: ٢"),
-            pesan="kurang dari 2 («@minimal_kitab: ٢»)")
-        for nama, nilai in (("batas nol", "0"), ("batas terpenuhi", "1")):
-            out = cek(nama, dasar.replace("@minimal_kitab: 1", f"@minimal_kitab: {nilai}"))
-            assert "kurang dari" not in out, (nama, out)
-        cek("batas bukan bilangan", dasar.replace("@minimal_kitab: 1", "@minimal_kitab: dua puluh"), True, "bukan bilangan bulat")
-        out = cek("@tanpa: pustaka tidak dihitung", dasar.replace("@minimal_kitab: 1\n", "@tanpa: pustaka\n").split("#R")[0])
+        # @minimal_halaman: bawaan 25 halaman seluruh PDF (perkiraan); contoh menulis 0 karena ±8 halaman
+        assert "kurang dari" not in out and "@minimal_halaman: 0\n" in dasar, out
+        tanpa_batas = dasar.replace("@minimal_halaman: 0\n", "")
+        cek("halaman kurang dari bawaan", tanpa_batas, pesan="halaman, kurang dari 25 (bawaan 25)")
+        cek("batas halaman dari dosen, angka hindi", dasar.replace("@minimal_halaman: 0", "@minimal_halaman: ٩"),
+            pesan="kurang dari 9 («@minimal_halaman: ٩»)")
+        out = cek("batas halaman terpenuhi", dasar.replace("@minimal_halaman: 0", "@minimal_halaman: 2"))
         assert "kurang dari" not in out, out
-        cek("@minimal_kitab kosong", dasar.replace("@minimal_kitab: 1", "@minimal_kitab:"), True, "@minimal_kitab: kosong")
+        cek("@minimal_halaman kosong", dasar.replace("@minimal_halaman: 0", "@minimal_halaman:"), True, "@minimal_halaman: kosong")
+        cek("@minimal_halaman bukan bilangan", dasar.replace("@minimal_halaman: 0", "@minimal_halaman: banyak"), True,
+            "bukan bilangan bulat")
+        out = cek("@bentuk: kitab tidak dinilai halamannya", tanpa_batas.replace("@format:", "@bentuk: kitab\n@format:", 1))
+        assert "halaman, kurang dari" not in out, out
+        # @minimal_kitab: bawaan tidak dinilai; hanya kalau dosen menulis batasnya
+        assert "baru 1 kitab" not in out, out
+        dua = dasar.replace("@minimal_halaman: 0", "@minimal_halaman: 0\n@minimal_kitab: 2")
+        cek("kitab kurang dari batas dosen", dua, pesan="baru 1 kitab (selain القرآن الكريم), kurang dari 2 («@minimal_kitab: 2»)")
+        cek("batas kitab angka hindi", dua.replace("@minimal_kitab: 2", "@minimal_kitab: ٢"),
+            pesan="kurang dari 2 («@minimal_kitab: ٢»)")
+        for nama, nilai in (("batas kitab nol", "0"), ("batas kitab terpenuhi", "1")):
+            out = cek(nama, dua.replace("@minimal_kitab: 2", f"@minimal_kitab: {nilai}"))
+            assert "baru 1 kitab" not in out, (nama, out)
+        cek("batas kitab bukan bilangan", dua.replace("@minimal_kitab: 2", "@minimal_kitab: dua puluh"), True, "bukan bilangan bulat")
+        out = cek("@tanpa: pustaka tidak dihitung", dua.replace("@minimal_kitab: 2\n", "@minimal_kitab: 2\n@tanpa: pustaka\n").split("#R")[0])
+        assert "baru 0 kitab" not in out and "baru 1 kitab" not in out, out
+        cek("@minimal_kitab kosong", dua.replace("@minimal_kitab: 2", "@minimal_kitab:"), True, "@minimal_kitab: kosong")
         # mushaf ditulis lain tetap bukan kitab; kitab berjudul «القرآن …» tetap kitab; baris kembar dihitung sekali
         kitab = "رسالة في القضاء والقدر، محمد بن صالح بن محمد العثيمين، دار الوطن، 1423هـ.\n"
-        dua = dasar.replace("@minimal_kitab: 1", "@minimal_kitab: 2")
         for nama, ganti, kurang in (
                 ("القران tanpa madda bukan kitab", ("القرآن الكريم.\n", "القُرَانُ الكَريم، رواية حفص.\n"), True),
                 ("المصحف bukan kitab", ("القرآن الكريم.\n", "المصحف الشريف برواية حفص.\n"), True),
