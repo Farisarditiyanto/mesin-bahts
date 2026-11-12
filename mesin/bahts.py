@@ -469,7 +469,8 @@ def _rakit_di(nama, f, kerja, fasl=None):
         if baris.startswith(("HALAMAN", "CATATAN_KAKI", "KATA")):
             print(baris)
     batas, asal = olah.batas_minimal(d["meta"], "halaman")
-    if batas and not fasl and halaman < batas:  # potongan --fasl memang lebih pendek dari bahts utuh
+    # potongan --fasl memang lebih pendek dari bahts utuh; @bentuk: kitab tidak dinilai (sama dengan `cek`)
+    if batas and not fasl and d["meta"].get("bentuk") != "kitab" and halaman < batas:
         print(f"PERINGATAN: PDF {halaman} halaman, kurang dari {batas} ({asal}): tambah pembahasan dari bahan yang "
               "dibaca, atau tulis batas dari dosen di «@minimal_halaman: n»")
     print(f"Jadi: {f / berkas}.docx dan .pdf")
