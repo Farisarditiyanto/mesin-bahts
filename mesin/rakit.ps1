@@ -502,19 +502,22 @@ try {
     $GESER_CATATAN = -0.1, -0.2, -0.3, 0.1, 0.2       # pt; sama kecilnya dengan perapatan BarisPendek
     # baris terakhir paragraf yang cuma 1-2 kata ("runt"): jarak huruf paragraf itu dirapatkan 0,1 s.d. 0,3 pt sampai kata
     # itu naik ke baris sebelumnya; tidak berhasil sampai 0,3 = dibiarkan. Hanya paragraf rata kanan-kiri di luar tabel,
-    # bukan sub-judul #S (tebal seluruhnya). Nomor baris (Information 10) hanya ada di Print Layout (di Draft -1).
+    # bukan sub-judul #S (tebal seluruhnya). Baris dihitung di Print Layout: di Draft barisnya bukan baris halaman cetak.
     # Sesudah NomorCatatan (nomor final menentukan lebar baris), lalu NomorCatatan lagi (halaman bisa bergeser).
     # Qulub 27 halaman: runt 22 -> 8, rakit +±30 detik; bentuk kitab 162 halaman: 140 -> 50, +±2 menit
     function BarisPendek {
         $doc.ActiveWindow.View.Type = 3; $doc.Repaginate()
         # runt = kata ketiga dari belakang (huruf saja, bukan angka catatan kaki/tanda baca) ada di baris lain daripada akhir paragraf
+        # «baris lain» dibaca dari jumlah baris: awal paragraf s.d. kata itu lebih sedikit barisnya daripada seluruh paragraf.
+        # Dulu Information(10)/(3) pada kata dan pada akhir paragraf: ±75 ms per panggilan, empat per paragraf (bahts 41
+        # halaman: BarisPendek ±80 detik, kini ±15). Rentangnya harus mulai di awal paragraf: jumlah baris rentang yang
+        # mulai di tengah paragraf tidak bisa dipakai (selalu 1)
         function Runt($r) {
-            $akhir = $r.Characters.Last; $pg = $akhir.Information(3); $ln = $akhir.Information(10)
             $ws = $r.Words; $i = $ws.Count; $n = 0
             while ($i -ge 1) {
                 $wd = $ws.Item($i); $i--
                 if ($wd.Text -notmatch '\p{L}') { continue }
-                $n++; if ($n -eq 3) { return ($wd.Information(10) -ne $ln -or $wd.Information(3) -ne $pg) }
+                $n++; if ($n -eq 3) { return ($doc.Range($r.Start, $wd.End).ComputeStatistics(1) -lt $r.ComputeStatistics(1)) }
             }
             return $false
         }
@@ -908,11 +911,14 @@ try {
         }
         return $ubah
     }
+    # Nomor catatan kaki sudah tetap sejak NomorCatatan di akhir bagian 4, dan sejak itu dokumen tidak diubah: putaran
+    # pertama langsung mengisi {P:}. Tidak ada isian yang berubah = dokumennya masih yang diperiksa NomorCatatan terakhir,
+    # jadi selesai tanpa membaca semua nomor sekali lagi (SalahNomor: ±4 detik per panggilan pada 188 catatan kaki)
     for ($putaran = 1; $putaran -le 12; $putaran++) {
-        NomorCatatan
+        if ($putaran -gt 1) { NomorCatatan }
         $ubah = IsiRujukanHalaman
         $doc.Repaginate()
-        if (-not $ubah -and -not (SalahNomor).Count) { break }
+        if (-not $ubah) { break }
     }
     if ($putaran -gt 12) { throw "Nomor halaman {P:...} atau nomor catatan kaki belum tetap sesudah 12 putaran." }
     # tabel فهرس: angka asli («٢٤، ٣٠») bisa lebih lebar daripada '00', barisnya melipat, dan judul sesudahnya pindah halaman
