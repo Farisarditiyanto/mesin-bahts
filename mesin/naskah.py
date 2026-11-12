@@ -585,10 +585,10 @@ class Pengurai:
     def _cek_naql(self, c):
         """Cara menukil (cek_naql): lafaz kitab di luar tanda petik, tanda «انظر», dan kutipan yang terlalu panjang."""
         awal = len(self.polos) - len(c.penggal)
-        if any(m >= awal for m in self.matn):  # lafaz matn ((…)) yang disyarah: nukilan yang sudah bertanda
-            return
-        for p in (salinan(c.penggal, c.mk, c.isi, c.terbukti), isyarat(c.penggal, c.mk, c.isi, c.terbukti, c.kc),
-                  panjang(c.mk, c.isi)):
+        # lafaz matn ((…)) yang disyarah = nukilan yang sudah bertanda: hanya panjang kutipannya yang dinilai
+        matn = any(m >= awal for m in self.matn)
+        for p in (None if matn else salinan(c.penggal, c.mk, c.isi, c.terbukti),
+                  None if matn else isyarat(c.penggal, c.mk, c.isi, c.terbukti, c.kc), panjang(c.mk, c.isi)):
             if p:
                 self.perhatian.append(p)
 

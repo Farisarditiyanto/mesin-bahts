@@ -14,7 +14,7 @@ class TandaRusak(ValueError):
 
 
 AD = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
-MERUJUK_KATA = "انظر|ينظر|راجع"  # tanda nukilan makna di catatan kaki (أبو سليمان، كتابة البحث العلمي، ص114)
+MERUJUK_KATA = "[أا]نظر|ينظر|ي?راجع"  # tanda nukilan makna di catatan kaki (أبو سليمان، كتابة البحث العلمي، ص114)
 TAKHRIJ_AWAL = re.compile(r"\s*و?(?:أخرج|رواه)")  # catatan kaki takhrij: «أخرجه …», «رواه …»
 ANGKA_LATIN = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "0123456789" * 2)  # angka Arab dan Persia -> 0-9
 KUTIPAN_MIN = 6  # huruf (bentuk `padat`) paling sedikit tiap bagian kutipan yang dicek
