@@ -99,7 +99,7 @@
 | `mesin/naskah_baru.txt`، `riset_baru.txt` | الهيكل الذي يُنشئه `baru` |
 | `contoh/` | `naskah.txt` و`riset.txt` نموذجيان، و`jebakan/` للاختبار |
 | `.mcp.json`، `opencode.json` | قائمة الموصِّلات (`opencode.json` نسخة لـOpenCode) |
-| `dok/` | `mutamad.md` (الكتب المعتمدة في كل مذهب)، `uji-riset.md`، `takhrij.md`، التدقيقات |
+| `dok/` | `mutamad.md` (الكتب المعتمدة في كل مذهب)، `uji-riset.md`، `takhrij.md`ات |
 | `.github/` | `uji_*.py`، `workflows/tes.yml` |
 | `kitab/`، `bahts/`، `sampul_saya.txt`، `keluaran_saya.txt`، `kunci_openalex.txt` | بيانات المستخدم على حاسوبه، خارج git |
 
