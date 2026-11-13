@@ -424,18 +424,18 @@ GAMBAR = (".png", ".jpg", ".jpeg")  # yang dimasukkan Word apa adanya; SVG di-PN
 
 
 def ukuran_gambar(p):
-    """(lebar, tinggi) piksel PNG/JPEG dari kepala berkasnya, atau None kalau bukan gambar yang terbaca."""
-    data = p.read_bytes()
-    if data[:8] == b"\x89PNG\r\n\x1a\n" and data[12:16] == b"IHDR":
-        return int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
-    if data[:2] == b"\xff\xd8":
-        i = 2
-        while i + 9 < len(data) and data[i] == 0xFF:
-            tanda, panjang = data[i + 1], int.from_bytes(data[i + 2:i + 4], "big")
-            if 0xC0 <= tanda <= 0xCF and tanda not in (0xC4, 0xC8, 0xCC):  # SOFn: tinggi lalu lebar
-                return int.from_bytes(data[i + 7:i + 9], "big"), int.from_bytes(data[i + 5:i + 7], "big")
-            i += 2 + panjang
-    return None
+    """(lebar, tinggi) PNG/JPEG yang terurai utuh; None kalau rusak atau terlalu besar untuk dibaca."""
+    from PIL import Image
+    try:
+        with Image.open(p) as gambar:
+            if gambar.format not in ("PNG", "JPEG"):
+                return None
+            gambar.verify()
+        with Image.open(p) as gambar:
+            gambar.load()
+            return gambar.size
+    except (OSError, ValueError, SyntaxError, Image.DecompressionBombError):
+        return None
 
 
 def _baris_gambar(ctx, n, t):
@@ -453,7 +453,7 @@ def _baris_gambar(ctx, n, t):
     elif not p.is_file():
         salah = f"«{berkas}» tidak ada di folder {folder.name}" + (
             f"; ada {p.stem}.mmd: jalankan python mesin/bahts.py diagram <folder>" if p.with_suffix(".mmd").is_file() else "")
-    elif not ukuran_gambar(p):
+    elif not (ukuran := ukuran_gambar(p)):
         salah = f"«{berkas}» bukan PNG/JPG yang terbaca (berkas rusak, atau isinya format lain)"
     elif re.search(r"\[\^|<<|\{", ket):
         salah = "keterangan gambar tidak boleh memuat catatan kaki, bukti, atau tanda {Q:/{H: — tulis rujukannya di paragraf sesudahnya"
@@ -461,7 +461,7 @@ def _baris_gambar(ctx, n, t):
         ctx.galat.append(f"baris {n}: #G {salah}")
         ctx.blok.append({"k": "P", "runs": [], "n": n})
         return
-    w, h = ukuran_gambar(p)
+    w, h = ukuran
     ctx.blok.append({"k": "G", "berkas": str(p), "rasio": h / w, "sha256": hashlib.sha256(p.read_bytes()).hexdigest(),
                      "runs": [{"t": ket}] if ket else [], "n": n})
 
@@ -663,8 +663,10 @@ def _cek_bentuk(ctx):
         galat.append(di("#R") + "المصادر والمراجع masih kosong: tulis satu kitab per baris sesudah #R")
     if not meta["berkas"]:
         meta["berkas"] = folder.name
-    elif re.search(r'[<>:"/\\|?*]', meta["berkas"]):
-        galat.append(di("@berkas") + f"@berkas: «{meta['berkas']}»: nama berkas tidak boleh memuat : / \\ ? * < > | \"")
+    if re.search(r'[<>:"/\\|?*\x00-\x1f]', meta["berkas"]):
+        galat.append(di("@berkas") + f"@berkas: «{meta['berkas']}»: nama berkas tidak boleh memuat : / \\ ? * < > | \" atau karakter kontrol")
+    elif re.fullmatch(r"(?i:CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|COM[1-9¹²³]|LPT[1-9¹²³])(?:[ .].*)?", meta["berkas"]):
+        galat.append(di("@berkas") + f"@berkas: «{meta['berkas']}»: nama perangkat Windows tidak bisa dipakai sebagai nama hasil")
     ctx.tanpa, ctx.bentuk = tanpa, bentuk
 
 

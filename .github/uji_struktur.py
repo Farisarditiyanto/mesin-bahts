@@ -35,6 +35,14 @@ def utama():
         perkiraan = re.compile(r"perkiraan halaman isi [^±]*±(\d+)")  # ± pertama = isi; sesudahnya «seluruh PDF: ±N»
         out = cek("contoh asli", dasar)
         isi_asli = perkiraan.search(out).group(1)
+        for nama in ("NUL", "con", "COM1", "LPT9.txt", "COM¹", "AUX .data", "hasil\x01baru"):
+            cek("nama hasil terlarang Windows", "@berkas: " + nama + "\n" + dasar, True, "@berkas:")
+        gambar_asli = (AKAR / "contoh/jebakan/gambar.png").read_bytes()
+        for isi in (gambar_asli[:24], gambar_asli[:16] + b"\0" * 4 + gambar_asli[20:],
+                    gambar_asli[:20] + b"\0" * 4 + gambar_asli[24:], gambar_asli[:-12]):
+            (f / "rusak.png").write_bytes(isi)
+            cek("gambar terpotong atau dimensi nol", dasar.replace("#K الخاتمة", "#G rusak.png | صورة\n#K الخاتمة"),
+                True, "bukan PNG/JPG yang terbaca")
         # @minimal_halaman: bawaan 25 halaman seluruh PDF (perkiraan); contoh menulis 0 karena ±8 halaman
         assert "kurang dari" not in out and "@minimal_halaman: 0\n" in dasar, out
         tanpa_batas = dasar.replace("@minimal_halaman: 0\n", "")
