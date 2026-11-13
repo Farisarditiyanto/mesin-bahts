@@ -6,6 +6,8 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+## 9.3.0 — 2026-11-13
+
 - `#L` (Abstract bahasa Inggris) dicetak Times New Roman 12, judulnya 14; dulu sebesar matan Arab (18 di `imam`) sehingga Abstract satu halaman luber ke halaman berikutnya. Profil bisa mengubahnya lewat kunci `latin` di `mesin/format.json`.
 - `tahap`: naskah yang berubah hanya di yang tidak tercetak (mis. `@minimal_halaman`, baris kosong) tidak membuat PDF USANG: laporan `rakit` kini mencatat `CETAK_SHA256`, jadi tidak perlu rakit ulang. Laporan lama tanpa sidik itu tetap dinilai dari naskah.
 - Jumlah halaman dinilai: seluruh PDF kurang dari 25 halaman = perhatian `cek` (perkiraan) dan PERINGATAN sesudah `rakit`; potongan `--fasl` dan `@bentuk: kitab` tidak dinilai. Batas dosen: `@minimal_halaman: n`; `0` = tidak dinilai; kosong atau bukan bilangan = GAGAL.
