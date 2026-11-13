@@ -632,8 +632,8 @@ try {
             $tbl.Rows.AllowBreakAcrossPages = -1
             if ($nk -ge 3) {                              # kolom pertama (nama baris) lebih sempit, sisanya dibagi rata
                 $tbl.Columns.PreferredWidthType = 2
-                $tbl.Columns(1).PreferredWidth = 18
-                for ($c = 2; $c -le $nk; $c++) { $tbl.Columns($c).PreferredWidth = 82 / ($nk - 1) }
+                $tbl.Columns(1).PreferredWidth = [single]18
+                for ($c = 2; $c -le $nk; $c++) { $tbl.Columns($c).PreferredWidth = [single](82 / ($nk - 1)) }   # 82/3 = 27.33 (double) ditolak Word: «Specified cast is not valid»
             }
             $tbl.Rows(1).HeadingFormat = -1                # kepala diulang di halaman berikutnya
             $tbl.Rows(1).Shading.BackgroundPatternColor = 14277081   # abu-abu muda (RGB 217,217,217)
@@ -645,7 +645,9 @@ try {
                 $isi = @($baris[$r].sel)
                 for ($c = 0; $c -lt $nk; $c++) {
                     $x = $tbl.Cell($r + 1, $c + 1).Range
-                    $x.ParagraphFormat.Alignment = $(if ($r -eq 0) { 1 } else { 2 })   # isi rata kanan: rata kanan-kiri melebarkan jarak kata di sel sempit
+                    # isi rata kanan (bukan rata kanan-kiri: jarak kata melebar di sel sempit). Paragrafnya RTL, jadi rata
+                    # kanan = awal baris = 0; nilai 2 disimpan jc="right" = ujung akhir = rata KIRI di halaman.
+                    $x.ParagraphFormat.Alignment = $(if ($r -eq 0) { 1 } else { 0 })
                     $x.Collapse(1); $x.Select()
                     Runs $isi[$c] $uTabel ($r -eq 0) $false
                 }
