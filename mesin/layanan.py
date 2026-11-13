@@ -531,7 +531,10 @@ def rawi(*a):
             raise SystemExit(f"[{sid}] TIDAK ADA halaman {juz}/{hal}. Yang ada: {shamela.daftar_juz(sid)}")
         semua_ = _rawi_semua()
         nomor = list(dict.fromkeys(n for _, r in sanad for n in r if n in semua_))
-        if not nomor:
+        # rawi yang ditautkan di teks halaman tetapi tidak ada di data sanad Shamela (hadits/athar tanpa data sanad)
+        lain = [n for n in dict.fromkeys(int(x) for _, bagian in rekaman for b in bagian for x in TAUTAN_RAWI.findall(b))
+                if n in semua_ and n not in nomor]
+        if not nomor and not lain:
             tabel = [b for b in _tabel_kitab("hadits") if _karya(b) == _karya(sid)]
             print(f"[{sid}] {juz}/{hal}: tidak ada sanad dari layanan Shamela di halaman ini."
                   + (f" Edisi yang bertautan: {perintah(f'ambil {tabel[0]}')} (jembatan nomor hadits)." if tabel and tabel[0] not in set(shamela.punya()) else ""))
@@ -539,11 +542,14 @@ def rawi(*a):
         print(f"[{sid}] {juz}/{hal}: {len(sanad)} sanad, {len(nomor)} rawi (layanan sanad Shamela"
               + (f", lewat edisi [{jembatan}]" if jembatan else "") + "). Rincian جرح وتعديل: " + perintah("rawi <nomor>"))
         for k, r in sanad:
-            print(f"  hadits Shamela #{k}: " + " > ".join(_nama_rawi(n) for n in r))
+            print(f"  hadits Shamela #{k}: " + " > ".join(_nama_rawi(n) for n in r if n in semua_))
+        if lain:
+            print("  di luar data sanad Shamela (urut kemunculan di teks; rantainya baca sendiri): "
+                  + "، ".join(_nama_rawi(n) for n in lain))
         print("rawi:")
-        print("\n".join(_baris_rawi(n) for n in nomor))
+        print("\n".join(_baris_rawi(n) for n in nomor + lain))
         print("Penunjuk saja: rutbah dan ucapan ulama dikutip dari kitab rijal yang dibaca sendiri, bukan dari baris ini.")
-        return len(nomor)
+        return len(nomor + lain)
     x = a[0].strip().lstrip("#")
     if x.isdigit():
         r = _rawi_semua().get(int(x))
