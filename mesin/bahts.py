@@ -87,7 +87,7 @@ FORMAT = json.loads((MESIN / "format.json").read_text(encoding="utf8"))  # profi
 HURUF_SARAN = ("huruf ini ikut terpasang kalau Windows punya papan ketik Arab (Settings > Time & language > Language & region > Add a language > العربية).\n"
                "          Atau lewat PowerShell admin (pemakai cukup klik Yes): Start-Process powershell -Verb RunAs -Wait -ArgumentList "
                "\"Add-WindowsCapability -Online -Name Language.Fonts.Arab~~~und-ARAB~0.0.1.0\"")
-PUSTAKA = ("pyarrow", "pypdf", "fontTools", "rapidfuzz")  # nama modul; nama pemasangannya di requirements.txt
+PUSTAKA = ("pyarrow", "pypdf", "fontTools")  # nama modul; nama pemasangannya di requirements.txt
 
 
 def huruf_ada(nama):
@@ -163,6 +163,8 @@ def periksa():
     else:
         pip = f'"{sys.executable}" {pip}'
     baris(all(importlib.util.find_spec(m) for m in PUSTAKA), f"pustaka Python ({', '.join(PUSTAKA)})", pip)
+    baris(bool(importlib.util.find_spec("rapidfuzz")), "pustaka Python rapidfuzz (hanya untuk «Paling mirip» di `cek --jejak`)",
+          pip, untuk_cek=False, untuk_rakit=False)
     baris((shamela.ROOT / shamela.KATALOG).exists(), "katalog kitab", perintah("siapkan"))
     baris(layanan.siap(), "tabel layanan Shamela (hanya untuk `tafsir` dan `takhrij`)", perintah("siapkan"),
           untuk_cek=False, untuk_rakit=False)

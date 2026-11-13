@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """`cek --jejak`: kutipan yang tidak ketemu di kitab buktinya dicari di kitab lain yang sudah diunduh. Hanya petunjuk,
 bukan putusan."""
-import difflib, sqlite3, zlib
+import difflib, zlib
 
 import norma
 import shamela
@@ -15,14 +15,6 @@ MIRIP_PANJANG = 300  # kutipan lebih panjang dari ini tidak dicari: waktu memban
 MIRIP_MIN = 0.9  # bagian huruf yang harus sama (lihat `_mirip_kitab`)
 MIRIP_CALON = 20  # tempat paling banyak tiap benih (benih umum, mis. basmalah, ada ribuan kali)
 MIRIP_LONGGAR = 12  # tempat yang berjarak kurang dari ini dibandingkan sekali
-
-# Indeks penyaring (SQLite FTS5, tokenizer trigram): kitab yang PASTI tidak memuat kutipan tidak dibuka. Hanya menyaring:
-# tiap calon tetap dicari dengan cara di bawah, jadi hasilnya sama dengan mencari di semua kitab. Teksnya `bait` yang
-# dibaca latin-1 (satu huruf satu karakter); detail=none: kecil (±0,7 bait per huruf), tanpa kueri frasa, jadi syaratnya
-# «semua trigram potongan ini ada» (perlu, belum cukup).
-FTS_POTONG = 4000  # huruf per baris indeks: baris besar memuat hampir semua trigram, jadi tidak menyaring apa-apa
-FTS_TUMPANG = 500  # baris berurutan bertumpang sebanyak ini; potongan kueri dipotong sepanjang ini (pasti di satu baris)
-FTS_TRIGRAM = 64  # trigram paling banyak tiap potongan kueri (sebagian trigram tetap syarat perlu)
 
 
 def _bagian_cari(teks):
@@ -58,88 +50,15 @@ def _mirip_kitab(rangkaian, q):
     return terbaik
 
 
-def _berkas_indeks():
-    # VERSI = sidik norma.py (teks `padat` berubah) dan ukuran baris: salah satunya berubah, indeks dibuat ulang
-    return shamela.ROOT / f"jejak-{norma.VERSI}-{FTS_POTONG}-{FTS_TUMPANG}.sqlite"
-
-
-def _indeks(semua):
-    """(sambungan, kitab yang terindeks) indeks penyaring yang sudah diselaraskan dengan kitab lokal; (None, set())
-    kalau SQLite ini tidak punya FTS5/trigram (SQLite < 3.34) atau berkasnya tidak bisa dipakai: semua kitab dibaca.
-    Kitab baru atau yang berkasnya berubah diindeks sekarang; yang dihapus dibuang. Kitab yang gagal dibaca tidak
-    terindeks, jadi tetap dibaca (dan dilaporkan rusak) seperti tanpa indeks."""
-    f = _berkas_indeks()
-    for lama in shamela.ROOT.glob("jejak-*.sqlite*"):  # versi norma.py lama
-        if not lama.name.startswith(f.name):
-            try:
-                lama.unlink()
-            except OSError:
-                pass
-    try:
-        db = sqlite3.connect(f, timeout=600)
-        db.execute("CREATE VIRTUAL TABLE IF NOT EXISTS isi USING fts5(sid UNINDEXED, teks, "
-                   "tokenize='trigram case_sensitive 1', detail='none')")
-        db.execute("CREATE TABLE IF NOT EXISTS kitab(sid INTEGER PRIMARY KEY, sidik TEXT)")
-        ada = dict(db.execute("SELECT sid, sidik FROM kitab"))
-    except sqlite3.Error:
-        return None, set()
-    for sid in set(ada) - set(semua):
-        with db:
-            db.execute("DELETE FROM isi WHERE sid = ?", (sid,))
-            db.execute("DELETE FROM kitab WHERE sid = ?", (sid,))
-    baru = [sid for sid in semua if ada.get(sid) != shamela._sidik(sid)]
-    if baru:
-        print(f"jejak: menyiapkan indeks pencarian {len(baru)} kitab (sekali saja; ±0,5 detik per kitab) …", flush=True)
-    for sid in baru:
-        try:
-            pd = shamela._cache(sid)
-            with db:
-                db.execute("DELETE FROM isi WHERE sid = ?", (sid,))
-                db.execute("DELETE FROM kitab WHERE sid = ?", (sid,))
-                for t in pd.teks:
-                    t = t.decode("latin-1")
-                    db.executemany("INSERT INTO isi(sid, teks) VALUES (?, ?)",
-                                   ((sid, t[a:a + FTS_POTONG + FTS_TUMPANG]) for a in range(0, len(t), FTS_POTONG)))
-                db.execute("INSERT INTO kitab VALUES (?, ?)", (sid, shamela._sidik(sid)))
-        except (OSError, EOFError, ValueError, TypeError, AttributeError, KeyError, IndexError, zlib.error, sqlite3.Error):
-            pass
-        finally:
-            shamela.lepas()
-    return db, {sid for (sid,) in db.execute("SELECT sid FROM kitab")}
-
-
-def _syarat(potongan):
-    """Kueri FTS5 «semua trigram potongan ini» (padat), atau None kalau terlalu pendek untuk menyaring."""
-    p = norma.bait(potongan[:FTS_TUMPANG]).decode("latin-1")
-    tri = list(dict.fromkeys(p[k:k + 3] for k in range(len(p) - 2)))
-    if not tri:
-        return None
-    tri = tri[::max(1, len(tri) // FTS_TRIGRAM)]
-    return "(" + " AND ".join(f'"{x}"' for x in tri) + ")"
-
-
-def _calon(db, syarat, semua_):
-    """Kitab terindeks yang mungkin memuat potongan-potongan itu (semua_: tiap potongan, boleh di baris berbeda; selain
-    itu: salah satunya); None = tidak tersaring. Kitab yang tidak terindeks selalu ikut (dicek pemanggil)."""
-    if db is None:
-        return None
-    ada = [x for x in syarat if x]
-    if not ada or not semua_ and len(ada) < len(syarat):
-        return None
-    tanya = lambda q: {sid for (sid,) in db.execute("SELECT DISTINCT sid FROM isi WHERE isi MATCH ?", (q,))}
-    if not semua_:
-        return tanya(" OR ".join(ada))
-    hasil = tanya(ada[0])
-    for x in ada[1:]:
-        hasil &= tanya(x)
-    return hasil
-
-
 def _rapid(rangkaian, q):
     """«Paling mirip» tanpa benih (rapidfuzz partial_ratio_alignment): untuk kutipan yang tiap potongan MIRIP_BENIH
-    hurufnya kena salah ketik, sehingga `_mirip_kitab` tidak punya titik mulai. (nilai, juz, halaman, tanda) atau None."""
-    from rapidfuzz import fuzz
-    qs, terbaik = q.decode("latin-1"), None  # q: `bait`
+    hurufnya kena salah ketik, sehingga `_mirip_kitab` tidak punya titik mulai. q dalam `bait`. (nilai, juz, halaman,
+    tanda) atau None."""
+    try:
+        from rapidfuzz import fuzz
+    except ImportError:  # pustaka belum dipasang ulang sesudah `git pull`: «Paling mirip» tanpa benih dilewati
+        return None
+    qs, terbaik = q.decode("latin-1"), None  # `bait` dibaca latin-1: satu huruf satu karakter
     for juz, tanda, teks, ruas in rangkaian:
         r = fuzz.partial_ratio_alignment(qs, teks.decode("latin-1"), score_cutoff=MIRIP_MIN * 100)
         if r is not None and (terbaik is None or r.score / 100 > terbaik[0]):
@@ -166,28 +85,13 @@ def jejak(tertolak, maks=3):
     if not cari:
         return []
     semua = shamela.punya()
-    db, terindeks = _indeks(semua)
-    for e in cari.values():
-        padat_ = [norma.teks(b) for b in e["bagian"]]
-        e["calon"] = _calon(db, [_syarat(b) for b in padat_], True)
-        q = padat_[0]
-        e["calon_mirip"] = _calon(db, [_syarat(q[k:k + MIRIP_BENIH])
-                                       for k in range(0, len(q) - MIRIP_BENIH + 1, MIRIP_BENIH)], False)
-    if db is not None:
-        db.close()
-
-    def mungkin(calon, sid):
-        return calon is None or sid in calon or sid not in terindeks
     rusak = []
     for sid in semua:
         aktif = [e for e in cari.values() if len(e["dapat"]) < maks and str(sid) not in e["tertuju"]]
-        for e in [e for e in aktif if not mungkin(e["calon"], sid)]:
-            e["dibaca"] += 1  # indeks memastikan kitab ini tidak memuatnya: sama dengan dibaca tanpa hasil
-            aktif.remove(e)
         # kutipan ber-... tidak: satu bagian yang mirip tidak berkata apa-apa tentang bagian lain (bisa karangan)
         # kutipan panjang juga tidak: membandingkan seluruhnya terlalu lama, menilai sebagiannya menyesatkan
         longgar = [e for e in cari.values() if not e["dapat"] and len(e["bagian"]) == 1
-                   and MIRIP_KUTIPAN <= len(e["bagian"][0]) <= MIRIP_PANJANG and mungkin(e["calon_mirip"], sid)]
+                   and MIRIP_KUTIPAN <= len(e["bagian"][0]) <= MIRIP_PANJANG]
         if not aktif and not longgar:
             continue
         try:
