@@ -147,6 +147,17 @@ def _baris(hal):
     return out
 
 
+def _gambar(hal):
+    """Puncak (y, dari bawah halaman) tiap gambar yang digambar di halaman: gambar #G sesudah pengantar «…الآتي:»
+    berarti pengantarnya tidak terpisah dari isinya."""
+    puncak = []
+    def lihat(op, args, cm, tm):
+        if op == b"Do":
+            puncak.append(cm[5] + max(cm[3], 0))
+    hal.extract_text(visitor_operand_before=lihat)
+    return puncak
+
+
 TEPI = 65  # pt dari tepi atas/bawah: nomor halaman (1,25 cm) ada di sini, matan dan catatan kaki (tepi 2,5 cm) tidak
 ANGKA = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
 
@@ -200,7 +211,7 @@ def periksa(pdf, bahan):
             akhir = "".join(t for y, x, u, t in matan if abs(y - y0) < 2).strip()
             while re.search(r"\([^()]{1,4}\)$", akhir):   # nomor catatan kaki «(١)» sesudah «:»
                 akhir = re.sub(r"\s*\([^()]{1,4}\)$", "", akhir)
-            if akhir.endswith(":"):
+            if akhir.endswith(":") and not any(TEPI < g < y0 for g in _gambar(hal)):   # disusul gambar #G = tidak terpisah
                 ujung.append(i)
     if hindi:
         salah = [i for i, latin in nomor.items() if latin]

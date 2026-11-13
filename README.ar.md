@@ -58,6 +58,7 @@
 | المراجِع | `bukti <folder> [awal-akhir]` | نص الصفحة حول كل حاشية، والفقرات التي بلا حاشية |
 | الإخراج | `rakit <folder> [--fasl n]` (Windows + Word) | `.docx` + `.pdf` (الغلاف، الحواشي، المصادر والمراجع، الفهارس)، `HALAMAN_ISI`، `HALAMAN` |
 | الحالة | `tahap <folder>` | `NASKAH=`، `HASIL=`، `RAKIT=`، `BERIKUTNYA` |
+| المخططات | `diagram <folder>` (Node.js + Chrome/Edge) | كل `<nama>.mmd` (Mermaid) يصير `<nama>.png`، ويطبع بـ`#G` |
 
 كل الأوامر = `python mesin/bahts.py <perintah>`. القائمة الكاملة ومعاملاتها: `python mesin/bahts.py`. علامات نص البحث (`#F`، `{Q:}`، `{H:}`، `@format`، …): `python mesin/bahts.py tanda`. نص بحث نموذجي يجتاز `cek`: [`contoh/naskah.txt`](contoh/naskah.txt) (`ambil 11223` ثم `cek contoh`).
 
@@ -92,6 +93,7 @@
 | `mesin/quran_hafs_v22.json`، `nama_surah.json` | نص المصحف وأسماء السور |
 | `mesin/shamela.py` | تنزيل الكتب، فهرس الكتب، `temukan`، `scan` |
 | `mesin/hadits.py`، `dirasat.py` | دلالة التخريج، الدراسات السابقة |
+| `mesin/diagram.py` | تحويل مخططات Mermaid إلى PNG (`diagram`) |
 | `mesin/tahap.py`، `berkas.py` | حالة البحث ومجلدات `.rakit-*` |
 | `mesin/rakit.ps1`، `teks_pdf.py` | مُخرِج Word/PDF ونص PDF |
 | `mesin/format.json` | أنماط شكل الصفحة (`@format`) |

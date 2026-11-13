@@ -11,7 +11,7 @@ AKAR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(AKAR / "mesin"))
 import teks_pdf
 from pypdf import PdfWriter
-from pypdf.generic import ArrayObject, DecodedStreamObject, DictionaryObject, NameObject
+from pypdf.generic import ArrayObject, DecodedStreamObject, DictionaryObject, NameObject, NumberObject
 sys.stdout.reconfigure(encoding="utf8")
 
 PDF = AKAR / "contoh" / "jebakan" / "sumber_word.pdf"
@@ -20,17 +20,31 @@ META = {"judul": "مثال: توحيد الربوبية", "nim": "000000000", "a
 LATIN = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
 
 
-def tulis(tujuan, tambahan={}, latin=False):
+def tulis(tujuan, tambahan={}, latin=False, gambar={}):
     """Salinan PDF contoh. tambahan = teks Helvetica {halaman (mulai 1): [(x, y, ukuran, teks)]}; latin = semua angka
-    ٠-٩ tersalin 0-9, seperti PDF yang nomor halamannya tercetak 0123."""
+    ٠-٩ tersalin 0-9, seperti PDF yang nomor halamannya tercetak 0123; gambar = {halaman: (x, y, lebar, tinggi)}
+    satu gambar abu-abu 1×1 piksel yang direntang ke kotak itu (seperti #G)."""
     w = PdfWriter(clone_from=str(PDF))
-    for n, isi in tambahan.items():
+    for n in set(tambahan) | set(gambar):
+        isi = tambahan.get(n, [])
         hal = w.pages[n - 1]
         huruf = DictionaryObject({NameObject("/Type"): NameObject("/Font"), NameObject("/Subtype"): NameObject("/Type1"),
                                   NameObject("/BaseFont"): NameObject("/Helvetica")})
         hal["/Resources"]["/Font"][NameObject("/FUji")] = w._add_object(huruf)
         s = DecodedStreamObject()
-        s.set_data("".join(f"BT /FUji {u} Tf 1 0 0 1 {x} {y} Tm ({t}) Tj ET\n" for x, y, u, t in isi).encode("latin1"))
+        teks = "".join(f"BT /FUji {u} Tf 1 0 0 1 {x} {y} Tm ({t}) Tj ET\n" for x, y, u, t in isi)
+        if n in gambar:
+            im = DecodedStreamObject()
+            im.set_data(b"\x80")
+            im.update({NameObject("/Type"): NameObject("/XObject"), NameObject("/Subtype"): NameObject("/Image"),
+                       NameObject("/Width"): NumberObject(1), NameObject("/Height"): NumberObject(1),
+                       NameObject("/ColorSpace"): NameObject("/DeviceGray"), NameObject("/BitsPerComponent"): NumberObject(8)})
+            if "/XObject" not in hal["/Resources"]:
+                hal["/Resources"][NameObject("/XObject")] = DictionaryObject()
+            hal["/Resources"]["/XObject"].get_object()[NameObject("/ImUji")] = w._add_object(im)
+            x, y, lb, tg = gambar[n]
+            teks += f"q {lb} 0 0 {tg} {x} {y} cm /ImUji Do Q\n"
+        s.set_data(teks.encode("latin1"))
         hal[NameObject("/Contents")] = ArrayObject([w._add_object(hal.get_contents()), w._add_object(s)])
     if latin:
         for hal in w.pages:
@@ -67,6 +81,11 @@ def utama():
                                         4: [(300, 120, 18, "qawlan.")]})
         uji("titik-titik isian di sampul, pengantar «:» di dasar halaman 3 (bukan «.» di halaman 4)", pdf, {},
             ["titik-titik isian", "PDF ke-3:"])
+        # #G: pengantar «…الآتي:» yang disusul gambar di bawahnya, di halaman yang sama, tidak terpisah dari isinya
+        pdf = tulis(tmp / "gambar.pdf", {3: [(300, 400, 18, "qawlan:")]}, gambar={3: (150, 100, 300, 250)})
+        uji("pengantar «:» di atas gambar #G: tanpa peringatan", pdf, {}, [])
+        pdf = tulis(tmp / "gambar_atas.pdf", {3: [(300, 120, 18, "qawlan:")]}, gambar={3: (150, 300, 300, 250)})
+        uji("gambar di atas pengantar «:» di dasar halaman: tetap diperingatkan", pdf, {}, ["PDF ke-3:"])
         # `rakit --fasl 2`: potongan tanpa sampul, halaman 1 = isi (bukan sampul yang dicari @judul-nya)
         w = PdfWriter(clone_from=str(PDF))
         w.remove_page(0)
@@ -76,7 +95,7 @@ def utama():
             {"judul": "مثال: توحيد الألوهية", "tanpa_sampul": True}, [])
     if gagal:
         sys.exit(f"{len(gagal)} uji PDF gagal: " + "; ".join(gagal))
-    print("uji pdf: 8 skenario sesuai")
+    print("uji pdf: 10 skenario sesuai")
 
 
 if __name__ == "__main__":

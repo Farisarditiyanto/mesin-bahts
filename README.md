@@ -56,6 +56,7 @@ Kebutuhan komputer dan cara membereskannya ada di satu tempat: `python mesin/bah
 | Pemeriksa | `bukti <folder> [awal-akhir]` | teks halaman di sekitar tiap catatan kaki, dan paragraf isi tanpa catatan kaki |
 | Rakit | `rakit <folder> [--fasl n]` (Windows + Word) | `.docx` + `.pdf` (sampul, catatan kaki, المصادر والمراجع, الفهارس), `HALAMAN_ISI`, `HALAMAN` |
 | Status | `tahap <folder>` | `NASKAH=`, `HASIL=`, `RAKIT=`, `BERIKUTNYA` |
+| Diagram | `diagram <folder>` (Node.js + Chrome/Edge) | tiap `<nama>.mmd` (Mermaid) jadi `<nama>.png`, dicetak lewat `#G` |
 
 Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumennya: `python mesin/bahts.py`. Daftar tanda naskah (`#F`, `{Q:}`, `{H:}`, `@format`, …): `python mesin/bahts.py tanda`. Naskah contoh yang lolos `cek`: [`contoh/naskah.txt`](contoh/naskah.txt) (`ambil 11223`, lalu `cek contoh`).
 
@@ -90,6 +91,7 @@ Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumenn
 | `mesin/quran_hafs_v22.json`, `nama_surah.json` | teks mushaf dan nama surat |
 | `mesin/shamela.py` | unduh kitab, katalog, `temukan`, `scan` |
 | `mesin/hadits.py`, `dirasat.py` | penunjuk takhrij, penelitian terdahulu |
+| `mesin/diagram.py` | diagram Mermaid jadi PNG (`diagram`) |
 | `mesin/tahap.py`, `berkas.py` | keadaan bahts dan folder `.rakit-*` |
 | `mesin/rakit.ps1`, `teks_pdf.py` | perakit Word/PDF dan teks PDF |
 | `mesin/format.json` | profil bentuk halaman (`@format`) |
