@@ -7,8 +7,10 @@
   dulu wafat;
 - `takhrij` dari edisi yang bukan pilihan Shamela (سنن أبي داود 1726) dijembatani lewat nomor hadits ke edisi pilihannya
   (654), dan hadits di kitab lain ditunjuk balik ke 1726; tanpa jembatan ini agent disuruh mengunduh edisi kedua;
+- صحيح مسلم 1727↔711 dijembatani lewat nomor global berkurung «(982)», bukan nomor urut dalam كتاب «9 -» yang menunjuk
+  hadits lain (hadits Jibril, 1727 ج1 ص39);
 - `tafsir 2:219` menunjuk الطبري (7798) sebelum زاد المسير (23619) sebelum ابن كثير (1503); ayat yang tidak ada ditolak.
-Kitabnya 1681, 1726, 654 dari baris `ambil` tes.yml; tabel layanan dari `siapkan`."""
+Kitabnya 1681, 1726, 654, 1727, 711 dari baris `ambil` tes.yml; tabel layanan dari `siapkan`."""
 import atexit, json, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
@@ -18,7 +20,7 @@ SEMENTARA = tempfile.TemporaryDirectory(prefix="bahts-layanan-")
 atexit.register(SEMENTARA.cleanup)
 AKAR = Path(SEMENTARA.name)
 shutil.copytree(REPO / "mesin", AKAR / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__"))
-for sid in ("_meta", "1681", "1726", "654"):
+for sid in ("_meta", "1681", "1726", "654", "1727", "711"):
     shutil.copytree(REPO / "kitab" / sid, AKAR / "kitab" / sid)
 
 
@@ -50,6 +52,12 @@ kode, out, err = jalankan("takhrij", "1726", "3", "283")
 for harus in ("رقم 3502 -> [654]", "edisi lokal [1726] سنن أبي داود - ت محيي الدين عبد الحميد: رقم 3502، ج3 ص283"):
     if harus not in out:
         gagal.append(f"takhrij 1726 3 283 (jembatan edisi): tidak ada «{harus}» (kode {kode}: {err[-200:]})")
+
+kode, out, err = jalankan("takhrij", "1727", "2", "676")
+if "رقم 982 -> [711]" not in out or "edisi lokal [1727] صحيح مسلم - ت عبد الباقي: رقم 982، ج2 ص675-676" not in out:
+    gagal.append(f"takhrij 1727 2 676: hadits 982 tidak dijembatani ke 711 dan balik ke 1727 (kode {kode}: {err[-200:]})")
+if "ج1 ص39" in out:
+    gagal.append("takhrij 1727 2 676: nomor urut dalam كتاب (9) dipakai sebagai nomor hadits -> 1727 ج1 ص39 (hadits Jibril)")
 
 kode, out, err = jalankan("tafsir", "2:219")
 urutan = [out.find(f"[{s}]") for s in (7798, 23619, 1503)]

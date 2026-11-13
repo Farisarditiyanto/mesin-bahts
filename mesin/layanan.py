@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Layanan Shamela offline: tafsir per ayat dan takhrij silang hadits, dari tabel `_meta` dataset Shamela yang sama dengan
 `ambil` (diekstrak dari basis data program Shamela 4): tafsir_xrefs = ayat -> halaman awal tafsirnya di 14 kitab tafsir;
-hadith_xrefs = hadits -> halamannya di 8 kitab hadits (10 edisi, lihat EDISI_HADITS). Dipanggil lewat bahts.py.
+hadith_xrefs = hadits -> halamannya di 8 kitab hadits (10 edisi). Dipanggil lewat bahts.py.
 
 Tabel itu menunjuk satu edisi tertentu tiap kitab. Edisi lain kitab yang sama (group_id katalog sama, mis. صحيح مسلم
 ت عبد الباقي 1727 untuk ط التركية 711) dijembatani lewat nomor hadits: edisi yang ditunjuk tabel harus sudah diunduh,
-lalu nomor yang sama dicari sebagai kepala hadits di edisi lokal dan lafaznya dibandingkan (penomoran edisi bisa beda).
+lalu nomor yang sama dicari sebagai kepala hadits di edisi lokal dan lafaznya dibandingkan (penomoran edisi bisa beda,
+mis. الموطأ: yang tidak cocok ditandai, bukan dipakai).
 Tafsir tidak bernomor, jadi edisi lain kitab tafsir hanya disebut.
 
 Penunjuk jalan saja: halaman yang ditunjuk tetap dibaca dengan `halaman`, dan yang dikutip tetap harus lolos `cek`.
@@ -18,8 +19,8 @@ from shamela import ROOT, RAW, TAGS, perintah
 
 TABEL = {"tafsir": "_meta/tafsir_xrefs.parquet", "hadits": "_meta/hadith_xrefs.parquet"}
 WAFAT_MAKS = 2000  # katalog menulis 99999 untuk pengarang yang masih hidup, kolektif, atau tidak diketahui
-SIRAP = 4  # kata berurutan; dua edisi bernomor sama dianggap hadits yang sama kalau berbagi ≥ SIRAP_MIN deret sepanjang ini
-SIRAP_MIN = 3
+SIRAP = 4  # kata berurutan yang dibandingkan antara dua edisi
+MIRIP_MIN = 0.5  # diukur pada 250 rekaman acak: أبو داود 654/1726 dan مسلم 711/1727 sebagian besar ≥0,7; الموطأ 28107/1699 (penomoran beda) ±0
 
 
 def siapkan(*nama):
@@ -103,38 +104,62 @@ def _tempat(sid, s):
 # --- hadits: nomor dan lafaz ---
 
 @functools.cache
-def _kepala(sid, i):
-    """Nomor kepala hadits di rekaman ke-i (aturan `cek`)."""
+def _kepala_ruas(sid, i):
+    """[(semua nomor satu kepala hadits, nomor globalnya)] di rekaman ke-i (aturan `cek`). مسلم: «134 - (2951)» =
+    ((134, 2951), 2951): nomor berkurung = nomor global, angka di depannya = urutan riwayat dalam كتاب itu."""
     import cek_hadits
-    return sorted({n for _, n in cek_hadits.kepala_hadits(shamela.rekaman_ke(sid, i).get("body") or "")[1]})
+    _, kepala, batas = cek_hadits.kepala_hadits(shamela.rekaman_ke(sid, i).get("body") or "")
+    letak, kurung = {}, dict(batas) if batas is not kepala else {}
+    for pos, n in kepala:
+        letak.setdefault(pos, []).append(n)
+    return [(tuple(sorted(v)), kurung.get(pos, v[-1])) for pos, v in letak.items()]
+
+
+def _kepala(sid, i):
+    """Nomor global hadits-hadits di rekaman ke-i."""
+    return sorted({g for _, g in _kepala_ruas(sid, i)})
 
 
 @functools.cache
-def _nomor_rekaman(sid):
-    """{nomor hadits: rekaman pertama tempat nomor itu jadi kepala hadits} seluruh kitab sid (dibaca sekali per perintah)."""
-    import cek_hadits
-    hasil = {}
-    for i, p in enumerate(shamela._rekaman_di(sid, range(len(shamela.indeks(sid))))):
-        for _, n in cek_hadits.kepala_hadits(p.get("body") or "")[1]:
-            hasil.setdefault(n, i)
-    return hasil
+def _peta_nomor(sid):
+    """({semua nomor satu kepala: [rekaman]}, {nomor global: [rekaman]}) seluruh kitab sid (dibaca sekali per perintah)."""
+    ruas, globl = {}, {}
+    for i in range(len(shamela.indeks(sid))):
+        for tup, g in _kepala_ruas(sid, i):
+            ruas.setdefault(tup, []).append(i)
+            globl.setdefault(g, []).append(i)
+    return ruas, globl
 
 
+@functools.cache
 def _sirap(sid, i):
     kata = norma.norm(TAGS.sub(" ", shamela.rekaman_ke(sid, i).get("body") or "")).split()
-    return {tuple(kata[k:k + SIRAP]) for k in range(len(kata) - SIRAP + 1)}
+    return frozenset(tuple(kata[k:k + SIRAP]) for k in range(len(kata) - SIRAP + 1))
+
+
+def _mirip(a, b):
+    """Bagian deret SIRAP kata yang sama, dari rekaman yang lebih pendek."""
+    return len(a & b) / min(len(a), len(b)) if a and b else 0.0
 
 
 def _seberang(asal, i, tujuan):
-    """Rekaman edisi `tujuan` untuk hadits-hadits di rekaman i edisi `asal`, lewat nomor yang sama:
-    [(nomor, rekaman tujuan atau None, lafaznya cocok?)]."""
-    peta, hasil = _nomor_rekaman(tujuan), []
-    for n in _kepala(asal, i):
-        j = peta.get(n)
-        hasil.append((n, j, j is not None and len(_sirap(asal, i) & _sirap(tujuan, j)) >= SIRAP_MIN))
-    if any(c for *_, c in hasil):  # nomor kedua (مسلم: nomor urut dalam كتاب, «(103) - 165») yang tidak cocok tidak dicetak
-        hasil = [h for h in hasil if h[2]]
-    return hasil
+    """Rekaman edisi `tujuan` untuk hadits-hadits di rekaman i edisi `asal`: [(nomor global, rekaman tujuan atau None,
+    cocok?)]. Kepala bernomor ganda yang sama persis (مسلم «134 - (2951)») = riwayat yang sama. Selain itu, dari semua
+    rekaman bernomor global sama dipilih yang lafaznya paling mirip; cocok kalau ≥ MIRIP_MIN (edisi yang penomorannya
+    beda, mis. الموطأ ت الأعظمي dan ت عبد الباقي, jatuh di bawahnya)."""
+    ruas, globl = _peta_nomor(tujuan)
+    hasil = []
+    for tup, g in _kepala_ruas(asal, i):
+        if len(tup) > 1 and tup in ruas:
+            hasil.append((g, ruas[tup][0], True))
+            continue
+        calon = globl.get(g, [])
+        if not calon:
+            hasil.append((g, None, False))
+            continue
+        nilai, j = max((_mirip(_sirap(asal, i), _sirap(tujuan, j)), j) for j in calon)
+        hasil.append((g, j, nilai >= MIRIP_MIN))
+    return list(dict.fromkeys(hasil))
 
 
 def _baris_seberang(asal, i, e):
@@ -179,7 +204,7 @@ def _cetak_kitab(sid, halaman_shamela, hadits=False):
                      + f" -> {_perintah_halaman(sid, juz, a, z)}")
         if hadits:
             for e in lain:
-                baris += _baris_seberang(sid, i, e)
+                baris += [x for x in _baris_seberang(sid, i, e) if x not in baris]
     if lain and not hadits:
         baris.append("    edisi lokal kitab yang sama (halamannya beda, cari ayatnya sendiri): "
                      + "، ".join(f"[{e}] {_katalog()[e]['title_ar']}" for e in lain))
@@ -241,7 +266,8 @@ def takhrij(sid, juz, hal):
         if not lokal:
             print(f"[{sid}] {_nama(sid)}: layanan takhrij Shamela memakai edisi "
                   + "، ".join(f"[{b}] {_katalog()[b]['title_ar']}" for b in tabel_sekarya)
-                  + ". Unduh sekali sebagai jembatan nomor hadits: " + perintah(f"ambil {tabel_sekarya[0]}"))
+                  + ". Unduh sekali sebagai jembatan nomor hadits (edisi yang penomorannya beda ditandai «LAFAZ TIDAK COCOK», "
+                  "bukan dipakai): " + perintah(f"ambil {tabel_sekarya[0]}"))
             return 0
         sumber, halaman_tabel = lokal[0], set()
         nomor_ke = shamela.rekaman_shamela(sumber)
@@ -251,9 +277,11 @@ def takhrij(sid, juz, hal):
         for s, p in rekaman.items():
             i = shamela.rekaman_shamela(sid).get(s)
             for n, j, cocok in _seberang(sid, i, sumber):
-                if (n, j) in sudah:
+                if (n, cocok) in sudah:
+                    if cocok:
+                        halaman_tabel.add(sp_dari[j])
                     continue
-                sudah.add((n, j))
+                sudah.add((n, cocok))
                 if j is None:
                     print(f"    رقم {n}: tidak ditemukan di [{sumber}]")
                     continue
