@@ -46,6 +46,14 @@ Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
                                (paling banyak 20 halaman sekali panggil)
   scan <id> <juz> <hal>        alamat scan cetakan halaman itu (PDF di turath.io, butuh internet), untuk bacaan yang meragukan
 
+Kitab Waqfeya (scan cetakan + OCR, untuk kitab yang tidak ada di Shamela; disimpan di kitab/waqfeya, dipakai semua bahts):
+  waqfeya "<judul/pengarang>" [maks]   cari di katalog Waqfeya (±10.000 kitab) -> nomor w… (diunduh sekali, ±17 MB)
+  ambil w<nomor> [...]         unduh OCR + PDF scan kitab itu (sekali saja)
+  kartu w<nomor>               data katalog + OCR halaman judul (data cetak disalin dari scan-nya) + bentuk bukti
+  cari w<nomor> "<frasa>"      halaman PDF yang OCR-nya memuat frasa; tidak ada yang persis -> yang paling mirip
+  halaman w<nomor> <berkas> <hal>   teks OCR halaman PDF ke-hal di berkas itu + nomor cetak yang terbaca + PDF/PNG scan-nya.
+                               OCR bisa salah huruf: lafaz dan juz/halaman cetak disalin dari scan, bukti <<w…|berkas|hal>>
+
 Layanan Shamela (penunjuk jalan tanpa internet, dari dataset yang sama dengan `ambil`):
   tafsir <surat:ayat[-ayat]>   kitab tafsir yang menafsirkan ayat itu (14 kitab, mis. الطبري، ابن كثير، زاد المسير) +
                                juz/halaman cetak awal pembahasannya, urut dari pengarang yang lebih dulu wafat
@@ -69,7 +77,7 @@ Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex dan DOAJ
 import difflib, hashlib, json, math, os, re, shutil, subprocess, sys, sysconfig, tempfile, time, urllib.error, zipfile
 from pathlib import Path
 
-import diagram, dirasat, hadits, layanan, norma, shamela  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
+import diagram, dirasat, hadits, layanan, norma, shamela, waqfeya  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
 from shamela import perintah
 from berkas import FolderKerja, PemulihanGagal, bahan, kosongkan_penulis, kunci, terbitkan
 
@@ -167,8 +175,10 @@ def periksa():
     else:
         pip = f'"{sys.executable}" {pip}'
     baris(all(importlib.util.find_spec(m) for m in PUSTAKA), f"pustaka Python ({', '.join(PUSTAKA)})", pip)
-    baris(bool(importlib.util.find_spec("rapidfuzz")), "pustaka Python rapidfuzz (hanya untuk «Paling mirip» di `cek --jejak`)",
+    baris(bool(importlib.util.find_spec("rapidfuzz")), "pustaka Python rapidfuzz (hanya untuk «Paling mirip» di `cek --jejak` dan pencarian mirip `cari w…`)",
           pip, untuk_cek=False, untuk_rakit=False)
+    baris(bool(importlib.util.find_spec("pymupdf")), "pustaka Python pymupdf (hanya untuk gambar PNG scan Waqfeya di "
+          "`halaman w…`; tanpa itu scan dibuka sebagai PDF)", pip, untuk_cek=False, untuk_rakit=False)
     baris((shamela.ROOT / shamela.KATALOG).exists(), "katalog kitab", perintah("siapkan"))
     baris(layanan.siap(), "tabel layanan Shamela (hanya untuk `tafsir`, `takhrij`, `rawi`)", perintah("siapkan"),
           untuk_cek=False, untuk_rakit=False)
@@ -545,8 +555,10 @@ def ambil(nomor):
     """Unduh tiap kitab; satu yang gagal tidak membatalkan yang lain. Keluar dengan kode 1 kalau ada yang belum terunduh.
     Nama folder bahts = semua kitab yang dirujuk bukti naskahnya (yang sudah ada dilewati)."""
     import olah
-    sid, bukan_folder = [], []
+    sid, bukan_folder, ww = [], [], []
     for x in nomor:
+        if wq(x):
+            ww.append(x); continue
         if not x.isdigit():
             try:
                 f = folder_bahts(x)
@@ -554,11 +566,11 @@ def ambil(nomor):
                 if re.search(r"[/\\]", x):  # jalur folder yang salah: pesan folder, bukan «bukan nomor kitab»
                     print(f"{x}: {e.code}"); bukan_folder.append(x); continue
                 sid.append(x); continue  # shamela.ambil yang menjelaskan kenapa bukan nomor kitab
-            dirujuk = olah.kitab_dirujuk(f)
-            print(f"{f.name}: {len(dirujuk)} kitab dirujuk naskahnya")
-            sid += dirujuk; continue
+            dirujuk, dirujuk_w = olah.kitab_dirujuk(f), olah.kitab_waqfeya_dirujuk(f)
+            print(f"{f.name}: {len(dirujuk) + len(dirujuk_w)} kitab dirujuk naskahnya")
+            sid += dirujuk; ww += dirujuk_w; continue
         sid.append(x)
-    gagal = bukan_folder + shamela.ambil(*dict.fromkeys(sid))
+    gagal = bukan_folder + (shamela.ambil(*dict.fromkeys(sid)) if sid else []) + waqfeya.ambil(*dict.fromkeys(ww))
     if gagal:
         sys.exit(f"Belum terunduh: {', '.join(gagal)} (lihat pesan di atas).")
 
@@ -599,6 +611,11 @@ def halaman(sid, juz, hal):
         print(f"===== [{sid}] {juz}/{h} =====")
         ada |= shamela.halaman(sid, juz, h)  # jangan berhenti di halaman bolong: kitab bisa melompati nomor di tengah
     return ada
+
+
+def wq(x):
+    """Argumen nomor kitab Waqfeya («w» + huruf), bukan nomor Shamela."""
+    return str(x).startswith("w") and len(str(x)) > 1
 
 
 def ketemu(n):
@@ -697,11 +714,12 @@ PERINTAH = {  # nama: (jumlah argumen minimal, maksimal (None = diperiksa pemang
     "katalog": (1, 1, lambda a: ketemu(shamela.katalog(pola(a[0])))),
     "temukan": (1, None, lambda a: ketemu(shamela.temukan(*bendera_temukan(a[0], a[1:])))),
     "ambil": (1, None, lambda a: ambil(a)),
-    "kartu": (1, 1, lambda a: shamela.kartu(a[0])),
-    "cari": (2, 2, lambda a, **k: ketemu(shamela.cari(a[0], a[1], **k))),
+    "kartu": (1, 1, lambda a: waqfeya.kartu(a[0]) if wq(a[0]) else shamela.kartu(a[0])),
+    "cari": (2, 2, lambda a, **k: ketemu(waqfeya.cari(a[0], a[1]) if wq(a[0]) else shamela.cari(a[0], a[1], **k))),
+    "waqfeya": (1, 2, lambda a: ketemu(waqfeya.cari_katalog(a[0], *(angka(x, "maks") for x in a[1:])))),
     "teks": (2, 4, lambda a, **k: ketemu(shamela.teks(a[0], a[1], *(angka(x, apa) for x, apa in zip(a[2:], ("lebar", "maks"))), **k))),
     "bab": (2, 2, lambda a, **k: ketemu(shamela.bab(a[0], a[1], **k))),
-    "halaman": (3, 3, lambda a: ketemu(halaman(*a))),
+    "halaman": (3, 3, lambda a: ketemu(waqfeya.halaman(*a) if wq(a[0]) else halaman(*a))),
     "scan": (3, 3, lambda a: ketemu(shamela.scan(*a))),
     "tafsir": (1, 1, lambda a: ketemu(layanan.tafsir(a[0]))),
     "takhrij": (3, 3, lambda a: ketemu(layanan.takhrij(*a))),

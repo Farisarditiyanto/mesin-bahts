@@ -48,8 +48,8 @@ Kebutuhan komputer dan cara membereskannya ada di satu tempat: `python mesin/bah
 | Langkah | Perintah | Hasil |
 |---|---|---|
 | Buat folder | `baru <folder> "<judul>"` | `naskah.txt` (kerangka), `riset.txt` |
-| Cari bahan | connector `shamela_*`, `temukan`, `katalog`, `hadits`, `dirasat`; tanpa internet: `tafsir <surat:ayat>`, `takhrij <id> <juz> <hal>`, `rawi <id> <juz> <hal>` | nomor kitab + juz/halaman (penunjuk) |
-| Unduh kitab | `ambil <id>` atau `ambil <folder>` | `kitab/<id>/` |
+| Cari bahan | connector `shamela_*`, `temukan`, `katalog`, `hadits`, `dirasat`; tanpa internet: `tafsir <surat:ayat>`, `takhrij <id> <juz> <hal>`, `rawi <id> <juz> <hal>`; kitab yang tidak ada di Shamela: `waqfeya "<judul>"` | nomor kitab + juz/halaman (penunjuk) |
+| Unduh kitab | `ambil <id>` atau `ambil <folder>`; Waqfeya: `ambil w<nomor>` | `kitab/<id>/`, `kitab/waqfeya/w<nomor>/` |
 | Data cetak | `kartu <id>` | rujukan pertama dan المصادر |
 | Baca teks | `cari`, `teks`, `bab`, `halaman` | teks lokal untuk disalin persis |
 | Periksa | `cek <folder>` (`--jejak` untuk kutipan yang tidak ketemu) | `GAGAL: n`, perhatian, `NASKAH_SHA256` |
@@ -69,7 +69,7 @@ Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumenn
 - `<<sid|juz|hal|#123>>` lolos hanya kalau 123 kepala hadits di awal baris halaman itu («123 - حدثنا», «36 - (123)», «(123) - حدثنا»); nomor ayat dan nomor catatan ditolak. Ini membuktikan nomornya ada, bukan lafaznya.
 - Takhrij «رقم الحديث (123)، 4/56.» yang langsung diikuti bukti: nomornya harus kepala hadits di sekitar halaman itu, lafaz buktinya harus di hadits bernomor itu. Hasilnya perhatian, bukan `GAGAL`.
 - `cek --jejak`: kutipan yang tidak ketemu dicari di kitab lain yang sudah diunduh, paling banyak 3 kitab per teks; lafaz yang sedikit berbeda ditunjuk sebagai «Paling mirip»; kutipan yang menyambung ke halaman berikutnya ditunjuk rentangnya (ص21-22). Hanya petunjuk. Kitab yang tidak terbaca dilewati dengan peringatan «jejak belum lengkap». Pencarian pertama menyiapkan teks kitab, jadi bisa lama.
-- Sumber di luar Shamela: `<<luar|berkas.pdf|hal>>` hanya ditunjuk halamannya, tidak pernah diloloskan.
+- Sumber di luar Shamela: `<<luar|berkas.pdf|hal>>` hanya ditunjuk halamannya, tidak pernah diloloskan. Kitab Waqfeya `<<w…|berkas|hal>>`: lafaznya tidak dinilai `cek` karena OCR salah huruf; pemeriksa membacanya di scan. `GAGAL` hanya kalau kitab belum diunduh, halamannya tidak ada, atau kutipannya terbaca persis di halaman lain.
 - Cara menukil (perhatian, bukan `GAGAL`): kalimat di luar tanda petik yang 8 kata atau lebih berurutan sama persis dengan halaman buktinya, nukilan makna tanpa «انظر:», kutipan lafaz yang hanya diantar «قال …:» tetapi dirujuk «انظر:», dan kutipan lebih dari 60 kata. Batas kata = aturan repo. Apakah nukilan makna setia pada halaman buktinya tidak dinilai: bukti berpotongan hanya membuktikan potongannya.
 - Takhrij di luar Shahihain tanpa derajat (dan tanpa «ولم أقف على حكم …») = `GAGAL`.
 - Perhatian wajib ditangani: tiap baris dicetak dengan kodenya («! 3f9a2c baris …»), lalu dibereskan di naskah, atau diterima dengan `terima <kode> <alasan>` di `riset.txt` kalau memang tidak bisa dibereskan. Selama ada yang belum ditangani, `tahap` mencetak `NASKAH=PERHATIAN` dan `rakit` mencetak «BELUM SELESAI». Perhatian `riset.txt` tidak bisa diterima. Alasannya tidak dinilai mesin: itu tugas pemeriksa langkah 5.
@@ -93,6 +93,7 @@ Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumenn
 | `mesin/quran_hafs_v22.json`, `nama_surah.json` | teks mushaf dan nama surat |
 | `mesin/shamela.py` | unduh kitab, katalog, `temukan`, `scan` |
 | `mesin/hadits.py`, `dirasat.py` | penunjuk takhrij, penelitian terdahulu |
+| `mesin/waqfeya.py` | kitab Waqfeya: katalog, `ambil w…`, OCR, potongan scan (PDF/PNG) |
 | `mesin/layanan.py` | `tafsir`, `takhrij`, dan `rawi` tanpa internet (tabel layanan Shamela di `kitab/_meta`) |
 | `mesin/diagram.py` | diagram Mermaid jadi PNG (`diagram`) |
 | `mesin/tahap.py`, `berkas.py` | keadaan bahts dan folder `.rakit-*` |
