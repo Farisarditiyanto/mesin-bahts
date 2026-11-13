@@ -48,9 +48,10 @@ Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
 
 Layanan Shamela (penunjuk jalan tanpa internet, dari dataset yang sama dengan `ambil`):
   tafsir <surat:ayat[-ayat]>   kitab tafsir yang menafsirkan ayat itu (14 kitab, mis. الطبري، ابن كثير، زاد المسير) +
-                               juz/halaman cetak edisi lokal, urut dari pengarang yang lebih dulu wafat
-  takhrij <id> <juz> <hal>     hadits di halaman itu ada juga di mana: 10 kitab (البخاري، مسلم، أبو داود، الترمذي، النسائي،
-                               الموطأ، الطيالسي، ابن الجارود) + juz/halaman dan nomor haditsnya di edisi lokal
+                               juz/halaman cetak awal pembahasannya, urut dari pengarang yang lebih dulu wafat
+  takhrij <id> <juz> <hal>     hadits di halaman itu ada juga di mana: 8 kitab (البخاري، مسلم، أبو داود، الترمذي، النسائي،
+                               الموطأ، الطيالسي، ابن الجارود) + juz/halaman dan nomor haditsnya; edisi lain kitab itu
+                               (mis. مسلم 1727) lewat nomor hadits, dengan edisi yang dipakai Shamela (mis. 711) sebagai jembatan
 
 Takhrij (penunjuk jalan, «المنصة الحديثية», butuh internet):
   hadits "<طرف>" [maks]        tempat hadits di 12 kitab hadits + hukum ulama; tetap dibaca di kitabnya sendiri. Kitab yang
@@ -163,6 +164,8 @@ def periksa():
         pip = f'"{sys.executable}" {pip}'
     baris(all(importlib.util.find_spec(m) for m in PUSTAKA), f"pustaka Python ({', '.join(PUSTAKA)})", pip)
     baris((shamela.ROOT / shamela.KATALOG).exists(), "katalog kitab", perintah("siapkan"))
+    baris(layanan.siap(), "tabel layanan Shamela (hanya untuk `tafsir` dan `takhrij`)", perintah("siapkan"),
+          untuk_cek=False, untuk_rakit=False)
     baris(os.name == "nt", "Windows", "`rakit` hanya jalan di Windows; di sini mesin berhenti di `cek`", untuk_cek=False)
     if os.name == "nt":
         import winreg

@@ -5,8 +5,10 @@
 - indeks sah buatan mesin lama (tanpa kolom «sp») dibuat ulang sekali, bukan dipakai tanpa nomor itu;
 - hadits Bukhari 97 (1/31) ditunjuk juga di Bukhari 2544 (3/149) dan di النسائي (829), urut dari pengarang yang lebih
   dulu wafat;
+- `takhrij` dari edisi yang bukan pilihan Shamela (سنن أبي داود 1726) dijembatani lewat nomor hadits ke edisi pilihannya
+  (654), dan hadits di kitab lain ditunjuk balik ke 1726; tanpa jembatan ini agent disuruh mengunduh edisi kedua;
 - `tafsir 2:219` menunjuk الطبري (7798) sebelum زاد المسير (23619) sebelum ابن كثير (1503); ayat yang tidak ada ditolak.
-Kitabnya 1681 dari baris `ambil` tes.yml; tabel layanan dari `siapkan`."""
+Kitabnya 1681, 1726, 654 dari baris `ambil` tes.yml; tabel layanan dari `siapkan`."""
 import atexit, json, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
@@ -16,7 +18,7 @@ SEMENTARA = tempfile.TemporaryDirectory(prefix="bahts-layanan-")
 atexit.register(SEMENTARA.cleanup)
 AKAR = Path(SEMENTARA.name)
 shutil.copytree(REPO / "mesin", AKAR / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__"))
-for sid in ("_meta", "1681"):
+for sid in ("_meta", "1681", "1726", "654"):
     shutil.copytree(REPO / "kitab" / sid, AKAR / "kitab" / sid)
 
 
@@ -43,6 +45,11 @@ if not blok.index("[1456]") < blok.index("[1681]"):
     gagal.append("takhrij 1681 1 31: الطيالسي (ت 204) tidak sebelum البخاري (ت 256)")
 if not isinstance(json.loads(f.read_text(encoding="utf8")).get("sp"), list):
     gagal.append("indeks.json tanpa «sp» tidak dibuat ulang")
+
+kode, out, err = jalankan("takhrij", "1726", "3", "283")
+for harus in ("رقم 3502 -> [654]", "edisi lokal [1726] سنن أبي داود - ت محيي الدين عبد الحميد: رقم 3502، ج3 ص283"):
+    if harus not in out:
+        gagal.append(f"takhrij 1726 3 283 (jembatan edisi): tidak ada «{harus}» (kode {kode}: {err[-200:]})")
 
 kode, out, err = jalankan("tafsir", "2:219")
 urutan = [out.find(f"[{s}]") for s in (7798, 23619, 1503)]
