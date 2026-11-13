@@ -150,8 +150,8 @@ def _seberang(asal, i, tujuan):
     ruas, globl = _peta_nomor(tujuan)
     hasil = []
     for tup, g in _kepala_ruas(asal, i):
-        if len(tup) > 1 and tup in ruas:
-            hasil.append((g, ruas[tup][0], True))
+        if len(tup) > 1 and tup in ruas:  # pasangan yang sama bisa ada di dua كتاب: pilih yang lafaznya paling mirip
+            hasil.append((g, max(ruas[tup], key=lambda j: _mirip(_sirap(asal, i), _sirap(tujuan, j))), True))
             continue
         calon = globl.get(g, [])
         if not calon:
@@ -254,7 +254,7 @@ def takhrij(sid, juz, hal):
         raise SystemExit(f"[{sid}] TIDAK ADA halaman {juz}/{hal}. Yang ada: {shamela.daftar_juz(sid)} (juz \"-\" = kitab satu jilid)")
     baris, kitab_tabel = _baris("hadits"), _tabel_kitab("hadits")
     if sid in kitab_tabel:
-        sumber, halaman_tabel = sid, set(rekaman)
+        sumber, halaman_tabel, sudah = sid, set(rekaman), set()
     else:
         tabel_sekarya = [b for b in kitab_tabel if _karya(b) == _karya(sid)]
         if not tabel_sekarya:
@@ -269,11 +269,10 @@ def takhrij(sid, juz, hal):
                   + ". Unduh sekali sebagai jembatan nomor hadits (edisi yang penomorannya beda ditandai «LAFAZ TIDAK COCOK», "
                   "bukan dipakai): " + perintah(f"ambil {tabel_sekarya[0]}"))
             return 0
-        sumber, halaman_tabel = lokal[0], set()
+        sumber, halaman_tabel, sudah = lokal[0], set(), set()
         nomor_ke = shamela.rekaman_shamela(sumber)
         sp_dari = {i: s for s, i in nomor_ke.items()}
         print(f"[{sid}] dijembatani lewat nomor hadits ke edisi [{sumber}] {_katalog()[sumber]['title_ar']}:")
-        sudah = set()
         for s, p in rekaman.items():
             i = shamela.rekaman_shamela(sid).get(s)
             for n, j, cocok in _seberang(sid, i, sumber):
@@ -289,6 +288,11 @@ def takhrij(sid, juz, hal):
                 if cocok:
                     halaman_tabel.add(sp_dari[j])
     kunci = sorted({k for k, b, h in baris if b == sumber and h in halaman_tabel})
+    if not kunci and sumber != sid and sudah and not any(c for _, c in sudah):
+        print(f"[{sid}] tidak bisa dijembatani ke [{sumber}]: tidak satu pun nomor hadits di halaman ini cocok lafaznya "
+              f"(penomoran kedua edisi berbeda). Data takhrij Shamela ada di [{sumber}]: cari haditsnya di sana sendiri, mis. "
+              + perintah(f'cari {sumber} "<lafaz hadits>"') + f", lalu {perintah(f'takhrij {sumber} <juz> <hal>')}")
+        return 0
     if not kunci:
         print(f"[{sid}] {juz}/{hal}: tidak ada data takhrij Shamela untuk hadits di halaman ini.")
         return 0
