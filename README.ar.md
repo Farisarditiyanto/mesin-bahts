@@ -50,7 +50,7 @@
 | الخطوة | الأمر | الناتج |
 |---|---|---|
 | إنشاء المجلد | `baru <folder> "<judul>"` | `naskah.txt` (هيكل نص البحث)، `riset.txt` |
-| جمع المادة | الموصِّل `shamela_*`، `temukan`، `katalog`، `hadits`، `dirasat` | رقم الكتاب والجزء/الصفحة (دلالة فقط) |
+| جمع المادة | الموصِّل `shamela_*`، `temukan`، `katalog`، `hadits`، `dirasat`؛ ودون إنترنت: `tafsir <surat:ayat>`، `takhrij <id> <juz> <hal>` | رقم الكتاب والجزء/الصفحة (دلالة فقط) |
 | تنزيل الكتاب | `ambil <id>` أو `ambil <folder>` | `kitab/<id>/` |
 | بيانات النشر | `kartu <id>` | التوثيق الأول والمصادر |
 | قراءة النص | `cari`، `teks`، `bab`، `halaman` | نص محلي يُنسخ كما هو |
@@ -93,6 +93,7 @@
 | `mesin/quran_hafs_v22.json`، `nama_surah.json` | نص المصحف وأسماء السور |
 | `mesin/shamela.py` | تنزيل الكتب، فهرس الكتب، `temukan`، `scan` |
 | `mesin/hadits.py`، `dirasat.py` | دلالة التخريج، الدراسات السابقة |
+| `mesin/layanan.py` | `tafsir` و`takhrij` دون إنترنت (جداول خدمات الشاملة في `kitab/_meta`) |
 | `mesin/diagram.py` | تحويل مخططات Mermaid إلى PNG (`diagram`) |
 | `mesin/tahap.py`، `berkas.py` | حالة البحث ومجلدات `.rakit-*` |
 | `mesin/rakit.ps1`، `teks_pdf.py` | مُخرِج Word/PDF ونص PDF |

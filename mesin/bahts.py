@@ -3,7 +3,8 @@
 
 Sekali sesudah mengunduh repo:
   periksa                      apa yang sudah siap di komputer ini, dan perintah untuk tiap yang belum
-  siapkan                      unduh katalog kitab + font mushaf, lalu pasang font itu (Windows)
+  siapkan                      unduh katalog kitab, tabel layanan (tafsir, takhrij) + font mushaf, lalu pasang
+                               font itu (Windows)
 
 Bahts (tiap bahts = satu folder berisi naskah.txt):
   baru <folder> "<judul>"      buat folder bahts baru + kerangka naskah.txt; <folder> boleh bahts/<orang>/<topik>
@@ -45,6 +46,13 @@ Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
                                (paling banyak 20 halaman sekali panggil)
   scan <id> <juz> <hal>        alamat scan cetakan halaman itu (PDF di turath.io, butuh internet), untuk bacaan yang meragukan
 
+Layanan Shamela (penunjuk jalan tanpa internet, dari dataset yang sama dengan `ambil`):
+  tafsir <surat:ayat[-ayat]>   kitab tafsir yang menafsirkan ayat itu (14 kitab, mis. الطبري، ابن كثير، زاد المسير) +
+                               juz/halaman cetak awal pembahasannya, urut dari pengarang yang lebih dulu wafat
+  takhrij <id> <juz> <hal>     hadits di halaman itu ada juga di mana: 8 kitab (البخاري، مسلم، أبو داود، الترمذي، النسائي،
+                               الموطأ، الطيالسي، ابن الجارود) + juz/halaman dan nomor haditsnya; edisi lain kitab itu
+                               (mis. مسلم 1727) lewat nomor hadits, dengan edisi yang dipakai Shamela (mis. 711) sebagai jembatan
+
 Takhrij (penunjuk jalan, «المنصة الحديثية», butuh internet):
   hadits "<طرف>" [maks]        tempat hadits di 12 kitab hadits + hukum ulama; tetap dibaca di kitabnya sendiri. Kitab yang
                                sudah diunduh: juz/halaman edisi lokal ikut dicetak (juz/halaman layanan bisa edisi lain)
@@ -57,7 +65,7 @@ Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex dan DOAJ
 import difflib, hashlib, json, math, os, re, shutil, subprocess, sys, sysconfig, tempfile, time, urllib.error, zipfile
 from pathlib import Path
 
-import diagram, dirasat, hadits, norma, shamela  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
+import diagram, dirasat, hadits, layanan, norma, shamela  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
 from shamela import perintah
 from berkas import FolderKerja, PemulihanGagal, bahan, kosongkan_penulis, kunci, terbitkan
 
@@ -96,6 +104,7 @@ def font_terpasang():
 def siapkan():
     """Lengkapi yang tidak ikut repo: katalog kitab dan font mushaf. Aman diulang."""
     shamela.siapkan()
+    layanan.siapkan()
     f = MESIN / FONT
     if not f.exists():
         for url in FONT_SUMBER:
@@ -155,6 +164,8 @@ def periksa():
         pip = f'"{sys.executable}" {pip}'
     baris(all(importlib.util.find_spec(m) for m in PUSTAKA), f"pustaka Python ({', '.join(PUSTAKA)})", pip)
     baris((shamela.ROOT / shamela.KATALOG).exists(), "katalog kitab", perintah("siapkan"))
+    baris(layanan.siap(), "tabel layanan Shamela (hanya untuk `tafsir` dan `takhrij`)", perintah("siapkan"),
+          untuk_cek=False, untuk_rakit=False)
     baris(os.name == "nt", "Windows", "`rakit` hanya jalan di Windows; di sini mesin berhenti di `cek`", untuk_cek=False)
     if os.name == "nt":
         import winreg
@@ -679,6 +690,8 @@ PERINTAH = {  # nama: (jumlah argumen minimal, maksimal (None = diperiksa pemang
     "bab": (2, 2, lambda a, **k: ketemu(shamela.bab(a[0], a[1], **k))),
     "halaman": (3, 3, lambda a: ketemu(halaman(*a))),
     "scan": (3, 3, lambda a: ketemu(shamela.scan(*a))),
+    "tafsir": (1, 1, lambda a: ketemu(layanan.tafsir(a[0]))),
+    "takhrij": (3, 3, lambda a: ketemu(layanan.takhrij(*a))),
     "hadits": (1, 2, lambda a: ketemu(hadits.cari(a[0], *(angka(x, "maks") for x in a[1:])))),
     "dirasat": (1, 3, lambda a: dirasat.cari(a[0], *(angka(x, "maks") for x in a[1:2]), *a[2:])),
     "dirasat-pdf": (2, 2, lambda a: dirasat.pdf(a[0], folder_bahts(a[1]))),
