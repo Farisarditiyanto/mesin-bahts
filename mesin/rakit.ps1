@@ -645,7 +645,9 @@ try {
                 $isi = @($baris[$r].sel)
                 for ($c = 0; $c -lt $nk; $c++) {
                     $x = $tbl.Cell($r + 1, $c + 1).Range
-                    $x.ParagraphFormat.Alignment = $(if ($r -eq 0) { 1 } else { 2 })   # isi rata kanan: rata kanan-kiri melebarkan jarak kata di sel sempit
+                    # isi rata kanan (bukan rata kanan-kiri: jarak kata melebar di sel sempit). Paragrafnya RTL, jadi rata
+                    # kanan = awal baris = 0; nilai 2 disimpan jc="right" = ujung akhir = rata KIRI di halaman.
+                    $x.ParagraphFormat.Alignment = $(if ($r -eq 0) { 1 } else { 0 })
                     $x.Collapse(1); $x.Select()
                     Runs $isi[$c] $uTabel ($r -eq 0) $false
                 }

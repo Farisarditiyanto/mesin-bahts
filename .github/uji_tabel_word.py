@@ -46,6 +46,11 @@ def utama():
         lebar = [len(tb.find("w:tr", NS).findall("w:tc", NS)) for tb in tabel]
         # tabel #J naskah lebih dulu; sesudahnya bisa ada tabel فهرس buatan rakit sendiri
         assert lebar[:len(kolom)] == list(kolom), f"jumlah kolom tabel di DOCX {lebar}, harus diawali {list(kolom)}"
+        # Isi sel (baris kedua dst.) harus rata kanan di halaman. Dokumen RTL: jc="right" = ujung akhir = rata kiri.
+        for tb in tabel[:len(kolom)]:
+            for tr in tb.findall("w:tr", NS)[1:]:
+                for jc in tr.iter(f"{{{NS['w']}}}jc"):
+                    assert jc.get(f"{{{NS['w']}}}val") != "right", "isi sel tabel #J tercetak rata kiri (jc=right di paragraf RTL)"
         print(f"lolos tabel Word: {len(tabel)} tabel, kolom {lebar}", flush=True)
 
 

@@ -6,7 +6,8 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
-- `rakit` tidak lagi gagal («Specified cast is not valid») pada tabel `#J` empat kolom atau lebih; tabel 2 sampai 3 kolom tidak berubah.
+- `rakit` tidak lagi gagal («Specified cast is not valid») pada tabel `#J` empat kolom atau lebih.
+- Isi sel tabel `#J` kini rata kanan; dulu tercetak rata kiri. Rakit ulang bahts bertabel untuk mendapat PDF yang benar.
 
 ## 9.3.0 — 2026-11-13
 
