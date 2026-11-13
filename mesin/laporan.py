@@ -41,17 +41,14 @@ def gabung_kembar(perhatian):
     return [f"baris {daftar_baris(nn)}: {isi}" if nn else isi for isi, nn in kumpul.items()]
 
 
-# Kode perhatian: 6 huruf heksa dari isinya tanpa awal «baris …: ». Naskah yang hanya bergeser barisnya tetap berkode
-# sama, jadi «terima» di riset.txt tidak basi karena baris lain ditambah; isi yang berubah (kalimat di catatan kakinya,
-# kutipannya) = kode baru, jadi perhatian itu dinilai lagi.
 KODE = re.compile(r"[0-9a-f]{6}")
-# baris perhatian di laporan `cek`: «  ! <kode> <perhatian>»
-BARIS_PERHATIAN = re.compile(r"^  ! ([0-9a-f]{6}) (.*)$", re.M)
 
 
-def kode(p):
-    return hashlib.sha1(pisah_baris(p)[1].encode("utf8")).hexdigest()[:6]
-
-
-def baris_perhatian(p):
-    return f"  ! {kode(p)} {p}"
+def kode(p, teks_baris):
+    """Kode perhatian (6 huruf heksa, dipakai «terima» di riset.txt): sidik isinya tanpa awal «baris …: » ditambah teks
+    utuh tiap baris naskah yang disebutnya (`teks_baris`: nomor -> teks). Naskah yang hanya bergeser barisnya tetap
+    berkode sama; baris yang disebut berubah isinya, atau baris baru ikut tergabung ke perhatian kembar = kode baru,
+    jadi «terima» lama basi dan perhatian itu dinilai lagi (pesan perhatian hanya memuat awal catatan kakinya)."""
+    nn, isi = pisah_baris(p)
+    sidik = isi + "".join(f"\n{teks_baris.get(n, '')}" for n in nn)
+    return hashlib.sha1(sidik.encode("utf8")).hexdigest()[:6]

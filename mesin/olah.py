@@ -165,9 +165,10 @@ riset.txt (di folder bahts, di samping naskah.txt): jejak langkah riset yang tid
   belum <langkah> <objek> <alasan>   langkah yang tidak bisa dijalankan; sebut di laporan akhir
   terima <kode> <alasan>   perhatian `cek` berkode itu («  ! 3f9a2c baris …») memang tidak bisa dibereskan, atau salah
                       tangkap; alasannya dinilai pemeriksa. Tiap perhatian wajib ditangani: dibereskan di naskah, atau
-                      diterima begini; selama ada yang belum, `tahap` tidak menganggap naskah LOLOS. Kode tetap walau
-                      barisnya bergeser; isi perhatian berubah = kode baru. «terima» yang kodenya tidak muncul lagi,
-                      tanpa alasan, atau berkode rusak = perhatian (hapus barisnya)
+                      diterima begini (alasan paling sedikit 3 kata); selama ada yang belum, `tahap` tidak menganggap
+                      naskah LOLOS dan `rakit` mencetak BELUM SELESAI. Kode tetap walau barisnya bergeser; isi baris
+                      yang disebut berubah, atau baris baru ikut tergabung = kode baru. Perhatian riset.txt tidak bisa
+                      diterima. «terima» yang basi, kembar, beralasan pendek, atau berkode rusak = perhatian
   Baris berawalan # = catatan. Tiap {H:}, ayat {Q:} (selain di bukti <<…>> dan di bawah #R), dan masalah khilaf yang
                       belum tercatat = perhatian, juga baris riset.txt yang rusak atau kunci takhrij8 yang tidak ada di naskah.
                       Tidak pernah GAGAL: isinya ditulis agen sendiri, jadi mesin hanya menunjuk yang belum dicatat
@@ -184,7 +185,7 @@ from cek_rujukan import rujukan_halaman
 from cek_sumber import standar_baris
 from cek_tautsiq import gelar
 from dasar import AD, ANGKA_LATIN, BELUM_DIUNDUH, HERE, HURUF_LATIN, LUAR, SURAH, TandaRusak
-from laporan import baris_perhatian, gabung_kembar
+from laporan import gabung_kembar
 from naskah import Pemeriksaan, urai
 
 FORMAT = json.loads((HERE / "format.json").read_text(encoding="utf8"))  # huruf & ukuran tiap pedoman; dipilih dengan @format
@@ -396,9 +397,11 @@ def periksa(folder, keluar=None):
     d = _bahan(ctx, profil, quran, sumber, sidik_naskah)
     if ctx.bentuk != "kitab":  # muqarrar gabungan syarah (@bentuk: kitab) bukan riset baru
         _cek_jumlah_halaman(ctx, d)
-        periksa_riset(folder, baris, ctx.perhatian)
+    riset = []
+    if ctx.bentuk != "kitab":  # muqarrar gabungan syarah (@bentuk: kitab) bukan riset baru
+        periksa_riset(folder, baris, riset)
     # jumlah di ringkasan = baris yang dicetak; yang diterima di riset.txt tidak dihitung (laporannya terpisah)
-    ctx.perhatian, ctx.diterima = terapkan_terima(folder, gabung_kembar(ctx.perhatian))
+    ctx.perhatian, ctx.diterima, ctx.kode = terapkan_terima(folder, gabung_kembar(ctx.perhatian), riset, dict(baris))
     _tulis_bahan(ctx, keluar, d)
     return ctx, _laporan(ctx, n_matan, n_fn, sidik_naskah, sidik_cetak(d))
 
@@ -727,7 +730,8 @@ def _cek_minimal_rusak(ctx):
 def _cek_jumlah_kitab(ctx, quran):
     """@minimal_kitab: jumlah kitab di المصادر (selain القرآن الكريم) tidak boleh kurang dari batas dosen.
     Kurang = perhatian, bukan GAGAL. Bawaan tidak dinilai (MINIMAL).
-    Baris #R kembar (sama sesudah harakat, hamzah, dan tanda baca disamakan) dihitung sekali dan diberi perhatian."""
+    Baris #R kembar (sama sesudah harakat, hamzah, dan tanda baca disamakan) dihitung sekali dan GAGAL: selalu bisa
+    dibereskan dengan menghapus salah satunya."""
     di = ctx.di
     batas, asal = batas_minimal(ctx.meta, "kitab")
     # @bentuk: kitab, @tanpa: pustaka, dan #R yang kosong (sudah GAGAL di _cek_bentuk) tidak punya daftar untuk dihitung
@@ -742,7 +746,7 @@ def _cek_jumlah_kitab(ctx, quran):
             kembar.append(p)
         unik.add(kunci)
     if kembar:
-        ctx.perhatian.append(di("#R") + f"المصادر والمراجع memuat baris kembar (dihitung sekali): «{kembar[0]}»"
+        ctx.galat.append(di("#R") + f"المصادر والمراجع memuat baris kembar (dihitung sekali): «{kembar[0]}»"
                              + (f" dan {len(kembar) - 1} lainnya" if len(kembar) > 1 else "") + "; hapus salah satunya")
     n = len(unik)
     if n < batas:
@@ -1029,10 +1033,10 @@ def _laporan(ctx, n_matan, n_fn, sidik_naskah, sidik_isi):
                    + shamela.perintah("ambil " + folder.resolve().relative_to(HERE.parent.resolve()).as_posix()))
     lap += [f"  ✗ {g}" for g in galat]
     lap.append(f"{KEPALA_PERHATIAN}: {len(perhatian)}")
-    lap += [baris_perhatian(p) for p in perhatian]
+    lap += [f"  ! {ctx.kode[p]} {p}" for p in perhatian]
     if ctx.diterima:
         lap.append(f"perhatian diterima (alasan di {RISET}, dinilai pemeriksa): {len(ctx.diterima)}")
-        lap += [f"  ✓ {k} {p[:70]} — {alasan}" for k, p, alasan in ctx.diterima]
+        lap += [f"  ✓ {k} {p}\n      alasan: {alasan}" for k, p, alasan in ctx.diterima]
     lap.append(f"catatan kaki tanpa bukti (selain rujukan ayat dan rujukan kitab di atas): {len(fn_tanpa)}")
     lap += [f"  - {f}" for f in fn_tanpa]
     lap.append(f"CETAK_SHA256={sidik_isi}")

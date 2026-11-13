@@ -499,6 +499,8 @@ def utama():
             fn = [b for b in lap.splitlines() if b.startswith("catatan kaki tanpa bukti")]  # jumlahnya tetap di layar
             assert fn and not fn[0].endswith(": 0") and fn[0] in r.stdout, (fn, r.stdout)
             assert "HALAMAN=1" in r.stdout and "Jadi:" in r.stdout, r.stdout
+            # perhatian yang belum ditangani: PDF tetap terbit, tetapi rakit menyatakan bahts belum selesai
+            assert f"BELUM SELESAI: {len(rinci)} perhatian" in r.stdout, r.stdout
             # cek GAGAL: rinciannya tetap tercetak lengkap (agent perlu baris ✗-nya)
             with open(folder / "naskah.txt", "a", encoding="utf8") as h:
                 h.write('قال الشيخ: "نص لا يوجد في الكتاب أصلا ألبتة"[^رسالة، ص5. <<11223|-|5>>].\n')

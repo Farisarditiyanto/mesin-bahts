@@ -492,6 +492,11 @@ def _rakit_di(nama, f, kerja, fasl=None):
               "dibaca, atau tulis batas dari dosen di «@minimal_halaman: n»")
     print(f"Jadi: {f / berkas}.docx dan .pdf")
     salin_keluaran(f, berkas)
+    belum = sum(b.startswith("  ! ") for b in lap)
+    if belum:  # PDF tetap terbit (untuk dibaca dan diperiksa), tetapi bahts belum boleh dilaporkan selesai
+        jalur = nama.rstrip("/\\") or nama
+        print(f"BELUM SELESAI: {belum} perhatian belum ditangani (bereskan, atau «terima <kode> <alasan>» di riset.txt) "
+              "-> " + perintah(f'cek "{jalur}"'))
 
 
 def salin_keluaran(f, berkas):
