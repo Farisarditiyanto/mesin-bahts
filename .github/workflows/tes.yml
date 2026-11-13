@@ -50,6 +50,8 @@ jobs:
       - run: python .github/uji_rujukan_word.py
       # Tabel #J 2-6 kolom terakit lewat Word asli (lebar kolom pecahan dulu ditolak Word); tanpa Word = lewati.
       - run: python .github/uji_tabel_word.py
+      # #G masuk DOCX dan dikecilkan ke halaman; @malahiq: akhir mencetak الملاحق sesudah المصادر; tanpa Word = lewati.
+      - run: python .github/uji_gambar_word.py
       # `halaman` lewat indeks = hasil membaca seluruh kitab; berkas tulisan mesin mengikuti umask (bukan 0600)
       - run: python .github/uji_halaman.py
       # `halaman` tanpa «\r» mentah (kata tersambung saat disalin); argumen/bendera berlebih ditolak, bukan ditelan

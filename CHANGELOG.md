@@ -6,6 +6,9 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Gambar di naskah: `#G berkas.png | keterangan` mencetak PNG/JPG dari folder bahts di tengah halaman, dikecilkan agar muat, dengan keterangan di bawahnya. Diagram Mermaid (`<nama>.mmd`) dijadikan PNG dengan perintah baru `diagram <folder>` (butuh Node.js + Chrome/Edge); `cek` dan `rakit` tetap tanpa internet.
+- `@malahiq: akhir` mencetak bagian `#K الملاحق` sesudah المصادر والمراجع dan sebelum فهرس; halamannya tidak masuk `HALAMAN_ISI`.
+
 - `rakit` tidak lagi gagal («Specified cast is not valid») pada tabel `#J` empat kolom atau lebih.
 - Isi sel tabel `#J` kini rata kanan; dulu tercetak rata kiri. Rakit ulang bahts bertabel untuk mendapat PDF yang benar.
 

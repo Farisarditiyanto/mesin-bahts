@@ -49,6 +49,9 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       menggantikan «قسم الشريعة»/«قسم الشريعة بجاكرتا»; « // » = pindah baris, mis.
                       «معهد العلوم الإسلامية والعربية في إندونيسيا // قسم اللغة العربية»)
                       rujukan_ayat (catatan | matan = [^سورة …، آية: n.] dicetak «[السورة: n]» tepat sesudah ayatnya)
+                      malahiq (akhir = bagian «#K الملاحق» (atau «#K ملحق…») sampai #R dicetak sesudah المصادر والمراجع,
+                      sebelum فهرس; di naskah tetap ditulis sebelum #R. Halaman الملاحق tidak masuk HALAMAN_ISI.
+                      Tidak bisa bersama @pustaka: akhir)
                       model (jakarta = sekaligus @sampul: jakarta, @format: jakarta, @kepala: kotak, @fihris_ayat: surah,
                       @fihris_hadits: ringkas, @maudhuat: titik, @pustaka_gaya: muallif, @pustaka: akhir,
                       @judul_kanan: B, M, @catatan_kaki: bersambung, @fihris: sambung, @rujukan_ayat: matan; kunci yang ditulis sendiri tetap menang,
@@ -76,6 +79,10 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       selebar halaman; baris pertamanya = kepala (tebal, berlatar abu-abu, diulang di halaman berikutnya).
                       Tiap baris tabel itu harus sama jumlah selnya. Sel boleh memuat catatan kaki dan kutipan berbukti
                       (dicek seperti paragraf). Judul tabelnya ditulis sebagai #S atau paragraf sebelum baris #J pertama
+  #G berkas | keterangan   gambar (PNG/JPG di folder bahts) di tengah halaman, selebar paling banyak lebar teks dan setinggi
+                      paling banyak 70% halaman; keterangan (boleh kosong) tercetak di bawahnya, tanpa catatan kaki.
+                      Diagram Mermaid: tulis <nama>.mmd di folder bahts, `python mesin/bahts.py diagram <folder>`, lalu
+                      «#G <nama>.png | الشكل (1): …». Berkas tidak ada, di luar folder bahts, atau bukan PNG/JPG = GAGAL
   #R teks             awal المصادر والمراجع; sesudahnya satu kitab per baris (diurutkan abjad otomatis, القرآن الكريم paling atas).
                       Wajib, kecuali «@tanpa: pustaka»; semua bagian isi harus sebelum #R (tidak boleh ada judul/#T/#H sesudahnya)
   **...**             tebal
@@ -212,7 +219,7 @@ MINIMAL = {"halaman": 25, "kitab": 0}
 HANYA_CEK = frozenset(f"minimal_{k}" for k in MINIMAL)
 # perkiraan kasar kata per halaman isi pada huruf matan 18; angka pasti hanya dari Word
 KATA_PER_HALAMAN_18 = 260
-META = frozenset("judul jenis nama nim fasl musyrif jabatan thalibah basmalah sampul tahun berkas format angka angka_ayat tanpa pustaka templat halaman_baru nomor bentuk rumuz warna model kepala_judul sifat qism".split()) | {f"minimal_{k}" for k in MINIMAL} | TIMPA.keys() | GAYA.keys()
+META = frozenset("judul jenis nama nim fasl musyrif jabatan thalibah basmalah sampul tahun berkas format angka angka_ayat tanpa pustaka malahiq templat halaman_baru nomor bentuk rumuz warna model kepala_judul sifat qism".split()) | {f"minimal_{k}" for k in MINIMAL} | TIMPA.keys() | GAYA.keys()
 # @warna: nama -> RGB. Biru tua: tetap nyaman dibaca untuk paragraf panjang dan jelas beda dari hitam serta merah lafaz matn
 WARNA = {"biru": (20, 60, 150)}
 # lambang hormat Unicode 14 (﵀-﵏ ﷾ ﷿) tidak ada di huruf cetak (Traditional Arabic, Sakkal Majalla): kotak kosong di PDF.
@@ -376,6 +383,7 @@ def periksa(folder, keluar=None):
     _cek_sampul(ctx)
     sumber = _cek_bahan_sumber(ctx, naskah)
     _cek_tata_letak(ctx)
+    _malahiq(ctx)
     profil = _format_dan_angka(ctx)
     _bait_syair(ctx)
     sidik_naskah = hashlib.sha256(naskah).hexdigest()
@@ -400,6 +408,52 @@ def _baca_naskah(folder):
             "iconv -f UTF-16 -t UTF-8 naskah.txt > naskah8.txt, lalu ganti naskah.txt dengan naskah8.txt)")
             + ", lalu ulangi `cek`.") from None
     return naskah, baris
+
+
+GAMBAR = (".png", ".jpg", ".jpeg")  # yang dimasukkan Word apa adanya; SVG di-PNG-kan dulu (diagram.py)
+
+
+def ukuran_gambar(p):
+    """(lebar, tinggi) piksel PNG/JPEG dari kepala berkasnya, atau None kalau bukan gambar yang terbaca."""
+    data = p.read_bytes()
+    if data[:8] == b"\x89PNG\r\n\x1a\n" and data[12:16] == b"IHDR":
+        return int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
+    if data[:2] == b"\xff\xd8":
+        i = 2
+        while i + 9 < len(data) and data[i] == 0xFF:
+            tanda, panjang = data[i + 1], int.from_bytes(data[i + 2:i + 4], "big")
+            if 0xC0 <= tanda <= 0xCF and tanda not in (0xC4, 0xC8, 0xCC):  # SOFn: tinggi lalu lebar
+                return int.from_bytes(data[i + 7:i + 9], "big"), int.from_bytes(data[i + 5:i + 7], "big")
+            i += 2 + panjang
+    return None
+
+
+def _baris_gambar(ctx, n, t):
+    """«#G berkas | keterangan»: gambar dari folder bahts. Isi berkasnya ikut sidik cetak (PNG baru = PDF usang)."""
+    berkas, _, ket = t.partition("|")
+    berkas, ket = berkas.strip(), ket.strip()
+    folder = ctx.folder.resolve()
+    p = (folder / berkas).resolve()
+    salah = None
+    if p.suffix.lower() not in GAMBAR:
+        salah = f"«{berkas}» bukan PNG/JPG" + ("; diagram Mermaid dijadikan PNG dulu: python mesin/bahts.py diagram "
+                                              f"<folder>, lalu «#G {p.stem}.png | …»" if p.suffix.lower() == ".mmd" else "")
+    elif not p.is_relative_to(folder):
+        salah = f"«{berkas}» di luar folder {folder.name}: salin gambarnya ke sana, lalu tulis namanya saja"
+    elif not p.is_file():
+        salah = f"«{berkas}» tidak ada di folder {folder.name}" + (
+            f"; ada {p.stem}.mmd: jalankan python mesin/bahts.py diagram <folder>" if p.with_suffix(".mmd").is_file() else "")
+    elif not ukuran_gambar(p):
+        salah = f"«{berkas}» bukan PNG/JPG yang terbaca (berkas rusak, atau isinya format lain)"
+    elif re.search(r"\[\^|<<|\{", ket):
+        salah = "keterangan gambar tidak boleh memuat catatan kaki, bukti, atau tanda {Q:/{H: — tulis rujukannya di paragraf sesudahnya"
+    if salah:  # barisnya tetap isi bagian itu (bukan «bagian kosong»); GAGAL menghentikan rakit
+        ctx.galat.append(f"baris {n}: #G {salah}")
+        ctx.blok.append({"k": "P", "runs": [], "n": n})
+        return
+    w, h = ukuran_gambar(p)
+    ctx.blok.append({"k": "G", "berkas": str(p), "rasio": h / w, "sha256": hashlib.sha256(p.read_bytes()).hexdigest(),
+                     "runs": [{"t": ket}] if ket else [], "n": n})
 
 
 def _baris_tabel(ctx, n, t):
@@ -441,9 +495,11 @@ def _urai_baris(ctx, baris):
             blok.append({"k": "H", "runs": [], "n": n})
         elif b.startswith("#"):
             k, _, t = b[1:].partition(" ")
-            if k not in ("K", "F", "B", "M", "S", "R", "T", "V", "L", "J") or not t.strip():
-                galat.append(f"baris {n}: judul harus «#K/#F/#B/#M/#S/#R/#T/#V/#L/#J teks» :: {b[:40]}"); continue
-            if k == "J":  # baris tabel: sel dipisah « | »; baris #J berturut-turut = satu tabel, dicetak rakit.ps1
+            if k not in ("K", "F", "B", "M", "S", "R", "T", "V", "L", "J", "G") or not t.strip():
+                galat.append(f"baris {n}: judul harus «#K/#F/#B/#M/#S/#R/#T/#V/#L/#J/#G teks» :: {b[:40]}"); continue
+            if k == "G":  # gambar: berkas di folder bahts + keterangan, dicetak rakit.ps1
+                _baris_gambar(ctx, n, t)
+            elif k == "J":  # baris tabel: sel dipisah « | »; baris #J berturut-turut = satu tabel, dicetak rakit.ps1
                 _baris_tabel(ctx, n, t)
             elif k == "L":  # tercetak apa adanya, kiri ke kanan; tanda naskah tidak diurai
                 if re.search(r"\[\^|<<|\{", t):
@@ -721,16 +777,19 @@ def perkiraan_halaman(d):
             fn = sum(kata(d["catatan"][r["fn"]]["runs"]) for r in b["runs"] if r.get("fn") is not None)
             # tabel #J: sel sempit dan bergaris, jadi satu kata makan tempat lebih banyak daripada di paragraf
             bagian[-1] += kata(b["runs"]) * (1.4 if b["k"] == "J" else 1) + fn * (fmt["catatan"] / fmt["matan"]) ** 2
+            if b["k"] == "G":  # gambar selebar teks (lebar:tinggi bidang teks ±0,68), paling tinggi 70% halaman
+                bagian[-1] += per_hal * min(b["rasio"] * 0.68, 0.7)
         return sum(max(1, math.ceil(x / per_hal)) for x in bagian)
 
-    blok = d["blok"]
-    blok = blok[:next((i for i, b in enumerate(blok) if b["k"] == "R"), len(blok))]
+    i_r = next((i for i, b in enumerate(d["blok"]) if b["k"] == "R"), len(d["blok"]))
+    blok, malahiq = d["blok"][:i_r], d["blok"][i_r + 1:]  # @malahiq: akhir = sesudah #R
     # الإهداء dst. sebelum المقدمة bukan halaman isi, dengan atau tanpa @nomor (sama dengan HALAMAN_ISI di rakit.ps1)
     mula = next((i for i, b in enumerate(blok) if b.get("judul") == "المقدمة"), 0)
     isi = halaman(blok[mula:])
     tanpa = set(re.split(r"[,، ]+", meta.get("tanpa", "")))
     kitab = meta.get("bentuk") == "kitab"
-    rinci = {"sampul": 0 if kitab else 1 + (meta.get("basmalah") == "ya"), "sebelum المقدمة": halaman(blok[:mula]) if mula else 0}
+    rinci = {"sampul": 0 if kitab else 1 + (meta.get("basmalah") == "ya"), "sebelum المقدمة": halaman(blok[:mula]) if mula else 0,
+             "الملاحق": halaman(malahiq) if malahiq else 0}
     judul = sum(b["k"] in ("K", "F", "B", "M") for b in blok)  # baris فهرس الموضوعات
     for nama, n, per in (("المصادر", len(d["pustaka"]) if "pustaka" not in tanpa and (not kitab or d["pustaka"]) else 0, 12),
                          ("فهرس الآيات", 0 if "ayat" in tanpa else len(d["ayat"]), 26),
@@ -887,6 +946,27 @@ def _format_dan_angka(ctx):
     return profil
 
 
+MALAHIQ = re.compile(r"(ال)?ملاحق|ملحق")  # awal judul #K bagian lampiran
+
+
+def _malahiq(ctx):
+    """@malahiq: akhir = blok dari «#K الملاحق» sampai #R dipindah ke sesudah blok #R: rakit.ps1 mencetaknya sesudah
+    المصادر والمراجع dan sebelum فهرس (urutan خطة yang menaruh الملاحق sesudah قائمة المصادر)."""
+    meta, blok, galat, di = ctx.meta, ctx.blok, ctx.galat, ctx.di
+    if "malahiq" not in meta:
+        return
+    if meta["malahiq"] != "akhir":
+        galat.append(di("@malahiq") + f"@malahiq: «{meta['malahiq']}» tidak dikenal (yang ada: akhir)"); return
+    if meta.get("pustaka") == "akhir":
+        galat.append(di("@malahiq") + "@malahiq: akhir tidak bisa bersama @pustaka: akhir (المصادر sesudah فهرس): pilih salah satu"); return
+    awal = next((i for i, b in enumerate(blok) if b["k"] == "K" and MALAHIQ.match(b["judul"])), None)
+    i_r = next((i for i, b in enumerate(blok) if b["k"] == "R"), None)
+    if awal is None:
+        galat.append(di("@malahiq") + "@malahiq: akhir memerlukan «#K الملاحق» (atau «#K ملحق…») sebelum #R"); return
+    if i_r is not None:
+        blok[:] = blok[:awal] + [blok[i_r]] + blok[awal:i_r] + blok[i_r + 1:]
+
+
 def _bait_syair(ctx):
     """Bait syair #V: tanda tulis jadi jarak antarparuh dan pindah baris."""
     blok = ctx.blok
@@ -910,7 +990,8 @@ def sidik_cetak(d):
     perlu dirakit ulang. Nomor baris (`n`) hanya untuk pesan `cek`; rakit.ps1 tidak membacanya."""
     isi = {k: v for k, v in d.items() if k != "naskah_sha256"}
     isi["meta"] = {k: v for k, v in d["meta"].items() if k not in HANYA_CEK}
-    isi["blok"] = [{k: v for k, v in b.items() if k != "n"} for b in d["blok"]]
+    # gambar #G: yang dicetak isi berkasnya (sha256), bukan letak foldernya di komputer ini
+    isi["blok"] = [{k: v for k, v in b.items() if k not in ("n", "berkas")} for b in d["blok"]]
     return hashlib.sha256(json.dumps(isi, ensure_ascii=False, sort_keys=True).encode("utf8")).hexdigest()
 
 

@@ -588,7 +588,11 @@ try {
         if (-not $nx -or $nx.k -in 'K', 'F', 'B', 'M', 'H', 'R') { return $false }   # sesudahnya halaman/judul baru atau akhir isi
         return -not ((Pengantar $nx) -and (Pengantar $DATA.blok[$j + 2]))
     }
-    for ($i = 0; $i -lt $DATA.blok.Count; $i++) {
+    # Blok isi ditulis lewat satu scriptblock yang di-dot-source (lingkup yang sama): sekali dari awal sampai #R, dan
+    # (@malahiq: akhir) sekali lagi untuk blok sesudah #R, sesudah المصادر والمراجع ditulis
+    $mulaiBlok = 0
+    $tulisBlok = {
+    for ($i = $mulaiBlok; $i -lt $DATA.blok.Count; $i++) {
         $blk = $DATA.blok[$i]
         if ($blk.k -eq 'R') { $iR = $i; break }
         if ($blk.k -eq 'H') { $pbBerikut = -not $pertama; continue }   # #H: blok sesudahnya mulai halaman baru
@@ -654,6 +658,25 @@ try {
             }
             $doc.Range($tbl.Range.End, $tbl.Range.End).Select()
         }
+        elseif ($blk.k -eq 'G') {                         # gambar: di tengah, paling lebar = lebar teks, paling tinggi 70% halaman
+            Para 1 6 0
+            HalamanBaru
+            $ps = $sec.PageSetup
+            $lebarTeks = $ps.PageWidth - $ps.LeftMargin - $ps.RightMargin
+            $tinggiMaks = 0.7 * ($ps.PageHeight - $ps.TopMargin - $ps.BottomMargin)
+            $shp = $sel.InlineShapes.AddPicture($blk.berkas, $false, $true)
+            $shp.LockAspectRatio = -1
+            $s = [Math]::Min(1.0, [Math]::Min($lebarTeks / $shp.Width, $tinggiMaks / $shp.Height))
+            $shp.Width = [single]($shp.Width * $s)          # tinggi ikut (rasio dikunci)
+            $sel.ParagraphFormat.KeepWithNext = -1           # gambar tidak terpisah dari keterangannya
+            $sel.TypeParagraph()
+            if (@($blk.runs).Count) {
+                Para 1 0 0
+                Runs $blk.runs $uCatatan $true $false
+                $sel.ParagraphFormat.SpaceAfter = 6
+                $sel.TypeParagraph()
+            }
+        }
         elseif ($blk.k -eq 'V') {                         # bait syair: di tengah, tanpa awal alinea
             Para 1 2 0
             HalamanBaru
@@ -699,6 +722,8 @@ try {
             $sel.TypeParagraph()
         }
     }
+    }
+    . $tulisBlok
 
     function Sel-Akhir { [void]$sel.EndKey(6) }
     # judul المصادر/فهرس: yang pertama sesudah الخاتمة selalu halaman baru; @fihris: sambung = sisanya menyambung
@@ -764,6 +789,11 @@ try {
     Sel-Akhir
     }
     if ($adaPu -and -not $PUSTAKA_AKHIR) { Tulis-Pustaka 'المصادر والمراجع' }
+    if ($iR -ge 0 -and $iR + 1 -lt $DATA.blok.Count) {   # @malahiq: akhir — blok sesudah #R = الملاحق, sesudah المصادر, sebelum فهرس
+        $mulaiBlok = $iR + 1; $pertama = $false; $iR = -1
+        . $tulisBlok
+        $script:fihrisPertama = $true                    # فهرس pertama sesudah الملاحق mulai halaman baru
+    }
 
     # ---------- 4. الفهارس ----------
     if ($adaAy) {

@@ -22,6 +22,8 @@ Bahts (tiap bahts = satu folder berisi naskah.txt):
                                dan _arsip/rakit-*. Folder bahts tidak disentuh; untuk sesi baru yang tidak tahu bahts
                                ini sampai mana
   tanda                        daftar tanda yang dipakai di naskah.txt
+  diagram <folder>             tiap diagram Mermaid <nama>.mmd di folder itu jadi <nama>.png (butuh Node.js + Chrome/Edge),
+                               lalu dicetak dengan «#G <nama>.png | keterangan»; `cek` dan `rakit` hanya memakai PNG-nya
 
 Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
   kitab                        daftar kitab yang sudah diunduh
@@ -55,7 +57,7 @@ Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex dan DOAJ
 import difflib, hashlib, json, math, os, re, shutil, subprocess, sys, sysconfig, tempfile, time, urllib.error, zipfile
 from pathlib import Path
 
-import dirasat, hadits, norma, shamela  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
+import diagram, dirasat, hadits, norma, shamela  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
 from shamela import perintah
 from berkas import FolderKerja, PemulihanGagal, bahan, kosongkan_penulis, kunci, terbitkan
 
@@ -171,6 +173,9 @@ def periksa():
             profil = [k for k, p in FORMAT.items() if p["huruf"] == h]
             baris(huruf_ada(h), f"huruf {h}" + ("" if h == wajib else f" (hanya untuk @format {', '.join(profil)})"),
                   HURUF_SARAN, untuk_cek=False, untuk_rakit=h == wajib)
+    baris(bool(shutil.which("npx") and diagram.browser()), "Node.js + Chrome/Edge (hanya untuk `diagram`: Mermaid jadi PNG)",
+          "pasang Node.js LTS (Windows: winget install OpenJS.NodeJS.LTS) dan Google Chrome atau Microsoft Edge; "
+          "tanpa keduanya diagram tetap bisa dicetak dari PNG yang dibuat di tempat lain", untuk_cek=False, untuk_rakit=False)
     print(f"\nMenulis dan `cek`: {'SIAP' if siap_cek else 'BELUM'}.  `rakit` (Word + PDF): {'SIAP' if siap_rakit else 'BELUM'}.")
     print("WSL tidak diperlukan. Connector shamela: wajib; connector lain ikut dipasang lewat agent (AGENTS.md «Pemakai baru» langkah 4-5).")
     sys.exit(0 if siap_cek else 1)
@@ -663,6 +668,7 @@ PERINTAH = {  # nama: (jumlah argumen minimal, maksimal (None = diperiksa pemang
     "bukti": (1, 2, perintah_bukti),
     "tahap": (1, 1, perintah_tahap),
     "tanda": (0, 0, lambda a: print(tanda())),
+    "diagram": (1, 1, lambda a: sys.exit(1 if diagram.render(folder_bahts(a[0])) else 0)),
     "kitab": (0, 0, lambda a: shamela.daftar()),
     "katalog": (1, 1, lambda a: ketemu(shamela.katalog(pola(a[0])))),
     "temukan": (1, None, lambda a: ketemu(shamela.temukan(*bendera_temukan(a[0], a[1:])))),
