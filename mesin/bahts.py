@@ -3,7 +3,7 @@
 
 Sekali sesudah mengunduh repo:
   periksa                      apa yang sudah siap di komputer ini, dan perintah untuk tiap yang belum
-  siapkan                      unduh katalog kitab, tabel layanan (tafsir, takhrij) + font mushaf, lalu pasang
+  siapkan                      unduh katalog kitab, tabel layanan (tafsir, takhrij, rawi) + font mushaf, lalu pasang
                                font itu (Windows)
 
 Bahts (tiap bahts = satu folder berisi naskah.txt):
@@ -52,6 +52,10 @@ Layanan Shamela (penunjuk jalan tanpa internet, dari dataset yang sama dengan `a
   takhrij <id> <juz> <hal>     hadits di halaman itu ada juga di mana: 8 kitab (البخاري، مسلم، أبو داود، الترمذي، النسائي،
                                الموطأ، الطيالسي، ابن الجارود) + juz/halaman dan nomor haditsnya; edisi lain kitab itu
                                (mis. مسلم 1727) lewat nomor hadits, dengan edisi yang dipakai Shamela (mis. 711) sebagai jembatan
+  rawi <id> <juz> <hal>        sanad tiap hadits di halaman itu, berurutan dari pengarang (layanan sanad Shamela di 8 kitab
+                               hadits; edisi lain lewat jembatan nomor hadits) + rutbah ringkas: ابن حجر، الذهبي، wafat
+  rawi <nomor> | rawi "<nama>" ucapan جرح وتعديل rawi itu + tempat lafaznya di edisi lokal kitab rijal sumbernya (dicari ulang,
+                               bukan juz/halaman tabel); dengan nama: cari nomor rawinya
 
 Takhrij (penunjuk jalan, «المنصة الحديثية», butuh internet):
   hadits "<طرف>" [maks]        tempat hadits di 12 kitab hadits + hukum ulama; tetap dibaca di kitabnya sendiri. Kitab yang
@@ -166,7 +170,7 @@ def periksa():
     baris(bool(importlib.util.find_spec("rapidfuzz")), "pustaka Python rapidfuzz (hanya untuk «Paling mirip» di `cek --jejak`)",
           pip, untuk_cek=False, untuk_rakit=False)
     baris((shamela.ROOT / shamela.KATALOG).exists(), "katalog kitab", perintah("siapkan"))
-    baris(layanan.siap(), "tabel layanan Shamela (hanya untuk `tafsir` dan `takhrij`)", perintah("siapkan"),
+    baris(layanan.siap(), "tabel layanan Shamela (hanya untuk `tafsir`, `takhrij`, `rawi`)", perintah("siapkan"),
           untuk_cek=False, untuk_rakit=False)
     baris(os.name == "nt", "Windows", "`rakit` hanya jalan di Windows; di sini mesin berhenti di `cek`", untuk_cek=False)
     if os.name == "nt":
@@ -694,6 +698,8 @@ PERINTAH = {  # nama: (jumlah argumen minimal, maksimal (None = diperiksa pemang
     "scan": (3, 3, lambda a: ketemu(shamela.scan(*a))),
     "tafsir": (1, 1, lambda a: ketemu(layanan.tafsir(a[0]))),
     "takhrij": (3, 3, lambda a: ketemu(layanan.takhrij(*a))),
+    "rawi": (1, 3, lambda a: ketemu(layanan.rawi(*a)) if len(a) != 2 else sys.exit(
+        "Perintah «rawi»: tulis <id> <juz> <hal>, satu nomor rawi, atau satu nama dalam tanda petik.")),
     "hadits": (1, 2, lambda a: ketemu(hadits.cari(a[0], *(angka(x, "maks") for x in a[1:])))),
     "dirasat": (1, 3, lambda a: dirasat.cari(a[0], *(angka(x, "maks") for x in a[1:2]), *a[2:])),
     "dirasat-pdf": (2, 2, lambda a: dirasat.pdf(a[0], folder_bahts(a[1]))),
