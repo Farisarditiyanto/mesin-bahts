@@ -52,8 +52,8 @@ Layanan Shamela (penunjuk jalan tanpa internet, dari dataset yang sama dengan `a
   takhrij <id> <juz> <hal>     hadits di halaman itu ada juga di mana: 8 kitab (البخاري، مسلم، أبو داود، الترمذي، النسائي،
                                الموطأ، الطيالسي، ابن الجارود) + juz/halaman dan nomor haditsnya; edisi lain kitab itu
                                (mis. مسلم 1727) lewat nomor hadits, dengan edisi yang dipakai Shamela (mis. 711) sebagai jembatan
-  rawi <id> <juz> <hal>        rawi sanad di halaman itu (ditautkan Shamela di 8 kitab hadits; edisi lain lewat jembatan
-                               nomor hadits) + rutbah ringkas: nomor, nama, ابن حجر، الذهبي، wafat
+  rawi <id> <juz> <hal>        sanad tiap hadits di halaman itu, berurutan dari pengarang (layanan sanad Shamela di 8 kitab
+                               hadits; edisi lain lewat jembatan nomor hadits) + rutbah ringkas: ابن حجر، الذهبي، wafat
   rawi <nomor> | rawi "<nama>" ucapan جرح وتعديل rawi itu + tempat lafaznya di edisi lokal kitab rijal sumbernya (dicari ulang,
                                bukan juz/halaman tabel); dengan nama: cari nomor rawinya
 

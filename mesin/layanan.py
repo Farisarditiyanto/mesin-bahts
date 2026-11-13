@@ -316,6 +316,7 @@ RINGKAS = ("الرتبة عند ابن حجر", "الرتبة عند الذهب�
 KUTIPAN_MIN = 12  # huruf `padat`: ucapan sependek «ثقة» ada di ribuan tempat, jadi tempatnya tidak dicari
 RAWI_MAKS = 20  # hasil `rawi "<nama>"` yang dicetak
 KEMUNCULAN_MAKS = 200  # kemunculan satu ucapan yang dihitung tiap kitab
+TARJAMAH_JARAK = 4000  # huruf: nama rawi harus terbaca sejauh ini sebelum ucapannya; lebih jauh = bisa tarjamah rawi lain
 JANGKAR_JARAK = 6000  # huruf: ucapan umum dianggap milik tarjamah ini kalau sedekat ini dengan ucapannya yang khas
 
 
@@ -341,13 +342,20 @@ def _ringkasan(r):
     return dict(x for x in _json(r["biography_text"], "summary") if isinstance(x, list) and len(x) == 2)
 
 
-def _baris_rawi(n):
+def _bersih(nama):
+    return " ".join((nama or "").replace("\u200c", "").split())
+
+
+def _nama_rawi(n):
     r = _rawi_semua().get(n)
-    if r is None:
-        return f"  #{n}: tidak ada di tabel rawi Shamela"
+    return f"{_bersih(r['short_name'])} (#{n})" if r else f"#{n}"
+
+
+def _baris_rawi(n):
+    r = _rawi_semua()[n]
     ring = _ringkasan(r)
     isi = " | ".join(f"{k}: {ring[k]}" for k in RINGKAS if ring.get(k))
-    return f"  #{n} {(r['short_name'] or '').strip(chr(0x200c))}" + (f" — {isi}" if isi else "")
+    return f"  #{n} {_bersih(r['short_name'])}" + (f" — {isi}" if isi else "")
 
 
 @functools.cache
@@ -387,7 +395,41 @@ def _kemunculan(sid, q):
     return hasil
 
 
-def _letak_ucapan(daftar):
+def _nama_inti(r):
+    """Nama inti rawi untuk mengenali tarjamahnya: kata sebelum «بن» pertama, «بن», dan nama ayahnya («الرحمن بن حميد»;
+    kun-yah di depan tidak ikut karena judul tarjamah sering tanpa kun-yah), `padat`. Tanpa «بن»: seluruh nama pendek."""
+    kata = _bersih(r["short_name"]).replace("،", " ").split()
+    if "بن" in kata[1:]:
+        k = kata.index("بن", 1)
+        kata = kata[k - 1:k + 2 + (kata[k + 1:k + 2] == ["عبد"])]
+    return norma.padat(" ".join(kata))
+
+
+@functools.cache
+def _judul_padat(e):
+    return [norma.padat(t["title_text"]) for t in shamela._toc(e)[0]]
+
+
+def _di_tarjamah(e, k, j, inti):
+    """Letak (k, j) kitab e berada di tarjamah rawi ini: judul daftar isi yang menaunginya memuat nama intinya. Kitab
+    yang daftar isinya tidak memuat nama rawi ini (judul per bab/huruf), dan حاشية: nama inti harus terbaca
+    TARJAMAH_JARAK huruf sebelumnya."""
+    import bisect
+    if not inti:
+        return False
+    _, _, teks, (_, s_, awal, rek) = _rangkaian(e)[k]
+    if s_ == 0 and any(inti in t for t in _judul_padat(e)):  # judul daftar isinya per tarjamah, bukan per bab
+        i = bisect.bisect_right(awal, j) - 1
+        p = shamela.rekaman_ke(e, rek[i])
+        if shamela._toc(e)[0] and p.get("page_id") is not None:
+            calon = shamela._judul_calon(p | {"page_id": int(p["page_id"])}, shamela._toc(e)[0],
+                                         (j - awal[i], j - awal[i] + 1), None, "body")
+            if calon[0] is not None:  # judul yang mungkin menaungi lebih dari satu = ragu: semuanya harus tarjamah rawi ini
+                return all(t is not None and inti in norma.padat(t["title_text"]) for t in calon)
+    return norma.bait(inti) in teks[max(0, j - TARJAMAH_JARAK):j]
+
+
+def _letak_ucapan(daftar, inti=""):
     """Baris letak tiap ucapan [(teks, sumber)] satu rawi, dicari lafaznya di edisi lokal kitab sumbernya (juz/halaman di
     tabel sering dari edisi lain). Ucapan yang lafaznya muncul sekali di kitab itu = jangkar tarjamah rawi ini; ucapan
     umum («قال أبو داود: ثقة») yang muncul berkali-kali hanya ditunjuk kalau satu kemunculannya dekat jangkar."""
@@ -405,17 +447,18 @@ def _letak_ucapan(daftar):
                 except (OSError, EOFError, ValueError, KeyError, IndexError):
                     continue
         for e, m in ada.items():
-            if len(m) == 1:
+            if len(m) == 1 and _di_tarjamah(e, *m[0], inti):
                 jangkar.setdefault(e, []).append(m[0])
         letak.append((edisi, q, ada))
     out = []
     for edisi, q, ada in letak:
         pilih = None
         for e, m in ada.items():
-            if len(m) == 1:
+            if len(m) == 1 and m[0] in jangkar.get(e, ()):
                 pilih = e, m[0]
                 break
-            dekat = [(abs(j - a), (k, j)) for k, j in m for kk, a in jangkar.get(e, ()) if kk == k and abs(j - a) <= JANGKAR_JARAK]
+            dekat = [(abs(j - a), (k, j)) for k, j in m for kk, a in jangkar.get(e, ())
+                     if kk == k and abs(j - a) <= JANGKAR_JARAK and _di_tarjamah(e, k, j, inti)]
             if dekat:
                 pilih = e, min(dekat)[1]
                 break
@@ -427,6 +470,9 @@ def _letak_ucapan(daftar):
             juz = "-" if juz is None else juz
             out.append(f"terbaca di [{e}] {_katalog()[e]['title_ar']} {shamela.letak(juz, (a, z))}{tanda} -> "
                        + _perintah_halaman(e, juz, a, z if z is not None else a))
+        elif ada and all(len(m) == 1 for m in ada.values()):
+            out.append(f"lafaznya terbaca di [{', '.join(map(str, ada))}], tetapi nama rawi ini tidak terbaca di tarjamah "
+                       "sebelumnya (mungkin tarjamah rawi lain): buka tarjamahnya sendiri")
         elif ada:
             out.append(f"lafaz umum ini muncul di banyak tarjamah [{', '.join(map(str, ada))}] dan tidak ada ucapan lain rawi ini "
                        "di dekatnya: buka tarjamahnya sendiri")
@@ -442,13 +488,24 @@ def _letak_ucapan(daftar):
     return out
 
 
+def _sanad(p):
+    """[(kunci hadits Shamela, [nomor rawi dari pengarang ke sahabi])] rekaman p, dari layanan «esnad» Shamela
+    («084 s 3823 4361 … 5495»: kunci, lalu rawi dari sahabi sampai pengarang; 0 = rawi tanpa nomor)."""
+    hasil = []
+    for x in _json(p.get("services_raw"), "esnad"):
+        b = str(x).split()
+        if len(b) > 2 and b[0].isdigit() and b[1] == "s":
+            hasil.append((int(b[0]), [int(n) for n in reversed(b[2:]) if n.isdigit() and int(n)]))
+    return hasil
+
+
 def _rawi_halaman(sid, juz, hal):
-    """Nomor rawi yang ditautkan Shamela di halaman itu, urut kemunculan. Edisi tanpa tautan (mis. صحيح مسلم 1727)
-    dijembatani lewat nomor hadits ke edisi pilihan Shamela yang sudah diunduh, seperti `takhrij`."""
+    """(sanad [(kunci, [nomor rawi])], rekaman, jembatan) di halaman itu. Sanad dari layanan «esnad» Shamela; edisi tanpa
+    layanan itu (mis. صحيح مسلم 1727) dijembatani lewat nomor hadits ke edisi pilihan Shamela yang sudah diunduh."""
     rekaman = shamela.rekaman_halaman(sid, juz, hal)
-    nomor = [int(n) for _, bagian in rekaman for b in bagian for n in TAUTAN_RAWI.findall(b)]
+    sanad = [x for p, _ in rekaman for x in _sanad(p)]
     jembatan = None
-    if not nomor and rekaman:
+    if not sanad and rekaman:
         tabel = [b for b in _tabel_kitab("hadits") if _karya(b) == _karya(sid) and b != sid and b in set(shamela.punya())]
         if tabel:
             jembatan = tabel[0]
@@ -456,8 +513,8 @@ def _rawi_halaman(sid, juz, hal):
                 i = shamela.rekaman_shamela(sid).get(int(p["shamela_page_id"]))
                 for _, j, cocok in _seberang(sid, i, jembatan) if i is not None else ():
                     if cocok:
-                        nomor += [int(n) for n in TAUTAN_RAWI.findall(shamela.rekaman_ke(jembatan, j).get("body") or "")]
-    return list(dict.fromkeys(nomor)), rekaman, jembatan
+                        sanad += _sanad(shamela.rekaman_ke(jembatan, j))
+    return list(dict.fromkeys((k, tuple(r)) for k, r in sanad)), rekaman, jembatan
 
 
 def rawi(*a):
@@ -469,16 +526,21 @@ def rawi(*a):
         sid = int(shamela._folder(a[0]).name)
         shamela.info(sid)
         juz, hal = angka(a[1]), angka(a[2])
-        nomor, rekaman, jembatan = _rawi_halaman(sid, juz, hal)
+        sanad, rekaman, jembatan = _rawi_halaman(sid, juz, hal)
         if not rekaman:
             raise SystemExit(f"[{sid}] TIDAK ADA halaman {juz}/{hal}. Yang ada: {shamela.daftar_juz(sid)}")
+        semua_ = _rawi_semua()
+        nomor = list(dict.fromkeys(n for _, r in sanad for n in r if n in semua_))
         if not nomor:
             tabel = [b for b in _tabel_kitab("hadits") if _karya(b) == _karya(sid)]
-            print(f"[{sid}] {juz}/{hal}: tidak ada rawi yang ditautkan Shamela di halaman ini."
+            print(f"[{sid}] {juz}/{hal}: tidak ada sanad dari layanan Shamela di halaman ini."
                   + (f" Edisi yang bertautan: {perintah(f'ambil {tabel[0]}')} (jembatan nomor hadits)." if tabel and tabel[0] not in set(shamela.punya()) else ""))
             return 0
-        print(f"[{sid}] {juz}/{hal}: {len(nomor)} rawi (urut kemunculan"
-              + (f"; lewat edisi [{jembatan}]" if jembatan else "") + "). Rincian جرح وتعديل: " + perintah("rawi <nomor>"))
+        print(f"[{sid}] {juz}/{hal}: {len(sanad)} sanad, {len(nomor)} rawi (layanan sanad Shamela"
+              + (f", lewat edisi [{jembatan}]" if jembatan else "") + "). Rincian جرح وتعديل: " + perintah("rawi <nomor>"))
+        for k, r in sanad:
+            print(f"  hadits Shamela #{k}: " + " > ".join(_nama_rawi(n) for n in r))
+        print("rawi:")
         print("\n".join(_baris_rawi(n) for n in nomor))
         print("Penunjuk saja: rutbah dan ucapan ulama dikutip dari kitab rijal yang dibaca sendiri, bukan dari baris ini.")
         return len(nomor)
@@ -487,14 +549,14 @@ def rawi(*a):
         r = _rawi_semua().get(int(x))
         if r is None:
             raise SystemExit(f"Rawi #{x} tidak ada di tabel rawi Shamela; cari nomornya: " + perintah('rawi "<nama>"'))
-        print(f"#{x} {(r['long_name'] or r['short_name'] or '').strip(chr(0x200c))}")
+        print(f"#{x} {_bersih(r['long_name'] or r['short_name'])}")
         for k, v in _ringkasan(r).items():
             print(f"  {k}: {v}")
         ucapan = _json(r["criticism_text"], "garh")
         if not ucapan:
             print("  (tabel ini tidak memuat ucapan جرح وتعديل untuk rawi ini)")
         semua_ = [(teks, sumber) for _, daftar in ucapan for teks, sumber, *_ in daftar]
-        letak = iter(_letak_ucapan(semua_))
+        letak = iter(_letak_ucapan(semua_, _nama_inti(r)))
         for ulama, daftar in ucapan:
             print(f"\n  {ulama}:")
             for teks, sumber, *_ in daftar:
