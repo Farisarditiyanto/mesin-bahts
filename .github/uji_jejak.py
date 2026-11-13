@@ -15,6 +15,7 @@ Yang diuji:
 - `cek contoh` tetap lolos (GAGAL 0), supaya penunjuk ini tidak mengubah putusan bukti;
 - `cek --jejak` tanpa folder = kurang argumen, bukan nama folder.
 - kutipan yang satu hurufnya meleset ditunjuk ke tempat yang paling mirip, juga di kitab yang dirujuk;
+- kutipan yang tiap potongan 14 hurufnya kena salah ketik tetap ditunjuk di kitab yang dirujuk (rapidfuzz, tanpa benih);
 - regresi audit: bagian pendek di samping ayat, perintah saran pada folder berspasi, argumen salah,
   bendera di depan folder, jumlah kitab yang dicari, kutipan berawalan sama, sumber kitab lain yang rusak,
   kutipan lintas halaman, batas sambungan halaman, dan folder bergaris miring.
@@ -300,6 +301,13 @@ try:
         tulis(folder, "<<2348|-|5>>")
         assert "Paling mirip" not in jalan(folder, "--jejak")[1], "yang ketemu persis tidak butuh petunjuk mirip"
 
+    def salah_tiap_benih():
+        # Tiap potongan MIRIP_BENIH huruf kena salah ketik: tidak ada titik mulai untuk difflib, rapidfuzz tetap menemukannya.
+        salah = KUTIPAN.replace("الربوبية", "الرتوبية").replace("إفراد", "إفزاد").replace("والملك", "والمكك")
+        tulis(folder, "<<11223|-|3>>", salah)
+        kode, keluar = jalan(folder, "--jejak")
+        assert kode == 1 and "Paling mirip: kitab 11223 ج- ص5" in keluar, keluar
+
     def folder_bergaris_miring():
         # Tab di terminal Windows menulis «folder\»: di dalam tanda petik \" menelan penutupnya.
         tulis(folder, "<<2348|-|5>>")
@@ -316,6 +324,7 @@ try:
                      ("rentang menurun di pesan cek", rentang_menurun_di_pesan),
                      ("batas sambungan halaman", batas_sambungan),
                      ("lafaz yang sedikit berbeda ditunjuk tempatnya", lafaz_mirip),
+                     ("salah ketik di tiap potongan benih tetap ditunjuk", salah_tiap_benih),
                      ("perintah saran pada folder bergaris miring", folder_bergaris_miring),
                      ("bagian pendek di samping ayat", potongan_pendek),
                      ("perintah saran bisa ditempel pada folder berspasi", petunjuk_spasi),

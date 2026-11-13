@@ -9,8 +9,12 @@
   (654), dan hadits di kitab lain ditunjuk balik ke 1726; tanpa jembatan ini agent disuruh mengunduh edisi kedua;
 - صحيح مسلم 1727↔711 dijembatani lewat nomor global berkurung «(982)», bukan nomor urut dalam كتاب «9 -» yang menunjuk
   hadits lain (hadits Jibril, 1727 ج1 ص39);
+- `rawi` mencetak rawi bertautan di halaman (1681), juga lewat jembatan edisi (1727→711); ucapan جرح وتعديل yang lafaznya
+  umum («سمعت أبي يقول: أدركته ولم أكتب عنه», 7 tempat di الجرح والتعديل 2170) ditunjuk di tarjamah rawi itu (ج2 ص98),
+  bukan di kemunculan pertamanya; ucapan yang lafaznya sekali muncul tetapi di tarjamah rawi lain (عبد الرحمن بن حميد
+  #3281 → 1278 ج13 ص637 tarjamah النضر بن إسماعيل) tidak ditunjuk; sanad dicetak berurutan dari pengarang;
 - `tafsir 2:219` menunjuk الطبري (7798) sebelum زاد المسير (23619) sebelum ابن كثير (1503); ayat yang tidak ada ditolak.
-Kitabnya 1681, 1726, 654, 1727, 711 dari baris `ambil` tes.yml; tabel layanan dari `siapkan`."""
+Kitabnya 1681, 1726, 654, 1727, 711, 2170, 1278 dari baris `ambil` tes.yml; tabel layanan dari `siapkan`."""
 import atexit, json, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
@@ -20,7 +24,7 @@ SEMENTARA = tempfile.TemporaryDirectory(prefix="bahts-layanan-")
 atexit.register(SEMENTARA.cleanup)
 AKAR = Path(SEMENTARA.name)
 shutil.copytree(REPO / "mesin", AKAR / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__"))
-for sid in ("_meta", "1681", "1726", "654", "1727", "711"):
+for sid in ("_meta", "1681", "1726", "654", "1727", "711", "2170", "1278"):
     shutil.copytree(REPO / "kitab" / sid, AKAR / "kitab" / sid)
 
 
@@ -58,6 +62,26 @@ if "رقم 982 -> [711]" not in out or "edisi lokal [1727] صحيح مسلم - �
     gagal.append(f"takhrij 1727 2 676: hadits 982 tidak dijembatani ke 711 dan balik ke 1727 (kode {kode}: {err[-200:]})")
 if "ج1 ص39" in out:
     gagal.append("takhrij 1727 2 676: nomor urut dalam كتاب (9) dipakai sebagai nomor hadits -> 1727 ج1 ص39 (hadits Jibril)")
+
+kode, out, err = jalankan("rawi", "1681", "1", "31")
+if kode or "#84: البخاري (#5495) > إسماعيل بن أبي أويس (#676) > مالك بن أنس بن مالك (#5361)" not in out:
+    gagal.append(f"rawi 1681 1 31: sanad hadits 100 tidak berurutan dari البخاري (kode {kode}: {err[-200:]})")
+if kode or "#676 إسماعيل بن أبي أويس" not in out:
+    gagal.append(f"rawi 1681 1 31: إسماعيل بن أبي أويس (#676) tidak dicetak (kode {kode}: {err[-200:]})")
+kode, out, err = jalankan("rawi", "1727", "2", "676")
+if kode or "lewat edisi [711]" not in out or "#5361 مالك بن أنس" not in out:
+    gagal.append(f"rawi 1727 2 676: jembatan ke 711 tidak mencetak مالك بن أنس (kode {kode}: {err[-200:]})")
+kode, out, err = jalankan("rawi", "46")
+blok = out.split("«سمعت أبي يقول: أدركته ولم أكتب عنه»", 1)[-1].splitlines()[:2]
+if kode or "[2170]" not in "".join(blok) or "ج2 ص98" not in "".join(blok):
+    gagal.append(f"rawi 46: ucapan umum tidak ditunjuk di tarjamah إبراهيم بن دينار (2170 ج2 ص98): {blok}")
+kode, out, err = jalankan("rawi", "3281")
+blok = out.split("«وقال العجلي: كوفي ثقة»", 1)[-1].splitlines()[:2]
+if kode or "ج13 ص637" in "".join(blok):
+    gagal.append(f"rawi 3281: ucapan ditunjuk di tarjamah rawi lain (1278 ج13 ص637): {blok}")
+kode, out, err = jalankan("rawi", "إبراهيم بن دينار")
+if kode or "#46 " not in out:
+    gagal.append(f"rawi «إبراهيم بن دينار»: nomor 46 tidak ditemukan (kode {kode})")
 
 kode, out, err = jalankan("tafsir", "2:219")
 urutan = [out.find(f"[{s}]") for s in (7798, 23619, 1503)]
