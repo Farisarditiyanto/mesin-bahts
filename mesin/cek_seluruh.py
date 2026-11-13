@@ -102,7 +102,7 @@ def periksa_riset(folder, baris, perhatian):
     cara = {"takhrij8": ("hadits", "jalankan `shamela_search_phrase` dengan `scope.category_ids: [8]`, lalu tambah "
                                    "baris «takhrij8 <kunci>» tiap hadits (tidak bisa: «belum takhrij8 <kunci> <alasan>», "
                                    "lalu sebut di laporan akhir)"),
-            "tafsir": ("ayat", "baca tafsirnya lewat connector `tafsir`, lalu tambah baris «tafsir <surat:ayat>» tiap ayat "
+            "tafsir": ("ayat", "baca tafsirnya (`tafsir <surat:ayat>` lalu `halaman`, atau connector `tafsir`), lalu tambah baris «tafsir <surat:ayat>» tiap ayat "
                                "(tidak bisa: «belum tafsir <surat:ayat> <alasan>»)"),
             "khilaf": ("masalah khilaf («القول الأول»)",
                        f"{RISET} baru punya {tercatat['khilaf']} baris khilaf; jalankan `shamela_research_scope` sebelum "

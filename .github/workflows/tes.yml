@@ -54,6 +54,8 @@ jobs:
       - run: python .github/uji_gambar_word.py
       # `halaman` lewat indeks = hasil membaca seluruh kitab; berkas tulisan mesin mengikuti umask (bukan 0600)
       - run: python .github/uji_halaman.py
+      # `takhrij`/`tafsir` tanpa internet: nomor halaman Shamela dari indeks (bukan urutan rekaman), indeks lama dibangun ulang
+      - run: python .github/uji_layanan.py
       # `halaman` tanpa «\r» mentah (kata tersambung saat disalin); argumen/bendera berlebih ditolak, bukan ditelan
       - run: python .github/uji_perintah.py
       # opencode.json = salinan terpaksa .mcp.json (OpenCode tidak membaca .mcp.json): daftar connector harus sama

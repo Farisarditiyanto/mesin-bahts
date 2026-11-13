@@ -136,10 +136,10 @@ def _meta():
         import pyarrow.parquet as pq
     except ImportError:
         raise SystemExit("Pustaka Python belum terpasang; cara memasangnya disebut oleh: " + perintah("periksa"))
-    # Katalog hanya perlu sembilan kolom ini; kartu lengkap dibaca dari kitab lokal.
+    # Katalog hanya perlu kolom ini; kartu lengkap dibaca dari kitab lokal.
     with pq.ParquetFile(ROOT / KATALOG) as f:
-        return f.read(columns=["shamela_id", "book_id", "category_id", "title_ar",
-                               "main_author_id", "main_author_name_ar", "category_name_ar", "has_multi_part", "group_id"]).to_pylist()
+        return f.read(columns=["shamela_id", "book_id", "category_id", "title_ar", "main_author_id", "main_author_name_ar",
+                               "main_author_death_hijri", "category_name_ar", "has_multi_part", "group_id"]).to_pylist()
 
 
 def ada_keterangan():
@@ -577,37 +577,62 @@ def _indeks(sid):
     (isi .gz sama = isi kitab sama), jadi indeks yang sah terbaca tanpa membuka seluruh kitab. Indeks lama tanpa sidik
     itu dibuat ulang sekali. Di berkas, tiap kolom satu daftar (juz, hal, akhir, letak, awal), bukan satu daftar per
     rekaman: dibaca dan diperiksa per kolom, tanpa satu objek per rekaman."""
-    folder = _folder(sid)
-    f = folder / INDEKS
-    gz = _sidik(sid)
+    d = _baca_indeks(sid)
+    if d is not None:
+        return list(zip(d["juz"], d["hal"], d["akhir"], d["letak"])), d["awal"]
+    return _bangun_indeks(sid)[:2]
+
+
+def _baca_indeks(sid):
+    """Isi indeks.json kitab sid kalau sah untuk berkas .gz-nya sekarang; None = rusak, lama, atau tidak ada."""
     try:
-        d = json.loads(f.read_text(encoding="utf8"))
+        d = json.loads((_folder(sid) / INDEKS).read_text(encoding="utf8"))
         kolom, awal, panjang = [d["juz"], d["hal"], d["akhir"], d["letak"]], d["awal"], d["panjang"]
         letak = kolom[3]
-        if (d["versi"] == INDEKS_VERSI and d["sumber_gz"] == gz and type(panjang) is int
+        if (d["versi"] == INDEKS_VERSI and d["sumber_gz"] == _sidik(sid) and type(panjang) is int
                 and all(type(x) is list and len(x) == len(awal) for x in kolom + [awal])
                 and set(map(type, awal)) <= {int, type(None)} and set(map(type, letak)) <= {int}
                 and (not letak or 0 <= min(letak) and max(letak) < panjang)):
-            return list(zip(*kolom)), awal
+            return d
     except (OSError, ValueError, KeyError, TypeError):
         pass
+    return None
+
+
+def _bangun_indeks(sid):
+    """(indeks, awal, sp) dari seluruh isi kitab, lalu disimpan ke indeks.json. sp = shamela_page_id tiap rekaman
+    (nomor halaman di layanan Shamela: tafsir per ayat dan takhrij silang menunjuk rekaman lewat nomor ini)."""
     mentah = _isi(sid)
-    isi, awal, letak = [], [], 0
+    isi, awal, sp, letak = [], [], [], 0
     for baris in mentah.splitlines(keepends=True):
         if baris.strip():
             r = json.loads(baris)
             nomor = [int(n) for n in PENANDA.findall(r.get("body") or "")]
             isi.append((r.get("part"), r.get("page_num"), max([r.get("page_num") or 0] + nomor), letak))
             awal.append(min([n for n in [r.get("page_num")] + nomor if n is not None], default=None))
+            s = r.get("shamela_page_id")
+            sp.append(int(s) if str(s).isdigit() else None)
         letak += len(baris)
     try:
-        with sementara(f) as part:
+        with sementara(_folder(sid) / INDEKS) as part:
             kolom = dict(zip(("juz", "hal", "akhir", "letak"), map(list, zip(*isi)))) if isi else dict.fromkeys(("juz", "hal", "akhir", "letak"), [])
-            part.write_text(json.dumps({"versi": INDEKS_VERSI, "sumber": hashlib.sha256(mentah).hexdigest(), "sumber_gz": gz,
-                                        "panjang": len(mentah), **kolom, "awal": awal}, ensure_ascii=False), encoding="utf8")
+            part.write_text(json.dumps({"versi": INDEKS_VERSI, "sumber": hashlib.sha256(mentah).hexdigest(), "sumber_gz": _sidik(sid),
+                                        "panjang": len(mentah), **kolom, "awal": awal, "sp": sp}, ensure_ascii=False), encoding="utf8")
     except OSError:
         pass
-    return isi, awal
+    return isi, awal, sp
+
+
+@functools.cache
+def rekaman_shamela(sid):
+    """{shamela_page_id: nomor rekaman} kitab sid. Indeks sah yang dibuat sebelum kolom «sp» ada dibuat ulang sekali di
+    sini saja, bukan di `cek`: kitab yang tidak pernah dibuka lewat layanan Shamela tidak dibaca ulang."""
+    d = _baca_indeks(sid)
+    sp = d.get("sp") if d is not None else None
+    if not (type(sp) is list and len(sp) == len(d["awal"]) and set(map(type, sp)) <= {int, type(None)}):
+        sp = _bangun_indeks(sid)[2]
+        _indeks.cache_clear(); indeks.cache_clear()
+    return {n: i for i, n in reversed(list(enumerate(sp))) if n is not None}
 
 
 def _juz(p):
@@ -1145,22 +1170,30 @@ def baris(teks):
     return re.sub(r"\r\n?", "\n", teks)
 
 
+def rekaman_halaman(sid, juz, hal):
+    """[(rekaman, potongan body milik halaman itu)] untuk halaman cetak juz/hal kitab sid (juz/hal sudah angka kalau
+    angka). Juz «-» di kitab yang bagiannya hanya bernama (المقدمة، الكتاب) = satu-satunya bagian yang punya halaman
+    itu, seperti `cek`; ada di dua bagian = kosong (sebut bagiannya)."""
+    angka = lambda x: int(x) if str(x).isdigit() else x
+    # indeks: rekaman juz itu yang mungkin memuat halaman itu (halaman terkecil s.d. terbesar rekaman, termasuk penanda ⦗n⦘)
+    ix, awal = _indeks(sid)
+    bernama = juz == "-" and not any(j is None or str(j).isdigit() for j, *_ in ix)
+    calon = [i for i, (j, _, akhir, _) in enumerate(ix) if awal[i] is not None and awal[i] <= hal <= akhir
+             and (bernama or angka("-" if j is None else j) == juz)] if isinstance(hal, int) else []
+    kena = [(p, b) for p in _rekaman_di(sid, calon) if (b := [b for h, b in per_halaman(p) if h == hal])]
+    if bernama and len({_juz(p) for p, _ in kena}) > 1:
+        return []
+    return kena
+
+
 def halaman(sid, juz, hal):
     """Isi satu halaman cetak (juz "-" untuk kitab satu jilid), dengan حاشية milik halaman itu. «05» dan «٥» = 5."""
     angka = lambda x: int(x) if str(x).isdigit() else x  # int() membaca angka Arab ٠-٩ juga
     juz, hal = angka(juz), angka(hal)
     if not (_folder(sid) / "pages.jsonl.gz").exists():
         raise _belum(sid)
-    # indeks: rekaman juz itu yang mungkin memuat halaman itu (halaman terkecil s.d. terbesar rekaman, termasuk penanda ⦗n⦘)
-    ix, awal = _indeks(sid)
-    # kitab yang bagiannya hanya bernama (المقدمة، الكتاب): «-» = satu-satunya bagian yang punya halaman itu (seperti `cek`)
-    bernama = juz == "-" and not any(j is None or str(j).isdigit() for j, *_ in ix)
-    calon = [i for i, (j, _, akhir, _) in enumerate(ix) if awal[i] is not None and awal[i] <= hal <= akhir
-             and (bernama or angka("-" if j is None else j) == juz)] if isinstance(hal, int) else []
-    kena = [(p, b) for p in _rekaman_di(sid, calon) if (b := [b for h, b in per_halaman(p) if h == hal])]
-    if bernama and len({_juz(p) for p, _ in kena}) > 1:
-        kena = []  # ada di dua bagian: sebut bagiannya
     ada = False
+    kena = rekaman_halaman(sid, juz, hal)
     for p, bagian in kena:
         if bagian:
             ada = True
