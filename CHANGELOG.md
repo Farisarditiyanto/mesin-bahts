@@ -6,6 +6,8 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- `rakit` tidak lagi gagal («Specified cast is not valid») pada tabel `#J` empat kolom atau lebih; tabel 2 sampai 3 kolom tidak berubah.
+
 ## 9.3.0 — 2026-11-13
 
 - `#L` (Abstract bahasa Inggris) dicetak Times New Roman 12, judulnya 14; dulu sebesar matan Arab (18 di `imam`) sehingga Abstract satu halaman luber ke halaman berikutnya. Profil bisa mengubahnya lewat kunci `latin` di `mesin/format.json`.

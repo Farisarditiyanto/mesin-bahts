@@ -632,8 +632,8 @@ try {
             $tbl.Rows.AllowBreakAcrossPages = -1
             if ($nk -ge 3) {                              # kolom pertama (nama baris) lebih sempit, sisanya dibagi rata
                 $tbl.Columns.PreferredWidthType = 2
-                $tbl.Columns(1).PreferredWidth = 18
-                for ($c = 2; $c -le $nk; $c++) { $tbl.Columns($c).PreferredWidth = 82 / ($nk - 1) }
+                $tbl.Columns(1).PreferredWidth = [single]18
+                for ($c = 2; $c -le $nk; $c++) { $tbl.Columns($c).PreferredWidth = [single](82 / ($nk - 1)) }   # 82/3 = 27.33 (double) ditolak Word: «Specified cast is not valid»
             }
             $tbl.Rows(1).HeadingFormat = -1                # kepala diulang di halaman berikutnya
             $tbl.Rows(1).Shading.BackgroundPatternColor = 14277081   # abu-abu muda (RGB 217,217,217)
