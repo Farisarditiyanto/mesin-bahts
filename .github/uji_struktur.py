@@ -68,9 +68,9 @@ def utama():
                 ("المصحف bukan kitab", ("القرآن الكريم.\n", "المصحف الشريف برواية حفص.\n"), True),
                 ("kitab berjudul القرآن tetap kitab", (kitab, kitab + "القرآن والسنة في مواجهة البدع، فلان، 1430هـ.\n"), False),
                 ("#R kembar dihitung sekali", (kitab, kitab + "**رسالة في القضاء والقدر**، محمد بن صالح بن محمد العثيمين، دار الوطن، 1423هـ\n"), True)):
-            out = cek(nama, dua.replace(*ganti))
+            kembar = nama.startswith("#R kembar")  # selalu bisa dibereskan: GAGAL
+            out = cek(nama, dua.replace(*ganti), kembar, "baris kembar (dihitung sekali)" if kembar else "")
             assert ("baru 1 kitab" in out) == kurang, (nama, out)
-        assert "baris kembar (dihitung sekali)" in out, out
         # #K sebelum المقدمة (الملخص dst.) bukan halaman isi, juga tanpa @nomor (HALAMAN_ISI rakit.ps1 sama)
         mulakhas = dasar.replace("#K المقدمة", "#K الملخص\n" + "كلمة " * 600 + "\n#K المقدمة", 1)
         isi = perkiraan.search(cek("الملخص panjang sebelum المقدمة", mulakhas)).group(1)
@@ -79,11 +79,11 @@ def utama():
         riset = f / "riset.txt"
         for nama, isi, pesan in (
                 ("tanpa riset.txt", None, "tafsir belum tercatat di riset.txt untuk 1 ayat: 1:2 →"),
-                ("riset tercatat", "﻿tafsir 1:2\r\n# catatan\r\n", "perhatian (lolos, tetapi lihat sendiri): 0"),
-                ("riset rentang", "tafsir 1:1-7\n", "perhatian (lolos, tetapi lihat sendiri): 0"),
+                ("riset tercatat", "﻿tafsir 1:2\r\n# catatan\r\n", "): 0\ncatatan kaki tanpa bukti"),
+                ("riset rentang", "tafsir 1:1-7\n", "): 0\ncatatan kaki tanpa bukti"),
                 ("riset langkah asing", "ngaco 1:2\ntafsir 1:2\n", "riset.txt baris 1: «ngaco 1:2» tidak dikenal"),
                 ("riset belum tanpa alasan", "belum tafsir 1:2\n", "tulis alasannya sesudah objek"),
-                ("riset belum beralasan", "belum tafsir 1:2 connector mati\n", "perhatian (lolos, tetapi lihat sendiri): 0"),
+                ("riset belum beralasan", "belum tafsir 1:2 connector mati\n", "): 0\ncatatan kaki tanpa bukti"),
                 ("riset ayat tidak ada", "tafsir 1:8\n", "tafsir «1:8»: surat/ayat itu tidak ada"),
                 ("riset rentang terbalik", "tafsir 1:5-2\n", "tafsir «1:5-2»: rentang ayat harus dari kecil ke besar"),
                 ("riset rentang raksasa", "tafsir 2:1-999999999999\n", "surat/ayat itu tidak ada"),
@@ -379,10 +379,10 @@ def utama():
         assert 'rakit "bahts/ahmad/ikhlas" --fasl 1\n' in out, out  # yang terakhir dirakit = potongan itu
         os.utime(ikhlas / "laporan-fasl1.txt", (1, 1))
         assert 'rakit "bahts/ahmad/ikhlas"\n' in tahap()  # seluruh naskah dirakit sesudahnya: itu yang menentukan
-        (ikhlas / "riset.txt").unlink()  # perhatian yang bertahan: perintahnya tetap `rakit`, bukan `cek` berulang
+        (ikhlas / "riset.txt").unlink()  # perhatian belum ditangani menahan rakit-ulang juga: tangani dulu, lalu rakit
         out = tahap()
-        assert "NASKAH=PERHATIAN" in out and "HASIL=USANG" in out and '-> ' in out, out
-        assert out.rstrip().endswith('rakit "bahts/ahmad/ikhlas"'), out
+        assert "NASKAH=PERHATIAN" in out and "HASIL=USANG" in out and "lalu rakit" in out, out
+        assert out.rstrip().endswith('cek "bahts/ahmad/ikhlas"'), out
         (ikhlas / "riset.txt").write_text("tafsir 1:2\n", encoding="utf8")
         (ikhlas / "naskah.txt").write_text("@fromat: imam\n" + dasar, encoding="utf8")
         out = tahap()
@@ -423,11 +423,55 @@ def utama():
         assert "RAKIT=JALAN: bahts/umar/a" in out and 'BERIKUTNYA: betulkan' in out, out
         (ikhlas / "naskah.txt").write_text(dasar, encoding="utf8")
         assert "RAKIT=BEBAS" in tahap()
-        # perhatian yang tidak bisa dibereskan tidak menahan: PDF TERKINI -> pemeriksa, bukan rakit lagi
-        (ikhlas / "riset.txt").unlink()
-        (ikhlas / "laporan.txt").write_text(f"NASKAH_SHA256={sidik}\n", encoding="utf8")
+        # perhatian wajib ditangani: walau PDF TERKINI, pemeriksa belum boleh jalan sebelum tiap perhatian dibereskan
+        # atau diterima («terima <kode> <alasan>» di riset.txt). Menerima tidak mengubah naskah: PDF tetap TERKINI.
+        luar = 'قال الباحث: "القدر من أعظم أبواب الاعتقاد"[^بحث وهمي، ص5. <<luar>>].\n'  # satu perhatian, bisa diterima
+
+        def naskah_(teks, riset_):
+            (ikhlas / "naskah.txt").write_bytes(teks.encode("utf8"))  # sidik di laporan = byte persis berkasnya
+            (ikhlas / "riset.txt").write_text(riset_, encoding="utf8")
+            sidik_ = __import__("hashlib").sha256(teks.encode("utf8")).hexdigest()
+            (ikhlas / "laporan.txt").write_text(f"NASKAH_SHA256={sidik_}\n", encoding="utf8")
+            return bahts("cek", "bahts/ahmad/ikhlas").stdout
+
+        def kode_(out):
+            return re.findall(r"^  ! ([0-9a-f]{6}) ", out, re.M)
+
+        k = kode_(naskah_(sisip(luar), "tafsir 1:2\n"))
+        assert len(k) == 1, k
         out = tahap()
-        assert "NASKAH=PERHATIAN" in out and "HASIL=TERKINI" in out and 'bukti "bahts/ahmad/ikhlas"' in out, out
+        assert "NASKAH=PERHATIAN" in out and "HASIL=TERKINI" in out and "lalu rakit" not in out, out
+        assert out.rstrip().endswith('cek "bahts/ahmad/ikhlas"') and "bukti" not in out, out
+        terima = f"tafsir 1:2\nterima {k[0]} lafaz dan halamannya dicocokkan sendiri ke penelitiannya\n"
+        (ikhlas / "riset.txt").write_text(terima, encoding="utf8")
+        out = tahap()
+        assert "NASKAH=LOLOS" in out and "diterima 1" in out and "HASIL=TERKINI" in out, out
+        assert 'bukti "bahts/ahmad/ikhlas"' in out and "alasan 1 baris «terima»" in out, out
+        assert "alasan: lafaz dan halamannya" in bahts("cek", "bahts/ahmad/ikhlas").stdout
+        # baris naskah bergeser: kode tetap, «terima» tidak basi
+        assert not kode_(naskah_("\n\n" + sisip(luar), terima))
+        # isi baris yang disebut berubah (di luar awal catatan kaki yang tercetak di pesan), atau baris baru ikut
+        # tergabung ke perhatian kembar: kode baru, «terima» lama basi, jadi perhatian itu dinilai lagi
+        for nama, teks in (("matan berubah", sisip(luar.replace("قال الباحث", "قال باحث آخر"))),
+                           ("baris kembar baru", sisip(luar + luar))):
+            out = naskah_(teks, terima)
+            assert len(kode_(out)) == 2 and "kode itu tidak muncul lagi" in out, (nama, out)
+        # perhatian riset.txt tidak bisa diterima: langkahnya dijalankan, atau «belum <langkah> <objek> <alasan>»
+        k_riset = kode_(naskah_(dasar, ""))
+        assert len(k_riset) == 1, k_riset
+        out = naskah_(dasar, f"terima {k_riset[0]} connector tafsir sedang mati\n")
+        assert "perhatian riset.txt tidak bisa diterima" in out and len(kode_(out)) == 2, out
+        # «terima» yang rusak = perhatian, tidak menerima apa pun
+        for isi, pesan in ((f"terima {k[0]}\n", "tulis «terima <kode"), (f"terima {k[0]} ok\n", "paling sedikit 3 kata"),
+                           ("terima ZZZ alasan yang panjang\n", "tulis «terima <kode"),
+                           (f"terima {k[0]} alasan yang cukup panjang\nterima {k[0]} alasan kedua yang panjang\n",
+                            "satukan alasannya"),
+                           ("terima 000000 alasan basi yang panjang\n", "kode itu tidak muncul lagi")):
+            out = naskah_(sisip(luar), "tafsir 1:2\n" + isi)
+            assert pesan in out and not re.search(r"^perhatian \(lolos.*: 0$", out, re.M), (isi, out)
+        (ikhlas / "naskah.txt").write_text(dasar, encoding="utf8")
+        hasil.append("terima: beralasan tidak menahan; kode tetap saat baris bergeser, baru saat isi/baris kembar "
+                     "berubah; perhatian riset, alasan pendek, kode rusak/kembar/basi = perhatian")
         # laporan versi lama tanpa NASKAH_SHA256: tidak diketahui, bukan «naskah diubah»
         (ikhlas / "riset.txt").write_text("tafsir 1:2\n", encoding="utf8")
         (ikhlas / "laporan.txt").write_text("HALAMAN=1\n", encoding="utf8")
@@ -459,7 +503,7 @@ def utama():
                 assert berkas_.FolderKerja(sisa).keadaan() is berkas_.FolderKerja.Keadaan.SEMENTARA, list(sisa.iterdir())
         if sisa.exists():
             assert berkas_.FolderKerja(sisa).buang() and not sisa.exists()
-        hasil.append("tahap: naskah, hasil (juga --fasl dan laporan lama), perhatian tidak menahan, folder .rakit-*, "
+        hasil.append("tahap: naskah, hasil (juga --fasl dan laporan lama), perhatian menahan, folder .rakit-*, "
                      "_arsip, rakit bahts ini dan bahts lain; folder kerja setengah terbuang tetap SEMENTARA")
         print(f"uji struktur: {len(hasil)} skenario sesuai, termasuk beban 2000 nukilan/4000 catatan kaki dan 500 data salah ketik")
 

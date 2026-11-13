@@ -5,14 +5,15 @@ Tahap tidak disimpan di berkas mana pun: tiap kali dibaca ulang dari barang asli
 NASKAH_SHA256 di laporan hasil rakit, kunci rakit, penanda folder .rakit-*, cadangan _arsip/rakit-*), jadi tidak bisa
 basi. Tiga sumbu:
 
-  naskah  GAGAL ──betulkan ✗──▶ PERHATIAN ──bereskan !──▶ LOLOS            (dari `cek`; naskah diubah = dibaca ulang)
+  naskah  GAGAL ──betulkan ✗──▶ PERHATIAN ──bereskan ! atau «terima»──▶ LOLOS   (dari `cek` + riset.txt; dibaca ulang)
   hasil   BELUM ──rakit──▶ TERKINI ──isi tercetak naskah.txt diubah──▶ USANG ──rakit──▶ TERKINI   (tiap laporan*.txt di folder)
           TIDAK_DIKETAHUI = laporan versi lama tanpa NASKAH_SHA256 ──rakit──▶ TERKINI
   rakit   BEBAS │ JALAN (kunci rakit dipegang; bahts ini atau bahts lain) │ YATIM (rakit.ps1 rakit yang dimatikan)
 
 `rakit` hanya sah dari naskah PERHATIAN atau LOLOS; naskah GAGAL ditolak `rakit` sendiri («Belum dirakit: … galat»).
-PERHATIAN bukan keadaan akhir yang menahan: perhatian yang memang tidak bisa dibereskan disebut di laporan akhir
-(AGENTS.md Alur kerja langkah 4), jadi PERHATIAN + hasil TERKINI = lanjut ke pemeriksa, sama dengan LOLOS.
+PERHATIAN menahan langkah pemeriksa: tiap perhatian wajib ditangani, dibereskan di naskah atau diterima dengan alasan
+(«terima <kode> <alasan>» di riset.txt, AGENTS.md Alur kerja langkah 4). Menerima tidak mengubah naskah, jadi PDF yang
+TERKINI tetap TERKINI; membereskan di naskah membuatnya USANG lalu `rakit`.
 Bahts bertahap per فصل (hanya laporan-fasl*.txt): potongan yang terakhir dirakit yang menentukan; potongan lama yang
 USANG wajar (sudah dikumpulkan dari naskah lama) dan tidak disuruh rakit ulang.
 Folder .rakit-* punya keadaannya sendiri: berkas.FolderKerja. Satu langkah berikutnya dipilih `berikutnya`."""
@@ -27,7 +28,7 @@ from shamela import perintah
 
 class Naskah(Enum):
     GAGAL = "GAGAL"  # `cek` menemukan galat: `rakit` menolak
-    PERHATIAN = "PERHATIAN"  # GAGAL 0, ada perhatian: dibereskan, atau yang tidak bisa disebut di laporan akhir
+    PERHATIAN = "PERHATIAN"  # GAGAL 0, ada perhatian yang belum ditangani (dibereskan, atau «terima» beralasan)
     LOLOS = "LOLOS"  # GAGAL 0, perhatian 0
 
 
@@ -98,7 +99,7 @@ class Keadaan:
     jalur: str  # bahts seperti diketik pemakai, untuk perintah berikutnya
     naskah: Naskah
     galat: int
-    perhatian: int
+    perhatian: int  # yang belum ditangani
     tertolak: bool  # ada «teks TIDAK KETEMU di kitab»: `cek --jejak` menunjuk kitab lain
     hasil: list = field(default_factory=list)  # [Produk]: laporan.txt dulu, lalu potongan urut nomornya
     rakit: Rakit = Rakit.BEBAS
@@ -106,6 +107,7 @@ class Keadaan:
     rakit_sini: bool = False  # yang JALAN adalah rakit bahts ini
     kerja: list = field(default_factory=list)  # [(nama folder .rakit-*, FolderKerja.Keadaan)]
     arsip: list = field(default_factory=list)  # [nama folder _arsip/rakit-*]: cadangan hasil lama yang tertinggal
+    diterima: int = 0  # perhatian yang diterima lewat «terima» di riset.txt
 
 
 def penentu(k):
@@ -131,22 +133,22 @@ def berikutnya(k):
              " (rakit.ps1 sisa rakit yang dimatikan masih jalan; `rakit` menunggunya berhenti sendiri)"
              if k.rakit is Rakit.YATIM else "")
     rakit = perintah(f'rakit "{k.jalur}"' + (f" {p.bendera}" if p and p.bendera else ""))
-    if keadaan is not Hasil.TERKINI and k.naskah is Naskah.PERHATIAN:  # perintahnya `rakit`: perhatian bisa abadi
-        return (f"bereskan dulu tiap baris «!» di `cek` yang bisa dibereskan ({cek}; AGENTS.md Alur kerja langkah 4), "
-                "yang tidak bisa disebut di laporan akhir; lalu rakit" + antre, rakit)
+    if k.naskah is Naskah.PERHATIAN:
+        lalu = "" if keadaan is Hasil.TERKINI else "; lalu rakit"
+        return (f"tangani tiap baris «!» di `cek` ({k.perhatian}): bereskan di naskah, atau kalau memang tidak bisa / "
+                "salah tangkap tulis «terima <kode> <alasan>» di riset.txt (AGENTS.md Alur kerja langkah 4)" + lalu, cek)
     if keadaan is Hasil.BELUM:
         return "rakit .docx + .pdf" + antre, rakit
     if keadaan is not Hasil.TERKINI:
         return f"rakit ulang: PDF yang ada {KETERANGAN_HASIL[keadaan]}" + antre, rakit
-    sisa = (f"; {k.perhatian} perhatian yang tersisa: bereskan lalu rakit ulang, atau sebut di laporan akhir"
-            if k.naskah is Naskah.PERHATIAN else "")
-    return ("PDF sesuai naskah ini" + sisa + ". Sebelum lapor selesai: pemeriksa (AGENTS.md Alur kerja langkah 5) "
-            "membuka bukti tiap catatan kaki", perintah(f'bukti "{k.jalur}"'))
+    terima = (f"; pemeriksa juga menilai alasan {k.diterima} baris «terima» di riset.txt" if k.diterima else "")
+    return ("PDF sesuai naskah ini. Sebelum lapor selesai: pemeriksa (AGENTS.md Alur kerja langkah 5) membuka bukti "
+            "tiap catatan kaki" + terima, perintah(f'bukti "{k.jalur}"'))
 
 
 def baris(k):
     """Keluaran `tahap`: satu keadaan satu baris «KUNCI=NILAI», supaya agent dan skrip membacanya tanpa menebak."""
-    out = [f"NASKAH={k.naskah.value} (GAGAL {k.galat}, perhatian {k.perhatian})"]
+    out = [f"NASKAH={k.naskah.value} (GAGAL {k.galat}, perhatian belum ditangani {k.perhatian}, diterima {k.diterima})"]
     for p in k.hasil:
         letak = p.pdf if p.keadaan is not Hasil.BELUM and p.pdf else (p.pdf.name if p.pdf else p.laporan.name)
         ket = KETERANGAN_HASIL[p.keadaan] if p.pdf else "laporan potongan tanpa baris POTONGAN: nama PDF-nya tidak diketahui"

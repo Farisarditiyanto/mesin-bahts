@@ -303,10 +303,11 @@ def cek(nama, keluar=None, jejak=False, ringkas=False):
     jalur = nama.rstrip("/\\") or nama  # «"folder\"»: garis miring menelan tanda petik penutupnya
     if ringkas and not galat:
         n = sum(b.startswith("  ! ") for b in lap)
+        terima = sum(b.startswith("  ✓ ") for b in lap)
         # baris jumlah «catatan kaki tanpa bukti …: N» dari laporan itu sendiri, hanya kalau N > 0
         fn = "".join(f"; {b}" for b in lap if b.startswith("catatan kaki tanpa bukti") and not b.endswith(": 0"))
-        print(f"cek: GAGAL 0, perhatian {n}{fn} (rinciannya: laporan.txt sesudah rakit jadi, atau "
-              + perintah(f'cek "{jalur}"') + ")")
+        print(f"cek: GAGAL 0, perhatian belum ditangani {n}" + (f", diterima {terima}" if terima else "")
+              + f"{fn} (rinciannya: laporan.txt sesudah rakit jadi, atau " + perintah(f'cek "{jalur}"') + ")")
         return f, galat, lap
     print("\n".join(lap))
     if tertolak:
@@ -497,6 +498,11 @@ def _rakit_di(nama, f, kerja, fasl=None):
               "dibaca, atau tulis batas dari dosen di «@minimal_halaman: n»")
     print(f"Jadi: {f / berkas}.docx dan .pdf")
     salin_keluaran(f, berkas)
+    belum = sum(b.startswith("  ! ") for b in lap)
+    if belum:  # PDF tetap terbit (untuk dibaca dan diperiksa), tetapi bahts belum boleh dilaporkan selesai
+        jalur = nama.rstrip("/\\") or nama
+        print(f"BELUM SELESAI: {belum} perhatian belum ditangani (bereskan, atau «terima <kode> <alasan>» di riset.txt) "
+              "-> " + perintah(f'cek "{jalur}"'))
 
 
 def salin_keluaran(f, berkas):
@@ -655,7 +661,8 @@ def perintah_tahap(a):
     rakit_ = tahap.Rakit.JALAN if siapa is not None else tahap.Rakit.YATIM if _ps_yatim() else tahap.Rakit.BEBAS
     siapa = siapa or ""
     k = tahap.Keadaan(jalur=a[0].rstrip("/\\") or a[0], naskah=tahap.naskah(ctx.galat, ctx.perhatian),
-                      galat=len(ctx.galat), perhatian=len(ctx.perhatian), tertolak=bool(ctx.tertolak), hasil=hasil,
+                      galat=len(ctx.galat), perhatian=len(ctx.perhatian), diterima=len(ctx.diterima),
+                      tertolak=bool(ctx.tertolak), hasil=hasil,
                       rakit=rakit_, siapa=siapa, rakit_sini=os.path.normcase(siapa).startswith(os.path.normcase(rel + ",")),
                       kerja=[(x.path.name, x.keadaan()) for x in FolderKerja.semua(f)], arsip=cadangan_tertinggal(f))
     print("\n".join(tahap.baris(k)))

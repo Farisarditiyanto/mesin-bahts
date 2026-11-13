@@ -138,15 +138,17 @@ def periksa_derajat(isi, terbukti, bernomor, galat, perhatian):
     """Catatan kaki takhrij («أخرجه/رواه …», AGENTS.md aturan takhrij): di luar Shahihain derajatnya wajib ditulis, dan
     derajat yang ditulis harus terbaca di salah satu halaman buktinya. Bukti bernomor takhrij: di matan dan حاشية hadits
     nomor itu; bukti lain (mis. «صححه الألباني في …» dengan buktinya sendiri): di seluruh halamannya, matan dan حاشية.
-    Yang terbaca hanya derajat lawannya (صحيح/حسن vs ضعيف/موضوع/منكر) = GAGAL; tidak terbaca sama sekali = perhatian."""
+    Yang terbaca hanya derajat lawannya (صحيح/حسن vs ضعيف/موضوع/منكر) = GAGAL; tidak terbaca sama sekali = perhatian.
+    Derajat yang tidak ditulis sama sekali = GAGAL: selalu bisa dibereskan, kalau perlu dengan «ولم أقف على حكم …»."""
     if not TAKHRIJ_AWAL.match(isi) or not terbukti:
         return
     tulis = derajat(re.sub(r"<<[^>]*>>", " ", isi))
     if not tulis:
         n = norma.norm(isi)
         if not SHAHIHAIN.search(n) and not DERAJAT_TIDAK_ADA.search(n):
-            perhatian.append(f"derajat hadits belum ditulis: di luar Shahihain tulis derajatnya beserta siapa yang menghukumi "
-                             f"(«وصححه الألباني»، «وقال الترمذي: حديث حسن»), dari kitab yang dibaca sendiri  || fn: {isi[:45]}")
+            galat.append(f"derajat hadits belum ditulis: di luar Shahihain tulis derajatnya beserta siapa yang menghukumi "
+                         f"(«وصححه الألباني»، «وقال الترمذي: حديث حسن») dari kitab yang dibaca sendiri, atau terus terang "
+                         f"«ولم أقف على حكم لأهل العلم على إسناده»  || fn: {isi[:45]}")
         return
     terbaca = set()
     for b in terbukti:

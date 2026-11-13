@@ -6,16 +6,75 @@ import itertools, os, re
 import norma
 from cek_ayat import ayat
 from dasar import ANGKA_LATIN, TAKHRIJ_AWAL, TandaRusak
-from laporan import daftar_baris
+from laporan import KODE, daftar_baris, kode
 from petik import kutipan_semua
 
 RISET = "riset.txt"
 RISET_LANGKAH = {"takhrij8": "kunci {H:}", "tafsir": "surat:ayat atau surat:ayat-ayat", "khilaf": "istilah"}
+TERIMA = "terima"  # «terima <kode> <alasan>»: perhatian yang memang tidak bisa dibereskan, atau salah tangkap
+TERIMA_BENTUK = f"«{TERIMA} <kode 6 huruf dari `cek`> <alasan>»"
+TERIMA_KATA = 3  # alasan sependek «ok» atau «sudah dicek» tidak bisa dinilai pemeriksa
+# kepala daftar perhatian di laporan `cek` (diikuti «: N»)
+KEPALA_PERHATIAN = (f"perhatian (lolos, tetapi wajib ditangani: bereskan di naskah, atau «{TERIMA} <kode> <alasan>» di "
+                    f"{RISET} kalau memang tidak bisa / salah tangkap)")
 Q_TANDA = re.compile(r"\{Q:([^{}]*)\}")
 H_TANDA = re.compile(r"\{H:[^|{}]*\|[^|{}]*\|([a-z]+)\}")
 # pembuka pendapat pertama masalah khilaf: di awal baris (boleh #S, -, **), dicocokkan sesudah harakat dan tatweel
 # dibuang. Di tengah kalimat («اختار القول الأول»، «ثم قال: "…هو القول الأول"») itu المناقشة/nukilan, bukan masalah baru
 KHILAF_TANDA = re.compile(r"^(?:#S\s+)?[-*\s]*(?:القول|الرأي|المذهب) ال[أا]ول(?![ء-ي])")
+
+
+def _baca_riset(folder):
+    """(baris riset.txt, pesan perhatian kalau berkasnya bukan UTF-8 atau None). Tidak ada berkasnya = tanpa baris."""
+    berkas = folder / RISET
+    if not berkas.is_file():
+        return [], None
+    try:
+        return berkas.read_text(encoding="utf-8-sig").splitlines(), None
+    except UnicodeDecodeError:
+        return [], (f"{RISET} bukan UTF-8: " + ("buka di Notepad, File > Save As, pilih Encoding «UTF-8», simpan"
+                                                if os.name == "nt" else "simpan ulang sebagai UTF-8") + ", lalu ulangi `cek`")
+
+
+def terapkan_terima(folder, perhatian, riset, teks_baris):
+    """Pisahkan perhatian yang sudah ditangani lewat «terima <kode> <alasan>» di riset.txt. `perhatian` = yang boleh
+    diterima; `riset` = perhatian periksa_riset, yang tidak boleh diterima: langkah riset dijalankan lalu dicatat, atau
+    «belum <langkah> <objek> <alasan>» per objek (isi riset.txt ditulis agen sendiri, jadi tidak ada «salah tangkap»).
+    Kembalikan (perhatian yang belum ditangani, [(kode, perhatian, alasan)] yang diterima, {perhatian: kode}).
+    Perhatian wajib ditangani: dibereskan di naskah, atau diterima dengan alasan yang dinilai pemeriksa (AGENTS.md Alur
+    kerja langkah 4-5); mesin hanya menolak alasan yang terlalu pendek. Baris «terima» tanpa alasan, berkode rusak,
+    berkode kembar, untuk perhatian riset, atau yang kodenya tidak muncul lagi = perhatian baru (hapus barisnya)."""
+    isi, _ = _baca_riset(folder)  # berkas bukan UTF-8 sudah dilaporkan periksa_riset
+    alasan, salah = {}, []
+    for n, b in enumerate(isi, 1):
+        kata_ = b.split()
+        if not kata_ or kata_[0] != TERIMA:
+            continue
+        if len(kata_) < 2 + TERIMA_KATA or not KODE.fullmatch(kata_[1]):
+            salah.append(f"{RISET} baris {n}: «{b.strip()[:50]}»: tulis {TERIMA_BENTUK} (alasan paling sedikit "
+                         f"{TERIMA_KATA} kata: apa yang dibaca/dicocokkan dan hasilnya), mis. «{TERIMA} 3f9a2c حاشية "
+                         f"itu catatan pengarang bahts aslinya, bukan muhaqqiq»")
+        elif kata_[1] in alasan:
+            salah.append(f"{RISET} baris {n}: {TERIMA} «{kata_[1]}» sudah ditulis di baris {alasan[kata_[1]][0]}: "
+                         f"satukan alasannya di satu baris")
+        else:
+            alasan[kata_[1]] = (n, " ".join(kata_[2:]))
+    kode_ = {p: kode(p, teks_baris) for p in perhatian + riset}
+    belum, diterima = [], []
+    for p in perhatian:
+        if kode_[p] in alasan:
+            diterima.append((kode_[p], p, alasan.pop(kode_[p])[1]))
+        else:
+            belum.append(p)
+    for p in riset:
+        if kode_[p] in alasan:
+            salah.append(f"{RISET} baris {alasan.pop(kode_[p])[0]}: {TERIMA} «{kode_[p]}»: perhatian riset.txt tidak "
+                         f"bisa diterima: jalankan langkahnya lalu catat, atau «belum <langkah> <objek> <alasan>» tiap objek")
+    salah += [f"{RISET} baris {n}: {TERIMA} «{k}»: kode itu tidak muncul lagi di `cek` (perhatiannya sudah hilang, atau "
+              f"isinya berubah dan berkode baru): hapus barisnya" for k, (n, _) in alasan.items()]
+    belum += riset + salah
+    kode_.update((p, kode(p, teks_baris)) for p in salah)
+    return belum, diterima, kode_
 
 
 def periksa_riset(folder, baris, perhatian):
@@ -24,20 +83,14 @@ def periksa_riset(folder, baris, perhatian):
     tiap masalah khilaf. Agen mencatatnya di riset.txt; yang belum tercatat = perhatian, tidak pernah GAGAL:
     isi riset.txt ditulis agen sendiri, jadi mesin hanya bisa menunjuk yang belum dicatat, bukan membuktikan."""
     tercatat = {"takhrij8": {}, "tafsir": set(), "khilaf": 0}
-    berkas = folder / RISET
-    isi = []
-    if berkas.is_file():
-        try:
-            isi = berkas.read_text(encoding="utf-8-sig").splitlines()
-        except UnicodeDecodeError:
-            perhatian.append(f"{RISET} bukan UTF-8: " + ("buka di Notepad, File > Save As, pilih Encoding «UTF-8», simpan"
-                                                         if os.name == "nt" else "simpan ulang sebagai UTF-8")
-                             + ", lalu ulangi `cek`")
-    bentuk = (f"bentuknya «langkah objek» ({'، '.join(f'{k} <{v}>' for k, v in RISET_LANGKAH.items())}), atau "
-              f"«belum langkah objek alasan» untuk langkah yang tidak bisa dijalankan")
+    isi, rusak = _baca_riset(folder)
+    if rusak:
+        perhatian.append(rusak)
+    bentuk = (f"bentuknya «langkah objek» ({'، '.join(f'{k} <{v}>' for k, v in RISET_LANGKAH.items())}), "
+              f"«belum langkah objek alasan» untuk langkah yang tidak bisa dijalankan, atau {TERIMA_BENTUK}")
     for n, b in enumerate(isi, 1):
         kata_ = b.split()
-        if not kata_ or kata_[0].startswith("#"):
+        if not kata_ or kata_[0].startswith("#") or kata_[0] == TERIMA:  # «terima»: terapkan_terima
             continue
         belum = kata_[0] == "belum"
         if belum:
