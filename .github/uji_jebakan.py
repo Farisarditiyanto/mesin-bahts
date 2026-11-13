@@ -23,7 +23,12 @@ if not re.search(r"^perhatian \(lolos", keluar, re.M):
 ada = {"✗": collections.Counter(), "!": collections.Counter()}
 salah = []
 pesan_perhatian = collections.Counter()
-for tanda, isi in re.findall(r"^  ([✗!]) (.*)$", keluar, re.M):
+baris_tanda = re.findall(r"^  ([✗!]) (.*)$", keluar, re.M)
+# tiap perhatian dicetak dengan kodenya («  ! 3f9a2c baris …»): kode itu yang ditulis di «terima» riset.txt
+salah += [f"perhatian tanpa kode: {isi[:80]}" for t, isi in baris_tanda if t == "!" and not laporan.KODE.match(isi)]
+for tanda, isi in baris_tanda:
+    if tanda == "!":
+        isi = isi[7:]  # buang «<kode> »
     # perhatian gabungan («baris 77, 81-83: …», laporan.gabung_kembar dan riset per langkah) dihitung satu di tiap barisnya
     nn, pesan = laporan.pisah_baris(isi)
     if "GALAT MESIN" in isi:  # pengecualian di dalam mesin yang tertangkap sebagai galat: tetap merah walau jumlahnya pas

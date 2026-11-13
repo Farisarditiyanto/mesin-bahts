@@ -71,6 +71,8 @@ Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumenn
 - `cek --jejak`: kutipan yang tidak ketemu dicari di kitab lain yang sudah diunduh, paling banyak 3 kitab per teks; lafaz yang sedikit berbeda ditunjuk sebagai «Paling mirip»; kutipan yang menyambung ke halaman berikutnya ditunjuk rentangnya (ص21-22). Hanya petunjuk. Kitab yang tidak terbaca dilewati dengan peringatan «jejak belum lengkap». Pencarian pertama menyiapkan teks kitab, jadi bisa lama.
 - Sumber di luar Shamela: `<<luar|berkas.pdf|hal>>` hanya ditunjuk halamannya, tidak pernah diloloskan.
 - Cara menukil (perhatian, bukan `GAGAL`): kalimat di luar tanda petik yang 8 kata atau lebih berurutan sama persis dengan halaman buktinya, nukilan makna tanpa «انظر:», kutipan lafaz yang hanya diantar «قال …:» tetapi dirujuk «انظر:», dan kutipan lebih dari 60 kata. Batas kata = aturan repo. Apakah nukilan makna setia pada halaman buktinya tidak dinilai: bukti berpotongan hanya membuktikan potongannya.
+- Takhrij di luar Shahihain tanpa derajat (dan tanpa «ولم أقف على حكم …») = `GAGAL`.
+- Perhatian wajib ditangani: tiap baris dicetak dengan kodenya («! 3f9a2c baris …»), lalu dibereskan di naskah, atau diterima dengan `terima <kode> <alasan>` di `riset.txt` kalau memang tidak bisa dibereskan. Selama ada yang belum ditangani, `tahap` mencetak `NASKAH=PERHATIAN`. Alasannya tidak dinilai mesin: itu tugas pemeriksa langkah 5.
 - Yang tidak bisa dinilai `cek` (pembicara, mu'tamad tidaknya kitab, kutipan tanpa catatan kaki): akhir «Alur kerja» di `AGENTS.md`. Itu tugas pemeriksa langkah 5.
 
 `cek` dan `rakit` tidak memakai internet atau connector: hasilnya harus sama tanpa jaringan.

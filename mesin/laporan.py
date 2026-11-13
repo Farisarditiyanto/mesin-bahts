@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Bentuk baris laporan `cek`: «baris n: …», rentang baris, dan perhatian kembar yang digabung jadi satu baris."""
-import re
+"""Bentuk baris laporan `cek`: «baris n: …», rentang baris, perhatian kembar yang digabung jadi satu baris, dan kode
+tiap perhatian (dipakai «terima <kode> <alasan>» di riset.txt)."""
+import hashlib, re
 
 
 def ringkas_rentang(hal, pisah="، "):
@@ -38,3 +39,19 @@ def gabung_kembar(perhatian):
         nn, isi = pisah_baris(p)
         kumpul.setdefault(isi, []).extend(nn)
     return [f"baris {daftar_baris(nn)}: {isi}" if nn else isi for isi, nn in kumpul.items()]
+
+
+# Kode perhatian: 6 huruf heksa dari isinya tanpa awal «baris …: ». Naskah yang hanya bergeser barisnya tetap berkode
+# sama, jadi «terima» di riset.txt tidak basi karena baris lain ditambah; isi yang berubah (kalimat di catatan kakinya,
+# kutipannya) = kode baru, jadi perhatian itu dinilai lagi.
+KODE = re.compile(r"[0-9a-f]{6}")
+# baris perhatian di laporan `cek`: «  ! <kode> <perhatian>»
+BARIS_PERHATIAN = re.compile(r"^  ! ([0-9a-f]{6}) (.*)$", re.M)
+
+
+def kode(p):
+    return hashlib.sha1(pisah_baris(p)[1].encode("utf8")).hexdigest()[:6]
+
+
+def baris_perhatian(p):
+    return f"  ! {kode(p)} {p}"

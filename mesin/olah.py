@@ -163,6 +163,11 @@ riset.txt (di folder bahts, di samping naskah.txt): jejak langkah riset yang tid
   khilaf <istilah>    `shamela_research_scope` sudah dijalankan untuk satu masalah khilaf; satu baris per masalah
                       (masalah = bagian berjudul yang barisnya diawali «القول الأول», «الرأي الأول», atau «المذهب الأول»)
   belum <langkah> <objek> <alasan>   langkah yang tidak bisa dijalankan; sebut di laporan akhir
+  terima <kode> <alasan>   perhatian `cek` berkode itu («  ! 3f9a2c baris …») memang tidak bisa dibereskan, atau salah
+                      tangkap; alasannya dinilai pemeriksa. Tiap perhatian wajib ditangani: dibereskan di naskah, atau
+                      diterima begini; selama ada yang belum, `tahap` tidak menganggap naskah LOLOS. Kode tetap walau
+                      barisnya bergeser; isi perhatian berubah = kode baru. «terima» yang kodenya tidak muncul lagi,
+                      tanpa alasan, atau berkode rusak = perhatian (hapus barisnya)
   Baris berawalan # = catatan. Tiap {H:}, ayat {Q:} (selain di bukti <<…>> dan di bawah #R), dan masalah khilaf yang
                       belum tercatat = perhatian, juga baris riset.txt yang rusak atau kunci takhrij8 yang tidak ada di naskah.
                       Tidak pernah GAGAL: isinya ditulis agen sendiri, jadi mesin hanya menunjuk yang belum dicatat
@@ -173,12 +178,13 @@ from pathlib import Path
 import norma
 import shamela
 from berkas import bahan, sementara
-from cek_seluruh import periksa_dirasat, periksa_khatimah, periksa_muqaddimah, periksa_riset, porsi_kutipan
+from cek_seluruh import (KEPALA_PERHATIAN, RISET, periksa_dirasat, periksa_khatimah, periksa_muqaddimah, periksa_riset,
+                         porsi_kutipan, terapkan_terima)
 from cek_rujukan import rujukan_halaman
 from cek_sumber import standar_baris
 from cek_tautsiq import gelar
 from dasar import AD, ANGKA_LATIN, BELUM_DIUNDUH, HERE, HURUF_LATIN, LUAR, SURAH, TandaRusak
-from laporan import gabung_kembar
+from laporan import baris_perhatian, gabung_kembar
 from naskah import Pemeriksaan, urai
 
 FORMAT = json.loads((HERE / "format.json").read_text(encoding="utf8"))  # huruf & ukuran tiap pedoman; dipilih dengan @format
@@ -391,7 +397,8 @@ def periksa(folder, keluar=None):
     if ctx.bentuk != "kitab":  # muqarrar gabungan syarah (@bentuk: kitab) bukan riset baru
         _cek_jumlah_halaman(ctx, d)
         periksa_riset(folder, baris, ctx.perhatian)
-    ctx.perhatian = gabung_kembar(ctx.perhatian)  # jumlah di ringkasan = baris yang dicetak
+    # jumlah di ringkasan = baris yang dicetak; yang diterima di riset.txt tidak dihitung (laporannya terpisah)
+    ctx.perhatian, ctx.diterima = terapkan_terima(folder, gabung_kembar(ctx.perhatian))
     _tulis_bahan(ctx, keluar, d)
     return ctx, _laporan(ctx, n_matan, n_fn, sidik_naskah, sidik_cetak(d))
 
@@ -1021,8 +1028,11 @@ def _laporan(ctx, n_matan, n_fn, sidik_naskah, sidik_isi):
         lap.append(f"  → {len(belum)} kitab belum diunduh; unduh semuanya sekaligus: "
                    + shamela.perintah("ambil " + folder.resolve().relative_to(HERE.parent.resolve()).as_posix()))
     lap += [f"  ✗ {g}" for g in galat]
-    lap.append(f"perhatian (lolos, tetapi lihat sendiri): {len(perhatian)}")
-    lap += [f"  ! {p}" for p in perhatian]
+    lap.append(f"{KEPALA_PERHATIAN}: {len(perhatian)}")
+    lap += [baris_perhatian(p) for p in perhatian]
+    if ctx.diterima:
+        lap.append(f"perhatian diterima (alasan di {RISET}, dinilai pemeriksa): {len(ctx.diterima)}")
+        lap += [f"  ✓ {k} {p[:70]} — {alasan}" for k, p, alasan in ctx.diterima]
     lap.append(f"catatan kaki tanpa bukti (selain rujukan ayat dan rujukan kitab di atas): {len(fn_tanpa)}")
     lap += [f"  - {f}" for f in fn_tanpa]
     lap.append(f"CETAK_SHA256={sidik_isi}")

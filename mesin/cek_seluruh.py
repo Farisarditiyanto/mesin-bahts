@@ -6,16 +6,62 @@ import itertools, os, re
 import norma
 from cek_ayat import ayat
 from dasar import ANGKA_LATIN, TAKHRIJ_AWAL, TandaRusak
-from laporan import daftar_baris
+from laporan import KODE, daftar_baris, kode
 from petik import kutipan_semua
 
 RISET = "riset.txt"
 RISET_LANGKAH = {"takhrij8": "kunci {H:}", "tafsir": "surat:ayat atau surat:ayat-ayat", "khilaf": "istilah"}
+TERIMA = "terima"  # «terima <kode> <alasan>»: perhatian yang memang tidak bisa dibereskan, atau salah tangkap
+TERIMA_BENTUK = f"«{TERIMA} <kode 6 huruf dari `cek`> <alasan>»"
+# kepala daftar perhatian di laporan `cek` (diikuti «: N»); tes membacanya dari sini
+KEPALA_PERHATIAN = (f"perhatian (lolos, tetapi wajib ditangani: bereskan di naskah, atau «{TERIMA} <kode> <alasan>» di "
+                    f"{RISET} kalau memang tidak bisa / salah tangkap)")
 Q_TANDA = re.compile(r"\{Q:([^{}]*)\}")
 H_TANDA = re.compile(r"\{H:[^|{}]*\|[^|{}]*\|([a-z]+)\}")
 # pembuka pendapat pertama masalah khilaf: di awal baris (boleh #S, -, **), dicocokkan sesudah harakat dan tatweel
 # dibuang. Di tengah kalimat («اختار القول الأول»، «ثم قال: "…هو القول الأول"») itu المناقشة/nukilan, bukan masalah baru
 KHILAF_TANDA = re.compile(r"^(?:#S\s+)?[-*\s]*(?:القول|الرأي|المذهب) ال[أا]ول(?![ء-ي])")
+
+
+def _baca_riset(folder):
+    """(baris riset.txt, pesan perhatian kalau berkasnya bukan UTF-8 atau None). Tidak ada berkasnya = tanpa baris."""
+    berkas = folder / RISET
+    if not berkas.is_file():
+        return [], None
+    try:
+        return berkas.read_text(encoding="utf-8-sig").splitlines(), None
+    except UnicodeDecodeError:
+        return [], (f"{RISET} bukan UTF-8: " + ("buka di Notepad, File > Save As, pilih Encoding «UTF-8», simpan"
+                                                if os.name == "nt" else "simpan ulang sebagai UTF-8") + ", lalu ulangi `cek`")
+
+
+def terapkan_terima(folder, perhatian):
+    """Pisahkan perhatian yang sudah ditangani lewat «terima <kode> <alasan>» di riset.txt. Kembalikan (perhatian yang
+    belum ditangani, [(kode, perhatian, alasan)] yang diterima). Perhatian wajib ditangani: dibereskan di naskah, atau
+    diterima dengan alasan yang dinilai pemeriksa (AGENTS.md Alur kerja langkah 4-5); mesin tidak menilai alasannya.
+    Baris «terima» tanpa alasan, berkode rusak, atau yang kodenya tidak muncul lagi = perhatian baru (hapus barisnya)."""
+    isi, _ = _baca_riset(folder)  # berkas bukan UTF-8 sudah dilaporkan periksa_riset
+    alasan, salah = {}, []
+    for n, b in enumerate(isi, 1):
+        kata_ = b.split()
+        if not kata_ or kata_[0] != TERIMA:
+            continue
+        if len(kata_) < 3 or not KODE.fullmatch(kata_[1]):
+            salah.append(f"{RISET} baris {n}: «{b.strip()[:50]}»: tulis {TERIMA_BENTUK}, mis. «{TERIMA} 3f9a2c حاشية "
+                         f"itu catatan pengarang bahts aslinya, bukan muhaqqiq»")
+            continue
+        alasan.setdefault(kata_[1], (n, " ".join(kata_[2:])))
+    belum, diterima = [], []
+    for p in perhatian:
+        k = kode(p)
+        if k in alasan:
+            diterima.append((k, p, alasan[k][1]))
+        else:
+            belum.append(p)
+    terpakai = {k for k, _, _ in diterima}
+    salah += [f"{RISET} baris {n}: {TERIMA} «{k}»: kode itu tidak muncul lagi di `cek` (perhatiannya sudah hilang, atau "
+              f"isinya berubah dan berkode baru): hapus barisnya" for k, (n, _) in alasan.items() if k not in terpakai]
+    return belum + salah, diterima
 
 
 def periksa_riset(folder, baris, perhatian):
@@ -24,20 +70,14 @@ def periksa_riset(folder, baris, perhatian):
     tiap masalah khilaf. Agen mencatatnya di riset.txt; yang belum tercatat = perhatian, tidak pernah GAGAL:
     isi riset.txt ditulis agen sendiri, jadi mesin hanya bisa menunjuk yang belum dicatat, bukan membuktikan."""
     tercatat = {"takhrij8": {}, "tafsir": set(), "khilaf": 0}
-    berkas = folder / RISET
-    isi = []
-    if berkas.is_file():
-        try:
-            isi = berkas.read_text(encoding="utf-8-sig").splitlines()
-        except UnicodeDecodeError:
-            perhatian.append(f"{RISET} bukan UTF-8: " + ("buka di Notepad, File > Save As, pilih Encoding «UTF-8», simpan"
-                                                         if os.name == "nt" else "simpan ulang sebagai UTF-8")
-                             + ", lalu ulangi `cek`")
-    bentuk = (f"bentuknya «langkah objek» ({'، '.join(f'{k} <{v}>' for k, v in RISET_LANGKAH.items())}), atau "
-              f"«belum langkah objek alasan» untuk langkah yang tidak bisa dijalankan")
+    isi, rusak = _baca_riset(folder)
+    if rusak:
+        perhatian.append(rusak)
+    bentuk = (f"bentuknya «langkah objek» ({'، '.join(f'{k} <{v}>' for k, v in RISET_LANGKAH.items())}), "
+              f"«belum langkah objek alasan» untuk langkah yang tidak bisa dijalankan, atau {TERIMA_BENTUK}")
     for n, b in enumerate(isi, 1):
         kata_ = b.split()
-        if not kata_ or kata_[0].startswith("#"):
+        if not kata_ or kata_[0].startswith("#") or kata_[0] == TERIMA:  # «terima»: terapkan_terima
             continue
         belum = kata_[0] == "belum"
         if belum:

@@ -331,7 +331,7 @@ def utama():
                             "وكتاب الفحص الثاني، رقم الحديث (2)، ص5، ولم أقف على حكم لأهل العلم. "
                             "<<11223|-|5|هذا نص الحديث الأول للاختبار>> <<99999|-|5|هذا نص الحديث الثاني للاختبار>>].\n")
                 r = jalan(akar, "cek", f)
-                assert r.returncode == 0 and "perhatian (lolos, tetapi lihat sendiri): 0" in r.stdout, r.stdout + r.stderr
+                assert r.returncode == 0 and "): 0\ncatatan kaki tanpa bukti" in r.stdout, r.stdout + r.stderr
             finally:
                 pages.write_bytes(sebelum)
 
@@ -495,7 +495,7 @@ def utama():
             rinci = [b for b in lap.splitlines() if b.startswith("  ! ")]
             # cek lolos: laporan.txt tetap lengkap, layar rakit hanya satu baris cek lalu hasil rakit
             assert rinci and "GAGAL: 0" in lap, lap
-            assert f"cek: GAGAL 0, perhatian {len(rinci)}" in r.stdout and not any(b in r.stdout for b in rinci), r.stdout
+            assert f"cek: GAGAL 0, perhatian belum ditangani {len(rinci)}" in r.stdout and not any(b in r.stdout for b in rinci), r.stdout
             fn = [b for b in lap.splitlines() if b.startswith("catatan kaki tanpa bukti")]  # jumlahnya tetap di layar
             assert fn and not fn[0].endswith(": 0") and fn[0] in r.stdout, (fn, r.stdout)
             assert "HALAMAN=1" in r.stdout and "Jadi:" in r.stdout, r.stdout
