@@ -26,7 +26,7 @@ KOLOM = ("id,title,publication_year,type,language,cited_by_count,authorships,pri
 MAKNA_MAKS = 50  # OpenAlex menjawab pencarian makna paling banyak sebanyak ini
 DOAJ = "https://doaj.org/api/search/articles/"
 WAKTU_CARI, WAKTU_PDF = 45, 120  # detik menunggu jawaban; pencarian yang macet tidak boleh membuat pemakai menunggu lama
-ARAH = re.compile("[‎‏‪-‮⁦-⁩]")  # tanda arah tulisan yang ikut tersalin dari PDF
+ARAH = re.compile("[\u200e\u200f\u202a-\u202e\u2066-\u2069]")  # tanda arah tulisan yang ikut tersalin dari PDF
 
 
 class Ditolak(OSError):
