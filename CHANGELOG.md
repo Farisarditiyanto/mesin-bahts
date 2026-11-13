@@ -6,6 +6,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- `cek --jejak` menyaring kitab lewat indeks teks (dibuat sekali di `kitab/`, kira-kira sebesar folder kitab itu sendiri: 376 kitab ±1,6 GB, ±5 menit), jadi hanya kitab yang mungkin memuat kutipan yang dibuka; hasilnya sama persis dengan sebelumnya. Kutipan yang tiap potongannya kena salah ketik kini tetap mendapat «Paling mirip» di kitab yang dirujuk. Butuh pustaka baru `rapidfuzz`: jalankan `periksa`.
 - Perintah baru tanpa internet dan tanpa kuota: `tafsir <surat:ayat>` menunjuk kitab tafsir yang menafsirkan ayat itu (14 kitab, mis. الطبري، زاد المسير، ابن كثير) beserta juz/halaman cetaknya; `takhrij <id> <juz> <hal>` menunjuk hadits di halaman itu di 8 kitab hadits (البخاري، مسلم، أبو داود، الترمذي، النسائي، الموطأ، الطيالسي، ابن الجارود) beserta nomor dan juz/halamannya; edisi lain kitab itu (mis. صحيح مسلم ت عبد الباقي) dijembatani lewat nomor hadits. Datanya indeks layanan Shamela sendiri, diunduh `siapkan` (±0,6 MB).
 - Gambar di naskah: `#G berkas.png | keterangan` mencetak PNG/JPG dari folder bahts di tengah halaman, dikecilkan agar muat, dengan keterangan di bawahnya. Diagram Mermaid (`<nama>.mmd`) dijadikan PNG dengan perintah baru `diagram <folder>` (butuh Node.js + Chrome/Edge); `cek` dan `rakit` tetap tanpa internet.
 - `@malahiq: akhir` mencetak bagian `#K الملاحق` sesudah المصادر والمراجع dan sebelum فهرس; halamannya tidak masuk `HALAMAN_ISI`.
