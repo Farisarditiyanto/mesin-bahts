@@ -48,7 +48,7 @@ Kebutuhan komputer dan cara membereskannya ada di satu tempat: `python mesin/bah
 | Langkah | Perintah | Hasil |
 |---|---|---|
 | Buat folder | `baru <folder> "<judul>"` | `naskah.txt` (kerangka), `riset.txt` |
-| Cari bahan | connector `shamela_*`, `temukan`, `katalog`, `hadits`, `dirasat`; tanpa internet: `tafsir <surat:ayat>`, `takhrij <id> <juz> <hal>` | nomor kitab + juz/halaman (penunjuk) |
+| Cari bahan | connector `shamela_*`, `temukan`, `katalog`, `hadits`, `dirasat`; tanpa internet: `tafsir <surat:ayat>`, `takhrij <id> <juz> <hal>`, `rawi <id> <juz> <hal>` | nomor kitab + juz/halaman (penunjuk) |
 | Unduh kitab | `ambil <id>` atau `ambil <folder>` | `kitab/<id>/` |
 | Data cetak | `kartu <id>` | rujukan pertama dan المصادر |
 | Baca teks | `cari`, `teks`, `bab`, `halaman` | teks lokal untuk disalin persis |
@@ -91,7 +91,7 @@ Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumenn
 | `mesin/quran_hafs_v22.json`, `nama_surah.json` | teks mushaf dan nama surat |
 | `mesin/shamela.py` | unduh kitab, katalog, `temukan`, `scan` |
 | `mesin/hadits.py`, `dirasat.py` | penunjuk takhrij, penelitian terdahulu |
-| `mesin/layanan.py` | `tafsir` dan `takhrij` tanpa internet (tabel layanan Shamela di `kitab/_meta`) |
+| `mesin/layanan.py` | `tafsir`, `takhrij`, dan `rawi` tanpa internet (tabel layanan Shamela di `kitab/_meta`) |
 | `mesin/diagram.py` | diagram Mermaid jadi PNG (`diagram`) |
 | `mesin/tahap.py`, `berkas.py` | keadaan bahts dan folder `.rakit-*` |
 | `mesin/rakit.ps1`, `teks_pdf.py` | perakit Word/PDF dan teks PDF |
