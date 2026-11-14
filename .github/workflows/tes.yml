@@ -12,14 +12,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20  # durasi riil CI 3-4 menit; 20 = aman buat putaran yang lambat
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       # cache kitab: unduhan Shamela ±18 MB dijamin antar putaran; `ambil` tetap fallback idempoten (sudah ada = skip)
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: kitab/
           key: kitab-${{ runner.os }}-${{ hashFiles('.github/workflows/tes.yml') }}
           restore-keys: kitab-${{ runner.os }}-
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: "pip"  # requirements.txt di akar; unduhan pip di-cache antar putaran
