@@ -6,7 +6,6 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
-- Indeks halaman kitab yang kolomnya rusak dihitung ulang dari teks sumber, supaya `halaman`, `cek`, dan layanan Shamela tetap menunjuk halaman yang benar.
 - Perhatian `cek` kini wajib ditangani: tiap perhatian dicetak dengan kode, lalu dibereskan di naskah atau diterima dengan `terima <kode> <alasan>` di `riset.txt` (perhatian `riset.txt` sendiri tidak bisa diterima). `tahap` baru mencetak `NASKAH=LOLOS` dan menyuruh ke pemeriksa sesudah semuanya ditangani, dan `rakit` mencetak «BELUM SELESAI» selama masih ada; perhatian yang diterima didaftar terpisah beserta alasannya.
 - Jadi `GAGAL`: takhrij di luar Shahihain yang tidak menulis derajat hadits (tulis derajatnya, atau «ولم أقف على حكم …»), dan baris kembar di المصادر والمراجع.
 - Perintah baru tanpa internet: `rawi <id> <juz> <hal>` mencetak sanad tiap hadits di halaman itu berurutan dari pengarang, lalu rutbah ringkas tiap rawi (ابن حجر، الذهبي، wafat); `rawi <nomor>` mencetak ucapan جرح وتعديل rawi itu dan tempat lafaznya di edisi lokal kitab rijalnya (dicari ulang, karena juz/halaman di data Shamela sering dari edisi lain; hanya ditunjuk kalau letaknya di tarjamah rawi itu); `rawi "<nama>"` mencari nomor rawi. `siapkan` kini mengunduh ±8,6 MB tabel layanan.
@@ -17,6 +16,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 - `rakit` tidak lagi gagal («Specified cast is not valid») pada tabel `#J` empat kolom atau lebih.
 - Isi sel tabel `#J` kini rata kanan; dulu tercetak rata kiri. Rakit ulang bahts bertabel untuk mendapat PDF yang benar.
+- Indeks halaman kitab yang kolomnya rusak dihitung ulang dari teks sumber, supaya `halaman`, `cek`, dan layanan Shamela tetap menunjuk halaman yang benar.
 
 ## 9.3.0 — 2026-11-13
 
