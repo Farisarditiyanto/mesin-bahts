@@ -1,0 +1,7 @@
+# Menaikkan versi GitHub Actions di .github/workflows tiap minggu lewat PR.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
