@@ -12,7 +12,8 @@
 - `rawi` mencetak rawi bertautan di halaman (1681), juga lewat jembatan edisi (1727→711); ucapan جرح وتعديل yang lafaznya
   umum («سمعت أبي يقول: أدركته ولم أكتب عنه», 7 tempat di الجرح والتعديل 2170) ditunjuk di tarjamah rawi itu (ج2 ص98),
   bukan di kemunculan pertamanya; ucapan yang lafaznya sekali muncul tetapi di tarjamah rawi lain (عبد الرحمن بن حميد
-  #3281 → 1278 ج13 ص637 tarjamah النضر بن إسماعيل) tidak ditunjuk; sanad dicetak berurutan dari pengarang;
+  #3281 → 1278 ج13 ص637 tarjamah النضر بن إسماعيل) tidak ditunjuk; sanad dicetak berurutan dari pengarang, termasuk
+  sanad yang kode jenisnya bukan «s» (Bukhari 2804 يحيى بن بكير عن الليث، 1681 ج4 ص19, kode «b»);
 - `akar 10649 <akar>`: kata yang sama dengan akarnya ikut dihitung walau tidak ada di kamus Shamela («قرض», «القرض»),
   «وقف» tidak dikelompokkan ke «قف», akar berhamzah boleh ditulis «أخذ» (kamus: «ءخذ»), nama kelompok yang ejaannya
   diubah `norm` tidak terpotong («السماوات» -> «سموات», bukan «ماوات»), dan kata yang di kamus juga berakar lain
@@ -93,6 +94,9 @@ kode, out, err = jalankan("akar", "10649", "وعد")
 baris_bad = next((b for b in out.splitlines() if b.startswith("  بعد: ")), "")
 if kode or "[juga akar" not in baris_bad:
     gagal.append(f"akar 10649 وعد: «بعد» (kamus: juga akar بعد) tidak ditandai akar lain: «{baris_bad[:200]}»")
+kode, out, err = jalankan("rawi", "1681", "4", "19")
+if kode or "#7: البخاري (#5495) > يحيى بن عبد الله بن بكير (#6952) > الليث بن سعد بن عبد الرحمن (#5348)" not in out:
+    gagal.append(f"rawi 1681 4 19: sanad berkode «b» (hadits 2804) tidak dicetak sebagai rantai (kode {kode}: {err[-200:]})")
 kode, out, err = jalankan("rawi", "1727", "2", "676")
 if kode or "lewat edisi [711]" not in out or "#5361 مالك بن أنس" not in out:
     gagal.append(f"rawi 1727 2 676: jembatan ke 711 tidak mencetak مالك بن أنس (kode {kode}: {err[-200:]})")

@@ -17,6 +17,28 @@ RUJUKAN_LAIN = re.compile(r"^(?:(?:انظر|ينظر)\s*:\s*)?[\[(]?\s*(?:سور
 # «الآية ٥ من سورة الفاتحة»: nomor dulu, surat sesudahnya
 AYAT_DARI_SURAH = re.compile(r"^(?:(?:انظر|ينظر)\s*:\s*)?(?:الآية|الآيات|آية)\s*:?\s*([0-9٠-٩][^م]*?)\s*من\s+سورة\s+([^.،,؛()\[\]]+)")
 SURAH_PADAT = {norma.padat(x) for x in SURAH}
+# huruf mushaf yang di ejaan imla'i jadi alif biasa: alif kecil («تَعَٰلَىٰ») dan alif wasl («ٱللَّهِ»)
+IMLAI = str.maketrans({"ٰ": "ا", "ٱ": "ا"})
+
+
+@functools.cache
+def bentuk_ayat(teks):
+    """Bentuk `padat` teks mushaf yang dicocokkan dengan teks kitab: tanpa lafaz ayat yang di ejaan imla'i berbentuk
+    kalimat hormat («سبحانه وتعالى» 16:1, «رضي الله عنهم» 98:8, «سيرحمهم الله» 9:71), lalu teks utuhnya kalau beda.
+    `norma.padat` membuang kalimat itu dari teks kitab dan naskah (norma.HORMAT), tetapi tidak dari ejaan mushaf, yang
+    hurufnya beda («سُبۡحَٰنَهُۥ وَتَعَٰلَىٰ»), jadi ayat kitab yang persis tidak sama lagi dengan ayat yang tercetak.
+    Kutipan kitab yang berhenti di tengah kalimat itu (39:67 sampai «سُبْحَانَهُ», الشرح الممتع ج3 ص23) tidak kehilangan
+    apa pun, jadi cocok dengan teks utuhnya. Kalimat hormat dicari di ejaan imla'i-nya (huruf demi huruf sejajar dengan
+    teks mushaf), lalu dibuang dari teks mushaf."""
+    imlai = teks.translate(IMLAI)
+    letak = [i for i, x in enumerate(imlai) if not norma.HARAKAT.match(x)]
+    polos = "".join(imlai[i] for i in letak)
+    huruf = list(teks)
+    for m in norma.HORMAT.finditer(polos):
+        for i in letak[m.start():m.end()]:
+            huruf[i] = " "
+    tanpa, utuh = norma.padat("".join(huruf)), norma.padat(teks)
+    return (tanpa,) if tanpa == utuh else (tanpa, utuh)
 
 
 def rujukan_ayat(isi):
@@ -34,10 +56,11 @@ def rujukan_ayat(isi):
 
 def mirip_ayat(spec, teks):
     """Teks kitab (tanpa tanda ﴿﴾) memuat sepotong ayat {Q:spec}: sama paling sedikit 10 huruf `padat` berturut-turut."""
-    a, b = norma.padat(ayat(spec)[0]), norma.padat(teks)
+    b = norma.padat(teks)
     if not b or len(b) > 3000:
         return False
-    return difflib.SequenceMatcher(None, a, b, autojunk=False).find_longest_match(0, len(a), 0, len(b)).size >= min(10, len(a))
+    return any(difflib.SequenceMatcher(None, a, b, autojunk=False).find_longest_match(0, len(a), 0, len(b)).size
+               >= min(10, len(a)) for a in bentuk_ayat(ayat(spec)[0]))
 
 
 def ayat_sama(spec, antara, rujukan):
@@ -54,15 +77,15 @@ def ayat_sama(spec, antara, rujukan):
     kalah = False
     for teks in tanda:
         b = norma.padat(teks)
-        for x in spec:
-            a = norma.padat(ayat(x)[0])
-            if b in a:
+        for x, a in ((x, a) for x in spec for a in bentuk_ayat(ayat(x)[0])):
+            # «والليل إذا يسر» (89:4) imla'i, «وَٱلَّيۡلِ إِذَا يَسۡرِ» di mushaf: kerangkanya terlalu pendek untuk ditandingkan
+            if b in a or tanpa_lam_sandang(b) in tanpa_lam_sandang(a):
                 return True
             # ayat bertanda ﴿﴾ ditulis kitab dengan ejaan imla'i («الصراط»/«الصرط», «الصلاة»/«الصلوة»): dibandingkan
             # juga tanpa huruf alif, waw, ya, dan hamzah
             # kerangka 3-4 huruf («نهل» dari «إن هؤلاء») termuat di banyak ayat: paling sedikit 5 huruf, lalu ditandingkan
-            kb = KERANGKA.sub("", b)
-            cocok = len(kb) >= 5 and kb in KERANGKA.sub("", a) or sama(a, b, 10) or _kerangka_sama(a, b)
+            kb = kerangka(b)
+            cocok = len(kb) >= 5 and kb in kerangka(a) or sama(a, b, 10) or _kerangka_sama(a, b)
             ketik = not cocok and _salah_ketik(a, b)
             if not (cocok or ketik):
                 continue
@@ -80,7 +103,7 @@ def ayat_sama(spec, antara, rujukan):
         return False
     # ayat tanpa tanda ﴿﴾ di kitab: sepotong ayat itu ada di celah
     b = norma.padat(antara)
-    return any(sama(norma.padat(ayat(x)[0]), b, 10) for x in spec)
+    return any(sama(a, b, 10) for x in spec for a in bentuk_ayat(ayat(x)[0]))
 
 
 @functools.cache
@@ -118,12 +141,17 @@ def ayat_tercetak(spec, kitab, celah=""):
     rusak (jumlah ﴿ dan ﴾ di celah tidak sama: «﴿فإذا قرأته فاتبع قرءانه﴾ (١٨) ثم إن علينا بيانه﴾»): yang termuat di
     seluruh celah kitab (tanpa rujukan [سورة: n]) dianggap sama. Tanda yang utuh tidak: kata kitab sesudahnya («الآية»)
     bukan lanjutan ayat."""
-    p = KERANGKA.sub("", norma.padat(" ".join(ayat(x)[0] for x in spec)))
-    k = KERANGKA.sub("", norma.padat(kitab))
+    k = kerangka(norma.padat(kitab))
+    hasil = [_tercetak(kerangka(p), k, celah) for p in bentuk_ayat(" ".join(ayat(x)[0] for x in spec))]
+    return min(hasil, key=("", "kurang", "lebih").index)
+
+
+def _tercetak(p, k, celah):
+    """ayat_tercetak untuk satu bentuk kerangka ayat tercetak p dan kerangka ayat kitab k."""
     beda = _dalam(p, k) if k else None
     if beda is None or beda > max(BEDA_AYAT, len(p) // 5):
         rusak = celah.count("﴿") != celah.count("﴾") or celah.count("{") != celah.count("}")
-        luas = rusak and KERANGKA.sub("", norma.padat(RUJUKAN_AYAT.sub(" ", celah)))
+        luas = rusak and kerangka(norma.padat(RUJUKAN_AYAT.sub(" ", celah)))
         beda = _dalam(p, luas) if luas else None
         return "" if beda is not None and beda <= max(BEDA_AYAT, len(p) // 5) else "lebih"
     return "kurang" if len(k) - len(p) > BEDA_AYAT + beda else ""
@@ -227,34 +255,37 @@ def _tanding(spec, b):
     lain = next((k for k, x in _quran_padat_nomor() if k not in sendiri and b in x), None)
     if lain:  # «وقاتلوا في سبيل الله» (2:190) bukan {Q:2:154} «يقتل في سبيل الله», walau kerangkanya sama
         return "kalah", lain
-    kb = KERANGKA.sub("", b)
+    kb = kerangka(b)
     if len(kb) < 5:  # kerangka 3-4 huruf termuat di banyak ayat: tidak bisa ditandingkan
         return "menang", None
-    a = KERANGKA.sub("", norma.padat(ayat(nomor)[0]))
     milik = None
-    for i in range(max(1, len(a) - len(kb) + 1)):
-        w = a[i:i + len(kb)]
-        n = (_jarak(w, kb, milik[0] if milik else None), w)
-        milik = min(milik, n) if milik else n
+    for a in map(kerangka, bentuk_ayat(ayat(nomor)[0])):
+        for i in range(max(1, len(a) - len(kb) + 1)):
+            w = a[i:i + len(kb)]
+            n = (_jarak(w, kb, milik[0] if milik else None), w)
+            milik = min(milik, n) if milik else n
     beda, saingan = milik[0], None
-    padat = dict(_quran_padat_nomor())
-    jauh = functools.cache(lambda: _jarak_ayat(norma.padat(ayat(nomor)[0]), b))  # huruf lengkap {Q:}
+    bentuk = {}
+    for k, x in _quran_padat_nomor():
+        bentuk.setdefault(k, []).append(x)
+    jarak = lambda k: min(_jarak_ayat(x, b) for x in bentuk[k])  # noqa: E731
+    jauh = functools.cache(lambda: min(_jarak_ayat(x, b) for x in bentuk_ayat(ayat(nomor)[0])))  # huruf lengkap {Q:}
     for k, x in _quran_kerangka_nomor():
         for w in _calon(x, kb, beda) if k not in sendiri else ():
             if w == milik[1]:
                 # kerangka sama («الله للكافرين» 4:141, «والله للكافرين» 58:4): ayat berulang, kecuali huruf lengkapnya
                 # lebih dekat ke ayat lain. Ejaan imla'i bisa begitu juga, jadi cukup seri (perhatian)
-                if saingan is None and _jarak_ayat(padat[k], b) < jauh():
+                if saingan is None and jarak(k) < jauh():
                     saingan = k
                 continue
             n = _jarak(w, kb, beda)
             if n < beda:
                 # salah ketik huruf mati bisa mendekatkan kerangka ke ayat lain: kalah hanya kalau ayat lain itu juga
                 # lebih dekat dalam huruf lengkap («الرسل حلا»: 1 huruf dari 46:35 dan dari 16:35); selain itu seri
-                if _jarak_ayat(padat[k], b) < jauh():
+                if jarak(k) < jauh():
                     return "kalah", k
                 saingan = saingan or k
-            elif n == beda and saingan is None and _jarak_ayat(padat[k], b) <= jauh():  # seri di keduanya
+            elif n == beda and saingan is None and jarak(k) <= jauh():  # seri di keduanya
                 saingan = k
     return ("seri", saingan) if saingan else ("menang", None)
 
@@ -270,25 +301,25 @@ def _jarak_ayat(a, b):
 
 @functools.cache
 def _quran_kerangka_nomor():
-    return [(k, KERANGKA.sub("", x)) for k, x in _quran_padat_nomor()]
+    return [(k, kerangka(x)) for k, x in _quran_padat_nomor()]
 
 
 @functools.cache
 def _quran_padat_nomor():
-    return [(k, norma.padat(v)) for k, v in QURAN.items()]
+    return [(k, x) for k, v in QURAN.items() for x in bentuk_ayat(v)]
 
 
 def _di_quran(b):
     """Teks `padat` b termuat di salah satu ayat mushaf (juga tanpa alif, waw, ya, dan hamzah: ejaan imla'i)."""
-    kb = KERANGKA.sub("", b)
-    return any(b in x or kb in KERANGKA.sub("", x) for _, x in _quran_padat_nomor())
+    kb = kerangka(b)
+    return any(b in x or kb in kerangka(x) for _, x in _quran_padat_nomor())
 
 
 def _kerangka_sama(a, b):
     """Tanpa alif, waw, ya, dan hamzah, 8 huruf berturut-turut gampang sama di ayat lain («مرضى أو على سفر» di 2:184
     dan 4:43): yang sama harus paling sedikit 8 huruf dan 4/5 kerangka yang lebih pendek; potongan kitab yang
     kerangkanya 5-7 huruf harus termuat utuh."""
-    ka, kb = KERANGKA.sub("", a), KERANGKA.sub("", b)
+    ka, kb = kerangka(a), kerangka(b)
     if not ka or not kb:
         return False
     n = difflib.SequenceMatcher(None, ka, kb, autojunk=False).find_longest_match(0, len(ka), 0, len(kb)).size
@@ -296,6 +327,21 @@ def _kerangka_sama(a, b):
 
 
 KERANGKA = re.compile(r"[اويىءأإآؤئ]")
+# «ال» + lam kata: imla'i menulis dua lam («الليل»، «اللاتي»، «اللائي»), mushaf satu («ٱلَّيۡلِ»، «ٱلَّٰتِي»). Lafaz
+# الجلالة tidak (lam-lam-ha): «الله» tetap beda dari «إله»، «له»، «لله». Lam berderet lain tidak disatukan, karena
+# «إلا الله» dan «إلا هو» jadi sama kerangkanya.
+LAM_SANDANG = re.compile("الل(?!ه)")
+
+
+def tanpa_lam_sandang(s):
+    """Teks `padat` dengan «الل» (bukan lafaz الجلالة) jadi «ال»: ejaan imla'i «الليل» = ejaan mushaf «ٱلَّيۡلِ»."""
+    return LAM_SANDANG.sub("ال", s)
+
+
+def kerangka(s):
+    """Huruf `padat` tanpa alif, waw, ya, dan hamzah, dan tanpa lam kedua «الل» (tanpa_lam_sandang): ejaan mushaf dan
+    imla'i yang hanya beda di huruf itu sama kerangkanya («الصلوة/الصلاة», «ٱلَّيۡلِ/الليل», «ٱلَّٰتِي/اللاتي»)."""
+    return KERANGKA.sub("", tanpa_lam_sandang(s))
 
 
 def ayat_persis(spec, teks):
@@ -304,8 +350,8 @@ def ayat_persis(spec, teks):
     b = norma.padat(teks)
     if len(b) < 12:
         return False
-    a = [norma.padat(ayat(x)[0]) for x in spec]
-    return any(b in x or KERANGKA.sub("", b) in KERANGKA.sub("", x) for x in a)
+    a = [a for x in spec for a in bentuk_ayat(ayat(x)[0])]
+    return any(b in x or kerangka(b) in kerangka(x) for x in a)
 
 
 def ayat(spec):
