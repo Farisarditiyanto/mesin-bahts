@@ -52,7 +52,7 @@ def _takhrij_dulu(mk, dulu_h, perhatian):
     return any(not h.get("bukti") and h.get("kutipan") and kata(mk).strip() and kata(mk) in kata(h["kutipan"]) for h in dulu_h)
 
 
-TOKEN = re.compile(r"(\*\*|\(\(|\)\)|\{(?:Q|H2|H|P|A|N):[^}]*\}|\[\^|\])")
+TOKEN = re.compile(r"(\*\*|\(\(|\)\)|\{(?:Q|H2|H|P|A|N):[^}]*\}|\{X\}|\[\^|\])")
 KUNCI = re.compile(r"[a-z]+")
 
 
@@ -79,6 +79,7 @@ class Pemeriksaan:
     #   {"n", "ayat": spec, "t": teks tercetak} atau {"n", "bukti": [sid|juz|hal…], "kutipan": teks yang dibuktikan, "catatan": isi}
     penunjuk: list = dataclasses.field(default_factory=list)
     jangkar: set = dataclasses.field(default_factory=set)  # kunci {A:} naskah ini
+    khulasah: int = 0  # jumlah paragraf {X} (خلاصة): rakit menstabilonya di «<berkas> - الخلاصات.pdf»
     rujuk_silang: list = dataclasses.field(default_factory=list)  # {P:k} yang belum menunjuk {H:}: harus menunjuk {A:k}
     standar: list = dataclasses.field(default_factory=list)  # catatan standar_sumber yang belum dinilai (per bagian)
     dirujuk: set = dataclasses.field(default_factory=set)  # kitab yang sudah dirujuk (rujukan pertama: cek_tautsiq.data_cetak)
@@ -153,7 +154,7 @@ class Pengurai:
                 self._teks(teks[self.i:m.start()])
             tok = m.group(1)
             self.i = m.end()
-            self.PENANGAN[tok[:tok.find(":") + 1] if tok.startswith("{") else tok](self, tok)
+            self.PENANGAN[tok[:tok.find(":") + 1] if tok.startswith("{") and ":" in tok else tok](self, tok)
         return self._tutup()
 
     # ---- penangan tanda ----
@@ -240,6 +241,16 @@ class Pengurai:
             raise TandaRusak(f"{tok}: kunci «{kunci}» sudah dipakai {{A:}} atau {{H:}} lain")
         self.ctx.jangkar.add(kunci)
         self.runs.append({"bm": "a_" + kunci})
+
+    def _khulasah(self, tok):
+        """{X} di awal paragraf matan = paragraf خلاصة. Tidak tercetak; rakit memasang bookmark x_n di situ, lalu
+        menstabilo paragraf itu di salinan PDF yang hanya berisi halaman-halaman khulasah."""
+        if self.di_catatan:
+            raise TandaRusak("{X}: penanda khulasah hanya boleh di matan, bukan di catatan kaki")
+        if self.polos.strip():
+            raise TandaRusak("{X}: tulis di awal paragraf khulasah (paragraf itu yang distabilo)")
+        self.ctx.khulasah += 1
+        self.runs.append({"bm": f"x_{self.ctx.khulasah}"})
 
     def _kurung_nyasar(self, tok):  # "]" tanpa [^
         self.runs.append({"t": "]", "b": self.tebal}); self.polos += "]"
@@ -629,4 +640,4 @@ class Pengurai:
             self.seg_run_bukti = len(self.runs)
 
     PENANGAN = {"**": _tebal, "((": _matn, "))": _matn, "{Q:": _ayat, "{H2:": _hadits_lagi, "{H:": _hadits,
-                "{P:": _rujuk_halaman, "{A:": _jangkar, "{N:": _alam, "[^": _catatan_kaki, "]": _kurung_nyasar}
+                "{P:": _rujuk_halaman, "{A:": _jangkar, "{N:": _alam, "{X}": _khulasah, "[^": _catatan_kaki, "]": _kurung_nyasar}

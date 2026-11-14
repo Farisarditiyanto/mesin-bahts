@@ -440,6 +440,40 @@ def _rakit(nama, fasl=None):
         _buang_sisa(f, kerja)
 
 
+def nama_khulasah(berkas):
+    return f"{berkas} - الخلاصات.pdf"
+
+
+def _khulasah_pdf(kerja, berkas, laporan):
+    """Paragraf {X} (خلاصة): rakit.ps1 mengekspor salinan PDF berstabilo kuning dan menulis «KHULASAH=a-b,…» (halaman
+    fisik awal-akhir tiap paragraf) di laporan. Di sini salinan itu dipotong jadi halaman-halaman itu saja.
+    Kembalikan nama berkasnya, atau None kalau naskah tidak memuat {X}."""
+    salinan = kerja / f"{berkas}.khulasah.pdf"
+    baris = [b for b in (kerja / laporan).read_text(encoding="utf8").splitlines() if b.startswith("KHULASAH=")]
+    if not baris or not salinan.exists():
+        return None
+    halaman = set()
+    for rentang in baris[-1].split("=", 1)[1].split(","):
+        a, _, b = rentang.partition("-")
+        halaman.update(range(int(a), int(b or a) + 1))
+    import teks_pdf
+    try:
+        teks_pdf.betulkan(salinan)
+    except Exception as e:
+        print(f"PERINGATAN: PDF khulasah jadi, tetapi teks Arabnya belum dibetulkan: {type(e).__name__}: {e}")
+    from pypdf import PdfReader, PdfWriter
+    r, w = PdfReader(salinan), PdfWriter()
+    for h in sorted(halaman):
+        if 1 <= h <= len(r.pages):
+            w.add_page(r.pages[h - 1])
+    nama = nama_khulasah(berkas)
+    with open(kerja / nama, "wb") as fh:
+        w.write(fh)
+    salinan.unlink()
+    print(f"KHULASAH: {len(baris[-1].split(','))} paragraf distabilo di {len(halaman)} halaman -> {nama}")
+    return nama
+
+
 def _rakit_di(nama, f, kerja, fasl=None):
     build = kerja / "bahan.json"
     f, galat, lap = cek(nama, build, ringkas=True)
@@ -499,7 +533,13 @@ def _rakit_di(nama, f, kerja, fasl=None):
         raise RuntimeError("PDF dan laporan halaman tidak cocok; hasil lama belum diganti.")
     if hashlib.sha256((f / "naskah.txt").read_bytes()).hexdigest() != d["naskah_sha256"]:
         raise RuntimeError("Naskah berubah selama rakit; hasil lama belum diganti. Ulangi rakit.")
-    terbitkan(kerja, f, [f"{berkas}.docx", f"{berkas}.pdf", laporan])
+    hasil = [f"{berkas}.docx", f"{berkas}.pdf", laporan]
+    khulasah = _khulasah_pdf(kerja, berkas, laporan)
+    if khulasah:
+        hasil.append(khulasah)
+    terbitkan(kerja, f, hasil)
+    if not khulasah and (f / nama_khulasah(berkas)).exists():  # naskah tidak lagi ber-{X}: salinan lama sudah usang
+        (f / nama_khulasah(berkas)).unlink()
     for baris in (f / laporan).read_text(encoding="utf8").splitlines():
         if baris.startswith(("HALAMAN", "CATATAN_KAKI", "KATA")):
             print(baris)
