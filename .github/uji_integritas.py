@@ -595,7 +595,7 @@ def utama():
             r, b = rakit_fasl("1")
             assert r.returncode == 0, r.stdout + r.stderr
             assert judul(b) == ["المقدمة", "الفصل الأول: أ"], judul(b)
-            assert not b["meta"].get("tanpa_sampul") and b["meta"]["tanpa"] == "ayat, hadits, alam, maudhuat, pustaka", b["meta"]
+            assert not b["meta"].get("tanpa_sampul") and b["meta"]["tanpa"] == "ayat, hadits, alam, firaq, maudhuat, pustaka", b["meta"]
             assert b["meta"]["berkas"] == "hasil - المقدمة والفصل الأول" and (folder / "hasil - المقدمة والفصل الأول.pdf").is_file()
             assert [a["a"] for a in b["ayat"]] == ["2"] and [h["k"] for h in b["hadits"]] == ["h_niyya"], (b["ayat"], b["hadits"])
             assert (folder / "laporan-fasl1.txt").read_text(encoding="utf8").startswith("POTONGAN=--fasl 1: المقدمة والفصل الأول")
@@ -603,7 +603,7 @@ def utama():
             r, b = rakit_fasl("2")  # {H2:} di sini, {H:}-nya di potongan 1: halaman فهرسnya hanya yang di sini
             assert r.returncode == 0, r.stdout + r.stderr
             assert judul(b) == ["الفصل الثاني: ب"] and b["meta"]["tanpa_sampul"], (judul(b), b["meta"])
-            assert [h["k"] for h in b["hadits"]] == ["h_niyya_1"] and b["meta"]["tanpa"] == "ayat, hadits, alam, maudhuat, pustaka"
+            assert [h["k"] for h in b["hadits"]] == ["h_niyya_1"] and b["meta"]["tanpa"] == "ayat, hadits, alam, firaq, maudhuat, pustaka"
             r, b = rakit_fasl("3")
             assert r.returncode == 0, r.stdout + r.stderr
             assert judul(b) == ["الفصل الثالث: ج", "الخاتمة"] and b["meta"]["tanpa_sampul"] and not b["meta"].get("tanpa"), b["meta"]

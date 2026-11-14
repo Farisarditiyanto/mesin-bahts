@@ -52,7 +52,7 @@ def _takhrij_dulu(mk, dulu_h, perhatian):
     return any(not h.get("bukti") and h.get("kutipan") and kata(mk).strip() and kata(mk) in kata(h["kutipan"]) for h in dulu_h)
 
 
-TOKEN = re.compile(r"(\*\*|\(\(|\)\)|\{(?:Q|H2|H|P|A|N):[^}]*\}|\{X\}|\[\^|\])")
+TOKEN = re.compile(r"(\*\*|\(\(|\)\)|\{(?:Q|H2|H|P|A|N|M):[^}]*\}|\{X\}|\[\^|\])")
 KUNCI = re.compile(r"[a-z]+")
 
 
@@ -69,6 +69,8 @@ class Pemeriksaan:
     hadits_idx: list = dataclasses.field(default_factory=list)  # {H:}, untuk فهرس الأحاديث
     alam_idx: list = dataclasses.field(default_factory=list)  # {N:}, untuk فهرس الأعلام: {"k": penanda, "t": nama}
     alam: list = dataclasses.field(default_factory=list)  # فهرس الأعلام: {"t": nama, "k": [penanda]}, urut (diisi olah)
+    firaq_idx: list = dataclasses.field(default_factory=list)  # {M:}, untuk فهرس الفرق والمذاهب: {"k": penanda, "t": nama}
+    firaq: list = dataclasses.field(default_factory=list)  # فهرس الفرق والمذاهب: seperti alam (diisi olah)
     galat: list = dataclasses.field(default_factory=list)
     perhatian: list = dataclasses.field(default_factory=list)  # sesudah `periksa`: yang belum ditangani saja
     diterima: list = dataclasses.field(default_factory=list)  # [(kode, perhatian, alasan)] dari «terima» di riset.txt
@@ -220,6 +222,18 @@ class Pengurai:
             raise TandaRusak(f"{tok}: bentuknya {{N:nama}} saja, tanpa |")
         kunci = f"n_{len(self.ctx.alam_idx)}"
         self.ctx.alam_idx.append({"k": kunci, "t": nama})
+        self.runs.append({"bm": kunci})
+
+    def _firqah(self, tok):
+        """{M:nama}: penanda tak tercetak untuk فهرس الفرق والمذاهب (mis. {M:الحنفية}، {M:المعتزلة}), di matan dekat
+        nama firqah/mazhab itu. Aturannya sama dengan {N:}: nama yang sama persis = satu baris dengan semua halamannya."""
+        nama = re.sub(r"\s+", " ", tok[3:-1]).strip()
+        if self.di_catatan:
+            raise TandaRusak(f"{tok}: tidak boleh di dalam catatan kaki: فهرس الفرق والمذاهب hanya untuk nama di matan")
+        if not nama or not re.search(r"[؀-ۿ]", nama) or "|" in nama:
+            raise TandaRusak(f"{tok}: tulis nama firqah atau mazhabnya dengan huruf Arab, mis. {{M:المعتزلة}}")
+        kunci = f"m_{len(self.ctx.firaq_idx)}"
+        self.ctx.firaq_idx.append({"k": kunci, "t": nama})
         self.runs.append({"bm": kunci})
 
     def _rujuk_halaman(self, tok):
@@ -640,4 +654,4 @@ class Pengurai:
             self.seg_run_bukti = len(self.runs)
 
     PENANGAN = {"**": _tebal, "((": _matn, "))": _matn, "{Q:": _ayat, "{H2:": _hadits_lagi, "{H:": _hadits,
-                "{P:": _rujuk_halaman, "{A:": _jangkar, "{N:": _alam, "{X}": _khulasah, "[^": _catatan_kaki, "]": _kurung_nyasar}
+                "{P:": _rujuk_halaman, "{A:": _jangkar, "{N:": _alam, "{M:": _firqah, "{X}": _khulasah, "[^": _catatan_kaki, "]": _kurung_nyasar}
