@@ -489,8 +489,9 @@ def _letak_ucapan(daftar, inti=""):
 
 
 def _sanad(p):
-    """[(kunci hadits Shamela, [nomor rawi dari pengarang ke sahabi])] rekaman p, dari layanan «esnad» Shamela
-    («084 s 3823 4361 … 5495»: kunci, kode jenis sanad, lalu rawi dari sahabi sampai pengarang; 0 = rawi tanpa nomor).
+    """[(kunci hadits Shamela, [nomor rawi dari pengarang ke ujung sanad])] rekaman p, dari layanan «esnad» Shamela
+    («084 s 3823 4361 … 5495»: kunci, kode jenis sanad, lalu rawi dari ujung sanad (sahabi, atau penutur atsar) sampai
+    pengarang; 0 = rawi tanpa nomor).
     Semua kode dibaca, bukan hanya «s»: di صحيح البخاري (1681) ±800 sanad berkode «b» (mis. ٢٨٠٤ يحيى بن بكير عن
     الليث…، 4/19, di bawah kunci hadits 7) dan «c» (atsar, mis. عمر بن عبد العزيز، 1/31). Arti kodenya tidak tertulis di
     data Shamela, jadi tidak dicetak."""
