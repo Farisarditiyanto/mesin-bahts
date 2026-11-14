@@ -18,7 +18,7 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       termasuk nomor halaman, nomor catatan kaki, dan فهرس. Naskah boleh ditulis dengan angka mana saja
                       angka_ayat (bawaan = @angka): angka di catatan kaki rujukan ayat [^سورة …، آية: n.] saja,
                       mis. «@angka_ayat: latin» = nomor ayat di catatan kaki 0123, sisanya tetap ٠١٢٣
-                      tanpa (yang tidak dicetak: فهرس ayat, hadits, alam, maudhuat, dan pustaka = المصادر والمراجع
+                      tanpa (yang tidak dicetak: فهرس ayat, hadits, alam, firaq, maudhuat, dan pustaka = المصادر والمراجع
                       bila dosen minta sumber cukup di catatan kaki; mis. «@tanpa: ayat, hadits»).
                       فهرس الآيات، فهرس الأحاديث، dan فهرس الأعلام yang kosong tidak dicetak dengan sendirinya
                       pustaka (akhir = urutan خطة yang menaruh فهرس المصادر والمراجع sesudah فهرس الأحاديث (dan فهرس الأعلام
@@ -98,6 +98,8 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       atau judul. Nama yang sama tiap kali (beda harakat/hamzah tetap satu) = satu baris فهرس dengan semua
                       halamannya, halaman berurutan jadi rentang (٢٥-٢٩). Urut abjad tanpa «ال/ابن/أبو/أبي» di depan
                       («ابن القيم» di ق). فهرس الأعلام dicetak sesudah فهرس الأحاديث
+  {M:nama}            daftarkan firqah/mazhab ke فهرس الفرق والمذاهب (tidak tercetak), aturannya sama dengan {N:}:
+                      «… عند {M:المعتزلة}المعتزلة»; dicetak sesudah فهرس الأعلام. Tanpa {M:} = tidak ada فهرس itu
   {A:kunci}           titik rujukan silang di matan (tidak tercetak), mis. di awal paragraf yang mau ditunjuk
   {X}                 di awal paragraf matan: paragraf خلاصة (tidak tercetak). `rakit` membuat juga «<@berkas> - الخلاصات.pdf»:
                       hanya halaman-halaman yang memuat paragraf {X}, dengan paragraf itu distabilo kuning (.docx dan PDF
@@ -205,7 +207,7 @@ WAJIB = {"bahts": ("judul", "jenis", "nama", "nim", "fasl"), "kitab": ("judul",)
 # nomor mahasiswa tanpa «الرقم الجامعي:»
 SAMPUL = {"qism": ("judul", "nama"), "mahad": WAJIB["bahts"], "jakarta": ("judul", "nama")}
 HALAMAN_BARU = ("B", "M")  # judul yang bisa dibuat mulai halaman baru lewat @halaman_baru; K dan F selalu
-TANPA = ("ayat", "hadits", "alam", "maudhuat", "pustaka")  # فهرس dan المصادر yang boleh dibuang lewat @tanpa; perakitnya di rakit.ps1
+TANPA = ("ayat", "hadits", "alam", "firaq", "maudhuat", "pustaka")  # فهرس dan المصادر yang boleh dibuang lewat @tanpa; perakitnya di rakit.ps1
 # @angka: yang pertama = bawaan. Pedoman Jāmiʿat al-Imām tidak menyebut jenis angka; contoh resminya (pedoman 1443هـ,
 # مجلة العلوم الشرعية) memakai hindi di nomor halaman, catatan kaki, rujukan, tahun, ayat, dan فهرس
 ANGKA = ("hindi", "latin")
@@ -381,6 +383,12 @@ def potong(d, fasl):
         if ks:
             alam.append({**a, "k": ks})
     d["alam"] = alam
+    firaq = []
+    for a in d.get("firaq", []):  # sama dengan alam: halaman di فهرس hanya yang di potongan ini
+        ks = [k for k in a["k"] if k in bm]
+        if ks:
+            firaq.append({**a, "k": ks})
+    d["firaq"] = firaq
     return label
 
 
@@ -720,6 +728,11 @@ def _urutkan_fihris(ctx):
         kunci = re.sub("[إأآ]", "ا", norma.HARAKAT.sub("", a["t"]))
         gabung.setdefault(kunci, {"t": a["t"], "k": []})["k"].append(a["k"])
     ctx.alam = sorted(gabung.values(), key=lambda a: kunci_urut(a["t"], True))
+    gabung = {}  # فهرس الفرق والمذاهب ({M:}): digabung dan diurutkan sama dengan فهرس الأعلام
+    for a in ctx.firaq_idx:
+        kunci = re.sub("[إأآ]", "ا", norma.HARAKAT.sub("", a["t"]))
+        gabung.setdefault(kunci, {"t": a["t"], "k": []})["k"].append(a["k"])
+    ctx.firaq = sorted(gabung.values(), key=lambda a: kunci_urut(a["t"]))
     ctx.pustaka = pustaka
     return quran
 
@@ -834,6 +847,7 @@ def perkiraan_halaman(d):
                          ("فهرس الآيات", 0 if "ayat" in tanpa else len(d["ayat"]), 26),
                          ("فهرس الأحاديث", 0 if "hadits" in tanpa else len(d["hadits"]), 20),
                          ("فهرس الأعلام", 0 if "alam" in tanpa else len(d.get("alam", [])), 20),
+                         ("فهرس الفرق والمذاهب", 0 if "firaq" in tanpa else len(d.get("firaq", [])), 20),
                          ("فهرس الموضوعات", 0 if "maudhuat" in tanpa else max(judul, 1), 25)):
         rinci[nama] = math.ceil(n / per)  # baris per halaman dari 30 PDF bahts nyata (selisih paling banyak 1 halaman)
     return isi, isi + sum(rinci.values()), {k: v for k, v in rinci.items() if v}
@@ -1019,7 +1033,7 @@ def _bait_syair(ctx):
 def _bahan(ctx, profil, quran, sumber, sidik_naskah):
     """Bahan rakit (dibaca rakit.ps1 dan perkiraan_halaman)."""
     return {"meta": ctx.meta, "format": profil, "blok": ctx.blok, "catatan": ctx.catatan,
-            "ayat": ctx.ayat_idx, "hadits": ctx.hadits_idx, "alam": ctx.alam, "pustaka": ctx.pustaka,
+            "ayat": ctx.ayat_idx, "hadits": ctx.hadits_idx, "alam": ctx.alam, "firaq": ctx.firaq, "pustaka": ctx.pustaka,
             "quran": bool(quran), "tautan": TAUTAN.pattern, "sumber": sumber, "naskah_sha256": sidik_naskah}
 
 
