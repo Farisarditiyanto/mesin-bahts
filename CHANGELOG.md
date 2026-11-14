@@ -6,6 +6,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Unduhan Waqfeya yang metadata atau berkasnya hilang, kosong, atau rusak bisa dilanjutkan dengan `ambil`; metadata dan potongan scan diterbitkan sesudah penulisannya selesai.
 - Kitab yang tidak ada di Shamela bisa diambil dari Waqfeya (±10.000 kitab scan cetakan + OCR): `waqfeya "<judul>"`, `ambil w<nomor>`, `kartu`/`cari`/`halaman w<nomor>` (scan halaman jadi PDF, atau PNG kalau `pymupdf` terpasang). Bukti `<<w…|berkas|hal>>`: `cek` hanya menjaga kitab, halaman, dan kutipan yang jelas ada di halaman lain; lafaznya dibaca pemeriksa di scan, karena OCR bisa salah huruf.
 - Perhatian `cek` kini wajib ditangani: tiap perhatian dicetak dengan kode, lalu dibereskan di naskah atau diterima dengan `terima <kode> <alasan>` di `riset.txt` (perhatian `riset.txt` sendiri tidak bisa diterima). `tahap` baru mencetak `NASKAH=LOLOS` dan menyuruh ke pemeriksa sesudah semuanya ditangani, dan `rakit` mencetak «BELUM SELESAI» selama masih ada; perhatian yang diterima didaftar terpisah beserta alasannya.
 - Jadi `GAGAL`: takhrij di luar Shahihain yang tidak menulis derajat hadits (tulis derajatnya, atau «ولم أقف على حكم …»), dan baris kembar di المصادر والمراجع.

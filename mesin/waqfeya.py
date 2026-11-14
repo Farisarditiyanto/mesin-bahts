@@ -15,6 +15,8 @@ from pathlib import Path
 
 import norma
 import shamela
+from berkas import sementara
+from dirasat import _pdf_terbaca
 
 DATASET = "ieasybooks-org/waqfeya-library"
 REVISI = "6baff87f74cd3c53a6f3495d25c55b706cb55af8"  # dikunci: berkas dan urutannya tidak berubah walau dataset diperbarui
@@ -213,17 +215,67 @@ def folder(w):
     return FOLDER / w
 
 
+@functools.lru_cache(maxsize=128)
+def _validasi_berkas(sidik):
+    """Validasi parser dicache bersama waktu/ukuran berkas, supaya tiap catatan kaki tidak membaca scan ulang."""
+    p, _, ukuran = sidik
+    if not ukuran:
+        return False
+    try:
+        if p.suffix == ".pdf":
+            return _pdf_terbaca(p)
+        if p.suffix == ".gz":
+            with gzip.open(p, "rb") as f:
+                while f.read(1 << 20):
+                    pass
+            return True
+        if p.suffix == ".png":
+            import pymupdf
+            return pymupdf.Pixmap(p).width > 0
+    except Exception:  # kegagalan parser PDF/gzip/MuPDF bukan bukti berkas lengkap
+        pass
+    return False
+
+
+def _berkas_utuh(p):
+    try:
+        s = p.stat()
+        return p.is_file() and _validasi_berkas((p, s.st_mtime_ns, s.st_size))
+    except OSError:
+        return False
+
+
+def _data_lokal(w):
+    """Metadata yang terbaca dan semua PDF/OCR utuh = lengkap; selain itu perlu `ambil` lagi."""
+    if not NOMOR.fullmatch(w):
+        return None
+    try:
+        d = json.loads((folder(w) / DATA).read_text(encoding="utf-8"))
+        if (not isinstance(d, dict) or not all(isinstance(d.get(k), str) for k in ("judul", "pengarang", "kategori"))
+                or type(d.get("halaman")) is not int or d["halaman"] < 0
+                or not isinstance(d.get("berkas"), list) or not d["berkas"]
+                or not all(isinstance(n, str) for n in d["berkas"])):
+            return None
+        if all(_berkas_utuh(folder(w) / f"{i}.{ext}") for i in range(1, len(d["berkas"]) + 1) for ext in ("pdf", "txt.gz")):
+            return d
+    except (OSError, ValueError):
+        pass
+    return None
+
+
 def ada(w):
-    return (folder(w) / DATA).exists()
+    return _data_lokal(w) is not None
 
 
 def data(w):
     """Data kitab yang sudah diunduh; SystemExit dengan perintah `ambil` kalau belum."""
     if not NOMOR.fullmatch(w):
         raise SystemExit(f"«{w}» bukan nomor kitab Waqfeya (bentuknya w + 8 huruf, dari `waqfeya \"<judul>\"`).")
-    if not ada(w):
-        raise SystemExit(f"Kitab Waqfeya {w} belum diunduh: " + shamela.perintah(f"ambil {w}"))
-    return json.loads((folder(w) / DATA).read_text(encoding="utf-8"))
+    d = _data_lokal(w)
+    if d is None:
+        raise SystemExit(f"Kitab Waqfeya {w} belum diunduh atau belum lengkap (metadata/PDF/OCR hilang, kosong, atau rusak): "
+                         + shamela.perintah(f"ambil {w}"))
+    return d
 
 
 def ambil(*ww):
@@ -256,14 +308,17 @@ def _ambil(w):
     d = folder(w)
     print(f"{w}: mengunduh {b['judul']} ({b['halaman']} hal, {len(b['berkas'])} berkas) …", flush=True)
     for i, f in enumerate(b["berkas"], 1):
-        if not (d / f"{i}.txt.gz").exists():
+        if not _berkas_utuh(d / f"{i}.txt.gz"):
             shamela._unduh(f"{RAW}/{urllib.parse.quote(f['txt'])}", d / f"{i}.txt.gz", lambda q: gzip.open(q, "wb", compresslevel=6))
-        if not (d / f"{i}.pdf").exists():
+        if not _berkas_utuh(d / f"{i}.pdf"):
             print(f"{w}: berkas {i}/{len(b['berkas'])} ({f['nama']}) …", flush=True)
             shamela._unduh(f"{RAW}/{urllib.parse.quote(f['pdf'])}", d / f"{i}.pdf", lambda q: open(q, "wb"))
+    if not all(_berkas_utuh(d / f"{i}.{ext}") for i in range(1, len(b["berkas"]) + 1) for ext in ("pdf", "txt.gz")):
+        raise LookupError("PDF/OCR yang terunduh tidak terbaca; metadata lengkap belum diterbitkan, ulangi `ambil`")
     simpan = {k: b[k] for k in ("judul", "pengarang", "kategori", "halaman")}
     simpan.update(nomor=w, berkas=[f["nama"] for f in b["berkas"]], dataset=DATASET, revisi=REVISI, folder=b["folder"])
-    (d / DATA).write_text(json.dumps(simpan, ensure_ascii=False, indent=1), encoding="utf-8")
+    with sementara(d / DATA) as part:
+        part.write_text(json.dumps(simpan, ensure_ascii=False, indent=1), encoding="utf-8")
     mb = sum(p.stat().st_size for p in d.iterdir()) / 1e6
     print(f"{w} OK  {b['judul']}  ({mb:.1f} MB)" + ("  [kamus/berhamisy: OCR-nya kacau, baca dari scan saja]" if rawan(b) else ""))
 
@@ -324,13 +379,13 @@ def potong(w, n, a, z):
     """PDF kecil berisi halaman a..z berkas n (scan aslinya), untuk dibaca orang atau agent. Kembalikan jalurnya."""
     from pypdf import PdfReader, PdfWriter
     tujuan = folder(w) / "potong" / f"{n}-{a}" f"{'' if a == z else f'-{z}'}.pdf"
-    if not tujuan.exists():
+    if not _pdf_terbaca(tujuan):
         r, t = PdfReader(folder(w) / f"{n}.pdf"), PdfWriter()
         for i in range(a - 1, min(z, len(r.pages))):
             t.add_page(r.pages[i])
-        tujuan.parent.mkdir(exist_ok=True)
-        with open(tujuan, "wb") as f:
-            t.write(f)
+        with sementara(tujuan) as part:
+            with open(part, "wb") as f:
+                t.write(f)
     return tujuan
 
 
@@ -348,9 +403,9 @@ def gambar(w, n, a, z):
     with pymupdf.open(folder(w) / f"{n}.pdf") as doc:
         for h in range(a, min(z, doc.page_count) + 1):
             p = folder(w) / "potong" / f"{n}-{h}.png"
-            if not p.exists():
-                p.parent.mkdir(exist_ok=True)
-                doc[h - 1].get_pixmap(dpi=DPI).save(p)
+            if not _berkas_utuh(p):
+                with sementara(p) as part:
+                    doc[h - 1].get_pixmap(dpi=DPI).save(part, output="png")
             out.append(p)
     return out
 

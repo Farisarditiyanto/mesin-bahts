@@ -13,8 +13,9 @@ Yang dijaga:
 - kitab Waqfeya yang judulnya kitab Shamela = perhatian (pakai Shamela kalau edisinya sama);
 - `kartu` membaca halaman judul dari berkas sampul («الواجهة»), bukan selalu berkas 1;
 - `halaman`, `kartu`, `cari`, `bukti` mencetak OCR + scan; `ambil <folder>` mengenali nomor w… di naskah."""
-import atexit, gzip, json, shutil, subprocess, sys, tempfile
+import atexit, contextlib, gzip, io, json, runpy, shutil, subprocess, sys, tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 sys.stdout.reconfigure(encoding="utf-8")
 REPO = Path(__file__).resolve().parent.parent
@@ -171,6 +172,120 @@ if kode or f"<<{W}|1|" not in out or "دار السلام المصرية" not in
 kode, out, err = jalankan("cari", W, "تشبيها له بالفاعل")
 if kode or "hal PDF 2" not in out:
     gagal.append(f"cari {W}: kode {kode}: {(out + err)[-300:]}")
+
+f = AKAR / "kitab" / "waqfeya" / W
+metadata = f / "kitab.json"
+utuh = metadata.read_bytes()
+for isi in (b"{", b"null", b"[]", b"{}"):
+    metadata.write_bytes(isi)
+    kode, out, err = jalankan("kartu", W)
+    if kode != 1 or "belum lengkap" not in out + err or "Traceback" in err:
+        gagal.append(f"metadata rusak {isi!r} tidak menunjuk pemulihan: kode {kode}, {(out + err)[-200:]}")
+metadata.write_bytes(utuh)
+pdf = (f / "1.pdf").read_bytes()
+ocr = (f / "1.txt.gz").read_bytes()
+for nama, pulih in (("1.pdf", pdf), ("1.txt.gz", ocr)):
+    (f / nama).write_bytes(b"berkas rusak tidak kosong")
+    kode, out, err = jalankan("kartu", W)
+    if kode != 1 or "belum lengkap" not in out + err or "Traceback" in err:
+        gagal.append(f"{nama} rusak tidak kosong masih dianggap lengkap: kode {kode}, {(out + err)[-200:]}")
+    (f / nama).write_bytes(pulih)
+(f / "1.pdf").unlink()
+kode, out, err = jalankan("kartu", W)
+if kode != 1 or "belum lengkap" not in out + err:
+    gagal.append("PDF yang hilang masih dianggap kitab lengkap")
+
+sys.path.insert(0, str(AKAR / "mesin"))
+import waqfeya  # noqa: E402
+from berkas import sementara  # noqa: E402
+from dirasat import _pdf_terbaca  # noqa: E402
+transfer = []
+katalog = {W: {"judul": "كتاب تجريبي", "pengarang": "مؤلف تجريبي", "kategori": "النحو والصرف", "halaman": 4,
+               "folder": "uji", "berkas": [{"nama": x, "pdf": f"{n}.pdf", "txt": f"{n}.txt"}
+                                            for n, x in enumerate(json.loads(utuh)["berkas"], 1)]}}
+
+def unduh(url, tujuan, buka):
+    transfer.append(tujuan.name)
+    with sementara(tujuan) as part, buka(part) as keluar:
+        keluar.write("\nPAGE_SEPARATOR\n".join(HALAMAN).encode() if tujuan.suffix == ".gz" else pdf)
+
+class Keluaran(io.StringIO):
+    def reconfigure(self, **kw):
+        pass
+
+def ambil():
+    with patch.object(sys, "argv", ["bahts.py", "ambil", W]), contextlib.redirect_stdout(Keluaran()):
+        try:
+            runpy.run_path(str(AKAR / "mesin" / "bahts.py"), run_name="__main__")
+        except SystemExit as e:
+            return e.code
+    return 0
+
+with patch.object(waqfeya, "katalog", return_value=katalog), patch.object(waqfeya.shamela, "_unduh", side_effect=unduh):
+    assert ambil() in (None, 0)
+    if transfer != ["1.pdf"] or not (f / "1.pdf").is_file():
+        gagal.append(f"ambil tidak memulihkan PDF yang hilang atau mengunduh ulang bahan utuh: {transfer}")
+    metadata.unlink()
+    tulis = Path.write_text
+
+    def putus(self, teks, *a, **kw):
+        if self.parent == f and self.name.startswith("kitab.json"):
+            tulis(self, "{", *a, **kw)
+            raise OSError("penulisan metadata terputus")
+        return tulis(self, teks, *a, **kw)
+
+    with patch.object(Path, "write_text", putus):
+        try:
+            ambil()
+        except OSError:
+            pass
+    if metadata.exists():
+        gagal.append("penulisan metadata putus meninggalkan kitab.json yang dianggap selesai")
+    assert ambil() in (None, 0)
+    if not waqfeya.ada(W):
+        gagal.append("ambil berikutnya tidak menyelesaikan metadata sesudah tulisan putus")
+    (f / "1.pdf").write_bytes(b"unduhan rusak tidak kosong")
+    transfer.clear()
+    assert ambil() in (None, 0)
+    if transfer != ["1.pdf"] or not waqfeya.ada(W):
+        gagal.append(f"ambil tidak memulihkan PDF rusak saja: {transfer}")
+    (f / "1.pdf").write_bytes(pdf)
+
+potongan = f / "potong" / "1-1.pdf"
+potongan.unlink(missing_ok=True)
+
+def pdf_putus(self, keluar):
+    keluar.write(b"%PDF-rusak")
+    raise OSError("penulisan PDF terputus")
+
+with patch.object(PdfWriter, "write", pdf_putus):
+    try:
+        waqfeya.potong(W, 1, 1, 1)
+    except OSError:
+        pass
+if potongan.exists():
+    gagal.append("penulisan potongan PDF putus meninggalkan hasil yang dicache sebagai selesai")
+
+import pymupdf  # noqa: E402
+png = f / "potong" / "1-1.png"
+png.unlink(missing_ok=True)
+
+def png_putus(self, keluar, **kw):
+    Path(keluar).write_bytes(b"png-rusak")
+    raise OSError("penulisan PNG terputus")
+
+with patch.object(pymupdf.Pixmap, "save", png_putus):
+    try:
+        waqfeya.gambar(W, 1, 1, 1)
+    except OSError:
+        pass
+if png.exists():
+    gagal.append("penulisan gambar scan putus meninggalkan hasil yang dicache sebagai selesai")
+potongan.write_bytes(b"%PDF-rusak")
+png.write_bytes(b"png-rusak-tidak-kosong")
+kode, out, err = jalankan("halaman", W, "1", "1")
+if kode or not png.read_bytes().startswith(b"\x89PNG") or not _pdf_terbaca(potongan):
+    gagal.append(f"halaman tidak memulihkan potongan rusak/gambar kosong: kode {kode}, {(out + err)[-200:]}")
 
 print("waqfeya: " + ("semua lolos" if not gagal else f"{len(gagal)} gagal"))
 for g in gagal:
