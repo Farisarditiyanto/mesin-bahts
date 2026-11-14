@@ -2,4 +2,3 @@ pyarrow
 pypdf
 fonttools
 rapidfuzz
-Pillow

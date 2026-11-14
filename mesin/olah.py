@@ -423,19 +423,27 @@ def _baca_naskah(folder):
 GAMBAR = (".png", ".jpg", ".jpeg")  # yang dimasukkan Word apa adanya; SVG di-PNG-kan dulu (diagram.py)
 
 
+PNG_AKHIR = b"\x00\x00\x00\x00IEND\xaeB`\x82"  # potongan IEND: penutup tiap PNG utuh
+
+
 def ukuran_gambar(p):
-    """(lebar, tinggi) PNG/JPEG yang terurai utuh; None kalau rusak atau terlalu besar untuk dibaca."""
-    from PIL import Image
-    try:
-        with Image.open(p) as gambar:
-            if gambar.format not in ("PNG", "JPEG"):
-                return None
-            gambar.verify()
-        with Image.open(p) as gambar:
-            gambar.load()
-            return gambar.size
-    except (OSError, ValueError, SyntaxError, Image.DecompressionBombError):
-        return None
+    """(lebar, tinggi) piksel PNG/JPEG dari kepala berkasnya; None kalau bukan gambar yang terbaca, berdimensi nol,
+    atau terpotong (PNG tanpa IEND di akhir, JPEG tanpa penanda akhir FFD9 sesudah kepalanya). Tanpa pustaka gambar:
+    putusan `cek` sama di semua komputer, dan Word gagal di gambar terpotong dengan pesan yang tidak menunjuk berkasnya."""
+    data = p.read_bytes()
+    ukuran = None
+    if data[:8] == b"\x89PNG\r\n\x1a\n" and data[12:16] == b"IHDR" and data.endswith(PNG_AKHIR):
+        ukuran = int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
+    elif data[:2] == b"\xff\xd8":
+        i = 2
+        while i + 9 < len(data) and data[i] == 0xFF:
+            tanda, panjang = data[i + 1], int.from_bytes(data[i + 2:i + 4], "big")
+            if 0xC0 <= tanda <= 0xCF and tanda not in (0xC4, 0xC8, 0xCC):  # SOFn: tinggi lalu lebar
+                if data.rfind(b"\xff\xd9") > i:
+                    ukuran = int.from_bytes(data[i + 7:i + 9], "big"), int.from_bytes(data[i + 5:i + 7], "big")
+                break
+            i += 2 + panjang
+    return ukuran if ukuran and all(ukuran) else None
 
 
 def _baris_gambar(ctx, n, t):

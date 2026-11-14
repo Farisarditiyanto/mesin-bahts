@@ -7,7 +7,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 ## Belum dirilis
 
 - `cek` menolak nama hasil perangkat Windows (`NUL`, `CON`, `COM1`, dan yang sejenis) serta karakter kontrol pada `@berkas`, termasuk nama bawaan dari folder bahts.
-- Gambar `#G` diperiksa utuh dengan Pillow: PNG/JPEG rusak, terpotong, atau berdimensi nol ditolak sebelum Word dipanggil; pasang kebutuhan lewat `periksa`.
+- Gambar `#G` PNG/JPEG yang terpotong atau berdimensi nol ditolak `cek` sebelum Word dipanggil.
 - Rentang ayat `tafsir` yang tidak ada dan rentang `takhrij` berlebih ditolak sebelum diperluas, termasuk angka yang sangat besar.
 - Perhatian `cek` kini wajib ditangani: tiap perhatian dicetak dengan kode, lalu dibereskan di naskah atau diterima dengan `terima <kode> <alasan>` di `riset.txt` (perhatian `riset.txt` sendiri tidak bisa diterima). `tahap` baru mencetak `NASKAH=LOLOS` dan menyuruh ke pemeriksa sesudah semuanya ditangani, dan `rakit` mencetak «BELUM SELESAI» selama masih ada; perhatian yang diterima didaftar terpisah beserta alasannya.
 - Jadi `GAGAL`: takhrij di luar Shahihain yang tidak menulis derajat hadits (tulis derajatnya, atau «ولم أقف على حكم …»), dan baris kembar di المصادر والمراجع.
