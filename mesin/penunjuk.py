@@ -6,7 +6,7 @@ from pathlib import Path
 
 import norma
 import shamela
-from dasar import ELIPSIS, KUTIPAN_MIN, WAQFEYA_BUKTI
+from dasar import ELIPSIS, KUTIPAN_MIN, WAQFEYA_BUKTI, perintah
 from kitab_lokal import akhir_rekaman, rekaman, rentang_halaman, salah_halaman, salah_juz
 from olah import periksa
 
@@ -41,7 +41,7 @@ def _penunjuk_waqfeya(w, n, hal, kutipan):
     dibaca pemeriksa (OCR bukan bukti)."""
     import waqfeya
     if not waqfeya.ada(w):
-        return f"kitab Waqfeya belum diunduh: {shamela.perintah('ambil ' + w)}"
+        return f"kitab Waqfeya belum diunduh: {perintah('ambil ' + w)}"
     try:
         teks = waqfeya.cuplikan(w, int(n), hal, kutipan, SEKITAR)
         bagian = [b for b in ELIPSIS.split(kutipan or "") if norma.padat(b)]
@@ -54,7 +54,7 @@ def _penunjuk_waqfeya(w, n, hal, kutipan):
     nc = waqfeya.nomor_cetak(w, int(n), waqfeya._rentang(hal)[0])
     ocr += f"; nomor cetak terbaca di OCR: {nc}" if nc is not None else "; nomor cetak tidak terbaca di OCR"
     return (f"{waqfeya.data(w)['judul']} [Waqfeya, OCR; {ocr}]: {_ringkas(teks, 2 * SEKITAR)} || scan: "
-            f"{shamela.perintah(f'halaman {w} {n} {hal}')} (lafaz dan nomor halaman cetak dinilai dari scan)")
+            f"{perintah(f'halaman {w} {n} {hal}')} (lafaz dan nomor halaman cetak dinilai dari scan)")
 
 
 def _penunjuk_bukti(sid, juz, hal, kutipan):

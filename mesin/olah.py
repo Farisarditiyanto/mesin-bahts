@@ -188,14 +188,13 @@ import difflib, hashlib, io, json, math, os, re
 from pathlib import Path
 
 import norma
-import shamela
 from berkas import bahan, sementara
 from cek_seluruh import (KEPALA_PERHATIAN, RISET, periksa_dirasat, periksa_khatimah, periksa_muqaddimah, periksa_riset,
-                         porsi_kutipan, terapkan_terima)
+                         porsi_kutipan)
 from cek_rujukan import rujukan_halaman
 from cek_sumber import standar_baris
 from cek_tautsiq import gelar
-from dasar import AD, ANGKA_LATIN, BELUM_DIUNDUH, HERE, HURUF_LATIN, LUAR, SURAH, TandaRusak
+from dasar import AD, ANGKA_LATIN, BELUM_DIUNDUH, BUKAN_RUJUKAN, HERE, HURUF_LATIN, LUAR, SURAH, TINGKAT_JUDUL, TandaRusak, perintah
 from laporan import gabung_kembar
 from naskah import Pemeriksaan, urai
 
@@ -286,19 +285,14 @@ def hindi(s):
 GABUNG_PARUH = re.compile(r"\s*\.\.\.~\s*")  # «...~» di #V: dua paruh bait berbagi satu kata, disambung sebelum dicek dan dicetak
 BELUM_DIUNDUH_RE = re.compile(re.escape(BELUM_DIUNDUH).replace(r"\{\}", r"(\d+)"))
 BUKTI_SID = re.compile(r"<<(\d+)\|")  # nomor kitab di bukti <<sid|juz|hal>>
-
-
-def kitab_dirujuk(folder):
-    """Nomor kitab Shamela yang dirujuk bukti naskah di folder bahts, urut kemunculan pertama (untuk `ambil <folder>`)."""
-    return list(dict.fromkeys(BUKTI_SID.findall((Path(folder) / "naskah.txt").read_text(encoding="utf-8-sig"))))
-
-
 BUKTI_WAQFEYA = re.compile(r"<<(w[0-9a-f]{8})\|")
 
 
-def kitab_waqfeya_dirujuk(folder):
-    """Nomor kitab Waqfeya yang dirujuk bukti <<w…|berkas|hal>> naskah (untuk `ambil <folder>`)."""
-    return list(dict.fromkeys(BUKTI_WAQFEYA.findall((Path(folder) / "naskah.txt").read_text(encoding="utf-8-sig"))))
+def kitab_dirujuk(folder):
+    """(Nomor kitab Shamela, nomor kitab Waqfeya) dari satu pembacaan naskah, urut kemunculan pertama.
+    Dipakai `ambil <folder>` untuk mengunduh kedua jenis sumber."""
+    teks = (Path(folder) / "naskah.txt").read_text(encoding="utf-8-sig")
+    return tuple(list(dict.fromkeys(pola.findall(teks))) for pola in (BUKTI_SID, BUKTI_WAQFEYA))
 
 
 AWAL_BAGIAN = re.compile(r"^(?:\*\*)?(?:#[KFBMSR](?![^\s])|القول|الرأي|المذهب)")  # judul, atau awal pendapat baru
@@ -422,11 +416,8 @@ def periksa(folder, keluar=None):
     d = _bahan(ctx, profil, quran, sumber, sidik_naskah)
     if ctx.bentuk != "kitab":  # muqarrar gabungan syarah (@bentuk: kitab) bukan riset baru
         _cek_jumlah_halaman(ctx, d)
-    riset = []
-    if ctx.bentuk != "kitab":  # muqarrar gabungan syarah (@bentuk: kitab) bukan riset baru
-        periksa_riset(folder, baris, riset)
     # jumlah di ringkasan = baris yang dicetak; yang diterima di riset.txt tidak dihitung (laporannya terpisah)
-    ctx.perhatian, ctx.diterima, ctx.kode = terapkan_terima(folder, gabung_kembar(ctx.perhatian), riset, dict(baris))
+    ctx.perhatian, ctx.diterima, ctx.kode = periksa_riset(folder, baris, gabung_kembar(ctx.perhatian), wajib=ctx.bentuk != "kitab")
     _tulis_bahan(ctx, keluar, d)
     return ctx, _laporan(ctx, n_matan, n_fn, sidik_naskah, sidik_cetak(d))
 
@@ -856,7 +847,6 @@ def perkiraan_halaman(d):
 def _hitung_kata(ctx):
     """Jumlah kata matan dan catatan kaki (sebelum angka diubah)."""
     blok, catatan = ctx.blok, ctx.catatan
-    # hitung kata
     n_matan = sum(kata(b["runs"]) for b in blok)
     n_fn = sum(kata(c["runs"]) for c in catatan)
     return n_matan, n_fn
@@ -927,10 +917,9 @@ def _cek_tata_letak(ctx):
         galat.append(di("@nomor") + "@nomor: mukadimah memerlukan «#K المقدمة»: nomor ١ mulai dari judul itu")
     # bagian kosong: judul bahts yang disusul judul setingkat/lebih tinggi (atau akhir naskah) tanpa paragraf isi di antaranya
     # (#H bukan isi). Kitab tidak: di sana #K باب di atas #F فصل, dan #S الشرح boleh hanya membawahi #S lain.
-    tingkat = {"K": 0, "F": 0, "R": 0, "B": 1, "M": 2, "S": 3}
     urut = [b for b in blok if b["k"] != "H"]
     kosong = {id(a) for a, b in zip(urut, urut[1:] + [{"k": "R"}])
-              if bentuk != "kitab" and a["k"] in "KFBMS" and tingkat.get(b["k"], 9) <= tingkat[a["k"]]}
+              if bentuk != "kitab" and a["k"] in "KFBMS" and TINGKAT_JUDUL.get(b["k"], 9) <= TINGKAT_JUDUL[a["k"]]}
     for a, b in zip(blok, blok[1:] + [{"k": ""}]):  # judul yang langsung disusul judul halaman baru tercetak sendirian di halamannya
         if id(a) in kosong:  # sekaligus menggantikan «tercetak sendirian»: menulis isinya membereskan keduanya
             perhatian.append(f"baris {a['n']}: bagian «{a['judul'][:40]}» masih kosong: belum ada paragraf isi sebelum "
@@ -1065,7 +1054,7 @@ def _laporan(ctx, n_matan, n_fn, sidik_naskah, sidik_isi):
     # rujukan kitab tanpa bukti sudah jadi GAGAL atau perhatian di atas: daftar ini sisanya (catatan penjelasan, <<luar>>)
     fn_teks = [(c, "".join(r.get("t", "") for r in c["runs"])) for c in catatan]
     fn_tanpa = [norma.HARAKAT.sub("", t)[:60] for c, t in fn_teks if c["bukti"] == 0 and not c["pdf"] and not c.get("wq")
-                and not t.startswith(("سورة", "سبق تخريجه")) and (c["luar"] or not rujukan_halaman(t))]
+                and not t.startswith(BUKAN_RUJUKAN) and (c["luar"] or not rujukan_halaman(t))]
     lap = [f"blok={len(blok)} | kata matan={n_matan} | catatan kaki={len(catatan)} ({n_fn} kata) | ayat={len(ayat_idx)} | hadits={len(hadits_idx)} | pustaka={len(pustaka)}",
            f"bukti dicek ke Shamela lokal: {n_bukti}{f' | ditunjuk di PDF (bukan bukti): {n_pdf}' if n_pdf else ''}"
            f"{f' | <<{LUAR}>> (tidak dicek mesin): {n_luar}' if n_luar else ''}"
@@ -1074,7 +1063,7 @@ def _laporan(ctx, n_matan, n_fn, sidik_naskah, sidik_isi):
     belum = list(dict.fromkeys(m.group(1) for g in galat for m in BELUM_DIUNDUH_RE.finditer(g)))
     if belum:
         lap.append(f"  → {len(belum)} kitab belum diunduh; unduh semuanya sekaligus: "
-                   + shamela.perintah("ambil " + folder.resolve().relative_to(HERE.parent.resolve()).as_posix()))
+                   + perintah("ambil " + folder.resolve().relative_to(HERE.parent.resolve()).as_posix()))
     lap += [f"  ✗ {g}" for g in galat]
     lap.append(f"{KEPALA_PERHATIAN}: {len(perhatian)}")
     lap += [f"  ! {ctx.kode[p]} {p}" for p in perhatian]

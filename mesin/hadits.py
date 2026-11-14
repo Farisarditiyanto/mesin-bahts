@@ -8,9 +8,12 @@ yang terbaca di kitab lokal (`ambil`, `halaman`) dan lolos `cek`. Isinya 12 kita
 """
 import json, urllib.error
 
-import norma, shamela
+import jaringan, norma, shamela
+from dasar import perintah
 from norma import HARAKAT
-from shamela import _kunci, buka
+from kitab_lokal import kepala_hadits
+from shamela import _kunci
+from jaringan import buka
 
 ALMINASA = "https://alminasa.ai/api/reactivesearchproxy/es-prod-euw1-hadith-12-read/_search"
 KOLOM = ["book_name", "number", "editions", "chapter", "sub_chapter", "matn", "rulings"]
@@ -32,7 +35,7 @@ def _tanya(query, maks):
                 jawab = r.read()
             break
         except urllib.error.HTTPError as e:
-            shamela.tunggu_jatah(e, ulang, "Jatah pencarian alminasa.ai untuk komputer ini habis untuk sekarang. Sementara itu pakai "
+            jaringan.tunggu_jatah(e, ulang, "Jatah pencarian alminasa.ai untuk komputer ini habis untuk sekarang. Sementara itu pakai "
                                            "`temukan`, connector turath/shamela, atau `katalog` lalu `cari`.")
     try:
         return json.loads(jawab)["hits"]
@@ -60,12 +63,10 @@ def _lokal(hits):
         for sid in judul.get(norma.padat(h["_source"]["book_name"]), ()):
             perlu.setdefault(sid, set()).update(_nomor(h["_source"]))
     tempat = {}
-    if perlu:
-        import cek_hadits  # kepala hadits dibaca dengan aturan yang sama dengan `cek` (#nomor, takhrij)
     for sid, nomor in perlu.items():
         for p in shamela._rekaman_di(sid, range(len(shamela.indeks(sid)))):
             for hal, b in norma.per_halaman(p):
-                for n in {n for _, n in cek_hadits.kepala_hadits(b)[1]} & nomor:
+                for n in {n for _, n in kepala_hadits(b)[1]} & nomor:
                     tempat.setdefault((sid, n), f"{shamela._juz(p)}/{hal}")
         shamela.lepas()
     return judul, tempat
@@ -83,7 +84,7 @@ def _baris(hits, lebar):
                 letak = tempat.get((sid, n))
                 baris.append(f"{LOKAL} edisi lokal {sid}: {letak} (kepala hadits «{n} -»)" if letak else
                              f"{LOKAL} kitab {sid}, tetapi «{n} -» tidak ketemu sebagai kepala hadits di sana "
-                             "(penomoran edisinya bisa berbeda): " + shamela.perintah(f'cari {sid} "<lafaz matan>"'))
+                             "(penomoran edisinya bisa berbeda): " + perintah(f'cari {sid} "<lafaz matan>"'))
         baris += [f"    {s.get('chapter') or '-'}، {s.get('sub_chapter') or '-'}",
                   f"    المتن: {(s.get('matn') or '')[:lebar]}"]
         baris += [f"    حكم: {k.get('ruler')}: {k.get('ruling')} — {k.get('book_name')}، {k.get('volume')}/{k.get('page')}"

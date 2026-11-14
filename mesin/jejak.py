@@ -6,7 +6,7 @@ import difflib, zlib
 import norma
 import shamela
 from dasar import ELIPSIS
-from kitab_lokal import halaman_di, rangkaian_kitab, tempat_kitab
+from kitab_lokal import halaman_di, lepas, rangkaian_kitab, tempat_kitab
 
 # `cek --jejak`, kutipan yang lafaznya sedikit berbeda dengan kitab; satuannya huruf `padat`
 MIRIP_BENIH = 14  # panjang potongan kutipan yang harus ada persis di kitab
@@ -54,10 +54,7 @@ def _rapid(rangkaian, q):
     """«Paling mirip» tanpa benih (rapidfuzz partial_ratio_alignment): untuk kutipan yang tiap potongan MIRIP_BENIH
     hurufnya kena salah ketik, sehingga `_mirip_kitab` tidak punya titik mulai. q dalam `bait`. (nilai, juz, halaman,
     tanda) atau None."""
-    try:
-        from rapidfuzz import fuzz
-    except ImportError:  # pustaka belum dipasang ulang sesudah `git pull`: «Paling mirip» tanpa benih dilewati
-        return None
+    from rapidfuzz import fuzz
     qs, terbaik = q.decode("latin-1"), None  # `bait` dibaca latin-1: satu huruf satu karakter
     for juz, tanda, teks, ruas in rangkaian:
         r = fuzz.partial_ratio_alignment(qs, teks.decode("latin-1"), score_cutoff=MIRIP_MIN * 100)
@@ -109,8 +106,7 @@ def jejak(tertolak, maks=3):
             # Pencarian hanya petunjuk: sumber lain yang rusak tidak boleh menutup hasil kitab yang sehat.
             rusak.append(f"kitab {sid} ({type(e).__name__})")
         finally:
-            shamela.lepas()  # isi kitab tidak menumpuk, juga sesudah gagal dibaca
-            rangkaian_kitab.cache_clear()
+            lepas()
         if all(len(e["dapat"]) >= maks for e in cari.values()):
             break
     for e in cari.values():  # tiap potongan benih kena salah ketik: cari tanpa benih, hanya di kitab yang dirujuk
@@ -123,8 +119,7 @@ def jejak(tertolak, maks=3):
             except (OSError, EOFError, ValueError, TypeError, AttributeError, KeyError, IndexError, zlib.error) as x:
                 rusak.append(f"kitab {sid} ({type(x).__name__})")
             finally:
-                shamela.lepas()
-                rangkaian_kitab.cache_clear()
+                lepas()
     baris = []
     for entri in cari.values():
         t, asli = entri["dapat"], entri["teks"]

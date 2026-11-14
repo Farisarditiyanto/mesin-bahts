@@ -7,8 +7,7 @@ apakah teks ada di halaman buktinya."""
 import functools, re
 
 import norma
-from cek_tautsiq import BUKAN_RUJUKAN
-from dasar import AYAT_DI_KUTIPAN, MERUJUK_KATA, TAKHRIJ_AWAL
+from dasar import AYAT_DI_KUTIPAN, BUKAN_RUJUKAN, MERUJUK_KATA, TAKHRIJ_AWAL
 from kitab_lokal import gabung
 from cek_sumber import PERANTARA
 from petik import diantar_qaul, luar_petik, seragam

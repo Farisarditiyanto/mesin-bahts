@@ -5,7 +5,7 @@ import itertools, os, re
 
 import norma
 from cek_ayat import ayat
-from dasar import ANGKA_LATIN, TAKHRIJ_AWAL, TandaRusak
+from dasar import ANGKA_LATIN, TAKHRIJ_AWAL, TINGKAT_JUDUL, TandaRusak
 from laporan import KODE, daftar_baris, kode
 from petik import kutipan_semua
 
@@ -36,15 +36,24 @@ def _baca_riset(folder):
                                                 if os.name == "nt" else "simpan ulang sebagai UTF-8") + ", lalu ulangi `cek`")
 
 
-def terapkan_terima(folder, perhatian, riset, teks_baris):
+def periksa_riset(folder, baris, perhatian, *, wajib=True):
+    """Nilai langkah riset dan penerimaan perhatian dari satu pembacaan riset.txt.
+    @bentuk: kitab tidak mewajibkan langkah riset, tetapi catatan penerimaan dan berkas rusak tetap dinilai."""
+    isi, rusak = _baca_riset(folder)
+    riset = [rusak] if rusak else []
+    if wajib:
+        _periksa_langkah(isi, baris, riset)
+    return _terapkan_terima(isi, perhatian, riset, dict(baris))
+
+
+def _terapkan_terima(isi, perhatian, riset, teks_baris):
     """Pisahkan perhatian yang sudah ditangani lewat «terima <kode> <alasan>» di riset.txt. `perhatian` = yang boleh
-    diterima; `riset` = perhatian periksa_riset, yang tidak boleh diterima: langkah riset dijalankan lalu dicatat, atau
+    diterima; `riset` = perhatian langkah riset atau berkasnya, yang tidak boleh diterima: langkah dijalankan lalu dicatat, atau
     «belum <langkah> <objek> <alasan>» per objek (isi riset.txt ditulis agen sendiri, jadi tidak ada «salah tangkap»).
     Kembalikan (perhatian yang belum ditangani, [(kode, perhatian, alasan)] yang diterima, {perhatian: kode}).
     Perhatian wajib ditangani: dibereskan di naskah, atau diterima dengan alasan yang dinilai pemeriksa (AGENTS.md Alur
     kerja langkah 4-5); mesin hanya menolak alasan yang terlalu pendek. Baris «terima» tanpa alasan, berkode rusak,
     berkode kembar, untuk perhatian riset, atau yang kodenya tidak muncul lagi = perhatian baru (hapus barisnya)."""
-    isi, _ = _baca_riset(folder)  # berkas bukan UTF-8 sudah dilaporkan periksa_riset
     alasan, salah = {}, []
     for n, b in enumerate(isi, 1):
         kata_ = b.split()
@@ -77,20 +86,17 @@ def terapkan_terima(folder, perhatian, riset, teks_baris):
     return belum, diterima, kode_
 
 
-def periksa_riset(folder, baris, perhatian):
+def _periksa_langkah(isi, baris, perhatian):
     """Langkah riset wajib yang tidak meninggalkan jejak di kitab lokal (AGENTS.md Alur kerja langkah 2): takhrij
     `shamela_search_phrase` kategori 8 tiap {H:}, tafsir lewat connector tiap ayat {Q:}, `shamela_research_scope`
     tiap masalah khilaf. Agen mencatatnya di riset.txt; yang belum tercatat = perhatian, tidak pernah GAGAL:
     isi riset.txt ditulis agen sendiri, jadi mesin hanya bisa menunjuk yang belum dicatat, bukan membuktikan."""
     tercatat = {"takhrij8": {}, "tafsir": set(), "khilaf": 0}
-    isi, rusak = _baca_riset(folder)
-    if rusak:
-        perhatian.append(rusak)
     bentuk = (f"bentuknya «langkah objek» ({'، '.join(f'{k} <{v}>' for k, v in RISET_LANGKAH.items())}), "
               f"«belum langkah objek alasan» untuk langkah yang tidak bisa dijalankan, atau {TERIMA_BENTUK}")
     for n, b in enumerate(isi, 1):
         kata_ = b.split()
-        if not kata_ or kata_[0].startswith("#") or kata_[0] == TERIMA:  # «terima»: terapkan_terima
+        if not kata_ or kata_[0].startswith("#") or kata_[0] == TERIMA:
             continue
         belum = kata_[0] == "belum"
         if belum:
@@ -224,7 +230,6 @@ DIRASAT_LABEL = (("وجه الاتفاق:", r"(?<!\w)[وف]?[اأإ]?وجه\s+ا
                  ("وجه الاختلاف:", r"(?<!\w)[وف]?[اأإ]?وجه\s+(?:الاختلاف|الافتراق)\s*:"),
                  ("التقويم:", r"(?<!\w)[وف]?التقويم\s*:"))
 TAHUN_TERBIT = re.compile(r"(?<!\d)(1[3-4]\d\d|19\d\d|20\d\d)(?!\d)\s*(م|هـ)")
-TINGKAT_JUDUL = {"K": 0, "F": 0, "R": 0, "B": 1, "M": 2, "S": 3}
 
 
 def _label_dirasat(teks):

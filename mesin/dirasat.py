@@ -13,7 +13,8 @@ tidak jalan. Dengan kunci: sekitar 300 kali `dirasat` atau 100 PDF sehari; jatah
 import json, os, re, time, urllib.error, urllib.parse
 from pathlib import Path
 
-from shamela import buka, perintah
+from jaringan import buka
+from dasar import perintah
 from berkas import sementara
 
 KUNCI = Path(__file__).parent.parent / "kunci_openalex.txt"

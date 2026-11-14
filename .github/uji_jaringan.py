@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "mesin"))
-import dirasat, shamela
+import dirasat, jaringan
 
 KUNCI = "KUNCI-PALSU-UJI"
 BEARER = "Bearer " + KUNCI
@@ -61,7 +61,7 @@ class AlihJaringan(unittest.TestCase):
         self.permintaan.clear()
 
     def buka(self, jalur):
-        # Jalur asli dirasat -> shamela.buka. Hanya alamat layanan dan kuncinya
+        # Jalur asli dirasat -> jaringan.buka. Hanya alamat layanan dan kuncinya
         # yang ditiru; pengalihan benar-benar lewat dua peladen HTTP lokal.
         asli = dirasat.buka
 
@@ -102,7 +102,7 @@ class AlihJaringan(unittest.TestCase):
         def lokal(url, **kw):
             return asli(url.replace("https://api.openalex.org", self.url), **kw)
 
-        skrip = Path(shamela.__file__).with_name("bahts.py")
+        skrip = Path(jaringan.__file__).with_name("bahts.py")
         keluar = Keluaran()
         with patch.object(sys, "argv", [str(skrip), "dirasat", "اختبار"]), \
                 patch.object(dirasat, "OPENALEX", "https://api.openalex.org/cli"), \
@@ -124,7 +124,7 @@ class AlihProtokol(unittest.TestCase):
         # Transport TLS tidak ditiru dengan sertifikat longgar. Jalankan pembuat
         # permintaan pengalihan asli yang juga dipakai peladen lokal di atas.
         req = urllib.request.Request(awal, headers={"Authorization": BEARER})
-        return shamela._AlihAman().redirect_request(req, None, 302, "Found", {}, akhir)
+        return jaringan._AlihAman().redirect_request(req, None, 302, "Found", {}, akhir)
 
     def test_https_ke_http_tanpa_kunci(self):
         req = self.alih("https://api.openalex.org:443/a", "http://api.openalex.org:443/b")

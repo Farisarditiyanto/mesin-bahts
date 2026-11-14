@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Konstanta dan alat kecil yang dipakai lebih dari satu bagian `cek`: letak mesin, nama surat, pola angka, pola
 kutipan, pesan GAGAL bersama, dan TandaRusak (salah tulis naskah, bukan galat mesin)."""
-import json, re
+import json, os, re, shutil, sys
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -16,6 +16,8 @@ class TandaRusak(ValueError):
 AD = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
 MERUJUK_KATA = "[أا]نظر|ينظر|ي?راجع"  # tanda nukilan makna di catatan kaki (أبو سليمان، كتابة البحث العلمي، ص114)
 TAKHRIJ_AWAL = re.compile(r"\s*و?(?:أخرج|رواه)")  # catatan kaki takhrij: «أخرجه …», «رواه …»
+BUKAN_RUJUKAN = ("سورة", "سبق تخريجه")
+TINGKAT_JUDUL = {"K": 0, "F": 0, "R": 0, "B": 1, "M": 2, "S": 3}
 ANGKA_LATIN = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "0123456789" * 2)  # angka Arab dan Persia -> 0-9
 KUTIPAN_MIN = 6  # huruf (bentuk `padat`) paling sedikit tiap bagian kutipan yang dicek
 POTONGAN_MIN = 7  # huruf paling sedikit potongan sendiri <<sid|juz|hal|potongan>> (potongan sah terpendek di bahts nyata: 7)
@@ -35,3 +37,21 @@ TIDAK_KETEMU = "teks TIDAK KETEMU di kitab {}"
 RENTANG_MAKS = 50  # halaman paling banyak satu bukti (dan satu rentang tercetak)
 HURUF_LATIN = "A-Za-zÀ-ɏḀ-ỿ"  # huruf Latin, juga transliterasi (ā ī ū ḥ)
 QAUL = re.compile(r"(?:^|\s)[وف]?(?:قال|قالت|يقول|تقول)(?:\s+[^\s:]+){0,4}\s*:?\s*$")  # pengantar nukilan «قال الشيخ:»
+
+
+def perintah(argumen):
+    """Perintah mesin yang bisa ditempel apa adanya: jalur lengkap kalau dijalankan dari folder lain, Python yang sedang dipakai.
+    Semua pesan yang menyuruh menjalankan perintah memakai ini (bahts, shamela, olah, dirasat)."""
+    py = "python"
+    w = shutil.which("python")
+    try:
+        if not (w and os.path.samefile(w, sys.executable)):
+            py = f'"{sys.executable}"'
+    except OSError:
+        py = f'"{sys.executable}"'
+    try:
+        disini = Path.cwd().resolve() == HERE.parent.resolve()
+    except OSError:
+        disini = False
+    skrip = "mesin/bahts.py" if disini else f'"{HERE / "bahts.py"}"'
+    return f"{py} {skrip} {argumen}".rstrip()

@@ -94,12 +94,13 @@
 | `mesin/olah.py`، `naskah.py`، `cek_*.py` وما يعينها | `cek`؛ تقسيم الملفات: `AGENTS.md` «Letak kode `cek`» |
 | `mesin/quran_hafs_v22.json`، `nama_surah.json` | نص المصحف وأسماء السور |
 | `mesin/shamela.py` | تنزيل الكتب، فهرس الكتب، `temukan`، `scan` |
+| `mesin/jaringan.py` | الاتصال بالخدمات الخارجية، التحويل الآمن، الحصص، والتنزيل الكامل |
 | `mesin/waqfeya.py` | كتب الوقفية: الفهرس، `ambil w…`، النص المستخرج آليا (OCR)، مقتطفات المصورة (PDF/PNG) |
 | `mesin/hadits.py`، `dirasat.py` | دلالة التخريج، الدراسات السابقة |
 | `mesin/layanan.py` | `tafsir` و`takhrij` و`rawi` دون إنترنت (جداول خدمات الشاملة في `kitab/_meta`) |
 | `mesin/diagram.py` | تحويل مخططات Mermaid إلى PNG (`diagram`) |
 | `mesin/tahap.py`، `berkas.py` | حالة البحث ومجلدات `.rakit-*` |
-| `mesin/rakit.ps1`، `teks_pdf.py` | مُخرِج Word/PDF ونص PDF |
+| `mesin/rakit.ps1`، `word.ps1`، `teks_pdf.py` | مُخرِج Word/PDF، هوية عملية Word التابعة له، ونص PDF |
 | `mesin/format.json` | أنماط شكل الصفحة (`@format`) |
 | `mesin/sampul_qism.docx`، `sampul.doc`، `sampul_jakarta.docx`، `kepala_kotak.docx` | قوالب الغلاف ورأس الصفحة |
 | `mesin/naskah_baru.txt`، `riset_baru.txt` | الهيكل الذي يُنشئه `baru` |

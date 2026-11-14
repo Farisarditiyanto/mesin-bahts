@@ -3,89 +3,22 @@
 AuthenticIlm/Shamela4_Full_DB ke folder kitab/, lalu cari kutipan secara offline
 (tanpa kredit, tanpa internet). `temukan` dan `scan` memakai turath.io sebagai penunjuk jalan. Dipanggil lewat bahts.py.
 """
-import bisect, functools, gzip, hashlib, html, http.client, json, os, re, shutil, sys, time, urllib.error, urllib.parse, urllib.request, zlib
+import bisect, functools, gzip, hashlib, html, json, re, urllib.error, urllib.parse, urllib.request, zlib
 from pathlib import Path
 
 import norma
 from berkas import sementara
+from dasar import perintah
+from jaringan import UA, buka, tunggu_jatah, unduh, unduh_kitab
 from norma import BAGIAN, HARAKAT, PENANDA, TAGS, BUKAN_ABJAD, per_halaman, ruas_halaman, norm, padat
 
 MESIN = Path(__file__).parent
 ROOT = MESIN.parent / "kitab"
 
 
-def perintah(argumen):
-    """Perintah mesin yang bisa ditempel apa adanya: jalur lengkap kalau dijalankan dari folder lain, Python yang sedang dipakai.
-    Semua pesan yang menyuruh menjalankan perintah memakai ini (bahts, shamela, olah, dirasat)."""
-    py = "python"
-    w = shutil.which("python")
-    try:
-        if not (w and os.path.samefile(w, sys.executable)):
-            py = f'"{sys.executable}"'
-    except OSError:
-        py = f'"{sys.executable}"'
-    try:
-        disini = Path.cwd().resolve() == MESIN.parent.resolve()
-    except OSError:
-        disini = False
-    skrip = "mesin/bahts.py" if disini else f'"{MESIN / "bahts.py"}"'
-    return f"{py} {skrip} {argumen}".rstrip()
 REPO = "AuthenticIlm/Shamela4_Full_DB"
 API = f"https://huggingface.co/api/datasets/{REPO}/tree/main"
 RAW = f"https://huggingface.co/datasets/{REPO}/resolve/main"
-UA = {"User-Agent": "curl/8"}
-# unduhan yang putus/gagal di jaringan (bukan nomor kitab yang salah)
-GAGAL_JARINGAN = (urllib.error.URLError, http.client.HTTPException, ConnectionError, TimeoutError)
-COBA = 3  # tiap kitab dicoba sebanyak ini kalau unduhannya putus
-SEMENTARA = (500, 502, 503)  # jawaban HTTP yang biasanya hilang sendiri (504 tidak: OpenAlex memakainya untuk «pencarian terlalu berat»)
-
-
-class _AlihAman(urllib.request.HTTPRedirectHandler):
-    """Kunci hanya ikut pengalihan di asal yang sama (protokol, nama host, dan port)."""
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        baru = super().redirect_request(req, fp, code, msg, headers, newurl)
-
-        def asal(url):
-            u = urllib.parse.urlsplit(url)
-            port = u.port if u.port is not None else {"http": 80, "https": 443}.get(u.scheme)
-            return u.scheme, u.hostname, port
-
-        if baru is not None and asal(req.full_url) != asal(baru.full_url):
-            baru.remove_header("Authorization")
-        return baru
-
-
-def buka(url, data=None, kepala=UA, waktu=60, coba=3):
-    """Satu pintu permintaan ke layanan luar (temukan, hadits, dirasat, font). Galat sementara (koneksi putus/direset,
-    SSL terputus, waktu habis, HTTP 500/502/503) dicoba lagi sampai `coba` kali dengan jeda 1, 2, 4 detik.
-    Penolakan lain (4xx, 429 jatah habis, 504) langsung dilempar: artinya beda per layanan, pemanggil yang menjelaskan."""
-    pembuka = urllib.request.build_opener(_AlihAman)
-    for i in range(coba):
-        try:
-            return pembuka.open(urllib.request.Request(url, data, kepala), timeout=waktu)
-        except urllib.error.HTTPError as e:
-            if e.code not in SEMENTARA or i == coba - 1:
-                raise
-        except GAGAL_JARINGAN:
-            if i == coba - 1:
-                raise
-        time.sleep(2 ** i)
-
-
-SABAR_JATAH = 30  # detik; layanan minta menunggu lebih lama dari ini = jatah pencarian habis, bukan sekadar terlalu cepat
-
-
-def tunggu_jatah(e, ulang, habis):
-    """HTTP 429 dari `buka` = jatah permintaan layanan sementara habis (turath, alminasa): tunggu sesuai retry-after
-    (bawaan 11 detik), lalu pemanggil mengulang sekali. Diminta menunggu lebih dari SABAR_JATAH, atau sudah diulang =
-    jatahnya habis: SystemExit(habis), «{menit}» di dalamnya = perkiraan menit sampai terbuka lagi. Galat lain dilempar lagi."""
-    if e.code != 429:
-        raise e
-    tunggu = e.headers.get("retry-after") or ""
-    tunggu = int(tunggu) if tunggu.isdigit() else 11  # layanan membatasi permintaan beruntun dan jumlah pencarian
-    if tunggu > SABAR_JATAH or not ulang:
-        raise SystemExit(habis.format(menit=tunggu // 60 + 1))
-    time.sleep(tunggu + 1)
 
 SAMBUNG = "وفبلك"  # huruf sambung di depan kata: kutipan boleh mulai sesudahnya («و"الإحياء"» = «والإحياء»)
 NAFI_SAMBUNG = {"ما", "لا", "لم", "لن", "ليس"}  # kutipan tidak boleh mulai dengan kata ini kalau di kitab ia didahului ب/ل
@@ -112,20 +45,10 @@ def siapkan():
     if not f.exists():
         f.parent.mkdir(parents=True, exist_ok=True)
         print("katalog kitab: mengunduh …", flush=True)
-        _unduh(f"{RAW}/{KATALOG}", f, lambda q: open(q, "wb"))
+        unduh(f"{RAW}/{KATALOG}", f, lambda q: open(q, "wb"))
     print(f"katalog kitab: {len(_meta())} judul")
 
 
-def _unduh(url, tujuan, buka):
-    """Unduh ke nama sementara unik, lalu ganti tujuan kalau utuh; dua unduhan tidak berbagi penulisan."""
-    with sementara(tujuan) as part:
-        n = 0
-        with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=120) as resp, buka(part) as o:
-            while chunk := resp.read(1 << 20):
-                o.write(chunk); n += len(chunk)
-            janji = resp.headers.get("Content-Length")
-        if janji and int(janji) != n:
-            raise ConnectionError(f"unduhan terpotong: {n} dari {janji} byte ({tujuan.name})")
 
 
 @functools.cache
@@ -413,21 +336,7 @@ def kartu(sid):
 def ambil(*sid):
     """Unduh kitab (sekali saja). Semua nomor dicoba; unduhan yang putus diulang sampai COBA kali.
     Kembalikan nomor yang gagal (kosong = semua ada); bahts.py yang memberi kode keluar."""
-    gagal = []
-    for s in sid:
-        for coba in range(1, COBA + 1):
-            try:
-                _ambil(s)
-                break
-            except LookupError as e:  # nomornya salah: diulang pun sama
-                print(f"{s}: {e}"); gagal.append(str(s)); break
-            except GAGAL_JARINGAN as e:
-                tetap = isinstance(e, urllib.error.HTTPError) and 400 <= e.code < 500 and e.code != 429
-                if tetap or coba == COBA:
-                    print(f"{s}: GAGAL mengunduh, cek internet lalu ulangi ({e!r})"); gagal.append(str(s)); break
-                print(f"{s}: unduhan putus ({e!r}); mencoba lagi ({coba + 1}/{COBA}) ...", flush=True)
-                time.sleep(5 * coba)
-    return gagal
+    return unduh_kitab(sid, _ambil)
 
 
 def _ambil(sid):
@@ -451,9 +360,9 @@ def _ambil(sid):
     for f in ("book_metadata.json", "toc.jsonl", "pages.jsonl"):
         url = f"{RAW}/{urllib.parse.quote(folder[0])}/{f}"
         if f.endswith(".jsonl"):
-            _unduh(url, dst / (f + ".gz"), lambda q: gzip.open(q, "wb", compresslevel=6))  # 9: 4x lebih lambat, hemat 6% saja
+            unduh(url, dst / (f + ".gz"), lambda q: gzip.open(q, "wb", compresslevel=6))  # 9: 4x lebih lambat, hemat 6% saja
         else:
-            _unduh(url, dst / f, lambda q: open(q, "wb"))
+            unduh(url, dst / f, lambda q: open(q, "wb"))
     mb = (dst / "pages.jsonl.gz").stat().st_size / 1e6
     print(f"{sid}: menyiapkan indeks pencarian ({mb:.1f} MB) …", flush=True)
     _cache(sid)  # sekarang, bukan saat `cari` pertama: kitab besar makan belasan detik
@@ -472,7 +381,7 @@ def _sidik(sid):
 
 
 INDEKS = "indeks.json"  # di folder tiap kitab
-INDEKS_VERSI = 2  # naikkan kalau isi indeks (lihat `indeks`) berubah cara hitungnya atau bentuknya
+INDEKS_VERSI = 3  # naikkan kalau isi indeks (lihat `indeks`) berubah cara hitungnya atau bentuknya
 
 
 def _isi(sid):
@@ -553,9 +462,10 @@ def _lompat(sid):
 def lepas():
     """Lepas semua yang dibaca dari kitab (titik baca, blok, indeks): untuk perintah yang membaca kitab satu per satu."""
     _lompat.cache_clear(); _Lompat.blok.clear(); indeks.cache_clear(); _indeks.cache_clear()
+    rekaman_ke.cache_clear(); rekaman_shamela.cache_clear(); _sidik.cache_clear(); info.cache_clear(); _toc.cache_clear()
 
 
-@functools.cache
+@functools.lru_cache(maxsize=256)
 def rekaman_ke(sid, i):
     """Rekaman ke-i kitab sid (urutan berkas), tanpa cache `padat`: dihitung `ruas_halaman` hanya untuk rekaman yang disentuh."""
     ix = indeks(sid)
@@ -583,13 +493,19 @@ def _indeks(sid):
     return _bangun_indeks(sid)[:2]
 
 
+def _sidik_indeks(d):
+    isi = {k: v for k, v in d.items() if k != "sidik_isi"}
+    return hashlib.sha256(json.dumps(isi, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf8")).hexdigest()
+
+
 def _baca_indeks(sid):
     """Isi indeks.json kitab sid kalau sah untuk berkas .gz-nya sekarang; None = rusak, lama, atau tidak ada."""
     try:
         d = json.loads((_folder(sid) / INDEKS).read_text(encoding="utf8"))
         kolom, awal, panjang = [d["juz"], d["hal"], d["akhir"], d["letak"]], d["awal"], d["panjang"]
         letak = kolom[3]
-        if (d["versi"] == INDEKS_VERSI and d["sumber_gz"] == _sidik(sid) and type(panjang) is int
+        if (d["versi"] == INDEKS_VERSI and d["sumber_gz"] == _sidik(sid) and d["sidik_isi"] == _sidik_indeks(d)
+                and type(panjang) is int
                 and all(type(x) is list and len(x) == len(awal) for x in kolom + [awal])
                 and set(map(type, awal)) <= {int, type(None)} and set(map(type, letak)) <= {int}
                 and (not letak or 0 <= min(letak) and max(letak) < panjang)):
@@ -616,8 +532,10 @@ def _bangun_indeks(sid):
     try:
         with sementara(_folder(sid) / INDEKS) as part:
             kolom = dict(zip(("juz", "hal", "akhir", "letak"), map(list, zip(*isi)))) if isi else dict.fromkeys(("juz", "hal", "akhir", "letak"), [])
-            part.write_text(json.dumps({"versi": INDEKS_VERSI, "sumber": hashlib.sha256(mentah).hexdigest(), "sumber_gz": _sidik(sid),
-                                        "panjang": len(mentah), **kolom, "awal": awal, "sp": sp}, ensure_ascii=False), encoding="utf8")
+            d = {"versi": INDEKS_VERSI, "sumber": hashlib.sha256(mentah).hexdigest(), "sumber_gz": _sidik(sid),
+                 "panjang": len(mentah), **kolom, "awal": awal, "sp": sp}
+            d["sidik_isi"] = _sidik_indeks(d)
+            part.write_text(json.dumps(d, ensure_ascii=False), encoding="utf8")
     except OSError:
         pass
     return isi, awal, sp
@@ -1175,7 +1093,6 @@ def rekaman_halaman(sid, juz, hal):
     angka). Juz «-» di kitab yang bagiannya hanya bernama (المقدمة، الكتاب) = satu-satunya bagian yang punya halaman
     itu, seperti `cek`; ada di dua bagian = kosong (sebut bagiannya)."""
     angka = lambda x: int(x) if str(x).isdigit() else x
-    # indeks: rekaman juz itu yang mungkin memuat halaman itu (halaman terkecil s.d. terbesar rekaman, termasuk penanda ⦗n⦘)
     ix, awal = _indeks(sid)
     bernama = juz == "-" and not any(j is None or str(j).isdigit() for j, *_ in ix)
     calon = [i for i, (j, _, akhir, _) in enumerate(ix) if awal[i] is not None and awal[i] <= hal <= akhir

@@ -51,37 +51,37 @@ def _isi_glyph(basefont, daftar):
         if not nama.startswith(keluarga) or not berkas.exists():
             continue
         try:
-            t = TTFont(str(berkas), lazy=True, fontNumber=0)
-            nama_ps = (t["name"].getDebugName(6) or "").replace(" ", "")
-            if not (nama_ps.startswith(ps) or ps.startswith(nama_ps)):
-                continue
-            kode, teks = {}, {}
-            for k, g in sorted(t.getBestCmap().items()):
-                kode.setdefault(g, chr(k))
-                teks.setdefault(g, set()).add(_baca(chr(k)))
-            sub = []
-            if "GSUB" in t:
-                for lk in t["GSUB"].table.LookupList.Lookup:
-                    for st in lk.SubTable:
-                        jenis = lk.LookupType
-                        if jenis == 7:
-                            jenis, st = st.ExtSubTable.LookupType, st.ExtSubTable
-                        sub.append((jenis, st))
-            for _ in range(3):                       # ligatur dari bentuk hasil ganti tunggal, dan sebaliknya
-                for jenis, st in sub:
-                    if jenis == 1:
-                        for dari, jadi in st.mapping.items():
-                            if dari in teks and jadi not in kode:   # glyph yang punya kode sendiri: kodenya yang benar
-                                teks.setdefault(jadi, set()).update(teks[dari])
-                    elif jenis == 4:
-                        for awal, daftar_lig in st.ligatures.items():
-                            for lig in daftar_lig:
-                                bagian = [awal] + list(lig.Component)
-                                if lig.LigGlyph not in kode and all(len(teks.get(b, ())) == 1 for b in bagian):
-                                    teks.setdefault(lig.LigGlyph, set()).add("".join(next(iter(teks[b])) for b in bagian))
-            urut = {g: i for i, g in enumerate(t.getGlyphOrder())}
-            return {urut[g]: (next(iter(teks.get(g, ()))) if len(teks.get(g, ())) == 1 else None, kode.get(g))
-                    for g in set(teks) | set(kode) if g in urut}
+            with TTFont(str(berkas), lazy=True, fontNumber=0) as t:
+                nama_ps = (t["name"].getDebugName(6) or "").replace(" ", "")
+                if not (nama_ps.startswith(ps) or ps.startswith(nama_ps)):
+                    continue
+                kode, teks = {}, {}
+                for k, g in sorted(t.getBestCmap().items()):
+                    kode.setdefault(g, chr(k))
+                    teks.setdefault(g, set()).add(_baca(chr(k)))
+                sub = []
+                if "GSUB" in t:
+                    for lk in t["GSUB"].table.LookupList.Lookup:
+                        for st in lk.SubTable:
+                            jenis = lk.LookupType
+                            if jenis == 7:
+                                jenis, st = st.ExtSubTable.LookupType, st.ExtSubTable
+                            sub.append((jenis, st))
+                for _ in range(3):                       # ligatur dari bentuk hasil ganti tunggal, dan sebaliknya
+                    for jenis, st in sub:
+                        if jenis == 1:
+                            for dari, jadi in st.mapping.items():
+                                if dari in teks and jadi not in kode:   # glyph yang punya kode sendiri: kodenya yang benar
+                                    teks.setdefault(jadi, set()).update(teks[dari])
+                        elif jenis == 4:
+                            for awal, daftar_lig in st.ligatures.items():
+                                for lig in daftar_lig:
+                                    bagian = [awal] + list(lig.Component)
+                                    if lig.LigGlyph not in kode and all(len(teks.get(b, ())) == 1 for b in bagian):
+                                        teks.setdefault(lig.LigGlyph, set()).add("".join(next(iter(teks[b])) for b in bagian))
+                urut = {g: i for i, g in enumerate(t.getGlyphOrder())}
+                return {urut[g]: (next(iter(teks.get(g, ()))) if len(teks.get(g, ())) == 1 else None, kode.get(g))
+                        for g in set(teks) | set(kode) if g in urut}
         except Exception:
             continue
     return {}

@@ -6,6 +6,7 @@ Gambar #G harus masuk DOCX dengan keterangannya, dan bagian «#K الملاحق�
 """
 import os, shutil, struct, subprocess, sys, tempfile, zipfile, zlib
 from pathlib import Path
+from xml.etree import ElementTree as ET
 
 from pypdf import PdfReader
 
@@ -65,7 +66,21 @@ def utama():
         assert halaman["AKHIRMARK"] < halaman["PUSTAKAMARK"] < halaman["LAMPIRANMARK"], f"urutan halaman {halaman}"
         with zipfile.ZipFile(folder / "uji.docx") as z:
             media = [n for n in z.namelist() if n.startswith("word/media/")]
+            xml = ET.fromstring(z.read("word/document.xml"))
         assert len(media) >= 2, f"gambar di DOCX: {media}"
+        ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+              "wp": "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"}
+        bagian = xml.find(".//w:sectPr", ns)
+        ukuran, tepi = bagian.find("w:pgSz", ns), bagian.find("w:pgMar", ns)
+        nilai = lambda elemen, kunci: int(elemen.get(f"{{{ns['w']}}}{kunci}"))
+        # OOXML uses 635 EMU per twip; Word can round a drawing's dimensions by one twip.
+        lebar = (nilai(ukuran, "w") - nilai(tepi, "left") - nilai(tepi, "right")) * 635
+        tinggi = (nilai(ukuran, "h") - nilai(tepi, "top") - nilai(tepi, "bottom")) * 635
+        gambar = xml.findall(".//wp:inline/wp:extent", ns)
+        assert len(gambar) == 2, f"ukuran gambar di DOCX: {len(gambar)}"
+        for g in gambar:
+            cx, cy = int(g.get("cx")), int(g.get("cy"))
+            assert 0 < cx <= lebar + 635 and 0 < cy <= tinggi + 635, f"gambar {cx}x{cy} melampaui batas {lebar}x{tinggi}"
         print(f"lolos gambar Word: {len(media)} gambar; halaman {halaman}", flush=True)
 
 

@@ -30,7 +30,8 @@ def utama():
         shutil.copytree(AKAR / "mesin", akar / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__"))
         folder = akar / "uji"
         folder.mkdir()
-        teks = "@bentuk: kitab\n@judul: اختبار\n@berkas: uji\n#K اختبار الجداول\n"
+        berkas = "kerja"
+        teks = f"@bentuk: kitab\n@judul: اختبار\n@berkas: {berkas}\n#K اختبار الجداول\n"
         for n in kolom:
             teks += f"جدول من {n} أعمدة:\n"
             for r in range(3):
@@ -39,8 +40,8 @@ def utama():
         (folder / "naskah.txt").write_text(teks, encoding="utf8")
         r = subprocess.run([sys.executable, str(akar / "mesin" / "bahts.py"), "rakit", "uji"], cwd=akar,
                            capture_output=True, encoding="utf8", timeout=1800)
-        assert r.returncode == 0 and (folder / "uji.pdf").is_file(), r.stdout + r.stderr
-        with zipfile.ZipFile(folder / "uji.docx") as z:
+        assert r.returncode == 0 and (folder / f"{berkas}.pdf").is_file(), r.stdout + r.stderr
+        with zipfile.ZipFile(folder / f"{berkas}.docx") as z:
             xml = ET.fromstring(z.read("word/document.xml"))
         tabel = xml.findall(".//w:tbl", NS)
         lebar = [len(tb.find("w:tr", NS).findall("w:tc", NS)) for tb in tabel]

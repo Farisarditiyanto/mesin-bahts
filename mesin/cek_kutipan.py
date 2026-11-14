@@ -8,11 +8,12 @@ import norma
 import shamela
 import sumber_pdf
 from cek_ayat import ayat_persis, ayat_sama, ayat_tercetak, mirip_ayat, pesan_tercetak
-from cek_hadits import nomor_hadits
 from dasar import (
+    perintah,
     ANGKA_LATIN, AYAT_DI_KUTIPAN, AYAT_KITAB, DIPOTONG, ELIPSIS, KUTIPAN_MIN, LUAR, POTONGAN_MIN, QAUL,
     RUJUKAN_AYAT, TIDAK_KETEMU, WAQFEYA_BUKTI)
 from kitab_lokal import (
+    nomor_hadits,
     cari_di, gabung, halaman_janggal, kitab, rangkaian_kitab, rekaman, rekaman_dulu, rentang_halaman, salah_halaman,
     salah_juz, susunan_bagian, tempat_kitab, urut_juz)
 
@@ -42,7 +43,7 @@ def cek_pdf(folder, berkas, hal, kutipan, galat, perhatian, fn):
         return
     if not p.is_file():
         galat.append(f"{tanda}: berkas «{berkas}» tidak ada di folder bahts {folder.name}; simpan PDF-nya di sana "
-                     f"(mis. {shamela.perintah('dirasat-pdf <W…> ' + folder.name)})  || fn: {fn}")
+                     f"(mis. {perintah('dirasat-pdf <W…> ' + folder.name)})  || fn: {fn}")
         return
     bagian = [b for b in ELIPSIS.split(kutipan or "") if norma.padat(b)]
     if pendek := next((b for b in bagian if len(norma.padat(b)) < KUTIPAN_MIN), None):
@@ -98,12 +99,12 @@ def cek_waqfeya(bukti, kutipan, galat, perhatian, fn):
         galat.append(f"{tanda}: {e}  || fn: {fn}")
         return
     if keadaan == "belum":
-        galat.append(f"{tanda}: kitab Waqfeya {w} belum diunduh: {shamela.perintah('ambil ' + w)}  || fn: {fn}")
+        galat.append(f"{tanda}: kitab Waqfeya {w} belum diunduh: {perintah('ambil ' + w)}  || fn: {fn}")
     elif keadaan == "rusak":
         galat.append(f"{tanda}: {rinci} (hal = urutan halaman di berkas PDF, mulai 1)  || fn: {fn}")
     elif keadaan == "lain":
         galat.append(f"kutipan «{kutipan[:30]}» tidak ada di OCR {tanda}, tetapi terbaca persis di " + "، ".join(
-            f"berkas {m} hal PDF {h}" for m, h in rinci[:5]) + f": betulkan halamannya ({shamela.perintah('cari ' + w + ' …')})"
+            f"berkas {m} hal PDF {h}" for m, h in rinci[:5]) + f": betulkan halamannya ({perintah('cari ' + w + ' …')})"
             f"  || fn: {fn}")
 
 

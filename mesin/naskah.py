@@ -14,7 +14,7 @@ from cek_naql import isyarat, panjang, salinan
 from cek_rujukan import cocok_halaman, judul_kitab, judul_shamela, kitab_lain, rujukan_halaman
 from cek_sumber import standar_sumber, urutan_sumber
 from cek_tautsiq import data_cetak, gelar, pemisah_sumber
-from dasar import ANGKA_LATIN, AYAT_DI_KUTIPAN, DIPOTONG, HURUF_LATIN, LUAR, SURAH, TandaRusak, TIDAK_KETEMU, WAQFEYA, WAQFEYA_BUKTI
+from dasar import ANGKA_LATIN, AYAT_DI_KUTIPAN, BUKAN_RUJUKAN, DIPOTONG, HURUF_LATIN, LUAR, SURAH, TandaRusak, TIDAK_KETEMU, WAQFEYA, WAQFEYA_BUKTI
 from kitab_lokal import rentang_halaman, salah_halaman, salah_juz
 from petik import (
     diantar_qaul, kurung_akhir, kutipan_akhir, kutipan_pendek_diantar, kutipan_semua, luar_petik, seragam)
@@ -52,7 +52,6 @@ def _takhrij_dulu(mk, dulu_h, perhatian):
     return any(not h.get("bukti") and h.get("kutipan") and kata(mk).strip() and kata(mk) in kata(h["kutipan"]) for h in dulu_h)
 
 
-TOKEN = re.compile(r"(\*\*|\(\(|\)\)|\{(?:Q|H2|H|P|A|N|M):[^}]*\}|\{X\}|\[\^|\])")
 KUNCI = re.compile(r"[a-z]+")
 
 
@@ -108,7 +107,7 @@ class CatatanKaki:
     """Satu catatan kaki [^…] yang sedang diperiksa: isinya, buktinya, dan kutipan yang dirujuknya. Diisi berurutan oleh
     langkah `Pengurai._catatan_kaki`; tiap langkah membaca yang sudah diisi langkah sebelumnya."""
     __slots__ = ("isi", "bukti", "sid_bukti", "diam", "zz", "penggal", "dirujuk", "mk", "mk_pdf", "lain", "luar", "pdf", "wq",
-                 "terbukti", "kc", "pengantar", "p_kunci", "dikecualikan", "fn")
+                 "terbukti", "kc", "dikecualikan", "fn")
 
     def __init__(self, isi, bukti):
         self.isi, self.bukti = isi, bukti
@@ -149,7 +148,7 @@ class Pengurai:
     def jalan(self):
         teks = self.teks
         while self.i < len(teks):
-            m = TOKEN.search(teks, self.i)
+            m = self.TOKEN.search(teks, self.i)
             if not m:
                 self._teks(teks[self.i:]); break
             if m.start() > self.i:
@@ -159,7 +158,6 @@ class Pengurai:
             self.PENANGAN[tok[:tok.find(":") + 1] if tok.startswith("{") and ":" in tok else tok](self, tok)
         return self._tutup()
 
-    # ---- penangan tanda ----
     def _tebal(self, tok):
         self.tebal = not self.tebal
 
@@ -285,7 +283,6 @@ class Pengurai:
             self.perhatian.append(f"ayat diketik langsung «{ketik[:40]}»: tidak dicek ke mushaf; tulis lewat {{Q:surah:ayat}}")
         return [r for r in self.runs if r.get("t", "x") != ""]
 
-    # ---- catatan kaki [^…]: tiap langkah satu urusan, urut ----
     def _catatan_kaki(self, tok):
         if self.di_catatan:
             raise TandaRusak("catatan kaki tidak boleh di dalam catatan kaki: tutup yang pertama dengan ] dulu")
@@ -505,7 +502,6 @@ class Pengurai:
         # bukti Waqfeya di catatan kaki yang sama: kutipannya bisa dari kitab itu (lafaznya dinilai pemeriksa dari scan),
         # jadi bukti Shamela berpotongan cukup membuktikan potongannya
         if kutipan_4 and all(e for e, _ in kutipan_4) and not c.wq:
-            # intinya dulu (naskah X, kitab Y), penjelasannya di belakang
             galat.append(f"kutipan sebelum catatan kaki: {kutipan_4[0][0]}; kutipan bertanda petik harus ada di halaman "
                          f"buktinya (potongan <<…|potongan>> hanya membuktikan potongannya; nukilan makna tanpa tanda "
                          f"petik, diawali انظر)  || fn: {isi[:45]}")
@@ -559,7 +555,7 @@ class Pengurai:
         # pengecualian: rujukan ayat «سورة …» sesudah {Q:}, dan «سبق تخريجه، ص{P:…}» (buktinya di catatan kaki pertama)
         # «سورة …» hanya untuk kutipan yang memuat ayat itu; «سبق تخريجه، ص{P:k}» hanya untuk kutipan yang sama
         # dengan kutipan {H:…|k} di catatan kaki pertamanya
-        c.p_kunci = p_kunci = re.findall(r"\{P:([a-z]+)\}", isi)
+        p_kunci = re.findall(r"\{P:([a-z]+)\}", isi)
         dulu_h = [h for h in hadits_idx if h["k"] in {"h_" + k for k in p_kunci}]
         mk = c.mk
         # «سورة …» hanya membebaskan kutipan yang isinya ayat saja; prosa lain di dalamnya butuh bukti
@@ -569,7 +565,7 @@ class Pengurai:
         if not c.bukti and mk is not None and isi.startswith("سبق تخريجه") and p_kunci and not c.dikecualikan:
             self.galat.append(f"kutipan «{mk[:30]}» berbeda dari yang ditakhrij di {{H:…|{p_kunci[0]}}}: beri bukti <<sid|juz|hal>>"
                               f"  || fn: {isi[:45]}")
-            c.mk = None  # sudah dilaporkan
+            c.mk = None
 
     def _cek_tanpa_bukti(self, c):
         """Bukti PDF selalu dicek; kutipan atau rujukan kitab tanpa bukti Shamela = GAGAL atau perhatian."""
@@ -604,7 +600,7 @@ class Pengurai:
             else:
                 galat.append(f"kutipan «{mk[:30]}» tanpa bukti: tambahkan <<sid|juz|hal>> di catatan kakinya; "
                              f"sumber yang tidak ada di Shamela (jurnal, PDF penelitian): tulis <<{LUAR}>>  || fn: {isi[:45]}")
-        elif not c.bukti and not c.luar and not isi.startswith(("سورة", "سبق تخريجه")) and rujukan_halaman(isi):
+        elif not c.bukti and not c.luar and not isi.startswith(BUKAN_RUJUKAN) and rujukan_halaman(isi):
             # rujukan kitab (juz/halaman, رقم الحديث) tanpa kutipan bertanda petik: penisbatan yang belum dibuktikan
             perhatian.append(f"rujukan kitab tanpa bukti (halaman atau nomor hadits tercetak, tetapi tidak ada <<…>>): "
                              f"tambahkan <<sid|juz|hal>>; sumber yang tidak ada di Shamela: tulis <<{LUAR}>>  || fn: {isi[:45]}")
@@ -655,3 +651,4 @@ class Pengurai:
 
     PENANGAN = {"**": _tebal, "((": _matn, "))": _matn, "{Q:": _ayat, "{H2:": _hadits_lagi, "{H:": _hadits,
                 "{P:": _rujuk_halaman, "{A:": _jangkar, "{N:": _alam, "{M:": _firqah, "{X}": _khulasah, "[^": _catatan_kaki, "]": _kurung_nyasar}
+    TOKEN = re.compile("(" + "|".join(re.escape(k) + (r"[^}]*\}" if k.endswith(":") else "") for k in PENANGAN) + ")")
