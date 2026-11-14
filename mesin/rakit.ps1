@@ -1029,6 +1029,19 @@ try {
     $word.ScreenUpdating = $true                         # tanpa ini garis bingkai/kepala halaman tidak ikut ke PDF
     $word.Options.ArabicNumeral = $NUMERAL               # pengaturan milik seluruh Word pemakai: dipastikan lagi tepat sebelum PDF
     $doc.ExportAsFixedFormat("$Out.pdf", 17)
+    # paragraf khulasah {X} (bookmark x_n): distabilo kuning sesudah .docx dan .pdf utama tersimpan, lalu diekspor ke
+    # salinan; `rakit` (bahts.py) memotong salinan itu menjadi halaman-halaman khulasah saja. .docx tetap tanpa stabilo
+    $khulasah = @(); $nx = 1
+    while ($doc.Bookmarks.Exists("x_$nx")) {
+        $par = $doc.Bookmarks.Item("x_$nx").Range.Paragraphs(1).Range
+        $par.HighlightColorIndex = 7                        # 7 = wdYellow
+        $hA = $doc.Range($par.Start, $par.Start).Information(3); $hB = $doc.Range($par.End - 1, $par.End - 1).Information(3)
+        $khulasah += "$hA-$hB"; $nx++
+    }
+    if ($khulasah.Count) {
+        $doc.ExportAsFixedFormat("$Out.khulasah.pdf", 17)
+        [IO.File]::AppendAllLines($Laporan, [string[]]@("KHULASAH=" + ($khulasah -join ',')))
+    }
     $doc.Close($false)
 }
 finally {

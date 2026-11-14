@@ -99,6 +99,9 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       halamannya, halaman berurutan jadi rentang (٢٥-٢٩). Urut abjad tanpa «ال/ابن/أبو/أبي» di depan
                       («ابن القيم» di ق). فهرس الأعلام dicetak sesudah فهرس الأحاديث
   {A:kunci}           titik rujukan silang di matan (tidak tercetak), mis. di awal paragraf yang mau ditunjuk
+  {X}                 di awal paragraf matan: paragraf خلاصة (tidak tercetak). `rakit` membuat juga «<@berkas> - الخلاصات.pdf»:
+                      hanya halaman-halaman yang memuat paragraf {X}, dengan paragraf itu distabilo kuning (.docx dan PDF
+                      utama tetap tanpa stabilo). Di tengah paragraf atau di catatan kaki = GAGAL
   {P:kunci}           nomor halaman {H:..|kunci} atau {A:kunci}; hanya di dalam catatan kaki: [^سبق تخريجه، ص{P:kunci}.],
                       [^انظر: ص{P:kunci} من هذا البحث.]. {A:} boleh sesudah {P:}-nya («سيأتي»); nomornya diisi `rakit`
   [^ ... ]            catatan kaki
