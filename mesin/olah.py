@@ -665,7 +665,7 @@ def _cek_bentuk(ctx):
         meta["berkas"] = folder.name
     if re.search(r'[<>:"/\\|?*\x00-\x1f]', meta["berkas"]):
         galat.append(di("@berkas") + f"@berkas: «{meta['berkas']}»: nama berkas tidak boleh memuat : / \\ ? * < > | \" atau karakter kontrol")
-    elif re.fullmatch(r"(?i:CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|COM[1-9¹²³]|LPT[1-9¹²³])(?:[ .].*)?", meta["berkas"]):
+    elif re.fullmatch(r"(?i:CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|COM[1-9¹²³]|LPT[1-9¹²³]) *(?:\..*)?", meta["berkas"]):
         galat.append(di("@berkas") + f"@berkas: «{meta['berkas']}»: nama perangkat Windows tidak bisa dipakai sebagai nama hasil")
     ctx.tanpa, ctx.bentuk = tanpa, bentuk
 

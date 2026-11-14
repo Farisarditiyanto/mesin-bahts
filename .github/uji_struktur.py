@@ -37,6 +37,8 @@ def utama():
         isi_asli = perkiraan.search(out).group(1)
         for nama in ("NUL", "con", "COM1", "LPT9.txt", "COM¹", "AUX .data", "hasil\x01baru"):
             cek("nama hasil terlarang Windows", "@berkas: " + nama + "\n" + dasar, True, "@berkas:")
+        for nama in ("CON sesuai", "NUL catatan.txt", "COM10", "بحث علمي"):
+            cek("nama hasil sah bukan perangkat", "@berkas: " + nama + "\n" + dasar)
         gambar_asli = (AKAR / "contoh/jebakan/gambar.png").read_bytes()
         for isi in (gambar_asli[:24], gambar_asli[:16] + b"\0" * 4 + gambar_asli[20:],
                     gambar_asli[:20] + b"\0" * 4 + gambar_asli[24:], gambar_asli[:-12]):
