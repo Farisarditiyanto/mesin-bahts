@@ -11,7 +11,7 @@ from cek_ayat import ayat_persis, ayat_sama, ayat_tercetak, mirip_ayat, pesan_te
 from cek_hadits import nomor_hadits
 from dasar import (
     ANGKA_LATIN, AYAT_DI_KUTIPAN, AYAT_KITAB, DIPOTONG, ELIPSIS, KUTIPAN_MIN, LUAR, POTONGAN_MIN, QAUL,
-    RUJUKAN_AYAT, TIDAK_KETEMU)
+    RUJUKAN_AYAT, TIDAK_KETEMU, WAQFEYA_BUKTI)
 from kitab_lokal import (
     cari_di, gabung, halaman_janggal, kitab, rangkaian_kitab, rekaman, rekaman_dulu, rentang_halaman, salah_halaman,
     salah_juz, susunan_bagian, tempat_kitab, urut_juz)
@@ -80,6 +80,31 @@ def cek_pdf(folder, berkas, hal, kutipan, galat, perhatian, fn):
     else:
         perhatian.append(f"kutipan «{kutipan[:30]}» tidak ada di teks PDF «{berkas}»: lafaznya berbeda atau karangan, atau "
                          f"teks PDF-nya rusak; buka PDF-nya dan cocokkan sendiri lafaz dan halamannya  || fn: {fn}")
+
+
+def cek_waqfeya(bukti, kutipan, galat, perhatian, fn):
+    """Bukti <<w…|berkas|hal>> (kitab Waqfeya, waqfeya.py). `cek` hanya menjaga yang pasti salah: kitab belum diunduh,
+    berkas/halaman yang tidak ada, dan kutipan yang terbaca persis di halaman LAIN tetapi tidak di halaman yang ditulis
+    (nomor halaman salah). Cocok-tidaknya lafaz TIDAK dinilai di sini: OCR salah huruf (±28% kutipan 15 kata), jadi
+    kutipan yang benar sering tidak terbaca persis; lafaz dan nomor cetak dinilai pemeriksa dari scan (`bukti` menunjuk
+    halamannya beserta hasil OCR), bukan jadi perhatian yang harus diterima satu per satu."""
+    import waqfeya
+    tanda = f"<<{bukti}>>"
+    w, n, hal = WAQFEYA_BUKTI.fullmatch(bukti).groups()
+    bagian = [b for b in ELIPSIS.split(kutipan or "") if norma.padat(b)]
+    try:
+        keadaan, rinci = waqfeya.periksa_kutipan(w, int(n), hal, bagian)
+    except ValueError as e:
+        galat.append(f"{tanda}: {e}  || fn: {fn}")
+        return
+    if keadaan == "belum":
+        galat.append(f"{tanda}: kitab Waqfeya {w} belum diunduh: {shamela.perintah('ambil ' + w)}  || fn: {fn}")
+    elif keadaan == "rusak":
+        galat.append(f"{tanda}: {rinci} (hal = urutan halaman di berkas PDF, mulai 1)  || fn: {fn}")
+    elif keadaan == "lain":
+        galat.append(f"kutipan «{kutipan[:30]}» tidak ada di OCR {tanda}, tetapi terbaca persis di " + "، ".join(
+            f"berkas {m} hal PDF {h}" for m, h in rinci[:5]) + f": betulkan halamannya ({shamela.perintah('cari ' + w + ' …')})"
+            f"  || fn: {fn}")
 
 
 def _petunjuk(sid, juz, q):

@@ -142,6 +142,12 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       ada di halaman itu = perhatian «ditemukan di halaman …» (cocokkan sendiri lafaz, angka, urutan);
                       ada di halaman lain, berkas tidak ada atau di luar folder bahts, halaman di luar PDF, atau bagian
                       kutipan < 6 huruf = GAGAL; tidak ada di teks PDF atau scan = perhatian. Nukilan makna (انظر) = perhatian
+  <<w…|berkas|hal>>   kutipan dari kitab Waqfeya (scan + OCR, `waqfeya`, `ambil w…`; untuk kitab yang tidak ada di
+                      Shamela). berkas = nomor urut berkas kitab (1, 2, …), hal = urutan halaman di berkas PDF (rentang
+                      boleh); juz/halaman cetak ditulis di catatan kakinya. Lafaz TIDAK dinilai `cek` (OCR salah huruf):
+                      pemeriksa membacanya di scan (`halaman w… <berkas> <hal>`, `bukti`). GAGAL hanya: kitab belum
+                      diunduh, berkas/halaman tidak ada, bentuk rusak, atau kutipan (≥25 huruf) terbaca persis di
+                      halaman lain tetapi tidak di halaman yang ditulis
   Tanda petik yang dikenali: "…" «…» “…” ‘…’ '…' ❝…❞ 〝…〞 ‟…” ❮…❯ ❛…❜. Perhatian: kutipan yang dipotong ... di
                       tengahnya atau disambung ... dengan kutipan lain, dan tanda petik tanpa pasangan
                       (…) tepat sebelum catatan kaki berbukti yang diantar «قال …:»، «ﷺ:», atau tepat sesudah {H:} = kutipan,
@@ -280,6 +286,14 @@ BUKTI_SID = re.compile(r"<<(\d+)\|")  # nomor kitab di bukti <<sid|juz|hal>>
 def kitab_dirujuk(folder):
     """Nomor kitab Shamela yang dirujuk bukti naskah di folder bahts, urut kemunculan pertama (untuk `ambil <folder>`)."""
     return list(dict.fromkeys(BUKTI_SID.findall((Path(folder) / "naskah.txt").read_text(encoding="utf-8-sig"))))
+
+
+BUKTI_WAQFEYA = re.compile(r"<<(w[0-9a-f]{8})\|")
+
+
+def kitab_waqfeya_dirujuk(folder):
+    """Nomor kitab Waqfeya yang dirujuk bukti <<w…|berkas|hal>> naskah (untuk `ambil <folder>`)."""
+    return list(dict.fromkeys(BUKTI_WAQFEYA.findall((Path(folder) / "naskah.txt").read_text(encoding="utf-8-sig"))))
 
 
 AWAL_BAGIAN = re.compile(r"^(?:\*\*)?(?:#[KFBMSR](?![^\s])|القول|الرأي|المذهب)")  # judul, atau awal pendapat baru
@@ -1019,13 +1033,15 @@ def _laporan(ctx, n_matan, n_fn, sidik_naskah, sidik_isi):
     n_bukti = sum(c["bukti"] for c in catatan)
     n_luar = sum(c["luar"] for c in catatan)  # disebut di ringkasan: tanda yang bisa menyembunyikan kutipan karangan
     n_pdf = sum(c["pdf"] for c in catatan)
+    n_wq = sum(c.get("wq", 0) for c in catatan)
     # rujukan kitab tanpa bukti sudah jadi GAGAL atau perhatian di atas: daftar ini sisanya (catatan penjelasan, <<luar>>)
     fn_teks = [(c, "".join(r.get("t", "") for r in c["runs"])) for c in catatan]
-    fn_tanpa = [norma.HARAKAT.sub("", t)[:60] for c, t in fn_teks if c["bukti"] == 0 and not c["pdf"]
+    fn_tanpa = [norma.HARAKAT.sub("", t)[:60] for c, t in fn_teks if c["bukti"] == 0 and not c["pdf"] and not c.get("wq")
                 and not t.startswith(("سورة", "سبق تخريجه")) and (c["luar"] or not rujukan_halaman(t))]
     lap = [f"blok={len(blok)} | kata matan={n_matan} | catatan kaki={len(catatan)} ({n_fn} kata) | ayat={len(ayat_idx)} | hadits={len(hadits_idx)} | pustaka={len(pustaka)}",
            f"bukti dicek ke Shamela lokal: {n_bukti}{f' | ditunjuk di PDF (bukan bukti): {n_pdf}' if n_pdf else ''}"
-           f"{f' | <<{LUAR}>> (tidak dicek mesin): {n_luar}' if n_luar else ''} | GAGAL: {len(galat)}"]
+           f"{f' | <<{LUAR}>> (tidak dicek mesin): {n_luar}' if n_luar else ''}"
+           f"{f' | Waqfeya <<w…>> (lafaz dinilai pemeriksa dari scan): {n_wq}' if n_wq else ''} | GAGAL: {len(galat)}"]
     # kitab yang belum diunduh membuat tiap buktinya GAGAL: satu perintah untuk semuanya, sebelum daftar panjangnya
     belum = list(dict.fromkeys(m.group(1) for g in galat for m in BELUM_DIUNDUH_RE.finditer(g)))
     if belum:

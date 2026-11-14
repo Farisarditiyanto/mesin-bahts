@@ -6,14 +6,15 @@ from pathlib import Path
 
 import norma
 import shamela
+import waqfeya
 from cek_ayat import ayat, ayat_ketik, penanda_ayat, rujukan_ayat
 from cek_hadits import hadits_janggal, hadits_lain, periksa_derajat, periksa_takhrij
-from cek_kutipan import cek, cek_pdf
+from cek_kutipan import cek, cek_pdf, cek_waqfeya
 from cek_naql import isyarat, panjang, salinan
 from cek_rujukan import cocok_halaman, judul_kitab, judul_shamela, kitab_lain, rujukan_halaman
 from cek_sumber import standar_sumber, urutan_sumber
 from cek_tautsiq import data_cetak, gelar, pemisah_sumber
-from dasar import ANGKA_LATIN, AYAT_DI_KUTIPAN, DIPOTONG, HURUF_LATIN, LUAR, SURAH, TandaRusak, TIDAK_KETEMU
+from dasar import ANGKA_LATIN, AYAT_DI_KUTIPAN, DIPOTONG, HURUF_LATIN, LUAR, SURAH, TandaRusak, TIDAK_KETEMU, WAQFEYA, WAQFEYA_BUKTI
 from kitab_lokal import rentang_halaman, salah_halaman, salah_juz
 from petik import (
     diantar_qaul, kurung_akhir, kutipan_akhir, kutipan_pendek_diantar, kutipan_semua, luar_petik, seragam)
@@ -103,7 +104,7 @@ def urai(teks, ctx, di_catatan=False):
 class CatatanKaki:
     """Satu catatan kaki [^…] yang sedang diperiksa: isinya, buktinya, dan kutipan yang dirujuknya. Diisi berurutan oleh
     langkah `Pengurai._catatan_kaki`; tiap langkah membaca yang sudah diisi langkah sebelumnya."""
-    __slots__ = ("isi", "bukti", "sid_bukti", "diam", "zz", "penggal", "dirujuk", "mk", "mk_pdf", "lain", "luar", "pdf",
+    __slots__ = ("isi", "bukti", "sid_bukti", "diam", "zz", "penggal", "dirujuk", "mk", "mk_pdf", "lain", "luar", "pdf", "wq",
                  "terbukti", "kc", "pengantar", "p_kunci", "dikecualikan", "fn")
 
     def __init__(self, isi, bukti):
@@ -304,7 +305,7 @@ class Pengurai:
         rumuz, polos = self.rumuz, self.polos
         # bukti saja + semua sumbernya di @rumuz: tidak dicetak, dan seluruh teks sejak catatan kaki berbukti sebelumnya
         # = nukilan utuh dari halaman bukti (kitab tanpa catatan kaki: paragraf syarah yang disalin dari kitabnya)
-        c.sid_bukti = [b.split("|")[0] for b in c.bukti if b.split("|")[0] != LUAR]
+        c.sid_bukti = [b.split("|")[0] for b in c.bukti if b.split("|")[0] != LUAR and not WAQFEYA.match(b)]
         c.diam = not c.isi and rumuz is not None and bool(c.sid_bukti) and all(x in rumuz for x in c.sid_bukti)
         c.zz = [z for z in dict.fromkeys((rumuz or {}).get(x) for x in c.sid_bukti) if z and z != "-"]
         c.penggal = polos[self.seg_bukti if c.diam else self.seg:]
@@ -385,15 +386,22 @@ class Pengurai:
                     r["w"] = next(iter(ww))
 
     def _pisah_bukti(self, c):
-        """<<luar>> dan <<luar|berkas.pdf|hal>> dipisah dari bukti Shamela <<sid|juz|hal>>."""
-        c.luar = LUAR in c.bukti
+        """<<luar>>, <<luar|berkas.pdf|hal>>, dan <<w…|berkas|hal>> (kitab Waqfeya) dipisah dari bukti Shamela <<sid|juz|hal>>."""
+        c.wq = [b for b in c.bukti if WAQFEYA.match(b)]
+        for b in c.wq:
+            if not WAQFEYA_BUKTI.fullmatch(b) and WAQFEYA_BUKTI.fullmatch(b.lower()):
+                raise TandaRusak(f"<<{b}>>: nomor kitab Waqfeya ditulis huruf kecil, mis. <<{b.lower()}>>")
+            if not WAQFEYA_BUKTI.fullmatch(b):
+                raise TandaRusak(f"<<{b}>>: bentuknya <<w…|berkas|hal>>: berkas = nomor urut berkas kitab (1, 2, …), hal = "
+                                 "urutan halaman di berkas PDF (lihat `kartu w…`)")
+        c.luar = LUAR in c.bukti or bool(c.wq)  # Waqfeya = sumber di luar Shamela: OCR-nya penunjuk, bukan bukti
         c.pdf = [b.split("|")[1:] for b in c.bukti if b.startswith(LUAR + "|")]  # <<luar|berkas|hal>>
         for f in c.pdf:
             if len(f) != 2 or not f[0].strip() or not re.fullmatch(r"\d+(-\d+)?", f[1]):
                 raise TandaRusak(f"<<{LUAR}|{'|'.join(f)}>>: bentuknya <<{LUAR}|berkas.pdf|hal>>, hal = urutan halaman di berkas")
-        c.bukti = [b for b in c.bukti if b.split("|")[0] != LUAR]
-        if c.bukti:
-            self.ctx.penunjuk.append({"bukti": c.bukti, "kutipan": c.penggal if c.diam else c.mk, "catatan": c.isi})
+        c.bukti = [b for b in c.bukti if b.split("|")[0] != LUAR and not WAQFEYA.match(b)]
+        if c.bukti or c.wq:
+            self.ctx.penunjuk.append({"bukti": c.bukti + c.wq, "kutipan": c.penggal if c.diam else c.mk, "catatan": c.isi})
 
     def _cek_bukti_shamela(self, c):
         """Tiap bukti <<sid|juz|hal(|potongan)>>: juz/halamannya ada, dan kutipan (atau potongannya) terbaca di sana."""
@@ -469,7 +477,9 @@ class Pengurai:
                 ctx.tertolak.append((sid_bersih, mk))
         periksa_derajat(isi, terbukti, periksa_takhrij(isi, bukti, terbukti, mk, perhatian), galat, perhatian)
         # kutipan bertanda petik tetap dicek walau buktinya membawa potongan sendiri: cukup ada di salah satu bukti itu
-        if kutipan_4 and all(e for e, _ in kutipan_4):
+        # bukti Waqfeya di catatan kaki yang sama: kutipannya bisa dari kitab itu (lafaznya dinilai pemeriksa dari scan),
+        # jadi bukti Shamela berpotongan cukup membuktikan potongannya
+        if kutipan_4 and all(e for e, _ in kutipan_4) and not c.wq:
             # intinya dulu (naskah X, kitab Y), penjelasannya di belakang
             galat.append(f"kutipan sebelum catatan kaki: {kutipan_4[0][0]}; kutipan bertanda petik harus ada di halaman "
                          f"buktinya (potongan <<…|potongan>> hanya membuktikan potongannya; nukilan makna tanpa tanda "
@@ -540,9 +550,20 @@ class Pengurai:
         """Bukti PDF selalu dicek; kutipan atau rujukan kitab tanpa bukti Shamela = GAGAL atau perhatian."""
         isi, mk, galat, perhatian = c.isi, c.mk, self.galat, self.perhatian
         # tiap bukti PDF selalu dicek (juga sesudah سورة / سبق تخريجه): berkas dan halamannya tetap harus benar
-        if c.pdf:
+        if c.pdf or c.wq:
             for b, h in c.pdf:
                 cek_pdf(self.folder, b.strip(), h, c.mk_pdf, galat, perhatian, isi[:45])
+            for b in c.wq:
+                cek_waqfeya(b, c.mk_pdf, galat, perhatian, isi[:45])
+            for w in dict.fromkeys(WAQFEYA_BUKTI.fullmatch(b)[1] for b in c.wq) if not c.bukti else ():
+                if waqfeya.ada(w) and not waqfeya.judul_disebut(w, isi):  # seperti kitab_lain untuk bukti Shamela
+                    perhatian.append(f"catatan kaki tidak menyebut judul kitab buktinya «{waqfeya.data(w)['judul']}» "
+                                     f"(<<{w}|…>>): tulis judulnya, atau betulkan nomor kitab di bukti  || fn: {isi[:45]}")
+            judul, persis, _ = judul_shamela(isi) if c.wq and not c.bukti else ("", [], [])
+            if persis:  # Waqfeya hanya untuk kitab yang tidak ada di Shamela: teks Shamela dicek `cek`, OCR tidak
+                perhatian.append(f"«{judul}» ada di Shamela (nomor {'، '.join(map(str, persis))}): kalau edisinya sama, "
+                                 f"ambil kitab Shamela itu lalu tulis <<sid|juz|hal>> (dicek `cek`); edisi Waqfeya sengaja "
+                                 f"dipakai (mis. edisi yang diminta dosen) → «terima <kode> <alasan>»  || fn: {isi[:45]}")
         elif not c.bukti and mk is not None and not c.dikecualikan:
             if c.luar:
                 # <<luar>> hanya untuk sumber yang memang tidak ada di Shamela: judul kitab Shamela = GAGAL
@@ -567,6 +588,8 @@ class Pengurai:
         """Juz/halaman dan nama kitab yang tercetak di catatan kaki cocok dengan buktinya; standar dan urutan sumber."""
         isi, terbukti, galat, perhatian = c.isi, c.terbukti, self.galat, self.perhatian
         salah_hal = cocok_halaman(isi, terbukti, perhatian)
+        if c.wq:  # halaman cetak kitab Waqfeya (ص60) tidak punya bukti Shamela: dibaca pemeriksa di scan
+            salah_hal = [e for e in salah_hal if "tidak punya bukti" not in e]
         galat += salah_hal
         g, p = kitab_lain(isi, [b[0] for b in terbukti]) if "سبق تخريجه" not in isi else (None, None)
         galat += [f"{g}  || fn: {isi[:45]}"] if g else []
@@ -598,7 +621,8 @@ class Pengurai:
         """Catatan kaki jadi bahan rakit: diurai sendiri, rumuz-nya dicetak, nomornya dipasang di matan."""
         sub = urai(c.isi, self.ctx, di_catatan=True)
         self.runs += [{"z": z} for z in c.zz]
-        self.ctx.catatan.append({"runs": sub, "bukti": len(c.bukti), "luar": c.luar, "pdf": len(c.pdf)})
+        self.ctx.catatan.append({"runs": sub, "bukti": len(c.bukti), "luar": c.luar and not c.wq, "pdf": len(c.pdf),
+                                 "wq": len(c.wq)})
         if not c.diam:
             self.runs.append({"fn": len(self.ctx.catatan) - 1})
         if self.seg_bukti == self.seg:
