@@ -6,7 +6,7 @@ from pathlib import Path
 
 import norma
 import shamela
-from dasar import ELIPSIS, KUTIPAN_MIN
+from dasar import ELIPSIS, KUTIPAN_MIN, WAQFEYA_BUKTI
 from kitab_lokal import akhir_rekaman, rekaman, rentang_halaman, salah_halaman, salah_juz
 from olah import periksa
 
@@ -34,6 +34,27 @@ def _teks_halaman(sid, juz, p1, p2, bagian):
             if b:
                 out.append(f"⦗{h}⦘ {b}")
     return " ".join(out)
+
+
+def _penunjuk_waqfeya(w, n, hal, kutipan):
+    """Baris `bukti` untuk <<w…|berkas|hal>>: judul kitab Waqfeya, teks OCR di sekitar kutipan, dan scan yang harus
+    dibaca pemeriksa (OCR bukan bukti)."""
+    import waqfeya
+    if not waqfeya.ada(w):
+        return f"kitab Waqfeya belum diunduh: {shamela.perintah('ambil ' + w)}"
+    try:
+        teks = waqfeya.cuplikan(w, int(n), hal, kutipan, SEKITAR)
+        bagian = [b for b in ELIPSIS.split(kutipan or "") if norma.padat(b)]
+        keadaan, rinci = waqfeya.periksa_kutipan(w, int(n), hal, bagian) if bagian else ("makna", None)
+    except (ValueError, IndexError, SystemExit) as e:
+        return f"bentuk/letak bukti rusak (lihat `cek`): {e}"
+    ocr = {"persis": "kutipan terbaca persis di OCR", "mirip": f"kutipan mirip {rinci}% di OCR",
+           "tidak": "kutipan TIDAK terbaca di OCR (salah huruf OCR, atau lafaz/halaman salah)",
+           "lain": "kutipan terbaca di halaman lain (lihat `cek`)", "makna": "nukilan makna"}.get(keadaan, keadaan)
+    nc = waqfeya.nomor_cetak(w, int(n), waqfeya._rentang(hal)[0])
+    ocr += f"; nomor cetak terbaca di OCR: {nc}" if nc is not None else "; nomor cetak tidak terbaca di OCR"
+    return (f"{waqfeya.data(w)['judul']} [Waqfeya, OCR; {ocr}]: {_ringkas(teks, 2 * SEKITAR)} || scan: "
+            f"{shamela.perintah(f'halaman {w} {n} {hal}')} (lafaz dan nomor halaman cetak dinilai dari scan)")
 
 
 def _penunjuk_bukti(sid, juz, hal, kutipan):
@@ -129,6 +150,9 @@ def bukti(folder, dari=None, sampai=None):
         print(f"{kepala} kutipan: " + (f"«{_ringkas(u['kutipan'])}»" if u["kutipan"] else "(tanpa kutipan bertanda petik)"))
         print(f"{kepala} catatan: {_ringkas(u['catatan'], 300)}")
         for b in u["bukti"]:
+            if m := WAQFEYA_BUKTI.fullmatch(b):
+                print(f"{kepala} <<{b}>> {_penunjuk_waqfeya(*m.groups(), u['kutipan'])}")
+                continue
             f = b.split("|")
             if len(f) not in (3, 4) or not f[0].isdigit() or not re.fullmatch(r"\d+(-\d+)?", f[2]):
                 print(f"{kepala} <<{_ringkas(b, 80)}>>: bentuk bukti rusak (lihat `cek`)"); continue
