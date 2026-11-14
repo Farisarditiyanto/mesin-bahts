@@ -6,18 +6,19 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+## 10.0.0 — 2026-11-14
+
+- Jadi `GAGAL`: takhrij di luar Shahihain yang tidak menulis derajat hadits (tulis derajatnya, atau «ولم أقف على حكم …»), dan baris kembar di المصادر والمراجع.
+- Perhatian `cek` kini wajib ditangani: tiap perhatian dicetak dengan kode, lalu dibereskan di naskah atau diterima dengan `terima <kode> <alasan>` di `riset.txt` (perhatian `riset.txt` sendiri tidak bisa diterima). `tahap` baru mencetak `NASKAH=LOLOS` dan menyuruh ke pemeriksa sesudah semuanya ditangani, dan `rakit` mencetak «BELUM SELESAI» selama masih ada; perhatian yang diterima didaftar terpisah beserta alasannya.
 - `cek` menolak nama hasil perangkat Windows (`NUL`, `CON`, `COM1`, dan yang sejenis) serta karakter kontrol pada `@berkas`, termasuk nama bawaan dari folder bahts.
 - Gambar `#G` PNG/JPEG yang terpotong atau berdimensi nol ditolak `cek` sebelum Word dipanggil.
-- Rentang ayat `tafsir` yang tidak ada dan rentang `takhrij` berlebih ditolak sebelum diperluas, termasuk angka yang sangat besar.
 - Kitab yang tidak ada di Shamela bisa diambil dari Waqfeya (±10.000 kitab scan cetakan + OCR): `waqfeya "<judul>"`, `ambil w<nomor>`, `kartu`/`cari`/`halaman w<nomor>` (scan halaman jadi PDF, atau PNG kalau `pymupdf` terpasang); `ambil w…` yang terputus dilanjutkan dengan menjalankannya lagi. Bukti `<<w…|berkas|hal>>`: `cek` hanya menjaga kitab, halaman, dan kutipan yang jelas ada di halaman lain; lafaznya dibaca pemeriksa di scan, karena OCR bisa salah huruf.
-- Perhatian `cek` kini wajib ditangani: tiap perhatian dicetak dengan kode, lalu dibereskan di naskah atau diterima dengan `terima <kode> <alasan>` di `riset.txt` (perhatian `riset.txt` sendiri tidak bisa diterima). `tahap` baru mencetak `NASKAH=LOLOS` dan menyuruh ke pemeriksa sesudah semuanya ditangani, dan `rakit` mencetak «BELUM SELESAI» selama masih ada; perhatian yang diterima didaftar terpisah beserta alasannya.
-- Jadi `GAGAL`: takhrij di luar Shahihain yang tidak menulis derajat hadits (tulis derajatnya, atau «ولم أقف على حكم …»), dan baris kembar di المصادر والمراجع.
-- Perintah baru tanpa internet: `rawi <id> <juz> <hal>` mencetak sanad tiap hadits di halaman itu berurutan dari pengarang, lalu rutbah ringkas tiap rawi (ابن حجر، الذهبي، wafat); `rawi <nomor>` mencetak ucapan جرح وتعديل rawi itu dan tempat lafaznya di edisi lokal kitab rijalnya (dicari ulang, karena juz/halaman di data Shamela sering dari edisi lain; hanya ditunjuk kalau letaknya di tarjamah rawi itu); `rawi "<nama>"` mencari nomor rawi. `siapkan` kini mengunduh ±8,6 MB tabel layanan.
 - Perintah baru tanpa internet dan tanpa kuota: `tafsir <surat:ayat>` menunjuk kitab tafsir yang menafsirkan ayat itu (14 kitab, mis. الطبري، زاد المسير، ابن كثير) beserta juz/halaman cetaknya; `takhrij <id> <juz> <hal>` menunjuk hadits di halaman itu di 8 kitab hadits (البخاري، مسلم، أبو داود، الترمذي، النسائي، الموطأ، الطيالسي، ابن الجارود) beserta nomor dan juz/halamannya; edisi lain kitab itu (mis. صحيح مسلم ت عبد الباقي) dijembatani lewat nomor hadits. Datanya indeks layanan Shamela sendiri, diunduh `siapkan`.
-- `cek --jejak`: kutipan yang tiap potongannya kena salah ketik kini tetap mendapat «Paling mirip» di kitab yang dirujuk (pustaka `rapidfuzz`; belum terpasang → `periksa` menyebut perintahnya, dan petunjuk ini saja yang dilewati).
+- Perintah baru tanpa internet: `rawi <id> <juz> <hal>` mencetak sanad tiap hadits di halaman itu berurutan dari pengarang, lalu rutbah ringkas tiap rawi (ابن حجر، الذهبي، wafat); `rawi <nomor>` mencetak ucapan جرح وتعديل rawi itu dan tempat lafaznya di edisi lokal kitab rijalnya (dicari ulang, karena juz/halaman di data Shamela sering dari edisi lain; hanya ditunjuk kalau letaknya di tarjamah rawi itu); `rawi "<nama>"` mencari nomor rawi. `siapkan` kini mengunduh ±8,6 MB tabel layanan.
 - Gambar di naskah: `#G berkas.png | keterangan` mencetak PNG/JPG dari folder bahts di tengah halaman, dikecilkan agar muat, dengan keterangan di bawahnya. Diagram Mermaid (`<nama>.mmd`) dijadikan PNG dengan perintah baru `diagram <folder>` (butuh Node.js + Chrome/Edge); `cek` dan `rakit` tetap tanpa internet.
 - `@malahiq: akhir` mencetak bagian `#K الملاحق` sesudah المصادر والمراجع dan sebelum فهرس; halamannya tidak masuk `HALAMAN_ISI`.
-
+- `cek --jejak`: kutipan yang tiap potongannya kena salah ketik kini tetap mendapat «Paling mirip» di kitab yang dirujuk (pustaka `rapidfuzz`; belum terpasang → `periksa` menyebut perintahnya, dan petunjuk ini saja yang dilewati).
+- Rentang ayat `tafsir` yang tidak ada dan rentang `takhrij` berlebih ditolak sebelum diperluas, termasuk angka yang sangat besar.
 - `rakit` tidak lagi gagal («Specified cast is not valid») pada tabel `#J` empat kolom atau lebih.
 - Isi sel tabel `#J` kini rata kanan; dulu tercetak rata kiri. Rakit ulang bahts bertabel untuk mendapat PDF yang benar.
 
