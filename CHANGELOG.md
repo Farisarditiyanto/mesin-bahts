@@ -6,6 +6,8 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- `rawi <id> <juz> <hal>` kini mencetak juga ±800 sanad صحيح البخاري yang dulu terlewat (mis. ٢٨٠٤ يحيى بن بكير عن الليث di ج4 ص19, dan atsar seperti كتاب عمر بن عبد العزيز di ج1 ص31) sebagai rantai lengkap, bukan sekadar daftar rawi «di luar data sanad Shamela».
+
 ## 10.0.0 — 2026-11-14
 
 - Jadi `GAGAL`: takhrij di luar Shahihain yang tidak menulis derajat hadits (tulis derajatnya, atau «ولم أقف على حكم …»), dan baris kembar di المصادر والمراجع.
