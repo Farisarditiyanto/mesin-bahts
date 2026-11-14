@@ -172,6 +172,63 @@ kode, out, err = jalankan("cari", W, "تشبيها له بالفاعل")
 if kode or "hal PDF 2" not in out:
     gagal.append(f"cari {W}: kode {kode}: {(out + err)[-300:]}")
 
+# unduhan/metadata yang tidak lengkap: ditunjuk `ambil`, bukan Traceback; `ambil` hanya mengunduh yang kurang
+utuh = (d / "kitab.json").read_bytes()
+for isi in (b"{", b"null", b"[]", b"{}"):
+    (d / "kitab.json").write_bytes(isi)
+    kode, out, err = jalankan("kartu", W)
+    if kode != 1 or "belum lengkap" not in out + err or "Traceback" in err:
+        gagal.append(f"kitab.json rusak {isi!r} tidak menunjuk `ambil`: kode {kode}: {(out + err)[-200:]}")
+(d / "kitab.json").write_bytes(utuh)
+pdf_utuh = (d / "1.pdf").read_bytes()
+(d / "1.pdf").write_bytes(b"")
+kode, out, err = jalankan("kartu", W)
+if kode != 1 or "belum lengkap" not in out + err:
+    gagal.append(f"PDF kosong masih dianggap kitab lengkap: kode {kode}: {(out + err)[-200:]}")
+ANAK = f"""
+import json, sys
+sys.stdout.reconfigure(encoding="utf-8")
+import shamela, waqfeya
+from berkas import sementara
+W = {W!r}
+dipanggil = []
+def unduh(url, tujuan, buka):  # jaringan ditiru: tulis isi tiruan lewat jalan yang sama dengan unduhan asli
+    dipanggil.append(tujuan.name)
+    with sementara(tujuan) as part, buka(part) as f:
+        f.write(b"%PDF-tiruan" if tujuan.suffix == ".pdf" else b"teks")
+waqfeya.katalog = lambda: {{W: dict(judul="كتاب تجريبي", pengarang="x", kategori="x", halaman=4, folder="x",
+                                   berkas=[dict(nama=n, pdf="a.pdf", txt="a.txt") for n in ("الكتاب", "الواجهة")])}}
+shamela._unduh = unduh
+waqfeya.ambil(W)
+print(json.dumps(dipanggil))
+"""
+r = subprocess.run([sys.executable, "-c", ANAK], cwd=AKAR / "mesin", capture_output=True, text=True, encoding="utf-8",
+                   errors="replace")
+if r.stdout.strip().splitlines()[-1:] != ['["1.pdf"]']:
+    gagal.append(f"`ambil` kitab yang PDF-nya kosong tidak mengunduh ulang PDF itu saja: {r.stdout[-300:]} {r.stderr[-300:]}")
+(d / "1.pdf").write_bytes(pdf_utuh)
+(d / "kitab.json").write_bytes(utuh)
+# potongan scan yang penulisannya putus tidak tertinggal sebagai cache «sudah ada»
+POTONG_PUTUS = f"""
+import waqfeya
+from pypdf import PdfWriter
+def putus(self, f):
+    f.write(b"%PDF-separuh")
+    raise OSError("penulisan putus")
+PdfWriter.write = putus
+try:
+    waqfeya.potong({W!r}, 1, 2, 2)
+except OSError:
+    pass
+"""
+(d / "potong" / "1-2.pdf").unlink(missing_ok=True)
+subprocess.run([sys.executable, "-c", POTONG_PUTUS], cwd=AKAR / "mesin", capture_output=True)
+if (d / "potong" / "1-2.pdf").exists():
+    gagal.append("potongan PDF yang penulisannya putus tertinggal dan nanti dipakai sebagai cache")
+kode, out, err = jalankan("halaman", W, "1", "2")
+if kode or not (d / "potong" / "1-2.pdf").read_bytes().startswith(b"%PDF"):
+    gagal.append(f"`halaman` sesudah tulisan putus tidak membuat potongan utuh: kode {kode}: {(out + err)[-200:]}")
+
 print("waqfeya: " + ("semua lolos" if not gagal else f"{len(gagal)} gagal"))
 for g in gagal:
     print("GAGAL:", g)
