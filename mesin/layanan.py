@@ -225,9 +225,9 @@ def tafsir(rujukan):
     if not 1 <= s <= 114:
         raise SystemExit(f"Surat {s} tidak ada: nomor surat 1-114.")
     urut = {k: i + 1 for i, k in enumerate(cek_ayat.QURAN)}  # nomor ayat se-mushaf = kunci layanan tafsir Shamela
-    kunci = [urut.get(f"{s}:{x}") for x in range(a, z + 1)]
-    if z < a or None in kunci:
+    if not (1 <= a <= z) or f"{s}:{z}" not in urut:
         raise SystemExit(f"Ayat {rujukan} tidak ada di mushaf (surat {s} punya {sum(k.startswith(f'{s}:') for k in urut)} ayat).")
+    kunci = {urut[f"{s}:{x}"] for x in range(a, z + 1)}
     per_kitab = {}
     for k, sid, hal in _baris("tafsir"):
         if k in kunci:
@@ -248,7 +248,7 @@ def takhrij(sid, juz, hal):
     sid, juz = int(shamela._folder(sid).name), angka(juz)
     shamela.info(sid)  # belum diunduh -> pesan yang jelas
     halaman = _rentang(hal)
-    if halaman is None or len(halaman) > 20:
+    if halaman is None or halaman.stop - halaman.start > 20:
         raise SystemExit(f"Halaman ditulis angka (mis. 31) atau rentang awal-akhir paling banyak 20 halaman (mis. 31-32), bukan «{hal}».")
     rekaman = {int(p["shamela_page_id"]): p for h in halaman for p, _ in shamela.rekaman_halaman(sid, juz, h)}
     if not rekaman:

@@ -34,6 +34,11 @@ def jalankan(*a):
 
 
 gagal = []
+for cmd in (("tafsir", "2:1-999999999999999999999"),
+            ("takhrij", "1681", "-", "1-999999999999999999999")):
+    kode, out, err = jalankan(*cmd)
+    if kode == 0 or "Traceback" in err:
+        gagal.append(f"rentang berlebih harus ditolak sebelum diperluas: {cmd}: {out} {err}")
 # indeks mesin lama: sah, tetapi tanpa nomor halaman Shamela
 f = AKAR / "kitab" / "1681" / "indeks.json"
 d = json.loads(f.read_text(encoding="utf8"))
