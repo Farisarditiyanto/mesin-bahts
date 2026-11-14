@@ -50,7 +50,7 @@
 | الخطوة | الأمر | الناتج |
 |---|---|---|
 | إنشاء المجلد | `baru <folder> "<judul>"` | `naskah.txt` (هيكل نص البحث)، `riset.txt` |
-| جمع المادة | الموصِّل `shamela_*`، `temukan`، `katalog`، `hadits`، `dirasat`؛ ودون إنترنت: `tafsir <surat:ayat>`، `takhrij <id> <juz> <hal>`، `rawi <id> <juz> <hal>`؛ والكتاب الذي ليس في الشاملة: `waqfeya "<العنوان>"` | رقم الكتاب والجزء/الصفحة (دلالة فقط) |
+| جمع المادة | الموصِّل `shamela_*`، `temukan`، `katalog`، `hadits`، `dirasat`؛ ودون إنترنت: `tafsir <surat:ayat>`، `takhrij <id> <juz> <hal>`، `rawi <id> <juz> <hal>`، `akar <id> "<الجذر>"`؛ والكتاب الذي ليس في الشاملة: `waqfeya "<العنوان>"` | رقم الكتاب والجزء/الصفحة (دلالة فقط) |
 | تنزيل الكتاب | `ambil <id>` أو `ambil <folder>`؛ الوقفية: `ambil w<nomor>` | `kitab/<id>/`، `kitab/waqfeya/w<nomor>/` |
 | بيانات النشر | `kartu <id>` | التوثيق الأول والمصادر |
 | قراءة النص | `cari`، `teks`، `bab`، `halaman` | نص محلي يُنسخ كما هو |

@@ -2,7 +2,8 @@
 """Layanan Shamela offline: tafsir per ayat dan takhrij silang hadits, dari tabel `_meta` dataset Shamela yang sama dengan
 `ambil` (diekstrak dari basis data program Shamela 4): tafsir_xrefs = ayat -> halaman awal tafsirnya di 14 kitab tafsir;
 hadith_xrefs = hadits -> halamannya di 8 kitab hadits (10 edisi); narrators = 18.989 rawi dengan ringkasan tarjamah dan
-ucapan جرح وتعديل beserta kitab sumbernya (rawi di sanad ditautkan Shamela lewat «inr://man-<nomor>» di teks kitab hadits). Dipanggil lewat bahts.py.
+ucapan جرح وتعديل beserta kitab sumbernya (rawi di sanad ditautkan Shamela lewat «inr://man-<nomor>» di teks kitab hadits);
+root_dictionary = ±1,95 juta bentuk kata -> akarnya (kamus akar program Shamela). Dipanggil lewat bahts.py.
 
 Tabel itu menunjuk satu edisi tertentu tiap kitab. Edisi lain kitab yang sama (group_id katalog sama, mis. صحيح مسلم
 ت عبد الباقي 1727 untuk ط التركية 711) dijembatani lewat nomor hadits: edisi yang ditunjuk tabel harus sudah diunduh,
@@ -18,14 +19,15 @@ import functools, re
 import norma, shamela
 from shamela import ROOT, RAW, TAGS, perintah
 
-TABEL = {"tafsir": "_meta/tafsir_xrefs.parquet", "hadits": "_meta/hadith_xrefs.parquet", "rawi": "_meta/narrators.parquet"}
+TABEL = {"tafsir": "_meta/tafsir_xrefs.parquet", "hadits": "_meta/hadith_xrefs.parquet", "rawi": "_meta/narrators.parquet",
+         "akar": "_meta/root_dictionary.parquet"}
 WAFAT_MAKS = 2000  # katalog menulis 99999 untuk pengarang yang masih hidup, kolektif, atau tidak diketahui
 SIRAP = 4  # kata berurutan yang dibandingkan antara dua edisi
 MIRIP_MIN = 0.5  # diukur pada 250 rekaman acak: أبو داود 654/1726 dan مسلم 711/1727 sebagian besar ≥0,7; الموطأ 28107/1699 (penomoran beda) ±0
 
 
 def siapkan(*nama):
-    """Unduh tabel layanan yang belum ada (semua ±8,6 MB; `nama` = hanya tabel itu)."""
+    """Unduh tabel layanan yang belum ada (semua ±19 MB; `nama` = hanya tabel itu)."""
     for n in nama or TABEL:
         f = ROOT / TABEL[n]
         if not f.exists():
@@ -579,3 +581,93 @@ def rawi(*a):
     if len(kena) > RAWI_MAKS:
         print(f"(ditampilkan {RAWI_MAKS} dari {len(kena)}; persempit namanya)")
     return len(kena)
+
+
+# --- akar kata ---
+
+AKAR_MAKS = 30  # kelompok bentuk kata yang dicetak `akar`
+SAMBUNG = ("وبال", "وكال", "فبال", "فكال", "ولل", "فلل", "وال", "فال", "بال", "كال", "لل", "ال", "و", "ف", "ب", "ك", "ل")
+HAMZAH_AKAR = str.maketrans("أإآؤئ", "ءءءءء")  # kamus menulis hamzah akar sebagai «ء» («ءخذ»)
+POKOK_MIN = 3  # huruf: «وقف» tidak dikelompokkan ke «قف» (perintah dari akar yang sama)
+KATA_ARAB = re.compile(r"[ء-غف-يٱ-ۓً-ٰٟـ]+")
+
+
+@functools.cache
+def _kamus_akar():
+    """(kolom token, kolom akar) tabel root_dictionary sebagai array pyarrow (dibaca sekali, ±0,3 detik)."""
+    siapkan("akar")
+    import pyarrow.parquet as pq
+    t = pq.read_table(ROOT / TABEL["akar"])
+    return t["token"], t["roots"].combine_chunks()
+
+
+def _bentuk_akar(akar):
+    """Bentuk `norm` semua kata berakar itu di kamus Shamela, ditambah akarnya sendiri (kamus tidak memuat kata yang sama
+    persis dengan akarnya, mis. «قرض», «شفع»). Kosong kalau akarnya tidak ada di kamus."""
+    import pyarrow.compute as pc
+    token, akar_ = _kamus_akar()
+    kena = pc.filter(pc.list_parent_indices(akar_), pc.equal(pc.list_flatten(akar_), akar))
+    bentuk = {norma.norm(t) for t in pc.take(token, kena).to_pylist()}
+    return bentuk | {norma.norm(akar)} if bentuk else bentuk
+
+
+def _pokok(w, bentuk):
+    """Bentuk kata tanpa huruf sambung dan «ال» di depannya (و ف ب ك ل، لل، ال), selama sisanya masih bentuk akar itu
+    dan paling sedikit POKOK_MIN huruf: kelompok yang sama dengan yang dicocokkan `cari` untuk kata pertama frasa."""
+    for s in SAMBUNG:
+        sisa = w[len(s):]
+        if w.startswith(s) and len(sisa) >= POKOK_MIN and sisa in bentuk:
+            return _pokok(sisa, bentuk)
+    return w
+
+
+def akar(sid, akar_):
+    """`akar <id> <akar>`: bentuk kata berakar itu yang ada di kitab (matan dan حاشية), dikelompokkan seperti `cari`
+    mencocokkan kata (huruf sambung dan «ال» di depan boleh), urut dari yang paling sering, dengan ejaan kitab itu
+    sendiri. Untuk menemukan istilah yang tidak tertangkap frasa atau `--potongan` («الشفيع» untuk akar شفع).
+    Kembalikan jumlah kata yang cocok."""
+    sid = int(shamela._folder(sid).name)
+    shamela.info(sid)
+    a = norma.norm(str(akar_).translate(HAMZAH_AKAR)).replace(" ", "")
+    if not 2 <= len(a) <= 5 or not re.fullmatch(r"[ء-ي]+", a):
+        raise SystemExit("Tulis akarnya dengan 2-5 huruf Arab tanpa spasi, mis. " + perintah(f'akar {sid} "شفع"'))
+    # akar yang diketik tanpa hamzah («اخذ») digabung dengan bentuk berhamzahnya («ءخذ»): kamus memakai keduanya
+    bentuk = _bentuk_akar(a) | (_bentuk_akar(a.replace("ا", "ء")) if "ا" in a else set())
+    if not bentuk:
+        raise SystemExit(f"Akar «{a}» tidak ada di kamus akar Shamela (hamzah akar ditulis «ء», mis. «ءخذ»).")
+    kunci, ejaan = {}, {}  # kata kitab tanpa harakat -> bentuk `norm`; (bentuk, ejaan kitab) -> jumlah
+    for i in range(len(shamela._indeks(sid)[0])):
+        p = shamela.rekaman_ke(sid, i)
+        for bagian, _ in norma.BAGIAN:
+            for w in KATA_ARAB.findall(TAGS.sub(" ", p.get(bagian) or "")):
+                w = norma.HARAKAT.sub("", w)
+                k = kunci.get(w)
+                if k is None:
+                    k = kunci[w] = norma.norm(w)
+                if k in bentuk:
+                    ejaan[k, w] = ejaan.get((k, w), 0) + 1
+    shamela.lepas()
+    hitung, tulis = {}, {}  # bentuk -> jumlah; bentuk -> ejaan kitab yang paling sering
+    for (k, w), n in sorted(ejaan.items(), key=lambda x: -x[1]):
+        hitung[k] = hitung.get(k, 0) + n
+        tulis.setdefault(k, w)
+    kelompok = {}
+    for k, n in hitung.items():
+        kelompok.setdefault(_pokok(k, bentuk), []).append((n, k))
+    urut = sorted(kelompok.items(), key=lambda x: -sum(n for n, _ in x[1]))
+    total = sum(hitung.values())
+    if not total:
+        print(f"[{sid}] TIDAK ADA kata berakar {a} di kitab ini")
+        return 0
+    print(f"[{sid}] akar {a}: {total} kata, {len(hitung)} bentuk, {len(kelompok)} kelompok. Kamus akar Shamela: satu kata "
+          "bisa bertanda beberapa akar («قال»: قول، قلل…) dan nama orang ikut terhitung («الشافعي» untuk شفع), jadi "
+          "pilih sendiri yang memang istilah masalahmu, lalu cari tempatnya dengan `cari`.")
+    for pokok, isi in urut[:AKAR_MAKS]:
+        isi.sort(reverse=True)
+        contoh = tulis[isi[0][1]]  # ejaan kitab untuk pokoknya: huruf sambung di depannya dipotong (`norm` satu huruf = satu huruf)
+        nama = contoh[len(contoh) - len(pokok):] if len(contoh) >= len(pokok) else pokok
+        rincian = "، ".join(f"{tulis[k]} {n}" for n, k in isi[:4]) + ("…" if len(isi) > 4 else "")
+        print(f"  {nama}: {sum(n for n, _ in isi)}× ({rincian}) -> " + perintah(f'cari {sid} "{nama}"'))
+    if len(urut) > AKAR_MAKS:
+        print(f"(ditampilkan {AKAR_MAKS} dari {len(urut)} kelompok; sisanya lebih jarang)")
+    return total

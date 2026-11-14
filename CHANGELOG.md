@@ -6,6 +6,8 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Perintah baru tanpa internet: `akar <id> "<akar>"` mencetak bentuk kata berakar itu di satu kitab beserta jumlahnya, dikelompokkan seperti `cari` mencocokkan kata (mis. akar شفع di المغني: «الشفيع» 325×، «المشفوع»، «الشفعاء»), dengan perintah `cari` untuk tiap kelompok. Datanya kamus akar Shamela; `siapkan` kini mengunduh ±19 MB tabel layanan.
+
 ## 10.0.0 — 2026-11-14
 
 - Jadi `GAGAL`: takhrij di luar Shahihain yang tidak menulis derajat hadits (tulis derajatnya, atau «ولم أقف على حكم …»), dan baris kembar di المصادر والمراجع.
