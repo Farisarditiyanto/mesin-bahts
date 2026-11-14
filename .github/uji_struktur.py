@@ -45,6 +45,13 @@ def utama():
             (f / "rusak.png").write_bytes(isi)
             cek("gambar terpotong atau dimensi nol", dasar.replace("#K الخاتمة", "#G rusak.png | صورة\n#K الخاتمة"),
                 True, "bukan PNG/JPG yang terbaca")
+        for isi in (gambar_asli + b"\0" * 10, gambar_asli + b"\r\n", gambar_asli[:-1]):  # byte sesudah IEND = PNG utuh
+            (f / "lebih.png").write_bytes(isi)
+            teks = dasar.replace("#K الخاتمة", "#G lebih.png | صورة\n#K الخاتمة")
+            if isi == gambar_asli[:-1]:  # CRC IEND terpotong satu byte: terpotong
+                cek("PNG kurang satu byte", teks, True, "bukan PNG/JPG yang terbaca")
+            else:
+                cek("PNG utuh berbyte tambahan sesudah IEND", teks)
         # @minimal_halaman: bawaan 25 halaman seluruh PDF (perkiraan); contoh menulis 0 karena ±8 halaman
         assert "kurang dari" not in out and "@minimal_halaman: 0\n" in dasar, out
         tanpa_batas = dasar.replace("@minimal_halaman: 0\n", "")

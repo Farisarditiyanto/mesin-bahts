@@ -428,11 +428,12 @@ PNG_AKHIR = b"\x00\x00\x00\x00IEND\xaeB`\x82"  # potongan IEND: penutup tiap PNG
 
 def ukuran_gambar(p):
     """(lebar, tinggi) piksel PNG/JPEG dari kepala berkasnya; None kalau bukan gambar yang terbaca, berdimensi nol,
-    atau terpotong (PNG tanpa IEND di akhir, JPEG tanpa penanda akhir FFD9 sesudah kepalanya). Tanpa pustaka gambar:
+    atau terpotong (PNG tanpa potongan IEND, JPEG tanpa penanda akhir FFD9 sesudah kepalanya). Tanpa pustaka gambar:
     putusan `cek` sama di semua komputer, dan Word gagal di gambar terpotong dengan pesan yang tidak menunjuk berkasnya."""
     data = p.read_bytes()
     ukuran = None
-    if data[:8] == b"\x89PNG\r\n\x1a\n" and data[12:16] == b"IHDR" and data.endswith(PNG_AKHIR):
+    # byte sesudah IEND (sisa penyunting gambar) tetap PNG utuh: IEND + CRC-nya cukup ada sesudah IHDR
+    if data[:8] == b"\x89PNG\r\n\x1a\n" and data[12:16] == b"IHDR" and PNG_AKHIR in data[33:]:
         ukuran = int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
     elif data[:2] == b"\xff\xd8":
         i = 2
