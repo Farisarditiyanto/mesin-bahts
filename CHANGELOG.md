@@ -6,6 +6,8 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- `cek` tidak lagi menolak ayat yang dikutip kitab dengan ejaan imla'i persis: ayat yang memuat «سبحانه وتعالى»، «رضي الله عنهم»، atau «سيرحمهم الله» (mis. 16:1, 39:67, 98:8) tidak lagi `GAGAL` «ayat yang tercetak … tidak sama», dan ayat berlafaz «الليل»، «اللاتي»، «اللائي» tidak lagi diberi perhatian «salah ketik?».
+
 ## 10.0.0 — 2026-11-14
 
 - Jadi `GAGAL`: takhrij di luar Shahihain yang tidak menulis derajat hadits (tulis derajatnya, atau «ولم أقف على حكم …»), dan baris kembar di المصادر والمراجع.

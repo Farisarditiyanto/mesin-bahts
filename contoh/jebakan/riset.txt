@@ -16,10 +16,12 @@ tafsir 15:9
 tafsir 22:70
 tafsir 36:1
 tafsir 39:4
+tafsir 39:67
 tafsir 50:24-27
 tafsir 50:30
 tafsir 81:27
 tafsir 81:28
+tafsir 84:17
 tafsir 112:1
 takhrij8 hijraha
 takhrij8 hijrahb
