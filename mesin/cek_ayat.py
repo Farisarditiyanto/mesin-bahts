@@ -79,7 +79,7 @@ def ayat_sama(spec, antara, rujukan):
         b = norma.padat(teks)
         for x, a in ((x, a) for x in spec for a in bentuk_ayat(ayat(x)[0])):
             # «والليل إذا يسر» (89:4) imla'i, «وَٱلَّيۡلِ إِذَا يَسۡرِ» di mushaf: kerangkanya terlalu pendek untuk ditandingkan
-            if b in a or LAM_BERDERET.sub("ل", b) in LAM_BERDERET.sub("ل", a):
+            if b in a or tanpa_lam_sandang(b) in tanpa_lam_sandang(a):
                 return True
             # ayat bertanda ﴿﴾ ditulis kitab dengan ejaan imla'i («الصراط»/«الصرط», «الصلاة»/«الصلوة»): dibandingkan
             # juga tanpa huruf alif, waw, ya, dan hamzah
@@ -327,13 +327,21 @@ def _kerangka_sama(a, b):
 
 
 KERANGKA = re.compile(r"[اويىءأإآؤئ]")
-LAM_BERDERET = re.compile("ل+")
+# «ال» + lam kata: imla'i menulis dua lam («الليل»، «اللاتي»، «اللائي»), mushaf satu («ٱلَّيۡلِ»، «ٱلَّٰتِي»). Lafaz
+# الجلالة tidak (lam-lam-ha): «الله» tetap beda dari «إله»، «له»، «لله». Lam berderet lain tidak disatukan, karena
+# «إلا الله» dan «إلا هو» jadi sama kerangkanya.
+LAM_SANDANG = re.compile("الل(?!ه)")
+
+
+def tanpa_lam_sandang(s):
+    """Teks `padat` dengan «الل» (bukan lafaz الجلالة) jadi «ال»: ejaan imla'i «الليل» = ejaan mushaf «ٱلَّيۡلِ»."""
+    return LAM_SANDANG.sub("ال", s)
 
 
 def kerangka(s):
-    """Huruf `padat` tanpa alif, waw, ya, dan hamzah, dengan lam berderet jadi satu: ejaan mushaf dan imla'i yang hanya
-    beda di huruf itu sama kerangkanya («الصلوة/الصلاة», «ٱلَّيۡلِ/الليل», «ٱلَّٰتِي/اللاتي»)."""
-    return LAM_BERDERET.sub("ل", KERANGKA.sub("", s))
+    """Huruf `padat` tanpa alif, waw, ya, dan hamzah, dan tanpa lam kedua «الل» (tanpa_lam_sandang): ejaan mushaf dan
+    imla'i yang hanya beda di huruf itu sama kerangkanya («الصلوة/الصلاة», «ٱلَّيۡلِ/الليل», «ٱلَّٰتِي/اللاتي»)."""
+    return KERANGKA.sub("", tanpa_lam_sandang(s))
 
 
 def ayat_persis(spec, teks):
