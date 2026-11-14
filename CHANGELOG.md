@@ -7,6 +7,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 ## Belum dirilis
 
 - `cek` tidak lagi menolak ayat yang dikutip kitab dengan ejaan imla'i persis: ayat yang memuat «سبحانه وتعالى»، «رضي الله عنهم»، atau «سيرحمهم الله» (mis. 16:1, 39:67, 98:8) tidak lagi `GAGAL` «ayat yang tercetak … tidak sama», dan ayat berlafaz «الليل»، «اللاتي»، «اللائي» tidak lagi diberi perhatian «salah ketik?».
+- `rawi <id> <juz> <hal>` kini mencetak juga ±800 sanad صحيح البخاري yang dulu terlewat (mis. ٢٨٠٤ يحيى بن بكير عن الليث di ج4 ص19, dan atsar seperti كتاب عمر بن عبد العزيز di ج1 ص31) sebagai rantai lengkap, bukan sekadar daftar rawi «di luar data sanad Shamela».
 
 ## 10.0.0 — 2026-11-14
 

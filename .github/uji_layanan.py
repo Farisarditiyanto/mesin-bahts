@@ -12,7 +12,8 @@
 - `rawi` mencetak rawi bertautan di halaman (1681), juga lewat jembatan edisi (1727→711); ucapan جرح وتعديل yang lafaznya
   umum («سمعت أبي يقول: أدركته ولم أكتب عنه», 7 tempat di الجرح والتعديل 2170) ditunjuk di tarjamah rawi itu (ج2 ص98),
   bukan di kemunculan pertamanya; ucapan yang lafaznya sekali muncul tetapi di tarjamah rawi lain (عبد الرحمن بن حميد
-  #3281 → 1278 ج13 ص637 tarjamah النضر بن إسماعيل) tidak ditunjuk; sanad dicetak berurutan dari pengarang;
+  #3281 → 1278 ج13 ص637 tarjamah النضر بن إسماعيل) tidak ditunjuk; sanad dicetak berurutan dari pengarang, termasuk
+  sanad yang kode jenisnya bukan «s» (Bukhari 2804 يحيى بن بكير عن الليث، 1681 ج4 ص19, kode «b»);
 - `tafsir 2:219` menunjuk الطبري (7798) sebelum زاد المسير (23619) sebelum ابن كثير (1503); ayat yang tidak ada ditolak.
 Kitabnya 1681, 1726, 654, 1727, 711, 2170, 1278 dari baris `ambil` tes.yml; tabel layanan dari `siapkan`."""
 import atexit, json, shutil, subprocess, sys, tempfile
@@ -73,6 +74,9 @@ if kode or "#84: البخاري (#5495) > إسماعيل بن أبي أويس (#
     gagal.append(f"rawi 1681 1 31: sanad hadits 100 tidak berurutan dari البخاري (kode {kode}: {err[-200:]})")
 if kode or "#676 إسماعيل بن أبي أويس" not in out:
     gagal.append(f"rawi 1681 1 31: إسماعيل بن أبي أويس (#676) tidak dicetak (kode {kode}: {err[-200:]})")
+kode, out, err = jalankan("rawi", "1681", "4", "19")
+if kode or "#7: البخاري (#5495) > يحيى بن عبد الله بن بكير (#6952) > الليث بن سعد بن عبد الرحمن (#5348)" not in out:
+    gagal.append(f"rawi 1681 4 19: sanad berkode «b» (hadits 2804) tidak dicetak sebagai rantai (kode {kode}: {err[-200:]})")
 kode, out, err = jalankan("rawi", "1727", "2", "676")
 if kode or "lewat edisi [711]" not in out or "#5361 مالك بن أنس" not in out:
     gagal.append(f"rawi 1727 2 676: jembatan ke 711 tidak mencetak مالك بن أنس (kode {kode}: {err[-200:]})")
