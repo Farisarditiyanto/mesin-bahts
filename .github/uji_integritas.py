@@ -193,6 +193,21 @@ def utama():
                 assert r.returncode == 0, repr(payload[:80]) + r.stdout + r.stderr
                 assert f.read_bytes() == utuh, "berkas padat rusak tidak dibuat ulang"
 
+        def indeks_rusak():
+            sumber(pages, True)
+            f = kitab / "indeks.json"
+            asli = jalan(akar, "halaman", "11223", "-", "3")
+            assert asli.returncode == 0, asli.stdout + asli.stderr
+            utuh = f.read_text(encoding="utf8")
+            for kolom, nilai in (("awal", 999), ("hal", "rusak"), ("hal", 999), ("juz", []), ("akhir", None),
+                                 ("awal", "rusak"), ("letak", 1), ("sp", "rusak")):
+                d = json.loads(utuh)
+                d[kolom][1] = nilai
+                f.write_text(json.dumps(d, ensure_ascii=False), encoding="utf8")
+                r = jalan(akar, "halaman", "11223", "-", "3")
+                assert r.returncode == 0 and r.stdout == asli.stdout, (kolom, nilai, r.stdout, r.stderr)
+                assert json.loads(f.read_text(encoding="utf8")) == json.loads(utuh), (kolom, nilai, "indeks tidak dipulihkan")
+
         def angka_ayat_sehalaman():
             f = akar / "uji-angka-ayat"
             sebelum = pages.read_bytes()
@@ -474,6 +489,7 @@ def utama():
         uji("cache mengikuti perubahan isi meski ukuran dan mtime sama", cache_usang)
         uji("indeks mengikuti isi/offset baru meski ukuran dan mtime sama", indeks_usang)
         uji("berkas padat rusak/terpotong/bentuk salah dihitung ulang", cache_rusak)
+        uji("kolom indeks rusak tidak mengubah halaman kitab dan dihitung ulang", indeks_rusak)
         uji("angka dan ayat terikat halaman, batas kata, dan bagian kitab", angka_ayat_sehalaman)
         uji("nomor takhrij dipasangkan ke kitabnya walau halaman sama", takhrij_per_kitab)
         uji("templat/PDF sumber tidak ditimpa hasil rakit", bahan_terlindungi)

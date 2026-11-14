@@ -472,7 +472,7 @@ def _sidik(sid):
 
 
 INDEKS = "indeks.json"  # di folder tiap kitab
-INDEKS_VERSI = 2  # naikkan kalau isi indeks (lihat `indeks`) berubah cara hitungnya atau bentuknya
+INDEKS_VERSI = 3  # naikkan kalau isi indeks (lihat `indeks`) berubah cara hitungnya atau bentuknya
 
 
 def _isi(sid):
@@ -583,16 +583,25 @@ def _indeks(sid):
     return _bangun_indeks(sid)[:2]
 
 
+def _crc_indeks(d):
+    """Checksum seluruh metadata indeks; sidik sumber saja tidak menangkap kolom indeks yang rusak."""
+    isi = {k: v for k, v in d.items() if k != "crc32"}
+    return zlib.crc32(json.dumps(isi, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf8"))
+
+
 def _baca_indeks(sid):
     """Isi indeks.json kitab sid kalau sah untuk berkas .gz-nya sekarang; None = rusak, lama, atau tidak ada."""
     try:
         d = json.loads((_folder(sid) / INDEKS).read_text(encoding="utf8"))
         kolom, awal, panjang = [d["juz"], d["hal"], d["akhir"], d["letak"]], d["awal"], d["panjang"]
         letak = kolom[3]
-        if (d["versi"] == INDEKS_VERSI and d["sumber_gz"] == _sidik(sid) and type(panjang) is int
-                and all(type(x) is list and len(x) == len(awal) for x in kolom + [awal])
-                and set(map(type, awal)) <= {int, type(None)} and set(map(type, letak)) <= {int}
-                and (not letak or 0 <= min(letak) and max(letak) < panjang)):
+        if (d["versi"] == INDEKS_VERSI and d.get("crc32") == _crc_indeks(d)
+                and d["sumber_gz"] == _sidik(sid) and type(panjang) is int and panjang >= 0
+                and all(type(x) is list and len(x) == len(awal) for x in kolom + [awal, d["sp"]])
+                and set(map(type, kolom[0])) <= {int, str, type(None)}
+                and all(set(map(type, x)) <= {int, type(None)} for x in (kolom[1], awal, d["sp"]))
+                and set(map(type, kolom[2])) <= {int} and set(map(type, letak)) <= {int}
+                and (not letak or 0 <= letak[0] and letak[-1] < panjang and all(a < z for a, z in zip(letak, letak[1:])))):
             return d
     except (OSError, ValueError, KeyError, TypeError):
         pass
@@ -616,8 +625,10 @@ def _bangun_indeks(sid):
     try:
         with sementara(_folder(sid) / INDEKS) as part:
             kolom = dict(zip(("juz", "hal", "akhir", "letak"), map(list, zip(*isi)))) if isi else dict.fromkeys(("juz", "hal", "akhir", "letak"), [])
-            part.write_text(json.dumps({"versi": INDEKS_VERSI, "sumber": hashlib.sha256(mentah).hexdigest(), "sumber_gz": _sidik(sid),
-                                        "panjang": len(mentah), **kolom, "awal": awal, "sp": sp}, ensure_ascii=False), encoding="utf8")
+            d = {"versi": INDEKS_VERSI, "sumber": hashlib.sha256(mentah).hexdigest(), "sumber_gz": _sidik(sid),
+                 "panjang": len(mentah), **kolom, "awal": awal, "sp": sp}
+            d["crc32"] = _crc_indeks(d)
+            part.write_text(json.dumps(d, ensure_ascii=False), encoding="utf8")
     except OSError:
         pass
     return isi, awal, sp
@@ -625,13 +636,13 @@ def _bangun_indeks(sid):
 
 @functools.cache
 def rekaman_shamela(sid):
-    """{shamela_page_id: nomor rekaman} kitab sid. Indeks sah yang dibuat sebelum kolom «sp» ada dibuat ulang sekali di
-    sini saja, bukan di `cek`: kitab yang tidak pernah dibuka lewat layanan Shamela tidak dibaca ulang."""
+    """{shamela_page_id: nomor rekaman} kitab sid, dari indeks yang sudah diperiksa keutuhannya."""
     d = _baca_indeks(sid)
-    sp = d.get("sp") if d is not None else None
-    if not (type(sp) is list and len(sp) == len(d["awal"]) and set(map(type, sp)) <= {int, type(None)}):
+    if d is None:
         sp = _bangun_indeks(sid)[2]
         _indeks.cache_clear(); indeks.cache_clear()
+    else:
+        sp = d["sp"]
     return {n: i for i, n in reversed(list(enumerate(sp))) if n is not None}
 
 
