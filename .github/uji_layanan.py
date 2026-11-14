@@ -14,7 +14,9 @@
   bukan di kemunculan pertamanya; ucapan yang lafaznya sekali muncul tetapi di tarjamah rawi lain (عبد الرحمن بن حميد
   #3281 → 1278 ج13 ص637 tarjamah النضر بن إسماعيل) tidak ditunjuk; sanad dicetak berurutan dari pengarang;
 - `akar 10649 <akar>`: kata yang sama dengan akarnya ikut dihitung walau tidak ada di kamus Shamela («قرض», «القرض»),
-  «وقف» tidak dikelompokkan ke «قف», dan akar berhamzah boleh ditulis «أخذ» (kamus: «ءخذ»);
+  «وقف» tidak dikelompokkan ke «قف», akar berhamzah boleh ditulis «أخذ» (kamus: «ءخذ»), nama kelompok yang ejaannya
+  diubah `norm` tidak terpotong («السماوات» -> «سموات», bukan «ماوات»), dan kata yang di kamus juga berakar lain
+  ditandai («بعد» untuk وعد);
 - `tafsir 2:219` menunjuk الطبري (7798) sebelum زاد المسير (23619) sebelum ابن كثير (1503); ayat yang tidak ada ditolak.
 Kitabnya 1681, 1726, 654, 1727, 711, 2170, 1278, 10649 dari baris `ambil` tes.yml; tabel layanan dari `siapkan`."""
 import atexit, json, shutil, subprocess, sys, tempfile
@@ -84,6 +86,13 @@ if kode or "\n  قف: " in out or "\n  وقف: " not in out:
 kode, out, err = jalankan("akar", "10649", "أخذ")
 if kode or "akar ءخذ:" not in out:
     gagal.append(f"akar 10649 أخذ: hamzah akar tidak dibaca «ء» (kode {kode}): {out[:200]} {err[-200:]}")
+kode, out, err = jalankan("akar", "10649", "سمو")
+if kode or "\n  ماوات" in out or "\n  سموات: " not in out:
+    gagal.append(f"akar 10649 سمو: nama kelompok «السماوات» terpotong («ماوات»), `cari`-nya tidak menemukan apa pun: {out[:400]}")
+kode, out, err = jalankan("akar", "10649", "وعد")
+baris_bad = next((b for b in out.splitlines() if b.startswith("  بعد: ")), "")
+if kode or "[juga akar" not in baris_bad:
+    gagal.append(f"akar 10649 وعد: «بعد» (kamus: juga akar بعد) tidak ditandai akar lain: «{baris_bad[:200]}»")
 kode, out, err = jalankan("rawi", "1727", "2", "676")
 if kode or "lewat edisi [711]" not in out or "#5361 مالك بن أنس" not in out:
     gagal.append(f"rawi 1727 2 676: jembatan ke 711 tidak mencetak مالك بن أنس (kode {kode}: {err[-200:]})")

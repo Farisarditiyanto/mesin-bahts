@@ -602,13 +602,17 @@ def _kamus_akar():
 
 
 def _bentuk_akar(akar):
-    """Bentuk `norm` semua kata berakar itu di kamus Shamela, ditambah akarnya sendiri (kamus tidak memuat kata yang sama
-    persis dengan akarnya, mis. «قرض», «شفع»). Kosong kalau akarnya tidak ada di kamus."""
+    """{bentuk `norm`: semua akarnya di kamus} kata berakar itu di kamus Shamela, ditambah akarnya sendiri (kamus tidak
+    memuat kata yang sama persis dengan akarnya, mis. «قرض», «شفع»). Kosong kalau akarnya tidak ada di kamus."""
     import pyarrow.compute as pc
     token, akar_ = _kamus_akar()
-    kena = pc.filter(pc.list_parent_indices(akar_), pc.equal(pc.list_flatten(akar_), akar))
-    bentuk = {norma.norm(t) for t in pc.take(token, kena).to_pylist()}
-    return bentuk | {norma.norm(akar)} if bentuk else bentuk
+    baris = pc.unique(pc.filter(pc.list_parent_indices(akar_), pc.equal(pc.list_flatten(akar_), akar)))
+    bentuk = {}
+    for t, r in zip(pc.take(token, baris).to_pylist(), pc.take(akar_, baris).to_pylist()):
+        bentuk.setdefault(norma.norm(t), set()).update(r)
+    if bentuk:
+        bentuk.setdefault(norma.norm(akar), set()).add(akar)
+    return bentuk
 
 
 def _pokok(w, bentuk):
@@ -632,7 +636,11 @@ def akar(sid, akar_):
     if not 2 <= len(a) <= 5 or not re.fullmatch(r"[ء-ي]+", a):
         raise SystemExit("Tulis akarnya dengan 2-5 huruf Arab tanpa spasi, mis. " + perintah(f'akar {sid} "شفع"'))
     # akar yang diketik tanpa hamzah («اخذ») digabung dengan bentuk berhamzahnya («ءخذ»): kamus memakai keduanya
-    bentuk = _bentuk_akar(a) | (_bentuk_akar(a.replace("ا", "ء")) if "ا" in a else set())
+    dicari = {a, a.replace("ا", "ء")}
+    bentuk = {}
+    for x in dicari:
+        for k, r in _bentuk_akar(x).items():
+            bentuk.setdefault(k, set()).update(r)
     if not bentuk:
         raise SystemExit(f"Akar «{a}» tidak ada di kamus akar Shamela (hamzah akar ditulis «ء», mis. «ءخذ»).")
     kunci, ejaan = {}, {}  # kata kitab tanpa harakat -> bentuk `norm`; (bentuk, ejaan kitab) -> jumlah
@@ -660,14 +668,19 @@ def akar(sid, akar_):
         print(f"[{sid}] TIDAK ADA kata berakar {a} di kitab ini")
         return 0
     print(f"[{sid}] akar {a}: {total} kata, {len(hitung)} bentuk, {len(kelompok)} kelompok. Kamus akar Shamela: satu kata "
-          "bisa bertanda beberapa akar («قال»: قول، قلل…) dan nama orang ikut terhitung («الشافعي» untuk شفع), jadi "
-          "pilih sendiri yang memang istilah masalahmu, lalu cari tempatnya dengan `cari`.")
+          "bisa bertanda beberapa akar (ditandai «[juga akar …]», mis. «بعد» untuk وعد) dan nama orang ikut terhitung («الشافعي» "
+          "untuk شفع), jadi pilih sendiri yang memang istilah masalahmu, lalu cari tempatnya dengan `cari`.")
     for pokok, isi in urut[:AKAR_MAKS]:
         isi.sort(reverse=True)
-        contoh = tulis[isi[0][1]]  # ejaan kitab untuk pokoknya: huruf sambung di depannya dipotong (`norm` satu huruf = satu huruf)
-        nama = contoh[len(contoh) - len(pokok):] if len(contoh) >= len(pokok) else pokok
+        # ejaan kitab untuk pokoknya: kalau pokoknya tidak tertulis sendirian, huruf sambung di depan bentuk yang paling
+        # sering dipotong (huruf sambung tidak diubah `norm`; huruf di dalam kata bisa: «السماوات» -> «السموات»)
+        k = isi[0][1]
+        nama = tulis.get(pokok) or tulis[k][len(k) - len(pokok):]
         rincian = "، ".join(f"{tulis[k]} {n}" for n, k in isi[:4]) + ("…" if len(isi) > 4 else "")
-        print(f"  {nama}: {sum(n for n, _ in isi)}× ({rincian}) -> " + perintah(f'cari {sid} "{nama}"'))
+        # kamus juga mencatat kata benda itu sendiri sebagai «akar» («شفعة»، «سماء»); akar tiga huruf («بعد») tetap akar
+        lain = sorted(r for r in bentuk[pokok] - dicari if len(r) <= 3 or norma.norm(r) != pokok)
+        print(f"  {nama}: {sum(n for n, _ in isi)}× ({rincian})" + (f" [juga akar {'، '.join(lain)}]" if lain else "")
+              + " -> " + perintah(f'cari {sid} "{nama}"'))
     if len(urut) > AKAR_MAKS:
         print(f"(ditampilkan {AKAR_MAKS} dari {len(urut)} kelompok; sisanya lebih jarang)")
     return total
