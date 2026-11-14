@@ -16,8 +16,10 @@ Tanpa internet sesudah tabelnya diunduh sekali (`siapkan`), jadi tidak berkuota 
 """
 import functools, re
 
-import norma, shamela
-from shamela import ROOT, RAW, TAGS, perintah
+import jaringan, norma, shamela
+from shamela import ROOT, RAW, TAGS
+from dasar import perintah
+from kitab_lokal import kepala_hadits, lepas, rangkaian_kitab
 
 TABEL = {"tafsir": "_meta/tafsir_xrefs.parquet", "hadits": "_meta/hadith_xrefs.parquet", "rawi": "_meta/narrators.parquet",
          "akar": "_meta/root_dictionary.parquet"}
@@ -33,7 +35,7 @@ def siapkan(*nama):
         if not f.exists():
             f.parent.mkdir(parents=True, exist_ok=True)
             print(f"layanan {n}: mengunduh …", flush=True)
-            shamela._unduh(f"{RAW}/{TABEL[n]}", f, lambda q: open(q, "wb"))
+            jaringan.unduh(f"{RAW}/{TABEL[n]}", f, lambda q: open(q, "wb"))
     if not nama:
         print(f"layanan Shamela: {', '.join(TABEL)} siap")
 
@@ -104,14 +106,11 @@ def _tempat(sid, s):
     return None if awal[i] is None else (shamela._juz({"part": ix[i][0]}), awal[i], ix[i][2])
 
 
-# --- hadits: nomor dan lafaz ---
-
 @functools.cache
 def _kepala_ruas(sid, i):
     """[(semua nomor satu kepala hadits, nomor globalnya)] di rekaman ke-i (aturan `cek`). مسلم: «134 - (2951)» =
     ((134, 2951), 2951): nomor berkurung = nomor global, angka di depannya = urutan riwayat dalam كتاب itu."""
-    import cek_hadits
-    _, kepala, batas = cek_hadits.kepala_hadits(shamela.rekaman_ke(sid, i).get("body") or "")
+    _, kepala, batas = kepala_hadits(shamela.rekaman_ke(sid, i).get("body") or "")
     letak, kurung = {}, dict(batas) if batas is not kepala else {}
     for pos, n in kepala:
         letak.setdefault(pos, []).append(n)
@@ -214,8 +213,6 @@ def _cetak_kitab(sid, halaman_shamela, hadits=False):
     return baris
 
 
-# --- pintu ---
-
 def tafsir(rujukan):
     """`tafsir <surat:ayat>` (atau surat:ayat-ayat): kitab tafsir yang menafsirkan ayat itu beserta juz/halaman cetak
     awal pembahasannya, urut dari pengarang yang lebih dulu wafat. Kembalikan jumlah kitab."""
@@ -311,8 +308,6 @@ def takhrij(sid, juz, hal):
     return len(kunci)
 
 
-# --- rawi ---
-
 TAUTAN_RAWI = re.compile(r"inr://man-(\d+)")
 RINGKAS = ("الرتبة عند ابن حجر", "الرتبة عند الذهبي", "تاريخ الوفاة", "طبقة رواة التقريب")
 KUTIPAN_MIN = 12  # huruf `padat`: ucapan sependek «ثقة» ada di ribuan tempat, jadi tempatnya tidak dicari
@@ -374,12 +369,6 @@ def _edisi_sumber(judul):
     return [sid for _, sid in sorted(hasil)]
 
 
-@functools.cache
-def _rangkaian(sid):
-    from kitab_lokal import rangkaian_kitab
-    return rangkaian_kitab(sid)
-
-
 def _judul_sumber(sumber):
     import re as re_
     m = re_.match(r"(.*?)\s*\(([^()]*)\)\s*$", sumber or "")
@@ -389,7 +378,7 @@ def _judul_sumber(sumber):
 def _kemunculan(sid, q):
     """[(nomor ruas rangkaian, letak)] tiap kemunculan q (`bait`) di kitab lokal sid."""
     hasil = []
-    for k, (_, _, teks, _) in enumerate(_rangkaian(sid)):
+    for k, (_, _, teks, _) in enumerate(rangkaian_kitab(sid)):
         j = teks.find(q)
         while j >= 0 and len(hasil) <= KEMUNCULAN_MAKS:
             hasil.append((k, j))
@@ -419,7 +408,7 @@ def _di_tarjamah(e, k, j, inti):
     import bisect
     if not inti:
         return False
-    _, _, teks, (_, s_, awal, rek) = _rangkaian(e)[k]
+    _, _, teks, (_, s_, awal, rek) = rangkaian_kitab(e)[k]
     if s_ == 0 and any(inti in t for t in _judul_padat(e)):  # judul daftar isinya per tarjamah, bukan per bab
         i = bisect.bisect_right(awal, j) - 1
         p = shamela.rekaman_ke(e, rek[i])
@@ -466,7 +455,7 @@ def _letak_ucapan(daftar, inti=""):
                 break
         if pilih:
             e, (k, j) = pilih
-            juz, tanda, _, ruas = _rangkaian(e)[k]
+            juz, tanda, _, ruas = rangkaian_kitab(e)[k]
             from kitab_lokal import halaman_di
             a, z = halaman_di(ruas, j, j + len(q))
             juz = "-" if juz is None else juz
@@ -568,12 +557,14 @@ def rawi(*a):
         if not ucapan:
             print("  (tabel ini tidak memuat ucapan جرح وتعديل untuk rawi ini)")
         semua_ = [(teks, sumber) for _, daftar in ucapan for teks, sumber, *_ in daftar]
-        letak = iter(_letak_ucapan(semua_, _nama_inti(r)))
-        for ulama, daftar in ucapan:
-            print(f"\n  {ulama}:")
-            for teks, sumber, *_ in daftar:
-                print(f"    «{teks}» — {sumber}\n      {next(letak)}")
-        shamela.lepas()
+        try:
+            letak = iter(_letak_ucapan(semua_, _nama_inti(r)))
+            for ulama, daftar in ucapan:
+                print(f"\n  {ulama}:")
+                for teks, sumber, *_ in daftar:
+                    print(f"    «{teks}» — {sumber}\n      {next(letak)}")
+        finally:
+            lepas()
         print("\nPenunjuk saja: yang dikutip di bahts = lafaz di halaman kitab rijal yang dibaca sendiri, dan lolos `cek`.")
         return 1
     q = norma.padat(x)
@@ -586,8 +577,6 @@ def rawi(*a):
         print(f"(ditampilkan {RAWI_MAKS} dari {len(kena)}; persempit namanya)")
     return len(kena)
 
-
-# --- akar kata ---
 
 AKAR_MAKS = 30  # kelompok bentuk kata yang dicetak `akar`
 SAMBUNG = ("وبال", "وكال", "فبال", "فكال", "ولل", "فلل", "وال", "فال", "بال", "كال", "لل", "ال", "و", "ف", "ب", "ك", "ل")

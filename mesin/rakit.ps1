@@ -11,6 +11,7 @@ trap {
     break
 }
 $dir = $PSScriptRoot
+. "$dir\word.ps1"
 $DATA = Get-Content -LiteralPath $Build -Raw -Encoding UTF8 | ConvertFrom-Json
 $M = $DATA.meta
 $Out = Join-Path $Hasil $M.berkas; $Laporan = Join-Path $Hasil 'laporan.txt'
@@ -74,23 +75,14 @@ catch { throw "Rakit lain sedang jalan (memakai Word yang sama): tunggu sampai s
 # Rakit yang dimatikan paksa (terminal ditutup) tidak sempat ke finally, dan Word-nya tetap hidup: rakit berikutnya
 # mematikan Word yang dicatat rakit itu, asal masih proses yang sama (nomor proses bisa dipakai ulang proses lain)
 $CATATAN_WORD = "$dir\_tmp\rakit.word"
-if (Test-Path -LiteralPath $CATATAN_WORD) {
-    foreach ($baris in Get-Content -LiteralPath $CATATAN_WORD) {
-        $id, $mulai = $baris -split '\|'
-        $id = $id -as [int]                             # baris rusak dilewati: Get-Process -Id 'abc' menghentikan skrip
-        $p = if ($id) { Get-Process -Id $id -ErrorAction SilentlyContinue }
-        if ($p -and $p.ProcessName -eq 'WINWORD' -and [string]$p.StartTime.Ticks -eq $mulai) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
-    }
-    Remove-Item -LiteralPath $CATATAN_WORD -Force
-}
-$wordLain = @(Get-Process WINWORD -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
+try { Bersihkan-WordRakit $CATATAN_WORD } catch { Write-Output "PERINGATAN: Word rakit lama belum bisa dihentikan; catatannya disimpan untuk rakit berikutnya: $($_.Exception.Message)" }
 $tmp = "$Hasil\word\kerja.docx"
 try {
     [IO.Directory]::CreateDirectory((Split-Path -Parent $tmp)) | Out-Null
     $word = New-Object -ComObject Word.Application
-    $wordIni = @(Get-Process WINWORD -ErrorAction SilentlyContinue | Where-Object { $_.Id -notin $wordLain } | ForEach-Object { $_.Id })
-    if ($wordIni) { Set-Content -LiteralPath $CATATAN_WORD -Encoding ASCII -Value @(Get-Process -Id $wordIni -ErrorAction SilentlyContinue | ForEach-Object { "$($_.Id)|$($_.StartTime.Ticks)" }) }
     $word.Visible = $false; $word.ScreenUpdating = $false; $word.DisplayAlerts = 0
+    # tanpa catatan, Word rakit ini tidak bisa dibereskan kalau rakit dimatikan paksa; rakitnya sendiri tetap jalan
+    try { [void](Catat-WordRakit $word $CATATAN_WORD) } catch { Write-Output "PERINGATAN: proses Word rakit ini tidak dikenali: $($_.Exception.Message)" }
     # pengaturan Word pemakai (berlaku untuk semua dokumennya): dipinjam selama rakit, dikembalikan di finally.
     # 2 = angka di teks Arab dicetak ٠-٩, di teks Latin 0-9; 0 = selalu 0-9
     $numeralLama = $word.Options.ArabicNumeral
@@ -1060,9 +1052,7 @@ finally {
     try { $word.Options.ArabicNumeral = $numeralLama } catch {}
     try { $word.Quit([ref]0) } catch {}                   # Quit menerima argumen ref; Quit(0) selalu gagal
     try { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($word) } catch {}
-    # cadangan: Word buatan skrip ini yang belum mati sesudah Quit dimatikan (yang itu saja)
-    Start-Sleep -Milliseconds 500
-    foreach ($id in $wordIni) { try { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue } catch {} }
-    try { Remove-Item -LiteralPath $tmp, $CATATAN_WORD -Force -ErrorAction SilentlyContinue } catch {}
+    try { Bersihkan-WordRakit $CATATAN_WORD } catch { Write-Output "PERINGATAN: Word milik rakit belum berhenti; catatannya disimpan: $($_.Exception.Message)" }
+    try { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue } catch {}
     try { $pegangKunci.Close() } catch {}
 }

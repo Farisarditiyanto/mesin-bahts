@@ -6,7 +6,7 @@ import functools, re
 
 import norma
 import shamela
-from dasar import TAKHRIJ_AWAL
+from dasar import BUKAN_RUJUKAN, TAKHRIJ_AWAL
 from kitab_lokal import bagian_kitab
 from cek_sumber import PERANTARA
 from petik import luar_petik, seragam
@@ -20,7 +20,6 @@ PENERBIT_DI_PENGARANG = re.compile(r"^\s*(?:تصدر|يصدر|صادر[ةه]?|ص
 KATA_UMUM = frozenset("بن ابن بنت عبد ابو ابي ابا ام ه م ت ط من في الي عن ثم و".split())
 # …kecuali sebagai jembatan nasab di antara dua kata khas: «دار ابن الجوزي»، «محمد بن صالح» (penerbit/muhaqqiq)
 NASAB = frozenset("بن ابن بنت ابو ابي ابا ام".split())
-BUKAN_RUJUKAN = ("سورة", "سبق تخريجه")
 KITAB_HADITS = 6  # kategori Shamela كتب السنة: data cetaknya di المصادر, catatan kakinya cukup takhrij (AGENTS.md)
 
 

@@ -16,14 +16,16 @@ PERHATIAN menahan langkah pemeriksa: tiap perhatian wajib ditangani, dibereskan 
 TERKINI tetap TERKINI; membereskan di naskah membuatnya USANG lalu `rakit`.
 Bahts bertahap per فصل (hanya laporan-fasl*.txt): potongan yang terakhir dirakit yang menentukan; potongan lama yang
 USANG wajar (sudah dikumpulkan dari naskah lama) dan tidak disuruh rakit ulang.
+Keadaan dibaca `baca`; templat .docx dan versi mesin tidak ikut menentukan TERKINI.
 Folder .rakit-* punya keadaannya sendiri: berkas.FolderKerja. Satu langkah berikutnya dipilih `berikutnya`."""
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 import re
+import tempfile
 
-from berkas import FolderKerja
-from shamela import perintah
+from berkas import FolderKerja, cadangan_tertinggal
+from dasar import perintah
 
 
 class Naskah(Enum):
@@ -108,6 +110,38 @@ class Keadaan:
     kerja: list = field(default_factory=list)  # [(nama folder .rakit-*, FolderKerja.Keadaan)]
     arsip: list = field(default_factory=list)  # [nama folder _arsip/rakit-*]: cadangan hasil lama yang tertinggal
     diterima: int = 0  # perhatian yang diterima lewat «terima» di riset.txt
+
+
+def baca(folder, jalur, *, rakit=Rakit.BEBAS, siapa="", rakit_sini=False):
+    """Baca produk dan naskah tanpa menulis ke folder bahts; kunci rakit diberikan sebagai satu snapshot pemanggil."""
+    import dasar, olah
+
+    folder = Path(folder)
+    with tempfile.TemporaryDirectory(prefix="bahts-tahap-") as t:
+        ctx, lap = olah.periksa(folder, Path(t) / "bahan.json")
+    sidik, cetak = (next(b.split("=", 1)[1] for b in lap if b.startswith(k + "="))
+                    for k in ("NASKAH_SHA256", "CETAK_SHA256"))
+    berkas = ctx.meta["berkas"]
+    pdf = folder / f"{berkas}.pdf"
+    produk = [Produk(folder / "laporan.txt", hasil(pdf, folder / "laporan.txt", sidik, cetak), pdf)]
+    potongan = []
+    for laporan in folder.glob("laporan-fasl*.txt"):
+        fasl = laporan.stem.removeprefix("laporan-fasl")
+        try:
+            urut = olah.rentang_fasl(fasl)
+        except dasar.TandaRusak:
+            continue  # catatan/salinan laporan bukan produk `rakit --fasl`; jangan menyarankan perintah palsu
+        potongan.append((urut, fasl, laporan))
+    for _, fasl, laporan in sorted(potongan, key=lambda p: p[0]):
+        label = next((b.split(": ", 1)[1] for b in laporan.read_text(encoding="utf8", errors="replace").splitlines()
+                      if b.startswith(f"POTONGAN=--fasl {fasl}: ")), None)
+        pdf = None if label is None else folder / f"{olah.nama_potongan(berkas, label, fasl)}.pdf"
+        produk.append(Produk(laporan, hasil(pdf, laporan, sidik, cetak), pdf, f"--fasl {fasl}"))
+    return Keadaan(jalur=jalur, naskah=naskah(ctx.galat, ctx.perhatian), galat=len(ctx.galat),
+                   perhatian=len(ctx.perhatian), diterima=len(ctx.diterima), tertolak=bool(ctx.tertolak),
+                   hasil=produk, rakit=rakit, siapa=siapa, rakit_sini=rakit_sini,
+                   kerja=[(x.path.name, x.keadaan()) for x in FolderKerja.semua(folder)],
+                   arsip=cadangan_tertinggal(folder))
 
 
 def penentu(k):

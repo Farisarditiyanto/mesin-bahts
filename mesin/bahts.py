@@ -76,11 +76,11 @@ Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex dan DOAJ
                                dan menurut makna. Saringan OpenAlex, mis. language:ar,type:dissertation
   dirasat-pdf <W…> <folder>    unduh PDF penelitian (nomor OpenAlex dari `dirasat`) ke folder bahts; butuh kunci OpenAlex
 """
-import difflib, hashlib, json, math, os, re, shutil, subprocess, sys, sysconfig, tempfile, time, urllib.error, zipfile
+import difflib, hashlib, json, os, re, shutil, subprocess, sys, sysconfig, time, urllib.error, zipfile
 from pathlib import Path
 
-import diagram, dirasat, hadits, layanan, norma, shamela, waqfeya  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
-from shamela import perintah
+import diagram, dirasat, hadits, jaringan, layanan, norma, shamela, waqfeya  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
+from dasar import perintah
 from berkas import FolderKerja, PemulihanGagal, bahan, kosongkan_penulis, kunci, terbitkan
 
 MESIN = Path(__file__).resolve().parent
@@ -101,7 +101,7 @@ FORMAT = json.loads((MESIN / "format.json").read_text(encoding="utf8"))  # profi
 HURUF_SARAN = ("huruf ini ikut terpasang kalau Windows punya papan ketik Arab (Settings > Time & language > Language & region > Add a language > العربية).\n"
                "          Atau lewat PowerShell admin (pemakai cukup klik Yes): Start-Process powershell -Verb RunAs -Wait -ArgumentList "
                "\"Add-WindowsCapability -Online -Name Language.Fonts.Arab~~~und-ARAB~0.0.1.0\"")
-PUSTAKA = ("pyarrow", "pypdf", "fontTools")  # nama modul; nama pemasangannya di requirements.txt
+PUSTAKA = ("pyarrow", "pypdf", "fontTools", "rapidfuzz")  # nama modul; nama pemasangannya di requirements.txt
 
 
 def huruf_ada(nama):
@@ -123,9 +123,9 @@ def siapkan():
     if not f.exists():
         for url in FONT_SUMBER:
             try:
-                with shamela.buka(url, waktu=120) as r:
+                with jaringan.buka(url, waktu=120) as r:
                     isi = r.read()
-            except shamela.GAGAL_JARINGAN as e:
+            except jaringan.GAGAL_JARINGAN as e:
                 print(f"font mushaf: gagal dari {url} ({e!r})")
                 continue
             if hashlib.sha256(isi).hexdigest() == FONT_SHA256:
@@ -177,8 +177,6 @@ def periksa():
     else:
         pip = f'"{sys.executable}" {pip}'
     baris(all(importlib.util.find_spec(m) for m in PUSTAKA), f"pustaka Python ({', '.join(PUSTAKA)})", pip)
-    baris(bool(importlib.util.find_spec("rapidfuzz")), "pustaka Python rapidfuzz (hanya untuk «Paling mirip» di `cek --jejak` dan pencarian mirip `cari w…`)",
-          pip, untuk_cek=False, untuk_rakit=False)
     baris(bool(importlib.util.find_spec("pymupdf")), "pustaka Python pymupdf (hanya untuk gambar PNG scan Waqfeya di "
           "`halaman w…`; tanpa itu scan dibuka sebagai PDF)", pip, untuk_cek=False, untuk_rakit=False)
     baris((shamela.ROOT / shamela.KATALOG).exists(), "katalog kitab", perintah("siapkan"))
@@ -501,9 +499,6 @@ def _rakit_di(nama, f, kerja, fasl=None):
         sys.exit(f"Huruf {huruf} (dipakai @format naskah ini) belum terpasang di Windows.\n       -> {HURUF_SARAN}\n"
                  f"Sesudah itu: {perintah('periksa')}, lalu ulangi `rakit`.")
     ps1 = MESIN / "rakit.ps1"
-    # Windows PowerShell 5.1 hanya membaca huruf Arab di skrip kalau berkasnya ber-BOM
-    if not ps1.read_bytes().startswith(b"\xef\xbb\xbf"):
-        ps1.write_bytes(b"\xef\xbb\xbf" + ps1.read_bytes())
     (kerja / "laporan.txt").write_text("\n".join(lap) + "\n", encoding="utf8")
     r = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(ps1),
                         "-Build", str(build), "-Folder", str(f), "-Hasil", str(kerja),
@@ -608,7 +603,7 @@ def ambil(nomor):
                 if re.search(r"[/\\]", x):  # jalur folder yang salah: pesan folder, bukan «bukan nomor kitab»
                     print(f"{x}: {e.code}"); bukan_folder.append(x); continue
                 sid.append(x); continue  # shamela.ambil yang menjelaskan kenapa bukan nomor kitab
-            dirujuk, dirujuk_w = olah.kitab_dirujuk(f), olah.kitab_waqfeya_dirujuk(f)
+            dirujuk, dirujuk_w = olah.kitab_dirujuk(f)
             print(f"{f.name}: {len(dirujuk) + len(dirujuk_w)} kitab dirujuk naskahnya")
             sid += dirujuk; ww += dirujuk_w; continue
         sid.append(x)
@@ -692,38 +687,15 @@ def perintah_bukti(a):
 def perintah_tahap(a):
     """`tahap <folder>`: keadaan bahts dibaca ulang dari barang aslinya; mesin keadaannya di tahap.py. Folder bahts dan
     bahan `cek` di mesin/_tmp tidak disentuh (bahannya ditulis ke folder sementara)."""
-    import dasar, olah, tahap
-    from berkas import cadangan_tertinggal, lihat_kunci
+    import tahap
+    from berkas import lihat_kunci
     f = folder_bahts(a[0])
-    with tempfile.TemporaryDirectory(prefix="bahts-tahap-") as t:
-        ctx, lap = olah.periksa(f, Path(t) / "bahan.json")
-    sidik, cetak = (next(b.split("=", 1)[1] for b in lap if b.startswith(k + "=")) for k in ("NASKAH_SHA256", "CETAK_SHA256"))
-    berkas = ctx.meta["berkas"]
-    pdf = f / f"{berkas}.pdf"
-    hasil = [tahap.Produk(f / "laporan.txt", tahap.hasil(pdf, f / "laporan.txt", sidik, cetak), pdf)]
-
-    def urut(lp):  # laporan-fasl2 sebelum laporan-fasl10, laporan-fasl1 sebelum laporan-fasl1-2
-        try:
-            return olah.rentang_fasl(lp.stem.removeprefix("laporan-fasl"))
-        except dasar.TandaRusak:
-            return math.inf, 0
-    for lp in sorted(f.glob("laporan-fasl*.txt"), key=urut):
-        fasl = lp.stem.removeprefix("laporan-fasl")
-        if urut(lp)[0] == math.inf:
-            continue  # catatan/salinan laporan bukan produk `rakit --fasl`; jangan menyarankan perintah palsu
-        label = next((b.split(": ", 1)[1] for b in lp.read_text(encoding="utf8", errors="replace").splitlines()
-                      if b.startswith(f"POTONGAN=--fasl {fasl}: ")), None)
-        pdf = None if label is None else f / f"{olah.nama_potongan(berkas, label, fasl)}.pdf"
-        hasil.append(tahap.Produk(lp, tahap.hasil(pdf, lp, sidik, cetak), pdf, f"--fasl {fasl}"))
     rel = f.relative_to(AKAR).as_posix()
     siapa = lihat_kunci(RAKIT_PEKERJAAN)
     rakit_ = tahap.Rakit.JALAN if siapa is not None else tahap.Rakit.YATIM if _ps_yatim() else tahap.Rakit.BEBAS
     siapa = siapa or ""
-    k = tahap.Keadaan(jalur=a[0].rstrip("/\\") or a[0], naskah=tahap.naskah(ctx.galat, ctx.perhatian),
-                      galat=len(ctx.galat), perhatian=len(ctx.perhatian), diterima=len(ctx.diterima),
-                      tertolak=bool(ctx.tertolak), hasil=hasil,
-                      rakit=rakit_, siapa=siapa, rakit_sini=os.path.normcase(siapa).startswith(os.path.normcase(rel + ",")),
-                      kerja=[(x.path.name, x.keadaan()) for x in FolderKerja.semua(f)], arsip=cadangan_tertinggal(f))
+    k = tahap.baca(f, a[0].rstrip("/\\") or a[0], rakit=rakit_, siapa=siapa,
+                   rakit_sini=os.path.normcase(siapa).startswith(os.path.normcase(rel + ",")))
     print("\n".join(tahap.baris(k)))
 
 
@@ -819,7 +791,7 @@ if __name__ == "__main__":
         os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
     except TimeoutError:
         sys.exit(f"Perintah '{cmd}': layanannya terlalu lama menjawab. Ulangi sebentar lagi.")
-    except shamela.GAGAL_JARINGAN as e:
+    except jaringan.GAGAL_JARINGAN as e:
         sys.exit(f"Perintah '{cmd}' gagal mengunduh (cek internet, lalu ulangi): {e!r}")
     except (ValueError, FileNotFoundError, re.error) as e:
         sys.exit(f"Perintah '{cmd}' salah pakai: {e}\nBentuknya:\n{bentuk}")

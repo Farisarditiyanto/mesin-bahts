@@ -193,6 +193,34 @@ def utama():
                 assert r.returncode == 0, repr(payload[:80]) + r.stdout + r.stderr
                 assert f.read_bytes() == utuh, "berkas padat rusak tidak dibuat ulang"
 
+        def indeks_rusak():
+            sumber(pages)
+            harus = jalan(akar, "halaman", "11223", "-", "2")
+            assert harus.returncode == 0, harus.stdout + harus.stderr
+            hilang = jalan(akar, "halaman", "11223", "-", "999")
+            naskah_cek = akar / "uji-indeks-rusak"
+            naskah(naskah_cek)
+            with open(naskah_cek / "naskah.txt", "a", encoding="utf8") as h:
+                h.write("هذا معنى العبارة[^انظر: رسالة في القضاء والقدر، ص2. <<11223|-|2|كلمات قديمة للبحث>>].\n")
+            cek = jalan(akar, "cek", naskah_cek)
+            assert cek.returncode == 0, cek.stdout + cek.stderr
+            f = kitab / "indeks.json"
+            utuh = f.read_text(encoding="utf8")
+            data = json.loads(utuh)
+            for kolom, nilai in (("juz", [None, {}]), ("hal", ["1", "2"]), ("akhir", [1, []]),
+                                 ("letak", [1, 0]), ("letak", [0, 0]),
+                                 ("letak", [data["letak"][0], data["letak"][1] + 1]),
+                                 ("hal", [1, 999]), ("akhir", [1, 999])):
+                d = json.loads(utuh)
+                d[kolom] = nilai
+                f.write_text(json.dumps(d), encoding="utf8")
+                r = jalan(akar, "halaman", "11223", "-", "2")
+                assert r.returncode == 0 and r.stdout == harus.stdout, f"indeks {kolom}={nilai}: {r.stdout} {r.stderr}"
+                r = jalan(akar, "halaman", "11223", "-", "999")
+                assert (r.returncode, r.stdout) == (hilang.returncode, hilang.stdout), f"rentang indeks {kolom}={nilai}: {r.stdout}"
+                r = jalan(akar, "cek", naskah_cek)
+                assert r.returncode == 0 and r.stdout == cek.stdout, f"bukti indeks {kolom}={nilai}: {r.stdout} {r.stderr}"
+
         def angka_ayat_sehalaman():
             f = akar / "uji-angka-ayat"
             sebelum = pages.read_bytes()
@@ -426,7 +454,7 @@ def utama():
                 for sid in (99001, 99002)]}
             out = io.StringIO()
             with patch.object(shamela, "_meta", return_value=rows), contextlib.redirect_stdout(out):
-                with patch.object(shamela, "_ls", side_effect=ls), patch.object(shamela, "_unduh", side_effect=ambil), patch.object(shamela, "_cache"):
+                with patch.object(shamela, "_ls", side_effect=ls), patch.object(shamela, "unduh", side_effect=ambil), patch.object(shamela, "_cache"):
                     shamela._ambil(99001)
                 with patch.object(shamela, "buka", side_effect=lambda *a: io.StringIO(json.dumps(jawaban))):
                     assert shamela.temukan("نص البحث") == 2
@@ -474,6 +502,7 @@ def utama():
         uji("cache mengikuti perubahan isi meski ukuran dan mtime sama", cache_usang)
         uji("indeks mengikuti isi/offset baru meski ukuran dan mtime sama", indeks_usang)
         uji("berkas padat rusak/terpotong/bentuk salah dihitung ulang", cache_rusak)
+        uji("indeks rusak dipulihkan sebelum dipakai membaca halaman", indeks_rusak)
         uji("angka dan ayat terikat halaman, batas kata, dan bagian kitab", angka_ayat_sehalaman)
         uji("nomor takhrij dipasangkan ke kitabnya walau halaman sama", takhrij_per_kitab)
         uji("templat/PDF sumber tidak ditimpa hasil rakit", bahan_terlindungi)

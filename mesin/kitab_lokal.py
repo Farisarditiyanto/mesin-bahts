@@ -6,7 +6,39 @@ import bisect, functools, re
 
 import norma
 import shamela
-from dasar import AD, BELUM_DIUNDUH, RENTANG_MAKS
+from dasar import AD, ANGKA_LATIN, BELUM_DIUNDUH, RENTANG_MAKS, perintah
+
+KEPALA_HADITS = re.compile(r"^[ \t\u200e\u200f]*(?:(\d+)[ \t]*[-–][ \t]*\((\d+)\)|\((\d+)\)[ \t]*[-–][ \t]*(?=[^\d\s])"
+                           r"|(\d+(?:[ \t]*[،,و–-][ \t]*\d+)*)[ \t]*[-–][ \t]*(?=[^\d\s]))", re.M)
+BUKAN_KEPALA = frozenset(map(norma.padat, ("باب", "كتاب", "فصل", "مسألة")))  # judul bernomor, bukan hadits…
+SANAD = re.compile("حدث|اخبر|انبا|ثنا$")  # …kecuali diikuti sanad: «3403 - باب حدثني» di Bukhari
+
+
+def bersih_hadits(body):
+    """Teks kepala hadits: tag dan penanda halaman jadi satu spasi; angka 0-9.
+    «(n)» di awal baris tetap ada karena ia salah satu bentuk kepala hadits."""
+    return norma.PENANDA.sub(" ", norma.TAGS.sub(" ", body)).translate(ANGKA_LATIN).replace("\r", "\n")
+
+
+def kepala_hadits(body):
+    """(teks, kepala, batas). kepala = [(letak, nomor)] di awal baris: «3561 - حدثنا», «3980 - 3981 - حدثنا», «36 - (2408)»,
+    «(102) - حدثنا». batas = kepala yang memisahkan hadits: di Muslim hanya nomor berkurung. «5736 - (1)» di Ahmad juga
+    terbaca kepala walau (1) nomor catatan: dua angkanya masuk `kepala`, jadi nomor yang benar tetap ditemukan."""
+    baris = bersih_hadits(body)
+    kepala, kurung = [], []
+    for m in KEPALA_HADITS.finditer(baris):
+        awal = list(map(norma.padat, baris[m.end():m.end() + 60].split()[:2]))
+        if awal and awal[0] in BUKAN_KEPALA and not (len(awal) > 1 and SANAD.match(awal[1])):
+            continue
+        if m[2] or m[3]:
+            kurung.append((m.start(), int(m[2] or m[3])))
+        kepala += [(m.start(), int(x)) for x in re.findall(r"\d+", m[0])]
+    return baris, kepala, kurung or kepala
+
+
+def nomor_hadits(body, nomor):
+    """Nomor berdiri sebagai kepala hadits; nomor ayat, catatan, dan rentang halaman tidak ikut."""
+    return any(n == int(nomor) for _, n in kepala_hadits(body)[1])
 
 
 @functools.cache
@@ -38,7 +70,7 @@ def urut_juz(j):
 def salah_juz(sid, juz, hal):
     """'' kalau kitab sid sudah diunduh dan punya juz itu; selain itu pesan kesalahannya."""
     if not (shamela.ROOT / str(sid) / "pages.jsonl.gz").exists():
-        return f"{BELUM_DIUNDUH.format(sid)} ({shamela.perintah(f'ambil {sid}')})"
+        return f"{BELUM_DIUNDUH.format(sid)} ({perintah(f'ambil {sid}')})"
     juz_ada = set(kitab(sid))
     # kitab satu jilid = satu nilai juz saja, atau bagiannya hanya bernama (mis. المقدمة + الكتاب) tanpa juz berangka
     if juz == "-" and len(juz_ada) > 1 and any(str(j).isdigit() for j in juz_ada):
@@ -238,6 +270,13 @@ def _rangkaian(padat_, ix):
 def rangkaian_kitab(sid):
     """`_rangkaian` kitab sid; `jejak` melepasnya tiap kitab."""
     return _rangkaian(shamela._cache(sid), shamela.indeks(sid))
+
+
+def lepas():
+    """Lepas bacaan kitab beserta bentuk turunannya sebelum pindah ke kitab berikutnya."""
+    kitab.cache_clear(); halaman_janggal.cache_clear(); gabung.cache_clear(); kitab_meta.cache_clear()
+    rangkaian_kitab.cache_clear()
+    shamela.lepas()
 
 
 def halaman_di(ruas, a, z):

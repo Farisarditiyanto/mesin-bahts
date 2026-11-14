@@ -6,10 +6,8 @@ import functools, re
 import norma
 import shamela
 from dasar import ANGKA_LATIN, ELIPSIS, POTONGAN_MIN, TAKHRIJ_AWAL
-from kitab_lokal import bagian_kitab, rekaman
+from kitab_lokal import bagian_kitab, bersih_hadits, kepala_hadits, rekaman
 
-KEPALA_HADITS = re.compile(r"^[ \t\u200e\u200f]*(?:(\d+)[ \t]*[-–][ \t]*\((\d+)\)|\((\d+)\)[ \t]*[-–][ \t]*(?=[^\d\s])"
-                           r"|(\d+(?:[ \t]*[،,و–-][ \t]*\d+)*)[ \t]*[-–][ \t]*(?=[^\d\s]))", re.M)
 # «رقم الحديث (2408)، 4/1873», «برقم 2205، 2/262», «رقم: 27، ص24» (kitab satu jilid): nomor tepat sebelum juz/halaman
 # tercetak, jadi bukan nomor riwayat kitab lain di takhrij itu. Dibaca sesudah angka Arab diganti 0-9.
 TAKHRIJ = re.compile(r"رقم(?:\s+الحديث)?\s*:?\s*(?:\(\s*(\d+)[^()]*\)|(\d+))[،,\s]*(?:(\d+)\s*/\s*(\d+)|ص\.?\s*(\d+))")
@@ -25,37 +23,7 @@ KATA_DERAJAT = re.compile(r"(?<![ء-ي])[وف]?(?:(%s)(?![ء-ي])(?!\s+(?:الب
 SHAHIHAIN = re.compile(r"(?<![ء-ي])(?:البخاري|مسلم|الشيخان|الشيخين|الصحيحين|متفق عليه)(?![ء-ي])")  # teks `norm`
 # «ولم أقف على حكم لأهل العلم على إسناده»: derajat yang memang tidak ditemukan, ditulis terus terang
 DERAJAT_TIDAK_ADA = re.compile(r"لم (?:اقف|اجد) علي (?:من )?(?:حكم|صحح|ضعف|درج)")
-BUKAN_KEPALA = frozenset(map(norma.padat, ("باب", "كتاب", "فصل", "مسألة")))  # judul bernomor, bukan hadits…
-SANAD = re.compile("حدث|اخبر|انبا|ثنا$")  # …kecuali diikuti sanad: «3403 - باب حدثني» di Bukhari
 MUNDUR_KEPALA = 3  # halaman ke belakang tempat kepala hadits yang dinukil masih dicari
-
-
-def _bersih(body):
-    """Teks rekaman tempat kepala hadits dicari: tag dan penanda halaman jadi satu spasi, angka 0-9.
-    Bukan angka_kitab: ia mengosongkan «(n)» di awal baris, padahal itu salah satu bentuk kepala hadits."""
-    return norma.PENANDA.sub(" ", norma.TAGS.sub(" ", body)).translate(ANGKA_LATIN).replace("\r", "\n")
-
-
-def kepala_hadits(body):
-    """(teks, kepala, batas). kepala = [(letak, nomor)] di awal baris: «3561 - حدثنا», «3980 - 3981 - حدثنا», «36 - (2408)»,
-    «(102) - حدثنا». batas = kepala yang memisahkan hadits: di Muslim hanya nomor berkurung. «5736 - (1)» di Ahmad juga
-    terbaca kepala walau (1) nomor catatan: dua angkanya masuk `kepala`, jadi nomor yang benar tetap ditemukan."""
-    baris = _bersih(body)
-    kepala, kurung = [], []
-    for m in KEPALA_HADITS.finditer(baris):
-        awal = list(map(norma.padat, baris[m.end():m.end() + 60].split()[:2]))
-        if awal and awal[0] in BUKAN_KEPALA and not (len(awal) > 1 and SANAD.match(awal[1])):
-            continue
-        if m[2] or m[3]:
-            kurung.append((m.start(), int(m[2] or m[3])))
-        kepala += [(m.start(), int(x)) for x in re.findall(r"\d+", m[0])]
-    return baris, kepala, kurung or kepala
-
-
-def nomor_hadits(body, nomor):
-    """Nomor berdiri sebagai kepala hadits. Nomor ayat, catatan, dan rentang halaman tidak ikut; nomor hadits lain atau
-    daftar bernomor di halaman itu tetap bisa tertukar."""
-    return any(n == int(nomor) for _, n in kepala_hadits(body)[1])
 
 
 @functools.cache
@@ -72,12 +40,12 @@ def hadits_bernomor(sid, juz, p1, p2, nomor):
         return rr, None
     awal = [0]  # letak awal tiap rekaman di `baris` (_bersih tidak melintasi pemisah «\n»)
     for t in tubuh:
-        awal.append(awal[-1] + len(_bersih(t)) + 1)
+        awal.append(awal[-1] + len(bersih_hadits(t)) + 1)
     catatan = []
     for r, pos in zip(rr, awal):
         halaman = []
         for hal, t in norma.per_halaman(r):
-            akhir = pos + len(_bersih(t))
+            akhir = pos + len(bersih_hadits(t))
             halaman.append((pos, akhir, hal))
             pos = akhir + 1  # penanda halaman menjadi satu spasi dalam _bersih
         catatan.append((halaman, norma.per_halaman(r, "footnotes")))

@@ -16,6 +16,7 @@ sys.path.insert(0, str(AKAR / "mesin"))
 import shamela
 from norma import per_halaman
 from shamela import TAGS, _juz
+from dasar import perintah
 sys.stdout.reconfigure(encoding="utf-8")
 
 
@@ -148,7 +149,7 @@ def kitab_diuji():
         sys.exit(f"UJI_HALAMAN={mode}: pilih ci, sampel, atau penuh")
     ci = set(kitab_ci())
     if kurang := ci - set(semua):
-        sys.exit("Kitab CI belum diunduh: " + shamela.perintah("ambil " + " ".join(map(str, sorted(kurang)))))
+        sys.exit("Kitab CI belum diunduh: " + perintah("ambil " + " ".join(map(str, sorted(kurang)))))
     if mode == "ci":
         print(f"halaman: {len(ci)} kitab CI tetap")
         return sorted(ci)

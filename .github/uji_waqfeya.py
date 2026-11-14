@@ -8,7 +8,7 @@ Yang dijaga:
 - ringkasan `cek` menghitung bukti Waqfeya sendiri, dan catatan kakinya tidak terdaftar «tanpa bukti»;
 - nomor halaman cetak dibaca dari baris yang isinya nomor saja («- ٢ -»), bukan dari nomor catatan kaki «(٣) قال…»;
 - kalimat yang diulang di kitab: kutipan yang benar di halaman yang OCR-nya rusak tidak disuruh pindah ke halaman lain
-  (putusan `cek` tidak bergantung rapidfuzz: dulu tanpa rapidfuzz kasus ini GAGAL);
+  (putusan tidak bergantung pencarian mirip OCR: dulu tanpa rapidfuzz kasus ini GAGAL);
 - bukti Waqfeya + bukti Shamela berpotongan di satu catatan kaki tidak GAGAL palsu (halaman cetak Waqfeya, kutipan);
 - kitab Waqfeya yang judulnya kitab Shamela = perhatian (pakai Shamela kalau edisinya sama);
 - `kartu` membaca halaman judul dari berkas sampul («الواجهة»), bukan selalu berkas 1;
@@ -188,7 +188,7 @@ if kode != 1 or "belum lengkap" not in out + err:
 ANAK = f"""
 import json, sys
 sys.stdout.reconfigure(encoding="utf-8")
-import shamela, waqfeya
+import jaringan, shamela, waqfeya
 from berkas import sementara
 W = {W!r}
 dipanggil = []
@@ -198,7 +198,7 @@ def unduh(url, tujuan, buka):  # jaringan ditiru: tulis isi tiruan lewat jalan y
         f.write(b"%PDF-tiruan" if tujuan.suffix == ".pdf" else b"teks")
 waqfeya.katalog = lambda: {{W: dict(judul="كتاب تجريبي", pengarang="x", kategori="x", halaman=4, folder="x",
                                    berkas=[dict(nama=n, pdf="a.pdf", txt="a.txt") for n in ("الكتاب", "الواجهة")])}}
-shamela._unduh = unduh
+jaringan.unduh = unduh
 waqfeya.ambil(W)
 print(json.dumps(dipanggil))
 """

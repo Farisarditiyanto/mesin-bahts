@@ -63,6 +63,7 @@ jobs:
       - run: python .github/uji_layanan.py
       # `halaman` tanpa «\r» mentah (kata tersambung saat disalin); argumen/bendera berlebih ditolak, bukan ditelan
       - run: python .github/uji_perintah.py
+      - run: python .github/uji_diagram.py
       # kitab Waqfeya tiruan (tanpa internet): `cek` tidak menilai lafaz OCR, GAGAL hanya yang pasti salah; nomor cetak dari baris nomor saja
       - run: python .github/uji_waqfeya.py
       # opencode.json = salinan terpaksa .mcp.json (OpenCode tidak membaca .mcp.json): daftar connector harus sama
@@ -81,6 +82,11 @@ jobs:
           $galat = $null
           [System.Management.Automation.Language.Parser]::ParseFile("$PWD\mesin\rakit.ps1", [ref]$null, [ref]$galat) | Out-Null
           if ($galat) { $galat | ForEach-Object { "$($_.Extent.StartLineNumber): $($_.Message)" }; exit 1 }
+          # PowerShell 5.1 membaca .ps1 tanpa BOM sebagai ANSI: huruf Arab di dalamnya rusak diam-diam
+          foreach ($f in Get-ChildItem mesin\*.ps1) {
+            $b = [IO.File]::ReadAllBytes($f.FullName)
+            if (($b | Where-Object { $_ -gt 127 }) -and -not ($b.Length -ge 3 -and $b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF)) { "$($f.Name) berhuruf non-ASCII tanpa BOM"; exit 1 }
+          }
       - name: startup rakit tidak menghentikan Word aplikasi lain
         if: runner.os == 'Windows'
         shell: powershell

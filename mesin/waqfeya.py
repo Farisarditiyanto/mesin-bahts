@@ -10,11 +10,11 @@ terbaca benar, tetapi kutipan 15 kata yang utuh persis hanya ±72%, dan salah hu
 halamannya (`halaman w… <berkas> <hal>` memotong halaman itu jadi PDF/PNG kecil). Bukti <<w…|berkas|hal>> di `cek`:
 GAGAL hanya untuk yang pasti salah (cek_kutipan.cek_waqfeya); lafaznya tidak dinilai `cek`, tetapi pemeriksa dari scan
 (`bukti` menunjuk halamannya), supaya salah huruf OCR tidak menggagalkan atau menimbun perhatian kutipan yang benar."""
-import ast, csv, difflib, functools, gzip, hashlib, json, re, time, urllib.error, urllib.parse
+import ast, csv, difflib, functools, gzip, hashlib, json, re, urllib.parse
 from pathlib import Path
 
-import norma
-import shamela
+import jaringan, norma, shamela
+from dasar import perintah
 from berkas import sementara
 
 DATASET = "ieasybooks-org/waqfeya-library"
@@ -44,7 +44,7 @@ def nomor(baris):
 def _siapkan_katalog():
     if not KATALOG.exists():
         print("katalog Waqfeya: mengunduh (±17 MB, sekali saja) …", flush=True)
-        shamela._unduh(f"{RAW}/index.tsv", KATALOG, lambda q: open(q, "wb"))
+        jaringan.unduh(f"{RAW}/index.tsv", KATALOG, lambda q: open(q, "wb"))
 
 
 @functools.cache
@@ -244,27 +244,13 @@ def data(w):
     d = _lokal(w)
     if d is None:
         raise SystemExit(f"Kitab Waqfeya {w} belum diunduh atau belum lengkap (metadata/PDF/OCR hilang atau kosong): "
-                         + shamela.perintah(f"ambil {w}"))
+                         + perintah(f"ambil {w}"))
     return d
 
 
 def ambil(*ww):
     """Unduh OCR dan PDF tiap kitab Waqfeya. Kembalikan nomor yang gagal."""
-    gagal = []
-    for w in ww:
-        for coba in range(1, shamela.COBA + 1):
-            try:
-                _ambil(w)
-                break
-            except LookupError as e:
-                print(f"{w}: {e}"); gagal.append(w); break
-            except shamela.GAGAL_JARINGAN as e:
-                tetap = isinstance(e, urllib.error.HTTPError) and 400 <= e.code < 500 and e.code != 429
-                if tetap or coba == shamela.COBA:
-                    print(f"{w}: GAGAL mengunduh, cek internet lalu ulangi ({e!r})"); gagal.append(w); break
-                print(f"{w}: unduhan putus ({e!r}); mencoba lagi ({coba + 1}/{shamela.COBA}) ...", flush=True)
-                time.sleep(5 * coba)
-    return gagal
+    return jaringan.unduh_kitab(ww, _ambil)
 
 
 def _ambil(w):
@@ -279,10 +265,10 @@ def _ambil(w):
     print(f"{w}: mengunduh {b['judul']} ({b['halaman']} hal, {len(b['berkas'])} berkas) …", flush=True)
     for i, f in enumerate(b["berkas"], 1):
         if not _isi(d / f"{i}.txt.gz"):
-            shamela._unduh(f"{RAW}/{urllib.parse.quote(f['txt'])}", d / f"{i}.txt.gz", lambda q: gzip.open(q, "wb", compresslevel=6))
+            jaringan.unduh(f"{RAW}/{urllib.parse.quote(f['txt'])}", d / f"{i}.txt.gz", lambda q: gzip.open(q, "wb", compresslevel=6))
         if not _isi(d / f"{i}.pdf"):
             print(f"{w}: berkas {i}/{len(b['berkas'])} ({f['nama']}) …", flush=True)
-            shamela._unduh(f"{RAW}/{urllib.parse.quote(f['pdf'])}", d / f"{i}.pdf", lambda q: open(q, "wb"))
+            jaringan.unduh(f"{RAW}/{urllib.parse.quote(f['pdf'])}", d / f"{i}.pdf", lambda q: open(q, "wb"))
     simpan = {k: b[k] for k in ("judul", "pengarang", "kategori", "halaman")}
     simpan.update(nomor=w, berkas=[f["nama"] for f in b["berkas"]], dataset=DATASET, revisi=REVISI, folder=b["folder"])
     with sementara(d / DATA) as part:  # ditulis terakhir dan utuh: tanda kitab sudah lengkap

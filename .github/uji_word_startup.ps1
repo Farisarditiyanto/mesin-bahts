@@ -1,66 +1,88 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Jalankan startup rakit yang asli sebelum Word dibuat: hanya Word yatim yang dicatat rakit lama yang dihentikan,
-# proses aplikasi lain tidak boleh disentuh.
+# Exercise the production Word lifecycle; only native window/process operations are simulated.
 $ErrorActionPreference = 'Stop'
-$rakit = Join-Path $PSScriptRoot '..\mesin\rakit.ps1'
-$token = $null; $galat = $null
-$ast = [System.Management.Automation.Language.Parser]::ParseFile($rakit, [ref]$token, [ref]$galat)
-if ($galat) { throw 'rakit.ps1 tidak bisa diurai' }
-$alamatTmp = $ast.Find({ param($a) $a -is [System.Management.Automation.Language.AssignmentStatementAst] -and $a.Left.Extent.Text -eq '$tmp' }, $true)
-if (-not $alamatTmp) { throw 'Alamat kerja Word tidak ditemukan' }
-$Hasil = Join-Path ([IO.Path]::GetTempPath()) ('bahts-alamat-' + [guid]::NewGuid())
-$dir = Split-Path $rakit
-Invoke-Expression $alamatTmp.Extent.Text
-if ((Split-Path -Parent $tmp) -eq $Hasil) { throw 'Nama kerja Word bisa bertabrakan dengan @berkas (mis. _kerja)' }
-$buatWord = $ast.Find({
-    param($a)
-    $a -is [System.Management.Automation.Language.AssignmentStatementAst] -and
-    $a.Left.Extent.Text -eq '$word' -and $a.Right.Extent.Text -match 'New-Object\s+-ComObject\s+Word.Application'
-}, $true)
-if (-not $buatWord) { throw 'Titik sebelum pembuatan Word tidak ditemukan; perbarui uji startup' }
-# Word dibuat di dalam try (supaya finally tetap membereskannya): potong sebelum try itu, bukan di tengahnya
-$potong = $buatWord
-for ($p = $buatWord.Parent; $p; $p = $p.Parent) { if ($p -is [System.Management.Automation.Language.TryStatementAst]) { $potong = $p } }
-$buatWord = $potong
-$asal = Get-Content -LiteralPath $rakit -Raw -Encoding UTF8
-$uji = Join-Path ([IO.Path]::GetTempPath()) ('bahts-word-startup-' + [guid]::NewGuid())
-New-Item -ItemType Directory -Path (Join-Path $uji '_tmp') -Force | Out-Null
-$startup = Join-Path $uji 'startup.ps1'
-[IO.File]::WriteAllText($startup, $asal.Substring(0, $buatWord.Extent.StartOffset), (New-Object Text.UTF8Encoding $true))
-$build = Join-Path $uji 'build.json'
-$format = Get-Content -LiteralPath (Join-Path (Split-Path $rakit) 'format.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-@{
-    meta = @{ berkas = 'uji'; judul = 'uji'; angka = 'hindi' }
-    format = $format.imam
-    ayat = @(); hadits = @(); pustaka = @()
-} | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $build -Encoding UTF8
-# catatan rakit yang dimatikan paksa: 999002 = Word-nya yang masih hidup; 999003 = nomornya sudah dipakai proses lain
+. (Join-Path $PSScriptRoot '..\mesin\word.ps1')
+$uji = Join-Path ([IO.Path]::GetTempPath()) ('bahts-word-lifecycle-' + [guid]::NewGuid())
+New-Item -ItemType Directory -Path $uji | Out-Null
+$catatan = Join-Path $uji 'rakit.word'
 $mulai = [datetime]::new(638000000000000000)
-Set-Content -LiteralPath (Join-Path $uji '_tmp\rakit.word') -Encoding ASCII -Value "999002|$($mulai.Ticks)", "999003|$($mulai.Ticks)"
-$jalankan = Join-Path $uji 'jalankan.ps1'
-@'
-param($Startup, $Build, $Folder, [long]$Mulai)
-$ErrorActionPreference = 'Stop'
 $global:dihentikan = @()
-function Get-CimInstance {
-    param($ClassName, $Filter)
-    [pscustomobject]@{ ProcessId = 999001; CommandLine = 'WINWORD.EXE /Automation aplikasi_lain' }
+$global:ditolak = $false
+$global:sudahKeluar = $false
+
+function Proses($Nomor, $Nama, $Waktu) {
+    $p = [pscustomobject]@{ Id = $Nomor; ProcessName = $Nama; StartTime = $Waktu; Handle = [IntPtr]1 }
+    $p | Add-Member -MemberType ScriptMethod -Name Dispose -Value {}
+    $p | Add-Member -MemberType ScriptMethod -Name WaitForExit -Value { param($Batas) return $global:sudahKeluar }
+    return $p
 }
+$global:proses = @(
+    (Proses 999001 'WINWORD' $mulai),
+    (Proses 999002 'WINWORD' $mulai),
+    (Proses 999003 'WINWORD' $mulai.AddTicks(1)),
+    (Proses 999004 'aplikasi_lain' $mulai)
+)
 function Get-Process {
     param($Name, $Id, $ErrorAction)
-    $lain = [pscustomobject]@{ Id = 999001; ProcessName = 'WINWORD'; StartTime = [datetime]::new($Mulai) }
-    $yatim = [pscustomobject]@{ Id = 999002; ProcessName = 'WINWORD'; StartTime = [datetime]::new($Mulai) }
-    $dipakaiUlang = [pscustomobject]@{ Id = 999003; ProcessName = 'WINWORD'; StartTime = [datetime]::new($Mulai + 1) }
-    if ($Id) { @($lain, $yatim, $dipakaiUlang) | Where-Object { $_.Id -in $Id } } else { $lain, $yatim, $dipakaiUlang }
+    if (-not $Id) { throw 'Enumerating Word processes cannot establish ownership.' }
+    $global:proses | Where-Object { $_.Id -eq $Id }
 }
 function Stop-Process {
-    param($Id, [switch]$Force, $ErrorAction)
-    $global:dihentikan += $Id
+    param($InputObject, [switch]$Force, $ErrorAction)
+    if ($global:ditolak) { throw 'Process stop denied.' }
+    $global:dihentikan += $InputObject.Id
 }
-. $Startup -Build $Build -Folder $Folder -Kunci (Join-Path $Folder '_tmp\rakit.kunci')
-if ("$global:dihentikan" -ne '999002') { throw "Startup menghentikan [$global:dihentikan]; seharusnya hanya Word yatim 999002" }
-if (Test-Path -LiteralPath (Join-Path $Folder '_tmp\rakit.word')) { throw 'Catatan Word rakit lama tidak dibuang' }
-'@ | Set-Content -LiteralPath $jalankan -Encoding UTF8
-& powershell -NoProfile -ExecutionPolicy Bypass -File $jalankan -Startup $startup -Build $build -Folder $uji -Mulai $mulai.Ticks
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-Write-Output 'uji startup Word: hanya Word yatim catatan rakit lama yang dihentikan; otomasi aplikasi lain tidak disentuh (Word tidak dijalankan)'
+function Id-ProsesWord($Word) { return $Word.Hwnd }
+
+$global:probeDitutup = $false
+$dokumen = [pscustomobject]@{ ActiveWindow = [pscustomobject]@{ Hwnd = 999002 } }
+$dokumen | Add-Member -MemberType ScriptMethod -Name Close -Value { param($Simpan) $global:probeDitutup = $true }
+$documents = [pscustomobject]@{ Dokumen = $dokumen }
+$documents | Add-Member -MemberType ScriptMethod -Name Add -Value { return $this.Dokumen }
+$identitas = Catat-WordRakit ([pscustomobject]@{ Documents = $documents }) $catatan
+if (-not $global:probeDitutup) { throw 'The identification document remained open.' }
+if ($identitas -ne "999002|$($mulai.Ticks)" -or (Get-Content -LiteralPath $catatan) -ne $identitas) {
+    throw 'Ownership was not recorded for the exact Word application.'
+}
+Set-Content -LiteralPath $catatan -Encoding ASCII -Value @(
+    $identitas, "999003|$($mulai.Ticks)", "999004|$($mulai.Ticks)",
+    'abc', '999002|abc', '999999999999999999|1', '1|999999999999999999999', "999002|$($mulai.Ticks)|extra"
+)
+Bersihkan-WordRakit $catatan
+if ("$global:dihentikan" -ne '999002') { throw "Stopped [$global:dihentikan]; only the exact owned Word may stop." }
+if (Test-Path -LiteralPath $catatan) { throw 'Recovered ownership record was not removed.' }
+
+$global:dihentikan = @()
+Hentikan-WordRakit "999003|$($mulai.Ticks)"
+if ($global:dihentikan.Count) { throw 'Final cleanup stopped a reused process number.' }
+$global:sudahKeluar = $true
+Hentikan-WordRakit $identitas
+if ($global:dihentikan.Count) { throw 'Final cleanup stopped Word after it had already exited.' }
+$global:sudahKeluar = $false
+$global:ditolak = $true
+Set-Content -LiteralPath $catatan -Encoding ASCII -Value $identitas
+$gagal = $false
+try { Bersihkan-WordRakit $catatan } catch { $gagal = $true }
+if (-not $gagal -or (Get-Content -LiteralPath $catatan) -ne $identitas) { throw 'A failed stop lost its ownership record.' }
+$global:ditolak = $false
+Bersihkan-WordRakit $catatan
+if ("$global:dihentikan" -ne '999002') { throw 'The next build could not recover the owned Word.' }
+# rakit.ps1 must use these functions in order: recover old Word before creating one, record the new one, clean up in finally.
+$rakit = Join-Path $PSScriptRoot '..\mesin\rakit.ps1'
+$galat = $null
+$ast = [System.Management.Automation.Language.Parser]::ParseFile($rakit, [ref]$null, [ref]$galat)
+if ($galat) { throw 'rakit.ps1 cannot be parsed' }
+$letak = {
+    param($Pola)
+    $x = $ast.Find({ param($a) $a -is [System.Management.Automation.Language.CommandBaseAst] -and $a.Extent.Text -match $Pola }, $true)
+    if (-not $x) { throw "rakit.ps1 no longer runs: $Pola" }
+    $x.Extent.StartOffset
+}
+$muat = & $letak '^\.\s+"\$dir\\word\.ps1"'
+$pulih = & $letak '^Bersihkan-WordRakit \$CATATAN_WORD'
+$buat = & $letak 'New-Object\s+-ComObject\s+Word\.Application'
+$catat = & $letak '^Catat-WordRakit \$word \$CATATAN_WORD'
+$akhir = $ast.Find({ param($a) $a -is [System.Management.Automation.Language.TryStatementAst] -and $a.Finally -and $a.Finally.Extent.Text -match 'Bersihkan-WordRakit' }, $true)
+if (-not $akhir) { throw 'rakit.ps1 finally no longer cleans up its Word.' }
+if (-not ($muat -lt $pulih -and $pulih -lt $buat -and $buat -lt $catat)) { throw "rakit.ps1 Word lifecycle out of order: load $muat, recover $pulih, create $buat, record $catat" }
+Write-Output 'uji lifecycle Word: exact application ownership; unrelated/reused/exited processes protected; failed stop retains recovery record (Word not started)'

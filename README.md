@@ -92,12 +92,13 @@ Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumenn
 | `mesin/olah.py`, `naskah.py`, `cek_*.py`, dan modul pembantunya | `cek`; pembagian tiap berkas: `AGENTS.md` «Letak kode `cek`» |
 | `mesin/quran_hafs_v22.json`, `nama_surah.json` | teks mushaf dan nama surat |
 | `mesin/shamela.py` | unduh kitab, katalog, `temukan`, `scan` |
+| `mesin/jaringan.py` | transport layanan luar, pengalihan aman, jatah, dan unduhan utuh |
 | `mesin/hadits.py`, `dirasat.py` | penunjuk takhrij, penelitian terdahulu |
 | `mesin/waqfeya.py` | kitab Waqfeya: katalog, `ambil w…`, OCR, potongan scan (PDF/PNG) |
 | `mesin/layanan.py` | `tafsir`, `takhrij`, dan `rawi` tanpa internet (tabel layanan Shamela di `kitab/_meta`) |
 | `mesin/diagram.py` | diagram Mermaid jadi PNG (`diagram`) |
 | `mesin/tahap.py`, `berkas.py` | keadaan bahts dan folder `.rakit-*` |
-| `mesin/rakit.ps1`, `teks_pdf.py` | perakit Word/PDF dan teks PDF |
+| `mesin/rakit.ps1`, `word.ps1`, `teks_pdf.py` | perakit Word/PDF, identitas proses Word miliknya, dan teks PDF |
 | `mesin/format.json` | profil bentuk halaman (`@format`) |
 | `mesin/sampul_qism.docx`, `sampul.doc`, `sampul_jakarta.docx`, `kepala_kotak.docx` | templat sampul dan kepala halaman |
 | `mesin/naskah_baru.txt`, `riset_baru.txt` | kerangka dari `baru` |

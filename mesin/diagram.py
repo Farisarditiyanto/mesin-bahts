@@ -9,6 +9,7 @@ tulis kolomnya dengan nama teknis Latin, nama entitas Arab di dalam tanda petik.
 """
 import json, os, shutil, subprocess, tempfile
 from pathlib import Path
+from berkas import sementara
 
 MERMAID_CLI = "@mermaid-js/mermaid-cli@11.4.2"  # versi dikunci: hasil sama di komputer lain
 # Tema hitam-putih untuk cetak; huruf Arab sama dengan matan bahts (cadangan: Arial)
@@ -59,13 +60,21 @@ def render(folder):
             if png.exists() and png.stat().st_mtime >= m.stat().st_mtime:
                 print(f"tetap   {png.name} (lebih baru dari {m.name})")
                 continue
-            r = subprocess.run([npx, "-y", MERMAID_CLI, "-i", str(m), "-o", str(png), "-b", "white", "-s", str(SKALA),
-                                "-c", str(konfig), "-p", str(pup), "-q"],
-                               capture_output=True, text=True, encoding="utf8", errors="replace", timeout=600)
-            if r.returncode or not png.exists():
+            try:
+                with sementara(png) as part:
+                    hasil = Path(t) / png.name
+                    r = subprocess.run([npx, "-y", MERMAID_CLI, "-i", str(m), "-o", str(hasil), "-b", "white",
+                                        "-s", str(SKALA), "-c", str(konfig), "-p", str(pup), "-q"],
+                                       capture_output=True, text=True, encoding="utf8", errors="replace", timeout=600)
+                    if r.returncode or not hasil.exists() or not hasil.stat().st_size:
+                        pesan = (r.stderr or r.stdout).strip().splitlines()
+                        raise OSError(next((x for x in pesan if "Error" in x or "error" in x),
+                                           pesan[-1] if pesan else "renderer tidak menghasilkan PNG"))
+                    shutil.copyfile(hasil, part)
+            except (OSError, subprocess.TimeoutExpired) as e:
                 gagal += 1
-                pesan = (r.stderr or r.stdout).strip().splitlines()
-                print(f"GAGAL   {m.name}: " + next((x for x in pesan if "Error" in x or "error" in x), pesan[-1] if pesan else "?"))
+                pesan = "renderer kehabisan waktu" if isinstance(e, subprocess.TimeoutExpired) else str(e)
+                print(f"GAGAL   {m.name}: {pesan}")
             else:
                 print(f"jadi    {png.name}  ->  cetak dengan «#G {png.name} | keterangan»")
     return gagal

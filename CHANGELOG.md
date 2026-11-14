@@ -8,6 +8,11 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 - Tanda baru `{M:nama}` untuk فهرس الفرق والمذاهب (sama dengan `{N:}` untuk فهرس الأعلام): tidak tercetak, dan `rakit` mencetak فهرس itu sesudah فهرس الأعلام; `@tanpa: firaq` membuangnya.
 - Tanda baru `{X}` di awal paragraf خلاصة: tidak tercetak, dan `rakit` kini membuat juga `<@berkas> - الخلاصات.pdf` yang hanya berisi halaman-halaman ber-khulasah, dengan paragraf khulasahnya distabilo kuning; `.docx` dan PDF utama tetap tanpa stabilo. `{X}` di tengah paragraf atau di catatan kaki = `GAGAL`.
+- Perakit hanya membersihkan proses Word yang identitasnya cocok dengan jendela Word miliknya; proses Word aplikasi lain dan nomor proses yang sudah dipakai ulang tidak disentuh.
+- `diagram` mempertahankan PNG lama kalau perender gagal atau melewati batas waktu, lalu tetap mencoba diagram berikutnya.
+- `cek` memberi perhatian kalau `riset.txt` tidak bisa dibaca sebagai UTF-8, termasuk pada `@bentuk: kitab`.
+- Sesudah pembaruan ini tiap kitab yang sudah diunduh membangun ulang indeks pencariannya sekali (beberapa detik untuk kitab besar); indeks yang rusak kini dikenali dan dibangun ulang, bukan dipakai.
+- Pemeriksaan ayat memakai pustaka `rapidfuzz` yang tercantum di `requirements.txt`; `periksa` menilainya sebagai kebutuhan `cek`.
 - `cek` tidak lagi menolak ayat yang dikutip kitab dengan ejaan imla'i persis: ayat yang memuat «سبحانه وتعالى»، «رضي الله عنهم»، atau «سيرحمهم الله» (mis. 16:1, 39:67, 98:8) tidak lagi `GAGAL` «ayat yang tercetak … tidak sama», dan ayat berlafaz «الليل»، «اللاتي»، «اللائي» tidak lagi diberi perhatian «salah ketik?».
 - `rawi <id> <juz> <hal>` kini mencetak juga ±800 sanad صحيح البخاري yang dulu terlewat (mis. ٢٨٠٤ يحيى بن بكير عن الليث di ج4 ص19, dan atsar seperti كتاب عمر بن عبد العزيز di ج1 ص31) sebagai rantai lengkap, bukan sekadar daftar rawi «di luar data sanad Shamela».
 - Perintah baru tanpa internet: `akar <id> "<akar>"` mencetak bentuk kata berakar itu di satu kitab beserta jumlahnya, dikelompokkan seperti `cari` mencocokkan kata (mis. akar شفع di المغني: kelompok «شفيع» 325×, di antaranya «الشفيع» 244×، lalu «المشفوع»، «الشفعاء»), dengan perintah `cari` untuk tiap kelompok; kata yang di kamus juga berakar lain ditandai «[juga akar …]». Datanya kamus akar Shamela; `siapkan` kini mengunduh ±19 MB tabel layanan.

@@ -4,7 +4,12 @@ yang dikutip kitab dengan ayat yang tercetak (termasuk salah ketik dan ayat tanp
 import difflib, functools, json, re
 
 import norma
-from dasar import AD, ANGKA_LATIN, AYAT_KITAB, HERE, RUJUKAN_AYAT, SURAH, TandaRusak
+from dasar import AD, ANGKA_LATIN, AYAT_KITAB, HERE, RUJUKAN_AYAT, SURAH, TandaRusak, perintah
+
+try:
+    from rapidfuzz.distance import Levenshtein
+except ImportError:  # pustaka belum dipasang ulang sesudah `git pull`
+    raise SystemExit("Pustaka Python belum terpasang; cara memasangnya disebut oleh: " + perintah("periksa"))
 from petik import kutipan_semua
 
 QURAN = json.loads((HERE / "quran_hafs_v22.json").read_text(encoding="utf8"))
@@ -188,39 +193,6 @@ def _salah_ketik(a, b):
     return False
 
 
-def _jarak(a, b, batas=None):
-    """Jumlah huruf yang diganti, dibuang, atau ditambah dari a ke b (Levenshtein). Dengan batas: berhenti begitu
-    pasti lebih dari batas, dan mengembalikan batas + 1.
-    Per bit (Myers/Hyyrö): satu kolom tabel jarak = dua bilangan bulat selebar a, satu langkah per huruf b."""
-    if a == b:
-        return 0
-    if batas is not None and (batas <= 0 or abs(len(a) - len(b)) > batas):  # beda panjang = paling sedikit sejarak itu
-        return batas + 1
-    if not a or not b:
-        n = len(a) + len(b)
-        return batas + 1 if batas is not None and n > batas else n
-    sama = {}  # huruf -> bit letaknya di a
-    for i, x in enumerate(a):
-        sama[x] = sama.get(x, 0) | 1 << i
-    penuh, atas = (1 << len(a)) - 1, 1 << len(a) - 1
-    naik, turun, n = penuh, 0, len(a)  # beda jarak tegak antarbaris: +1 / -1; n = jarak a dengan awalan b sejauh ini
-    for y in b:
-        eq = sama.get(y, 0)
-        xv = eq | turun
-        xh = (((eq & naik) + naik) ^ naik) | eq
-        ph = turun | ~(xh | naik)
-        mh = naik & xh
-        if ph & atas:
-            n += 1
-        elif mh & atas:
-            n -= 1
-        ph = ph << 1 | 1
-        mh <<= 1
-        naik = (mh | ~(xv | ph)) & penuh
-        turun = ph & xv & penuh
-    return batas + 1 if batas is not None and n > batas else n
-
-
 def _calon(x, b, beda):
     """Potongan ayat x sepanjang b yang mungkin berbeda paling banyak `beda` huruf dari b: b dibagi beda+1 bagian, dan
     tiap potongan seperti itu pasti memuat salah satu bagiannya persis (satu huruf beda merusak paling banyak satu
@@ -262,7 +234,7 @@ def _tanding(spec, b):
     for a in map(kerangka, bentuk_ayat(ayat(nomor)[0])):
         for i in range(max(1, len(a) - len(kb) + 1)):
             w = a[i:i + len(kb)]
-            n = (_jarak(w, kb, milik[0] if milik else None), w)
+            n = (Levenshtein.distance(w, kb, score_cutoff=milik[0] if milik else None), w)
             milik = min(milik, n) if milik else n
     beda, saingan = milik[0], None
     bentuk = {}
@@ -278,7 +250,7 @@ def _tanding(spec, b):
                 if saingan is None and jarak(k) < jauh():
                     saingan = k
                 continue
-            n = _jarak(w, kb, beda)
+            n = Levenshtein.distance(w, kb, score_cutoff=beda)
             if n < beda:
                 # salah ketik huruf mati bisa mendekatkan kerangka ke ayat lain: kalah hanya kalau ayat lain itu juga
                 # lebih dekat dalam huruf lengkap («الرسل حلا»: 1 huruf dari 46:35 dan dari 16:35); selain itu seri
@@ -294,7 +266,7 @@ def _jarak_ayat(a, b):
     """Jumlah huruf beda terkecil antara b dan potongan ayat a (`padat`) sepanjang b."""
     terbaik = None
     for i in range(max(1, len(a) - len(b) + 1)):
-        n = _jarak(a[i:i + len(b)], b, terbaik)
+        n = Levenshtein.distance(a[i:i + len(b)], b, score_cutoff=terbaik)
         terbaik = n if terbaik is None else min(terbaik, n)
     return terbaik
 
