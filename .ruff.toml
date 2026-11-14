@@ -1,0 +1,4 @@
+# Gerbang CI "khusus bug" (dibaca sendiri oleh `ruff check` dari akar repo, juga di .github/workflows/tes.yml): nama tak terdefinisi, impor/variabel tak terpakai,
+# galat sintaks, galat pylint. Aturan gaya dan B023 sengaja mati: di repo ini kebanyakan alarm palsu.
+[lint]
+select = ["F", "E9", "PLE"]
