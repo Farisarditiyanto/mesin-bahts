@@ -3,7 +3,7 @@
 
 Sekali sesudah mengunduh repo:
   periksa                      apa yang sudah siap di komputer ini, dan perintah untuk tiap yang belum
-  siapkan                      unduh katalog kitab, tabel layanan (tafsir, takhrij, rawi) + font mushaf, lalu pasang
+  siapkan                      unduh katalog kitab, tabel layanan (tafsir, takhrij, rawi, akar) + font mushaf, lalu pasang
                                font itu (Windows)
 
 Bahts (tiap bahts = satu folder berisi naskah.txt):
@@ -64,6 +64,8 @@ Layanan Shamela (penunjuk jalan tanpa internet, dari dataset yang sama dengan `a
                                hadits; edisi lain lewat jembatan nomor hadits) + rutbah ringkas: ابن حجر، الذهبي، wafat
   rawi <nomor> | rawi "<nama>" ucapan جرح وتعديل rawi itu + tempat lafaznya di edisi lokal kitab rijal sumbernya (dicari ulang,
                                bukan juz/halaman tabel); dengan nama: cari nomor rawinya
+  akar <id> "<akar>"           bentuk kata berakar itu di kitab (kamus akar Shamela) + jumlahnya, dikelompokkan seperti
+                               `cari` mencocokkan kata: istilah yang tidak tertangkap frasa («الشفيع» untuk شفع)
 
 Takhrij (penunjuk jalan, «المنصة الحديثية», butuh internet):
   hadits "<طرف>" [maks]        tempat hadits di 12 kitab hadits + hukum ulama; tetap dibaca di kitabnya sendiri. Kitab yang
@@ -180,7 +182,7 @@ def periksa():
     baris(bool(importlib.util.find_spec("pymupdf")), "pustaka Python pymupdf (hanya untuk gambar PNG scan Waqfeya di "
           "`halaman w…`; tanpa itu scan dibuka sebagai PDF)", pip, untuk_cek=False, untuk_rakit=False)
     baris((shamela.ROOT / shamela.KATALOG).exists(), "katalog kitab", perintah("siapkan"))
-    baris(layanan.siap(), "tabel layanan Shamela (hanya untuk `tafsir`, `takhrij`, `rawi`)", perintah("siapkan"),
+    baris(layanan.siap(), "tabel layanan Shamela (hanya untuk `tafsir`, `takhrij`, `rawi`, `akar`)", perintah("siapkan"),
           untuk_cek=False, untuk_rakit=False)
     baris(os.name == "nt", "Windows", "`rakit` hanya jalan di Windows; di sini mesin berhenti di `cek`", untuk_cek=False)
     if os.name == "nt":
@@ -725,6 +727,7 @@ PERINTAH = {  # nama: (jumlah argumen minimal, maksimal (None = diperiksa pemang
     "takhrij": (3, 3, lambda a: ketemu(layanan.takhrij(*a))),
     "rawi": (1, 3, lambda a: ketemu(layanan.rawi(*a)) if len(a) != 2 else sys.exit(
         "Perintah «rawi»: tulis <id> <juz> <hal>, satu nomor rawi, atau satu nama dalam tanda petik.")),
+    "akar": (2, 2, lambda a: ketemu(layanan.akar(*a))),
     "hadits": (1, 2, lambda a: ketemu(hadits.cari(a[0], *(angka(x, "maks") for x in a[1:])))),
     "dirasat": (1, 3, lambda a: dirasat.cari(a[0], *(angka(x, "maks") for x in a[1:2]), *a[2:])),
     "dirasat-pdf": (2, 2, lambda a: dirasat.pdf(a[0], folder_bahts(a[1]))),

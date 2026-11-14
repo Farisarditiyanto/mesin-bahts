@@ -48,7 +48,7 @@ Kebutuhan komputer dan cara membereskannya ada di satu tempat: `python mesin/bah
 | Langkah | Perintah | Hasil |
 |---|---|---|
 | Buat folder | `baru <folder> "<judul>"` | `naskah.txt` (kerangka), `riset.txt` |
-| Cari bahan | connector `shamela_*`, `temukan`, `katalog`, `hadits`, `dirasat`; tanpa internet: `tafsir <surat:ayat>`, `takhrij <id> <juz> <hal>`, `rawi <id> <juz> <hal>`; kitab yang tidak ada di Shamela: `waqfeya "<judul>"` | nomor kitab + juz/halaman (penunjuk) |
+| Cari bahan | connector `shamela_*`, `temukan`, `katalog`, `hadits`, `dirasat`; tanpa internet: `tafsir <surat:ayat>`, `takhrij <id> <juz> <hal>`, `rawi <id> <juz> <hal>`, `akar <id> "<akar>"`; kitab yang tidak ada di Shamela: `waqfeya "<judul>"` | nomor kitab + juz/halaman (penunjuk) |
 | Unduh kitab | `ambil <id>` atau `ambil <folder>`; Waqfeya: `ambil w<nomor>` | `kitab/<id>/`, `kitab/waqfeya/w<nomor>/` |
 | Data cetak | `kartu <id>` | rujukan pertama dan المصادر |
 | Baca teks | `cari`, `teks`, `bab`, `halaman` | teks lokal untuk disalin persis |

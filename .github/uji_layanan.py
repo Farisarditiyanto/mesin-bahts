@@ -14,8 +14,12 @@
   bukan di kemunculan pertamanya; ucapan yang lafaznya sekali muncul tetapi di tarjamah rawi lain (عبد الرحمن بن حميد
   #3281 → 1278 ج13 ص637 tarjamah النضر بن إسماعيل) tidak ditunjuk; sanad dicetak berurutan dari pengarang, termasuk
   sanad yang kode jenisnya bukan «s» (Bukhari 2804 يحيى بن بكير عن الليث، 1681 ج4 ص19, kode «b»);
+- `akar 10649 <akar>`: kata yang sama dengan akarnya ikut dihitung walau tidak ada di kamus Shamela («قرض», «القرض»),
+  «وقف» tidak dikelompokkan ke «قف», akar berhamzah boleh ditulis «أخذ» (kamus: «ءخذ»), nama kelompok yang ejaannya
+  diubah `norm` tidak terpotong («السماوات» -> «سموات», bukan «ماوات»), dan kata yang di kamus juga berakar lain
+  ditandai («بعد» untuk وعد);
 - `tafsir 2:219` menunjuk الطبري (7798) sebelum زاد المسير (23619) sebelum ابن كثير (1503); ayat yang tidak ada ditolak.
-Kitabnya 1681, 1726, 654, 1727, 711, 2170, 1278 dari baris `ambil` tes.yml; tabel layanan dari `siapkan`."""
+Kitabnya 1681, 1726, 654, 1727, 711, 2170, 1278, 10649 dari baris `ambil` tes.yml; tabel layanan dari `siapkan`."""
 import atexit, json, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
@@ -25,7 +29,7 @@ SEMENTARA = tempfile.TemporaryDirectory(prefix="bahts-layanan-")
 atexit.register(SEMENTARA.cleanup)
 AKAR = Path(SEMENTARA.name)
 shutil.copytree(REPO / "mesin", AKAR / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__"))
-for sid in ("_meta", "1681", "1726", "654", "1727", "711", "2170", "1278"):
+for sid in ("_meta", "1681", "1726", "654", "1727", "711", "2170", "1278", "10649"):
     shutil.copytree(REPO / "kitab" / sid, AKAR / "kitab" / sid)
 
 
@@ -74,6 +78,22 @@ if kode or "#84: البخاري (#5495) > إسماعيل بن أبي أويس (#
     gagal.append(f"rawi 1681 1 31: sanad hadits 100 tidak berurutan dari البخاري (kode {kode}: {err[-200:]})")
 if kode or "#676 إسماعيل بن أبي أويس" not in out:
     gagal.append(f"rawi 1681 1 31: إسماعيل بن أبي أويس (#676) tidak dicetak (kode {kode}: {err[-200:]})")
+kode, out, err = jalankan("akar", "10649", "قرض")
+if kode or "\n  قرض: " not in out or "القرض 75" not in out:
+    gagal.append(f"akar 10649 قرض: kata «قرض»/«القرض» (tidak ada di kamus) tidak dikelompokkan ke «قرض» (kode {kode}): {out[:400]}")
+kode, out, err = jalankan("akar", "10649", "وقف")
+if kode or "\n  قف: " in out or "\n  وقف: " not in out:
+    gagal.append(f"akar 10649 وقف: «وقف» dikelompokkan ke «قف» (kode {kode}): {out[:400]}")
+kode, out, err = jalankan("akar", "10649", "أخذ")
+if kode or "akar ءخذ:" not in out:
+    gagal.append(f"akar 10649 أخذ: hamzah akar tidak dibaca «ء» (kode {kode}): {out[:200]} {err[-200:]}")
+kode, out, err = jalankan("akar", "10649", "سمو")
+if kode or "\n  ماوات" in out or "\n  سموات: " not in out:
+    gagal.append(f"akar 10649 سمو: nama kelompok «السماوات» terpotong («ماوات»), `cari`-nya tidak menemukan apa pun: {out[:400]}")
+kode, out, err = jalankan("akar", "10649", "وعد")
+baris_bad = next((b for b in out.splitlines() if b.startswith("  بعد: ")), "")
+if kode or "[juga akar" not in baris_bad:
+    gagal.append(f"akar 10649 وعد: «بعد» (kamus: juga akar بعد) tidak ditandai akar lain: «{baris_bad[:200]}»")
 kode, out, err = jalankan("rawi", "1681", "4", "19")
 if kode or "#7: البخاري (#5495) > يحيى بن عبد الله بن بكير (#6952) > الليث بن سعد بن عبد الرحمن (#5348)" not in out:
     gagal.append(f"rawi 1681 4 19: sanad berkode «b» (hadits 2804) tidak dicetak sebagai rantai (kode {kode}: {err[-200:]})")
