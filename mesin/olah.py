@@ -26,7 +26,8 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       bawaan: المصادر والمراجع sebelum فهرس الآيات)
                       templat (berkas .docx di folder bahts): Word mahasiswa sendiri; halaman pertamanya jadi sampul
                       apa adanya (data sampul di naskah tidak dipakai), kepala halamannya (termasuk judul di dalamnya) dipakai
-                      di tiap halaman isi; nomor halaman di kaki hanya kalau kepala itu tidak memuat nomor halaman
+                      di tiap halaman isi; nomor halaman di kaki hanya kalau kepala itu tidak memuat nomor halaman;
+                      kertas sampulnya A4 seperti isi (tepi atas dan bidang teks Word itu tetap, selisih tinggi kertas ke tepi bawah)
                       nomor (abjad = halaman sebelum #F pertama bernomor huruf أ ب ت, mulai #F pertama nomornya ١، ٢، ٣)
                       (mukadimah = sama, tetapi nomor ١ mulai #K المقدمة; الإهداء dst. sebelumnya tetap huruf)
                       minimal_halaman (bilangan; bawaan 25): perkiraan halaman seluruh PDF (sampul s.d. فهرس) kurang dari

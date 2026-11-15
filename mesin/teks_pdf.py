@@ -175,7 +175,8 @@ def _ada(kata, teks):
 
 def periksa(pdf, bahan):
     """Peringatan sesudah rakit (tidak menggagalkan): titik-titik isian di sampul, @judul yang tidak ada di sampul, jenis
-    angka nomor halaman yang tidak sesuai @angka, dan baris terakhir matan halaman yang berakhir «:». Teks PDF buatan Word
+    angka nomor halaman yang tidak sesuai @angka, ukuran kertas yang bercampur, dan baris terakhir matan halaman yang
+    berakhir «:». Teks PDF buatan Word
     tidak tersalin persis (huruf sambung, angka ٠-٩), jadi pencocokannya longgar: yang diperingatkan hanya yang jelas."""
     import pypdf
     meta, fmt = bahan["meta"], bahan["format"]
@@ -223,6 +224,10 @@ def periksa(pdf, bahan):
         jenis, lawan = ("0123", "٠١٢٣ (bawaan)") if hindi else ("bukan 0123", "0123 (@angka: latin)")
         pesan.append(f"nomor halaman tercetak {jenis} padahal @angka {lawan} di {len(salah)} halaman "
                      f"(halaman PDF ke-{', '.join(map(str, salah[:5]))}{' …' if len(salah) > 5 else ''}): rakit lagi.")
+    ukuran = sorted({(round(float(h.mediabox.width)), round(float(h.mediabox.height))) for h in halaman})
+    if len(ukuran) > 1:   # mis. sampul @templat Letter di depan isi A4: cetakan berlainan ukuran
+        pesan.append("ukuran kertas di PDF ini bercampur (" + "، ".join(f"{w}×{h} pt" for w, h in ukuran)
+                     + "): semua halaman semestinya A4; rakit lagi, masih begitu → sebut di laporan akhir.")
     if ujung:
         pesan.append(f"baris terakhir matan berakhir «:» (pengantar terpisah dari isinya di halaman berikutnya) di halaman "
                      f"PDF ke-{', '.join(map(str, ujung))}: lihat halamannya; perlu → pendekkan/panjangkan paragraf sebelumnya.")

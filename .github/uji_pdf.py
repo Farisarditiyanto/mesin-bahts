@@ -93,9 +93,15 @@ def utama():
             w.write(h)
         uji("potongan --fasl tanpa sampul: halaman 1 bukan sampul", tmp / "tanpa_sampul.pdf",
             {"judul": "مثال: توحيد الألوهية", "tanpa_sampul": True}, [])
+        # sampul @templat yang tetap Letter di depan isi A4 (sebelum rakit.ps1 menyetel sampulnya A4)
+        w = PdfWriter(clone_from=str(PDF))
+        w.pages[0].mediabox.upper_right = (612, 792)
+        with open(tmp / "letter.pdf", "wb") as h:
+            w.write(h)
+        uji("sampul Letter di depan isi A4: ukuran kertas bercampur", tmp / "letter.pdf", {}, ["ukuran kertas"])
     if gagal:
         sys.exit(f"{len(gagal)} uji PDF gagal: " + "; ".join(gagal))
-    print("uji pdf: 10 skenario sesuai")
+    print("uji pdf: 11 skenario sesuai")
 
 
 if __name__ == "__main__":

@@ -6,6 +6,9 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Sampul dari `@templat` kini berkertas A4 seperti halaman isi walau Word mahasiswa memakai Letter; bidang teks dan letak gambar sampulnya tetap, jadi PDF tidak lagi bercampur dua ukuran kertas.
+- `rakit` memberi PERINGATAN kalau halaman-halaman PDF hasilnya tidak berukuran kertas sama.
+
 - Tanda baru `{M:nama}` untuk فهرس الفرق والمذاهب (sama dengan `{N:}` untuk فهرس الأعلام): tidak tercetak, dan `rakit` mencetak فهرس itu sesudah فهرس الأعلام; `@tanpa: firaq` membuangnya.
 - Tanda baru `{X}` di awal paragraf خلاصة: tidak tercetak, dan `rakit` kini membuat juga `<@berkas> - الخلاصات.pdf` yang hanya berisi halaman-halaman ber-khulasah, dengan paragraf khulasahnya distabilo kuning; `.docx` dan PDF utama tetap tanpa stabilo. `{X}` di tengah paragraf atau di catatan kaki = `GAGAL`.
 - Perakit hanya membersihkan proses Word yang identitasnya cocok dengan jendela Word miliknya; proses Word aplikasi lain dan nomor proses yang sudah dipakai ulang tidak disentuh.

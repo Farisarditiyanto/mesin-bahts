@@ -223,14 +223,25 @@ try {
     $doc.Activate()                                      # Selection di bawah milik dokumen aktif; Open membuat templat aktif
     $pt = $TPL.Sections(1).PageSetup; $p1 = $doc.Sections(1).PageSetup
     $p1.SectionDirection = $pt.SectionDirection         # arah bagian dulu: di bagian kanan-ke-kiri tepi kiri dan kanan bertukar
-    $p1.PageWidth = $pt.PageWidth; $p1.PageHeight = $pt.PageHeight
-    $p1.TopMargin = $pt.TopMargin; $p1.BottomMargin = $pt.BottomMargin; $p1.LeftMargin = $pt.LeftMargin; $p1.RightMargin = $pt.RightMargin
+    # kertas sampul = kertas isi (A4, sama dengan bagian isi di bawah), walau Word mahasiswa memakai kertas lain (mis. Letter):
+    # bidang teks templat dipertahankan: tepi atas tetap seperti templat (kop tidak turun), selisih tinggi kertas masuk ke
+    # tepi bawah, selisih lebar dibagi rata ke kiri dan kanan, jadi letak isi sampul sama dengan Word mahasiswa
+    $p1.PaperSize = 7
+    $dW = ($p1.PageWidth - $pt.PageWidth) / 2; $dH = 0; $tepiMin = $word.CentimetersToPoints(1)
+    $p1.TopMargin = $pt.TopMargin; $p1.BottomMargin = [Math]::Max($tepiMin, $pt.BottomMargin + $p1.PageHeight - $pt.PageHeight)
+    $p1.LeftMargin = [Math]::Max($tepiMin, $pt.LeftMargin + $dW); $p1.RightMargin = [Math]::Max($tepiMin, $pt.RightMargin + $dW)
     foreach ($h in 1..3) { try { $doc.Sections(1).Headers($h).Range.Text = '' } catch {} ; try { $doc.Sections(1).Footers($h).Range.Text = '' } catch {} }
     # gaya sesudah tata halaman: mengganti arah bagian menyetel ulang huruf paragrafnya
     SalinGaya $TPL.Range(0, $akhir) $doc.Content
     # kotak teks sampul (mis. kop) ikut disalin gayanya, berpasangan menurut urutan
     $ka = @($TPL.Shapes | Where-Object { $_.TextFrame.HasText }); $kt = @($doc.Shapes | Where-Object { $_.TextFrame.HasText })
     for ($i = 0; $i -lt [Math]::Min($ka.Count, $kt.Count); $i++) { SalinGaya $ka[$i].TextFrame.TextRange $kt[$i].TextFrame.TextRange }
+    # gambar/kotak yang diletakkan menurut tepi kertas (bukan kolom, tepi, atau paragraf) digeser sebesar selisih tepinya;
+    # nilai di bawah -999000 = rata kiri/tengah/kanan Word, tidak digeser
+    foreach ($s in $doc.Shapes) {
+        if ($s.RelativeHorizontalPosition -eq 1 -and $s.Left -gt -999000) { $s.Left = $s.Left + $dW }
+        if ($s.RelativeVerticalPosition -eq 1 -and $s.Top -gt -999000) { $s.Top = $s.Top + $dH }
+    }
     } else {
     $doc = $word.Documents.Open("$dir\sampul.doc", $false, $true)
     $doc.SaveAs2($tmp, 16)
