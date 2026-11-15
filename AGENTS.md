@@ -173,7 +173,7 @@ Bereskan dengan mencari di kitab asalnya (`shamela_search_phrase` dengan `scope.
 
 ## Aturan penulisan
 
-Sebagian dijaga `cek` dan butirnya menyebut itu (GAGAL atau perhatian): takhrij tanpa derajat, kutipan yang dibetulkan tanpa kurung siku, bentuk rujukan. Selebihnya hanya dinilai pemeriksa langkah 5. Lolos `cek` bukan berarti aturan di bawah sudah dipenuhi.
+Sebagian dijaga `cek` (GAGAL atau perhatian): takhrij tanpa derajat, kutipan yang dibetulkan tanpa kurung siku, bentuk rujukan (data cetak rujukan pertama, pemisah «؛», gelar). Selebihnya hanya dinilai pemeriksa langkah 5. Lolos `cek` bukan berarti aturan di bawah sudah dipenuhi.
 
 - Ayat selalu lewat `{Q:…}`; catatan kakinya: `سورة …، آية: n.`
 - Mencari tempat hadits dan siapa yang menghukuminya: `hadits "<طرف>"`. Itu penunjuk jalan dan datanya bisa salah: كتاب, باب, nomor, juz/halaman, dan derajat tetap ditulis dari kitab yang dibaca sendiri. Juz/halaman layanan bisa dari edisi lain; kitab yang sudah diunduh diberi baris «edisi lokal <id>: juz/hal»: buka halaman itu, jangan menyalin juz/halaman layanan.
