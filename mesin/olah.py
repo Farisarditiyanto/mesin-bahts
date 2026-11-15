@@ -107,7 +107,7 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       utama tetap tanpa stabilo). Di tengah paragraf atau di catatan kaki = GAGAL
   {P:kunci}           nomor halaman {H:..|kunci} atau {A:kunci}; hanya di dalam catatan kaki: [^سبق تخريجه، ص{P:kunci}.],
                       [^انظر: ص{P:kunci} من هذا البحث.]. {A:} boleh sesudah {P:}-nya («سيأتي»); nomornya diisi `rakit`
-  [^ ... ]            catatan kaki
+  [^ ... ]            catatan kaki; kurung siku di dalamnya («[هكذا]») berpasangan, tidak menutupnya
   <<sid|juz|hal>>     bukti di dalam catatan kaki (tidak ikut tercetak): kutipan bertanda petik tepat sebelum catatan kaki
                       harus ada di kitab sid pada juz/hal itu, utuh per kata. Kutipan yang dipotong: tulis ... di tempat
                       potongannya; tiap bagian dicek, harus berurutan. Kutipan tanpa bukti = GAGAL.

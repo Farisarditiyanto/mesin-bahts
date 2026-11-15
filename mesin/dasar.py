@@ -13,6 +13,45 @@ class TandaRusak(ValueError):
     pembeda ini, galat mesin di baris jebakan «#S GAGAL» terhitung sebagai galat yang diharapkan dan tidak ketahuan."""
 
 
+def akhir_catatan(teks, i):
+    """Letak «]» penutup catatan kaki yang isinya mulai di teks[i] (sesudah «[^»). Isi bukti <<…>> dilewati
+    (potongannya boleh memuat «]»), dan kurung siku biasa di dalamnya («[هكذا]», kata pembetul) berpasangan,
+    jadi tidak menutup catatan kakinya."""
+    dalam, ada, j = 0, False, i
+    sebab = lambda: (" (kurung siku [ di dalamnya berpasangan dengan ] sesudahnya: tutup tiap [ dengan ], lalu catatan "
+                     "kakinya)" if ada else "")
+    while j < len(teks):
+        if teks.startswith("[^", j):
+            raise TandaRusak("catatan kaki tidak boleh di dalam catatan kaki: tutup yang pertama dengan ] dulu" + sebab())
+        if teks.startswith("<<", j):
+            tutup = teks.find(">>", j + 2)
+            if tutup < 0:
+                raise TandaRusak("bukti << di catatan kaki tidak ditutup dengan >>")
+            j = tutup + 2
+            continue
+        if teks[j] == "[":
+            dalam, ada = dalam + 1, True
+        elif teks[j] == "]":
+            if not dalam:
+                return j
+            dalam -= 1
+        j += 1
+    raise TandaRusak("catatan kaki [^ tidak ditutup dengan ]" + sebab())
+
+
+def tanpa_catatan(teks):
+    """Teks tanpa catatan kaki [^…], dibaca seperti `akhir_catatan`. Catatan kaki yang rusak (sudah GAGAL di
+    pengurai) dibuang sampai akhir baris."""
+    hasil, i = [], 0
+    while (awal := teks.find("[^", i)) >= 0:
+        hasil.append(teks[i:awal])
+        try:
+            i = akhir_catatan(teks, awal + 2) + 1
+        except TandaRusak:
+            return "".join(hasil)
+    return "".join(hasil) + teks[i:]
+
+
 AD = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
 MERUJUK_KATA = "[أا]نظر|ينظر|ي?راجع"  # tanda nukilan makna di catatan kaki (أبو سليمان، كتابة البحث العلمي، ص114)
 TAKHRIJ_AWAL = re.compile(r"\s*و?(?:أخرج|رواه)")  # catatan kaki takhrij: «أخرجه …», «رواه …»
