@@ -183,7 +183,7 @@ def _periksa_langkah(isi, baris, perhatian):
                        f"menulis pendapat tiap mazhab, lalu tambah baris «khilaf <istilah>» tiap masalah"),
             "cari": ("مبحث", "cari istilah kuncinya di connector `shamela` (`shamela_search_phrase`, juga "
                              "`scope.book_ids` mu'tamad) sebelum menulis, lalu tambah baris «cari <istilah> | <catatan>»; "
-                             "istilahnya harus tertulis di judul atau matan bagian itu (termasuk مطلب-nya, tanpa catatan kaki) (tidak bisa: «belum cari <istilah> | "
+                             "istilahnya harus tertulis di judul atau matan bagian itu, termasuk مطلب-nya, tanpa catatan kaki (tidak bisa: «belum cari <istilah> | "
                              "<alasan>», lalu sebut di laporan akhir)")}
     for langkah, objek in sorted(((k, v) for k, v in belum.items() if v), key=lambda kv: kv[1][0][0]):  # urut naskah
         jenis, langkahnya = cara[langkah]
