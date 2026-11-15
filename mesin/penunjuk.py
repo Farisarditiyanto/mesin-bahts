@@ -128,7 +128,7 @@ def _tanpa_catatan(blok):
 
 def bukti(folder, dari=None, sampai=None):
     """`bukti`: untuk tiap catatan kaki berbukti <<sid|juz|hal…>> dan ayat {Q:} di baris dari..sampai (None = semua):
-    kalimat yang dibuktikan, isi catatan kakinya, lalu nama kitab, rantai judul, dan teks halaman kitab di sekitar letak
+    paragraf matan dan isi catatan kaki utuh, lalu nama kitab, rantai judul, dan teks halaman kitab di sekitar letak
     kutipan; juga tiap paragraf isi tanpa catatan kaki (_tanpa_catatan), di urutan barisnya. Naskahnya diurai
     `olah.periksa` (sama dengan `cek`), tetapi laporan dan putusannya tidak dicetak.
     Tiap baris keluaran diawali «baris n», supaya bisa disaring. Kembalikan jumlah yang dicetak."""
@@ -137,7 +137,7 @@ def bukti(folder, dari=None, sampai=None):
     dalam = lambda n: (dari is None or dari <= n) and (sampai is None or n <= sampai)
     polos = [{"n": n, "polos": t} for n, t in _tanpa_catatan(ctx.blok) if dalam(n)]
     pilih = sorted([u for u in ctx.penunjuk if dalam(u["n"])] + polos, key=lambda u: u["n"])  # sorted stabil
-    ke = {}
+    ke, tercetak = {}, None
     for u in pilih:
         if "polos" in u:
             print(f"baris {u['n']} tanpa catatan kaki: «{_ringkas(u['polos'], 600)}»")
@@ -147,8 +147,14 @@ def bukti(folder, dari=None, sampai=None):
             continue
         ke[u["n"]] = ke.get(u["n"], 0) + 1
         kepala = f"baris {u['n']} #{ke[u['n']]}"
+        if u["runs"] is not tercetak:  # beberapa catatan kaki di satu paragraf: matannya dicetak sekali
+            tercetak = u["runs"]
+            matan = "".join(r.get("t", "") for r in u["runs"]).strip()
+            # bait #V: olah._bait_syair sudah mengubah « // » jadi \v dan « ... » jadi tiga em space di runs; dicetak
+            # balik ke bentuk naskah supaya satu baris keluaran tetap satu «baris n»
+            print(f"{kepala} matan: {matan.replace(chr(11), ' // ').replace(chr(0x2003) * 3, ' ... ')}")
         print(f"{kepala} kutipan: " + (f"«{_ringkas(u['kutipan'])}»" if u["kutipan"] else "(tanpa kutipan bertanda petik)"))
-        print(f"{kepala} catatan: {_ringkas(u['catatan'], 300)}")
+        print(f"{kepala} catatan: {u['catatan']}")
         for b in u["bukti"]:
             if m := WAQFEYA_BUKTI.fullmatch(b):
                 print(f"{kepala} <<{b}>> {_penunjuk_waqfeya(*m.groups(), u['kutipan'])}")

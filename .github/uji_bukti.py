@@ -69,6 +69,41 @@ try:
 
     naskah = AKAR / "contoh" / "naskah.txt"
     asli = naskah.read_text(encoding="utf-8-sig")
+    matan = "إن توحيد الربوبية هو إفراد الله بالخلق والملك والتدبير، وليس هو توحيد الألوهية."
+    sisipan = " ولا يجوز حذف هذا القيد عند نقل المعنى. "
+    panjang = "بيان السياق " * 40 + sisipan + "شرح المسألة " * 40
+    catatan = "انظر: " + "شرح المصدر " * 30 + sisipan + "تفصيل النقل " * 30
+    baris = f"{matan} {panjang}[^ {catatan} <<11223|-|5|{KUTIPAN}>>][^انظر: المصدر نفسه. <<11223|-|5|{KUTIPAN}>>]"
+    naskah.write_text(asli.replace(_BARIS[B_KUTIP - 1], baris), encoding="utf-8")
+    kode, keluar = jalan("bukti", "contoh", str(B_KUTIP))
+    print(keluar)
+    dirujuk = (matan + " " + panjang).strip()
+    assert kode == 0, keluar
+    assert f"baris {B_KUTIP} #1 matan: {dirujuk}" in keluar.splitlines(), "kalimat yang dinilai hilang atau dipotong"
+    assert not any(x.startswith(f"baris {B_KUTIP} #2 matan:") for x in keluar.splitlines()), "matan satu paragraf dicetak dua kali"
+    assert any(x.startswith(f"baris {B_KUTIP} #2 catatan:") for x in keluar.splitlines()), "catatan kedua hilang"
+    assert f"baris {B_KUTIP} #1 catatan: {catatan.strip()}" in keluar.splitlines(), "catatan kaki dipotong"
+    assert all(x.startswith(f"baris {B_KUTIP} ") for x in keluar.splitlines()), keluar
+    print("lolos: parafrase dan catatan kaki utuh; matan satu paragraf dicetak sekali untuk dua catatannya")
+
+    pecah = KUTIPAN.index(" تعالى")
+    awal, akhir = KUTIPAN[:pecah], KUTIPAN[pecah:]
+    matan_sisip = f"قال: «{awal}[^المراد بهذا اللفظ معلوم.]{akhir}»[^رسالة في القضاء والقدر، ص5. <<11223|-|5>>] والله أعلم."
+    naskah.write_text(asli.replace(_BARIS[B_KUTIP - 1], matan_sisip), encoding="utf-8")
+    kode, keluar = jalan("bukti", "contoh", str(B_KUTIP))
+    assert kode == 0, keluar
+    assert f"baris {B_KUTIP} #1 matan: قال: «{KUTIPAN}» والله أعلم." in keluar.splitlines(), keluar
+    print("lolos: catatan penjelasan di tengah kutipan tidak memotong paragraf matan")
+
+    bait = "#V بيت الشعر الأول ... شطره الثاني // البيت الثاني بعده"
+    naskah.write_text(asli.replace(_BARIS[B_KUTIP - 1], f"{bait}[^انظر: رسالة في القضاء والقدر، ص5. <<11223|-|5|{KUTIPAN}>>]"),
+                      encoding="utf-8")
+    kode, keluar = jalan("bukti", "contoh", str(B_KUTIP))
+    assert kode == 0, keluar
+    assert all(x.startswith(f"baris {B_KUTIP} ") for x in keluar.splitlines()), keluar
+    assert f"baris {B_KUTIP} #1 matan: {bait[3:]}" in keluar.splitlines(), keluar
+    print("lolos: bait #V dicetak satu baris dengan « // » dan « ... » seperti di naskah")
+
     naskah.write_text(asli.replace("\n\n#K الخاتمة", "\nوذهب الجمهور إلى ذلك.\n\n#K الخاتمة"), encoding="utf-8")
     kode, keluar = jalan("bukti", "contoh")
     tanpa = [b for b in keluar.splitlines() if " tanpa catatan kaki: " in b]

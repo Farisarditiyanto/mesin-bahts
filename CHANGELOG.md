@@ -6,6 +6,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- `bukti` mencetak paragraf matan tiap catatan kaki berbukti Shamela/Waqfeya beserta isi catatan kaki utuh, supaya pemeriksa dapat membandingkan parafrase dan syaratnya dengan sumber, termasuk bila catatan penjelasan berada di tengah kutipan.
 - Pemeriksa langkah 5 kini menyertakan bukti di tiap temuan (perintah yang dijalankan, potongan keluarannya, aturan yang dilanggar); temuan yang tidak terbukti saat dijalankan ulang dibuang dan disebut di laporan akhir.
 
 ## 11.0.0 — 2026-11-15
