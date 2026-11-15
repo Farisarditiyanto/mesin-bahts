@@ -175,10 +175,11 @@ riset.txt (di folder bahts, di samping naskah.txt): jejak langkah riset yang tid
   khilaf <istilah>    `shamela_research_scope` sudah dijalankan untuk satu masalah khilaf; satu baris per masalah
                       (masalah = bagian berjudul yang barisnya diawali «القول الأول», «الرأي الأول», atau «المذهب الأول»)
   cari <istilah> | <catatan>   istilah kunci satu مبحث sudah dicari di connector `shamela` (`shamela_search_phrase`)
-                      sebelum menulisnya; catatan (hasil, scope) boleh kosong. Tiap #B wajib punya paling sedikit satu
-                      baris yang istilahnya tertulis di judul atau isi bagian itu (kata utuh; boleh diawali و/ف/ب/ك/ل
-                      dan ال); bahts tanpa فصل (tidak ada #F berjudul «الفصل…»): tiap #F, juga di bahts berفصل #F tanpa #B
-                      (mis. التمهيد). Tidak bisa dijalankan: «belum cari <istilah> | <alasan>»
+                      sebelum menulisnya; catatan (hasil, scope) boleh kosong. Tiap مبحث wajib punya paling sedikit
+                      satu baris yang istilahnya tertulis di judul atau matan bagian itu, termasuk مطلب-nya (kata utuh;
+                      boleh diawali و/ف/ب/ك/ل dan ال; catatan kaki dan «المبحث الأول:» di judul tidak dihitung).
+                      مبحث = tiap #B kalau ada #F «الفصل…»/«فصل…», #B «المبحث…», atau tidak ada #F, ditambah #F tanpa
+                      #B (mis. التمهيد); selain itu tiap #F. Tidak bisa dijalankan: «belum cari <istilah> | <alasan>»
   belum <langkah> <objek> <alasan>   langkah yang tidak bisa dijalankan; sebut di laporan akhir
   terima <kode> <alasan>   perhatian `cek` berkode itu («  ! 3f9a2c baris …») memang tidak bisa dibereskan, atau salah
                       tangkap; alasannya dinilai pemeriksa. Tiap perhatian wajib ditangani: dibereskan di naskah, atau

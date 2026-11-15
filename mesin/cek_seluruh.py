@@ -183,7 +183,7 @@ def _periksa_langkah(isi, baris, perhatian):
                        f"menulis pendapat tiap mazhab, lalu tambah baris «khilaf <istilah>» tiap masalah"),
             "cari": ("مبحث", "cari istilah kuncinya di connector `shamela` (`shamela_search_phrase`, juga "
                              "`scope.book_ids` mu'tamad) sebelum menulis, lalu tambah baris «cari <istilah> | <catatan>»; "
-                             "istilahnya harus tertulis di judul atau isi bagian itu (tidak bisa: «belum cari <istilah> | "
+                             "istilahnya harus tertulis di judul atau matan bagian itu (termasuk مطلب-nya, tanpa catatan kaki) (tidak bisa: «belum cari <istilah> | "
                              "<alasan>», lalu sebut di laporan akhir)")}
     for langkah, objek in sorted(((k, v) for k, v in belum.items() if v), key=lambda kv: kv[1][0][0]):  # urut naskah
         jenis, langkahnya = cara[langkah]
@@ -196,34 +196,48 @@ def _periksa_langkah(isi, baris, perhatian):
 
 def _pola_istilah(istilah):
     """Istilah «cari» sebagai kata utuh di teks `norma.norm`, boleh diawali و/ف/ب/ك/ل dan ال («توحيد الربوبية»
-    juga cocok dengan «وتوحيد الربوبية» dan «ربوبية»). «الله» tetap «الله»: sisa sependek «له» cocok di mana-mana."""
+    juga cocok dengan «وتوحيد الربوبية» dan «ربوبية», «الدم» dengan «للدم»). «الله» tetap «الله»: sisanya «له»."""
     kata_ = norma.norm(istilah).split()
-    if kata_[0].startswith("ال") and len(kata_[0]) >= 5:
+    if kata_[0].startswith("ال") and len(kata_[0]) >= 4 and kata_[0] != "الله":
         kata_[0] = kata_[0][2:]
     return re.compile(r"(?<![ء-ي])(?:[وفبكل]{0,2}ال|لل|[وفبكل]{0,2})" + r"\s+".join(map(re.escape, kata_)) + r"(?![ء-ي])")
 
 
+CATATAN_KAKI = re.compile(r"\[\^[^\]]*\]")
+# kata urutan di depan judul («المبحث الأول:», «فصل:»): bukan istilah bagian itu, dan ada di hampir tiap judul
+URUTAN_JUDUL = re.compile(r"^\s*(?:ال)?(?:فصل|مبحث|مطلب|باب)[^:]{0,30}:")
+# judul #F/#B yang menyatakan tingkatnya; dicocokkan sesudah harakat dibuang (norma.norm)
+FASL = re.compile(r"^(?:ال)?فصل(?![ء-ي])")
+MABHATS = re.compile(r"^(?:ال)?مبحث(?![ء-ي])")
+
+
 def _bagian_cari(baris):
-    """[(baris judul, judul, teks `norm` judul + isinya)] tiap bagian yang wajib dicari di connector: tiap #B (مبحث),
-    atau tiap #F kalau bahts tanpa فصل (#F = مبحث). Di bahts berفصل, #F tanpa #B di bawahnya (mis. التمهيد) ikut
-    sebagai satu bagian. Tanpa #F sama sekali: tiap #B. Isi bagian = sampai judul #K/#F/#R (atau #B, untuk bagian #B)."""
-    judul = [(n, b[1], re.sub(r"\[\^[^\]]*\]", "", b[3:]).strip()) for n, b in baris if re.match(r"#[KFBR]\s", b)]
-    fasl = any(k == "F" and norma.norm(j).startswith("الفصل") for _, k, j in judul)
-    tingkat_b = fasl or not any(k == "F" for _, k, _ in judul)
+    """[(baris judul, judul, teks `norm` yang dicocokkan)] tiap مبحث yang wajib dicari di connector. Tingkat مبحث = #B
+    kalau ada #F berjudul «(ال)فصل…», ada #B berjudul «(ال)مبحث…», atau tidak ada #F sama sekali; selain itu #F.
+    Di tingkat #B, #F tanpa #B di bawahnya (mis. التمهيد) ikut sebagai satu bagian. Isi bagian = sampai judul
+    setingkat atau lebih tinggi (#K/#F/#R; bagian #B juga #B). Yang dicocokkan hanya judul (tanpa kata urutan
+    «المبحث الأول:») dan matan: catatan kaki (nama kitab, pengarang, potongan bukti) bukan istilah bagian itu."""
+    judul = [(n, b[1], norma.norm(CATATAN_KAKI.sub("", b[3:]))) for n, b in baris if re.match(r"#[KFBR]\s", b)]
+    tingkat_b = (any(k == "F" and FASL.match(j) for _, k, j in judul) or any(k == "B" and MABHATS.match(j) for _, k, j in judul)
+                 or not any(k == "F" for _, k, _ in judul))
     anak = {n for (n, k, _), (_, k2, _) in zip(judul, judul[1:] + [(0, "K", "")]) if k == "F" and k2 == "B"}
     wajib = {n for n, k, _ in judul if (k == "B" and tingkat_b) or (k == "F" and (not tingkat_b or n not in anak))}
     hasil, kini = [], None
     for n, b in baris:
-        if re.match(r"#[KFBR]\s", b):
+        if b.startswith("#R"):
+            break
+        tutup = re.match(r"#[KF]\s", b) or (re.match(r"#B\s", b) and kini is not None and kini[3] == "B")
+        if tutup:
             kini = None
-            if b.startswith("#R"):
-                break
-            if n in wajib:
-                kini = [n, re.sub(r"\[\^[^\]]*\]", "", b[3:]).strip(), []]
-                hasil.append(kini)
+        teks = CATATAN_KAKI.sub("", b)
+        if re.match(r"#[KFBMS]\s", teks):
+            teks = URUTAN_JUDUL.sub("", teks[3:])
+        if n in wajib:
+            kini = [n, CATATAN_KAKI.sub("", b[3:]).strip(), [], b[1]]
+            hasil.append(kini)
         if kini is not None:
-            kini[2].append(b)
-    return [(n, j, " ".join(norma.norm(b) for b in isi)) for n, j, isi in hasil]
+            kini[2].append(teks)
+    return [(n, j, " ".join(norma.norm(b) for b in isi)) for n, j, isi, _ in hasil]
 
 
 # Kutipan bertanda petik yang memenuhi isi satu bagian: «تختفي شخصية الكاتب بين الاقتباسات الطويلة» (أبو سليمان، كتابة

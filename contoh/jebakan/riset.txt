@@ -39,7 +39,7 @@ takhrij8 niatkurung
 takhrij8 niatkurungb
 # «belum»: langkah yang tidak bisa dijalankan dicatat dengan alasannya, lalu tidak ditandai lagi
 belum tafsir 1:5 connector tafsir sedang mati
-# «cari»: istilah kunci tiap مبحث di connector shamela; istilahnya tertulis di judul atau isi bagiannya
+# «cari»: istilah kunci tiap مبحث di connector shamela; istilahnya tertulis di judul atau matan bagiannya
 cari عنوان فيه حاشية | berkas uji
 cari الاستصحاب
 belum cari المصالح المرسلة | berkas uji: connector shamela sedang mati

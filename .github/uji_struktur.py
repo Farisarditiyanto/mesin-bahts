@@ -104,8 +104,11 @@ def utama():
                  "): 0\ncatatan kaki tanpa bukti"),
                 ("riset cari belum tanpa alasan", "tafsir 1:2\nbelum cari توحيد الربوبية\n", "tulis alasannya sesudah «|»"),
                 ("riset cari tanpa istilah Arab", "tafsir 1:2\ncari | catatan\n", "tulis istilah huruf Arab yang dicari"),
-                # istilah yang tidak tertulis di bagian itu tidak menutupnya
+                # istilah yang tidak tertulis di bagian itu tidak menutupnya, juga yang hanya ada di catatan kaki
+                # (judul kitab rujukan) atau di kata urutan judul («المبحث الأول:»)
                 ("riset cari istilah lain", "tafsir 1:2\ncari الاستصحاب\n",
+                 "cari belum tercatat di riset.txt untuk 1 مبحث: «المبحث الأول: تعريف توحيد الربوبية»"),
+                ("riset cari istilah catatan kaki", "tafsir 1:2\ncari القضاء\ncari المبحث\n",
                  "cari belum tercatat di riset.txt untuk 1 مبحث: «المبحث الأول: تعريف توحيد الربوبية»"),
                 ("riset ayat tidak ada", "tafsir 1:8\n", "tafsir «1:8»: surat/ayat itu tidak ada"),
                 ("riset rentang terbalik", "tafsir 1:5-2\n", "tafsir «1:5-2»: rentang ayat harus dari kecil ke besar"),
@@ -124,6 +127,14 @@ def utama():
         out = cek("riset cari berفصل tercatat", dasar.replace("#F المبحث الأول: تعريف توحيد الربوبية", "#F الفصل الأول: التوحيد\n"
                                                               "وفيه مبحث.\n#B المبحث الأول: تعريف توحيد الربوبية"))
         assert "cari belum tercatat" not in out, out
+        # bahts tanpa فصل: isi مطلب (#B) termasuk مبحث (#F) induknya; «#B المبحث» = tingkat مبحث walau #F bukan «الفصل»
+        riset.write_text("tafsir 1:2\ncari الاستصحاب\n", encoding="utf8")
+        out = cek("riset cari isi مطلب", dasar.replace("#K الخاتمة", "#B المطلب الأول: حجيته\nويظهر للباحث أن الاستصحاب حجة.\n"
+                                                       "#K الخاتمة"))
+        assert "cari belum tercatat" not in out, out
+        out = cek("riset cari #B مبحث", dasar.replace("#F المبحث الأول: تعريف توحيد الربوبية", "#F فصل أول: التوحيد\nوفيه مبحث.\n"
+                                                      "#B المبحث الأول: تعريف توحيد الربوبية"))
+        assert "untuk 1 مبحث: «المبحث الأول: تعريف توحيد الربوبية»" in out, out
         riset.write_bytes("tafsir 1:2".encode("utf-16"))
         cek("riset bukan UTF-8", dasar, pesan="riset.txt bukan UTF-8")
         cek("riset kitab bukan UTF-8 tetap dilaporkan", "@bentuk: kitab\n" + dasar, pesan="riset.txt bukan UTF-8")
