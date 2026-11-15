@@ -6,6 +6,8 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Pemeriksa langkah 5 kini menyertakan bukti di tiap temuan (perintah yang dijalankan, potongan keluarannya, aturan yang dilanggar); temuan yang tidak terbukti saat dijalankan ulang dibuang dan disebut di laporan akhir.
+
 ## 11.0.0 — 2026-11-15
 
 - Kurung siku di dalam catatan kaki («[هكذا]», kata pembetul di kutipan) berpasangan dan tidak menutup catatan kakinya, jadi sisa catatan kaki tidak tercetak di matan; kurung siku yang tidak ditutup di dalam catatan kaki = `GAGAL`.
