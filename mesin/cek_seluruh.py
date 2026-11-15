@@ -203,9 +203,12 @@ def _pola_istilah(istilah):
     return re.compile(r"(?<![ء-ي])(?:[وفبكل]{0,2}ال|لل|[وفبكل]{0,2})" + r"\s+".join(map(re.escape, kata_)) + r"(?![ء-ي])")
 
 
-CATATAN_KAKI = re.compile(r"\[\^[^\]]*\]")
+# catatan kaki sampai «]» pertama di luar bukti <<…>>, sama dengan Pengurai._baca_catatan
+CATATAN_KAKI = re.compile(r"\[\^(?:<<.*?>>|[^\]])*\]")
 # kata urutan di depan judul («المبحث الأول:», «فصل:»): bukan istilah bagian itu, dan ada di hampir tiap judul
-URUTAN_JUDUL = re.compile(r"^\s*(?:ال)?(?:فصل|مبحث|مطلب|باب)[^:]{0,30}:")
+# dicocokkan ke teks `norma.norm` (harakat dibuang, أ→ا, ة→ه): kata tingkat lalu paling banyak dua kata urutan
+URUTAN_JUDUL = re.compile(r"^(?:ال)?(?:فصل|مبحث|مطلب|باب)(?:\s+(?:ال)?(?:اول|ثاني|ثان|ثالث|رابع|خامس|سادس|سابع|ثامن|تاسع|"
+                          r"عاشر|حادي|عشر|تمهيدي|اخير|ختامي)){0,2}(?![ء-ي])")
 # judul #F/#B yang menyatakan tingkatnya; dicocokkan sesudah harakat dibuang (norma.norm)
 FASL = re.compile(r"^(?:ال)?فصل(?![ء-ي])")
 MABHATS = re.compile(r"^(?:ال)?مبحث(?![ء-ي])")
@@ -229,15 +232,15 @@ def _bagian_cari(baris):
         tutup = re.match(r"#[KF]\s", b) or (re.match(r"#B\s", b) and kini is not None and kini[3] == "B")
         if tutup:
             kini = None
-        teks = CATATAN_KAKI.sub("", b)
-        if re.match(r"#[KFBMS]\s", teks):
-            teks = URUTAN_JUDUL.sub("", teks[3:])
+        teks = norma.norm(CATATAN_KAKI.sub("", b[3:] if re.match(r"#[KFBMS]\s", b) else b))
+        if re.match(r"#[KFBMS]\s", b):
+            teks = URUTAN_JUDUL.sub("", teks)
         if n in wajib:
             kini = [n, CATATAN_KAKI.sub("", b[3:]).strip(), [], b[1]]
             hasil.append(kini)
         if kini is not None:
             kini[2].append(teks)
-    return [(n, j, " ".join(norma.norm(b) for b in isi)) for n, j, isi, _ in hasil]
+    return [(n, j, " ".join(isi)) for n, j, isi, _ in hasil]
 
 
 # Kutipan bertanda petik yang memenuhi isi satu bagian: «تختفي شخصية الكاتب بين الاقتباسات الطويلة» (أبو سليمان، كتابة

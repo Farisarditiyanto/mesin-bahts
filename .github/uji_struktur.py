@@ -135,6 +135,12 @@ def utama():
         out = cek("riset cari #B مبحث", dasar.replace("#F المبحث الأول: تعريف توحيد الربوبية", "#F فصل أول: التوحيد\nوفيه مبحث.\n"
                                                       "#B المبحث الأول: تعريف توحيد الربوبية"))
         assert "untuk 1 مبحث: «المبحث الأول: تعريف توحيد الربوبية»" in out, out
+        # kata urutan judul berharakat tidak menutup bagian; istilah sebelum «:» di judul tetap dihitung
+        berharakat = dasar.replace("#F المبحث الأول: تعريف توحيد الربوبية", "#F المَبْحَثُ الأَوَّلُ في تعريف الربوبية: لغة")
+        for isi, ada in (("cari المبحث\ncari الأول\n", True), ("cari الربوبية\n", False)):
+            riset.write_text("tafsir 1:2\n" + isi, encoding="utf8")
+            out = cek("riset cari judul berharakat " + isi.split()[1], berharakat)
+            assert ("cari belum tercatat" in out) == ada, out
         riset.write_bytes("tafsir 1:2".encode("utf-16"))
         cek("riset bukan UTF-8", dasar, pesan="riset.txt bukan UTF-8")
         cek("riset kitab bukan UTF-8 tetap dilaporkan", "@bentuk: kitab\n" + dasar, pesan="riset.txt bukan UTF-8")
