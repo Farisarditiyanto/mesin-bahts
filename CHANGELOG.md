@@ -8,6 +8,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 - Sampul dari `@templat` kini berkertas A4 seperti halaman isi walau Word mahasiswa memakai Letter; bidang teks dan letak gambar sampulnya tetap, jadi PDF tidak lagi bercampur dua ukuran kertas.
 - `rakit` memberi PERINGATAN kalau halaman-halaman PDF hasilnya tidak berukuran kertas sama.
+- Langkah riset baru di `riset.txt`: `cari <istilah> | <catatan>` mencatat istilah kunci tiap مبحث yang sudah dicari di connector `shamela`. Tiap #B (bahts tanpa فصل: tiap #F) yang belum punya baris `cari` berisi istilah yang tertulis di bagian itu jadi perhatian `cek` yang tidak bisa diterima; langkah yang tidak bisa dijalankan ditulis `belum cari <istilah> | <alasan>`. Bahts lama akan mendapat perhatian ini sampai barisnya ditambah.
 
 - Tanda baru `{M:nama}` untuk فهرس الفرق والمذاهب (sama dengan `{N:}` untuk فهرس الأعلام): tidak tercetak, dan `rakit` mencetak فهرس itu sesudah فهرس الأعلام; `@tanpa: firaq` membuangnya.
 - Tanda baru `{X}` di awal paragraf خلاصة: tidak tercetak, dan `rakit` kini membuat juga `<@berkas> - الخلاصات.pdf` yang hanya berisi halaman-halaman ber-khulasah, dengan paragraf khulasahnya distabilo kuning; `.docx` dan PDF utama tetap tanpa stabilo. `{X}` di tengah paragraf atau di catatan kaki = `GAGAL`.
