@@ -6,6 +6,8 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Kurung siku di dalam catatan kaki («[هكذا]», kata pembetul di kutipan) berpasangan dan tidak menutup catatan kakinya, jadi sisa catatan kaki tidak tercetak di matan; kurung siku yang tidak ditutup di dalam catatan kaki = `GAGAL`.
+
 - Sampul dari `@templat` kini berkertas A4 seperti halaman isi walau Word mahasiswa memakai Letter; bidang teks dan letak gambar sampulnya tetap, jadi PDF tidak lagi bercampur dua ukuran kertas.
 - `rakit` memberi PERINGATAN kalau halaman-halaman PDF hasilnya tidak berukuran kertas sama.
 - Langkah riset baru di `riset.txt`: `cari <istilah> | <catatan>` mencatat istilah kunci tiap مبحث yang sudah dicari di connector `shamela`. Tiap مبحث (bahts berفصل atau tanpa #F: tiap #B, ditambah #F tanpa #B seperti التمهيد; bahts tanpa فصل: tiap #F) yang belum punya baris `cari` berisi istilah yang tertulis di judul atau matannya jadi perhatian `cek` yang tidak bisa diterima; langkah yang tidak bisa dijalankan ditulis `belum cari <istilah> | <alasan>`. Bahts lama akan mendapat perhatian ini sampai barisnya ditambah.

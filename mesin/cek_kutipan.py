@@ -201,6 +201,10 @@ def _menyimpang(sid, juz, p1, p2, teks):
     return f"cocok {lo} dari {len(kata)} kata sampai «…{' '.join(kata[max(0, lo - 3):lo])}», lalu naskah «{kata[lo]}», kitab «{di_kitab}»"
 
 
+# awal pesan perhatian kurung siku di kutipan (bukan milik kitab): kata pembetul, dan tambahan penulis
+SISIPAN_PERHATIAN = ("kutipan bersisipan [ ] yang menggantikan teks kitab", "kutipan memuat tambahan penulis")
+
+
 def cek(sid, juz, hal, pot, perhatian, kutipan=False, rinci=True, pengantar="", sisipan=True):
     """Kembalikan '' kalau pot ada di kitab sid juz/hal, atau pesan kesalahan.
     kutipan=True: pot = kutipan bertanda petik di naskah. Ia harus mulai dan berakhir di batas kata kitab, boleh dipotong
@@ -216,11 +220,11 @@ def cek(sid, juz, hal, pot, perhatian, kutipan=False, rinci=True, pengantar="", 
         p_awal = len(perhatian)
         e = cek(sid, juz, hal, SISIPAN.sub(" … ", pot), perhatian, kutipan, rinci, pengantar, sisipan=False)
         # «[صوابه]» menggantikan kata kitab: yang dilompati harus dibaca, tetapi namanya sisipan, bukan potongan ...
-        ganti = "kutipan bersisipan [ ] yang menggantikan teks kitab"
+        ganti = SISIPAN_PERHATIAN[0]
         perhatian[p_awal:] = [p.replace("kutipan dipotong ... atau dipisah ayat", ganti, 1) for p in perhatian[p_awal:]]
         lain = [m.group() for m in SISIPAN.finditer(pot) if not HAKADHA.fullmatch(m.group())]
         if not e and lain and not any(p.startswith(ganti) for p in perhatian[p_awal:]):
-            perhatian.append(f"kutipan memuat tambahan penulis {'، '.join(lain)[:40]} yang tidak ada di kitab {sid} {juz}/{hal}: "
+            perhatian.append(f"{SISIPAN_PERHATIAN[1]} {'، '.join(lain)[:40]} yang tidak ada di kitab {sid} {juz}/{hal}: "
                              f"kurung siku di dalam kutipan hanya untuk membetulkan salah atau «[هكذا]» (أبو سليمان، كتابة "
                              f"البحث العلمي، ص112-113)؛ penjelasan pindahkan ke luar kutipan atau ke catatan kaki :: {pot[:40]}")
         return e

@@ -5,7 +5,7 @@ import itertools, os, re
 
 import norma
 from cek_ayat import ayat
-from dasar import ANGKA_LATIN, TAKHRIJ_AWAL, TINGKAT_JUDUL, TandaRusak
+from dasar import ANGKA_LATIN, TAKHRIJ_AWAL, TINGKAT_JUDUL, TandaRusak, tanpa_catatan
 from laporan import KODE, daftar_baris, kode
 from petik import kutipan_semua
 
@@ -203,8 +203,6 @@ def _pola_istilah(istilah):
     return re.compile(r"(?<![ء-ي])(?:[وفبكل]{0,2}ال|لل|[وفبكل]{0,2})" + r"\s+".join(map(re.escape, kata_)) + r"(?![ء-ي])")
 
 
-# catatan kaki sampai «]» pertama di luar bukti <<…>>, sama dengan Pengurai._baca_catatan
-CATATAN_KAKI = re.compile(r"\[\^(?:<<.*?>>|[^\]])*\]")
 # kata urutan di depan judul («المبحث الأول:», «فصل:»): bukan istilah bagian itu, dan ada di hampir tiap judul
 # dicocokkan ke teks `norma.norm` (harakat dibuang, أ→ا, ة→ه): kata tingkat lalu paling banyak dua kata urutan
 URUTAN_JUDUL = re.compile(r"^(?:ال)?(?:فصل|مبحث|مطلب|باب)(?:\s+(?:ال)?(?:اول|ثاني|ثان|ثالث|رابع|خامس|سادس|سابع|ثامن|تاسع|"
@@ -220,7 +218,7 @@ def _bagian_cari(baris):
     Di tingkat #B, #F tanpa #B di bawahnya (mis. التمهيد) ikut sebagai satu bagian. Isi bagian = sampai judul
     setingkat atau lebih tinggi (#K/#F/#R; bagian #B juga #B). Yang dicocokkan hanya judul (tanpa kata urutan
     «المبحث الأول:») dan matan: catatan kaki (nama kitab, pengarang, potongan bukti) bukan istilah bagian itu."""
-    judul = [(n, b[1], norma.norm(CATATAN_KAKI.sub("", b[3:]))) for n, b in baris if re.match(r"#[KFBR]\s", b)]
+    judul = [(n, b[1], norma.norm(tanpa_catatan(b[3:]))) for n, b in baris if re.match(r"#[KFBR]\s", b)]
     tingkat_b = (any(k == "F" and FASL.match(j) for _, k, j in judul) or any(k == "B" and MABHATS.match(j) for _, k, j in judul)
                  or not any(k == "F" for _, k, _ in judul))
     anak = {n for (n, k, _), (_, k2, _) in zip(judul, judul[1:] + [(0, "K", "")]) if k == "F" and k2 == "B"}
@@ -232,11 +230,11 @@ def _bagian_cari(baris):
         tutup = re.match(r"#[KF]\s", b) or (re.match(r"#B\s", b) and kini is not None and kini[3] == "B")
         if tutup:
             kini = None
-        teks = norma.norm(CATATAN_KAKI.sub("", b[3:] if re.match(r"#[KFBMS]\s", b) else b))
+        teks = norma.norm(tanpa_catatan(b[3:] if re.match(r"#[KFBMS]\s", b) else b))
         if re.match(r"#[KFBMS]\s", b):
             teks = URUTAN_JUDUL.sub("", teks)
         if n in wajib:
-            kini = [n, CATATAN_KAKI.sub("", b[3:]).strip(), [], b[1]]
+            kini = [n, tanpa_catatan(b[3:]).strip(), [], b[1]]
             hasil.append(kini)
         if kini is not None:
             kini[2].append(teks)

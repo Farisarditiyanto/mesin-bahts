@@ -9,12 +9,12 @@ import shamela
 import waqfeya
 from cek_ayat import ayat, ayat_ketik, penanda_ayat, rujukan_ayat
 from cek_hadits import hadits_janggal, hadits_lain, periksa_derajat, periksa_takhrij
-from cek_kutipan import cek, cek_pdf, cek_waqfeya
+from cek_kutipan import SISIPAN_PERHATIAN, cek, cek_pdf, cek_waqfeya
 from cek_naql import isyarat, panjang, salinan
 from cek_rujukan import cocok_halaman, judul_kitab, judul_shamela, kitab_lain, rujukan_halaman
 from cek_sumber import standar_sumber, urutan_sumber
 from cek_tautsiq import data_cetak, gelar, pemisah_sumber
-from dasar import ANGKA_LATIN, AYAT_DI_KUTIPAN, BUKAN_RUJUKAN, DIPOTONG, HURUF_LATIN, LUAR, SURAH, TandaRusak, TIDAK_KETEMU, WAQFEYA, WAQFEYA_BUKTI
+from dasar import ANGKA_LATIN, AYAT_DI_KUTIPAN, BUKAN_RUJUKAN, DIPOTONG, HURUF_LATIN, LUAR, SURAH, TandaRusak, TIDAK_KETEMU, WAQFEYA, WAQFEYA_BUKTI, akhir_catatan
 from kitab_lokal import rentang_halaman, salah_halaman, salah_juz
 from petik import (
     diantar_qaul, kurung_akhir, kutipan_akhir, kutipan_pendek_diantar, kutipan_semua, luar_petik, seragam)
@@ -304,16 +304,9 @@ class Pengurai:
         self._pasang_catatan(c)
 
     def _baca_catatan(self):
-        """Isi catatan kaki sampai penutup ]; isi bukti <<...>> dilewati (potongannya boleh memuat ])."""
+        """Isi catatan kaki sampai penutupnya (dasar.akhir_catatan)."""
         teks, i = self.teks, self.i
-        j = i
-        while j < len(teks) and teks[j] != "]":
-            if teks.startswith("[^", j):
-                raise TandaRusak("catatan kaki tidak boleh di dalam catatan kaki: tutup yang pertama dengan ] dulu")
-            tutup = teks.find(">>", j + 2) if teks.startswith("<<", j) else -1
-            j = tutup + 2 if tutup >= 0 else j + 1
-        if j >= len(teks):
-            raise TandaRusak("catatan kaki [^ tidak ditutup dengan ]")
+        j = akhir_catatan(teks, i)
         isi = teks[i:j]
         self.i = j + 1
         bukti = re.findall(r"<<([^>]*)>>", isi)
@@ -519,7 +512,10 @@ class Pengurai:
         isi = c.isi
         for k in c.kc if c.terbukti else ():
             kq = re.sub(r"\{Q:([^}]*)\}", lambda m: penanda_ayat(m.group(1)), k)  # {Q:} dicek seperti di matan
-            if all(cek(int(s), z, f"{a}-{b}", kq, [], kutipan=True, rinci=False) for s, z, a, b in c.terbukti):
+            hasil = [(cek(int(s), z, f"{a}-{b}", kq, p := [], kutipan=True, rinci=False), p) for s, z, a, b in c.terbukti]
+            # kurung siku di kutipan catatan kaki dinilai sama dengan di matan (cek_kutipan.cek, cabang SISIPAN)
+            self.perhatian.extend(dict.fromkeys(x for e, p in hasil if not e for x in p if x.startswith(SISIPAN_PERHATIAN)))
+            if all(e for e, _ in hasil):
                 # judul («"…"، مجلة …», «بعنوان "…"») atau sumber <<luar>>: cukup perhatian. GAGAL hanya untuk nukilan
                 # yang diantar «…:» («قال الشيخ: "…"»), bukan «انظر:»/«بعنوان:»
                 sebelum, _, ekor = seragam(isi).partition(k)
