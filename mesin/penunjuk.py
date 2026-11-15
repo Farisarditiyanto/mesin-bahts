@@ -128,7 +128,7 @@ def _tanpa_catatan(blok):
 
 def bukti(folder, dari=None, sampai=None):
     """`bukti`: untuk tiap catatan kaki berbukti <<sid|juz|hal…>> dan ayat {Q:} di baris dari..sampai (None = semua):
-    kalimat yang dibuktikan, isi catatan kakinya, lalu nama kitab, rantai judul, dan teks halaman kitab di sekitar letak
+    paragraf matan dan isi catatan kaki utuh, lalu nama kitab, rantai judul, dan teks halaman kitab di sekitar letak
     kutipan; juga tiap paragraf isi tanpa catatan kaki (_tanpa_catatan), di urutan barisnya. Naskahnya diurai
     `olah.periksa` (sama dengan `cek`), tetapi laporan dan putusannya tidak dicetak.
     Tiap baris keluaran diawali «baris n», supaya bisa disaring. Kembalikan jumlah yang dicetak."""
@@ -147,8 +147,9 @@ def bukti(folder, dari=None, sampai=None):
             continue
         ke[u["n"]] = ke.get(u["n"], 0) + 1
         kepala = f"baris {u['n']} #{ke[u['n']]}"
+        print(f"{kepala} matan: {''.join(r.get('t', '') for r in u['runs']).strip()}")
         print(f"{kepala} kutipan: " + (f"«{_ringkas(u['kutipan'])}»" if u["kutipan"] else "(tanpa kutipan bertanda petik)"))
-        print(f"{kepala} catatan: {_ringkas(u['catatan'], 300)}")
+        print(f"{kepala} catatan: {u['catatan']}")
         for b in u["bukti"]:
             if m := WAQFEYA_BUKTI.fullmatch(b):
                 print(f"{kepala} <<{b}>> {_penunjuk_waqfeya(*m.groups(), u['kutipan'])}")

@@ -77,7 +77,7 @@ class Pemeriksaan:
     # (sid, kutipan) yang GAGAL «teks TIDAK KETEMU di kitab»; dikembalikan `olah.utama` (untuk `cek --jejak`)
     tertolak: list = dataclasses.field(default_factory=list)
     # ayat {Q:} dan catatan kaki berbukti, urut naskah, dengan nomor barisnya (dibaca `bukti`):
-    #   {"n", "ayat": spec, "t": teks tercetak} atau {"n", "bukti": [sid|juz|hal…], "kutipan": teks yang dibuktikan, "catatan": isi}
+    #   {"n", "ayat": spec, "t": teks tercetak} atau {"n", "bukti": [sid|juz|hal…], "runs", "kutipan", "catatan"}
     penunjuk: list = dataclasses.field(default_factory=list)
     jangkar: set = dataclasses.field(default_factory=set)  # kunci {A:} naskah ini
     khulasah: int = 0  # jumlah paragraf {X} (خلاصة): rakit menstabilonya di «<berkas> - الخلاصات.pdf»
@@ -416,7 +416,9 @@ class Pengurai:
                 raise TandaRusak(f"<<{LUAR}|{'|'.join(f)}>>: bentuknya <<{LUAR}|berkas.pdf|hal>>, hal = urutan halaman di berkas")
         c.bukti = [b for b in c.bukti if b.split("|")[0] != LUAR and not WAQFEYA.match(b)]
         if c.bukti or c.wq:
-            self.ctx.penunjuk.append({"bukti": c.bukti + c.wq, "kutipan": c.penggal if c.diam else c.mk, "catatan": c.isi})
+            # Runs paragraf tetap diisi sampai akhir; batas c.dirujuk terputus oleh catatan penjelasan di tengah kutipan.
+            self.ctx.penunjuk.append({"bukti": c.bukti + c.wq, "runs": self.runs,
+                                      "kutipan": c.penggal if c.diam else c.mk, "catatan": c.isi})
 
     def _cek_bukti_shamela(self, c):
         """Tiap bukti <<sid|juz|hal(|potongan)>>: juz/halamannya ada, dan kutipan (atau potongannya) terbaca di sana."""
