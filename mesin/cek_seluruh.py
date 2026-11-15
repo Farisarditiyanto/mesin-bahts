@@ -10,7 +10,9 @@ from laporan import KODE, daftar_baris, kode
 from petik import kutipan_semua
 
 RISET = "riset.txt"
-RISET_LANGKAH = {"takhrij8": "kunci {H:}", "tafsir": "surat:ayat atau surat:ayat-ayat", "khilaf": "istilah"}
+RISET_LANGKAH = {"takhrij8": "kunci {H:}", "tafsir": "surat:ayat atau surat:ayat-ayat", "khilaf": "istilah",
+                 "cari": "istilah | catatan"}
+CARI_PISAH = "|"  # «cari <istilah> | <catatan>»: istilah boleh beberapa kata, jadi alasan «belum cari» dipisah tanda ini
 TERIMA = "terima"  # «terima <kode> <alasan>»: perhatian yang memang tidak bisa dibereskan, atau salah tangkap
 TERIMA_BENTUK = f"«{TERIMA} <kode 6 huruf dari `cek`> <alasan>»"
 TERIMA_KATA = 3  # alasan sependek «ok» atau «sudah dicek» tidak bisa dinilai pemeriksa
@@ -91,7 +93,7 @@ def _periksa_langkah(isi, baris, perhatian):
     `shamela_search_phrase` kategori 8 tiap {H:}, tafsir lewat connector tiap ayat {Q:}, `shamela_research_scope`
     tiap masalah khilaf. Agen mencatatnya di riset.txt; yang belum tercatat = perhatian, tidak pernah GAGAL:
     isi riset.txt ditulis agen sendiri, jadi mesin hanya bisa menunjuk yang belum dicatat, bukan membuktikan."""
-    tercatat = {"takhrij8": {}, "tafsir": set(), "khilaf": 0}
+    tercatat = {"takhrij8": {}, "tafsir": set(), "khilaf": 0, "cari": []}
     bentuk = (f"bentuknya «langkah objek» ({'، '.join(f'{k} <{v}>' for k, v in RISET_LANGKAH.items())}), "
               f"«belum langkah objek alasan» untuk langkah yang tidak bisa dijalankan, atau {TERIMA_BENTUK}")
     for n, b in enumerate(isi, 1):
@@ -103,6 +105,17 @@ def _periksa_langkah(isi, baris, perhatian):
             kata_ = kata_[1:]
         if not kata_ or kata_[0] not in RISET_LANGKAH or len(kata_) < 2:
             perhatian.append(f"{RISET} baris {n}: «{b.strip()[:50]}» tidak dikenal; {bentuk}")
+            continue
+        if kata_[0] == "cari":
+            istilah, pisah, catatan = " ".join(kata_[1:]).partition(CARI_PISAH)
+            if not norma.norm(istilah):
+                perhatian.append(f"{RISET} baris {n}: «{b.strip()[:50]}»: tulis istilah huruf Arab yang dicari sebelum "
+                                 f"«{CARI_PISAH}», mis. «cari طمأنينة القلب {CARI_PISAH} 212 halaman»")
+            elif belum and not catatan.strip():
+                perhatian.append(f"{RISET} baris {n}: «{b.strip()[:50]}»: tulis alasannya sesudah «{CARI_PISAH}», mis. "
+                                 f"«belum cari {istilah.strip()} {CARI_PISAH} kuota shamela habis»")
+            else:
+                tercatat["cari"].append(_pola_istilah(istilah))
             continue
         if belum and len(kata_) < 3:
             perhatian.append(f"{RISET} baris {n}: «{b.strip()[:50]}»: tulis alasannya sesudah objek, mis. "
@@ -126,7 +139,9 @@ def _periksa_langkah(isi, baris, perhatian):
         else:
             tercatat["khilaf"] += 1
     sudah_h, sudah_q, khilaf, bagian, bagian_khilaf, di_r = set(), set(), 0, None, set(), False
-    belum = {"takhrij8": [], "tafsir": [], "khilaf": []}  # langkah -> [(baris naskah, objek)] yang belum tercatat
+    belum = {"takhrij8": [], "tafsir": [], "khilaf": [],  # langkah -> [(baris naskah, objek)] yang belum tercatat
+             "cari": [(n, f"«{judul[:40]}»") for n, judul, isi in _bagian_cari(baris)
+                      if not any(pola.search(isi) for pola in tercatat["cari"])]}
     for n, b in baris:
         if b.startswith("#R"):
             di_r = True  # daftar المصادر: bukan isi bahts
@@ -165,7 +180,11 @@ def _periksa_langkah(isi, baris, perhatian):
                                "(tidak bisa: «belum tafsir <surat:ayat> <alasan>»)"),
             "khilaf": ("masalah khilaf («القول الأول»)",
                        f"{RISET} baru punya {tercatat['khilaf']} baris khilaf; jalankan `shamela_research_scope` sebelum "
-                       f"menulis pendapat tiap mazhab, lalu tambah baris «khilaf <istilah>» tiap masalah")}
+                       f"menulis pendapat tiap mazhab, lalu tambah baris «khilaf <istilah>» tiap masalah"),
+            "cari": ("مبحث", "cari istilah kuncinya di connector `shamela` (`shamela_search_phrase`, juga "
+                             "`scope.book_ids` mu'tamad) sebelum menulis, lalu tambah baris «cari <istilah> | <catatan>»; "
+                             "istilahnya harus tertulis di judul atau matan bagian itu, termasuk مطلب-nya, tanpa catatan kaki (tidak bisa: «belum cari <istilah> | "
+                             "<alasan>», lalu sebut di laporan akhir)")}
     for langkah, objek in sorted(((k, v) for k, v in belum.items() if v), key=lambda kv: kv[1][0][0]):  # urut naskah
         jenis, langkahnya = cara[langkah]
         perhatian.append(f"baris {daftar_baris(n for n, _ in objek)}: {langkah} belum tercatat di {RISET} untuk "
@@ -173,6 +192,55 @@ def _periksa_langkah(isi, baris, perhatian):
     for kunci, n in tercatat["takhrij8"].items():
         if kunci not in sudah_h:
             perhatian.append(f"{RISET} baris {n}: takhrij8 «{kunci}»: tidak ada {{H:…|{kunci}}} di naskah (salah ketik kunci?)")
+
+
+def _pola_istilah(istilah):
+    """Istilah «cari» sebagai kata utuh di teks `norma.norm`, boleh diawali و/ف/ب/ك/ل dan ال («توحيد الربوبية»
+    juga cocok dengan «وتوحيد الربوبية» dan «ربوبية», «الدم» dengan «للدم»). «الله» tetap «الله»: sisanya «له»."""
+    kata_ = norma.norm(istilah).split()
+    if kata_[0].startswith("ال") and len(kata_[0]) >= 4 and kata_[0] != "الله":
+        kata_[0] = kata_[0][2:]
+    return re.compile(r"(?<![ء-ي])(?:[وفبكل]{0,2}ال|لل|[وفبكل]{0,2})" + r"\s+".join(map(re.escape, kata_)) + r"(?![ء-ي])")
+
+
+# catatan kaki sampai «]» pertama di luar bukti <<…>>, sama dengan Pengurai._baca_catatan
+CATATAN_KAKI = re.compile(r"\[\^(?:<<.*?>>|[^\]])*\]")
+# kata urutan di depan judul («المبحث الأول:», «فصل:»): bukan istilah bagian itu, dan ada di hampir tiap judul
+# dicocokkan ke teks `norma.norm` (harakat dibuang, أ→ا, ة→ه): kata tingkat lalu paling banyak dua kata urutan
+URUTAN_JUDUL = re.compile(r"^(?:ال)?(?:فصل|مبحث|مطلب|باب)(?:\s+(?:ال)?(?:اول|ثاني|ثان|ثالث|رابع|خامس|سادس|سابع|ثامن|تاسع|"
+                          r"عاشر|حادي|عشر|تمهيدي|اخير|ختامي)){0,2}(?![ء-ي])")
+# judul #F/#B yang menyatakan tingkatnya; dicocokkan sesudah harakat dibuang (norma.norm)
+FASL = re.compile(r"^(?:ال)?فصل(?![ء-ي])")
+MABHATS = re.compile(r"^(?:ال)?مبحث(?![ء-ي])")
+
+
+def _bagian_cari(baris):
+    """[(baris judul, judul, teks `norm` yang dicocokkan)] tiap مبحث yang wajib dicari di connector. Tingkat مبحث = #B
+    kalau ada #F berjudul «(ال)فصل…», ada #B berjudul «(ال)مبحث…», atau tidak ada #F sama sekali; selain itu #F.
+    Di tingkat #B, #F tanpa #B di bawahnya (mis. التمهيد) ikut sebagai satu bagian. Isi bagian = sampai judul
+    setingkat atau lebih tinggi (#K/#F/#R; bagian #B juga #B). Yang dicocokkan hanya judul (tanpa kata urutan
+    «المبحث الأول:») dan matan: catatan kaki (nama kitab, pengarang, potongan bukti) bukan istilah bagian itu."""
+    judul = [(n, b[1], norma.norm(CATATAN_KAKI.sub("", b[3:]))) for n, b in baris if re.match(r"#[KFBR]\s", b)]
+    tingkat_b = (any(k == "F" and FASL.match(j) for _, k, j in judul) or any(k == "B" and MABHATS.match(j) for _, k, j in judul)
+                 or not any(k == "F" for _, k, _ in judul))
+    anak = {n for (n, k, _), (_, k2, _) in zip(judul, judul[1:] + [(0, "K", "")]) if k == "F" and k2 == "B"}
+    wajib = {n for n, k, _ in judul if (k == "B" and tingkat_b) or (k == "F" and (not tingkat_b or n not in anak))}
+    hasil, kini = [], None
+    for n, b in baris:
+        if b.startswith("#R"):
+            break
+        tutup = re.match(r"#[KF]\s", b) or (re.match(r"#B\s", b) and kini is not None and kini[3] == "B")
+        if tutup:
+            kini = None
+        teks = norma.norm(CATATAN_KAKI.sub("", b[3:] if re.match(r"#[KFBMS]\s", b) else b))
+        if re.match(r"#[KFBMS]\s", b):
+            teks = URUTAN_JUDUL.sub("", teks)
+        if n in wajib:
+            kini = [n, CATATAN_KAKI.sub("", b[3:]).strip(), [], b[1]]
+            hasil.append(kini)
+        if kini is not None:
+            kini[2].append(teks)
+    return [(n, j, " ".join(isi)) for n, j, isi, _ in hasil]
 
 
 # Kutipan bertanda petik yang memenuhi isi satu bagian: «تختفي شخصية الكاتب بين الاقتباسات الطويلة» (أبو سليمان، كتابة

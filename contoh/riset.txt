@@ -1,4 +1,6 @@
 # Jejak langkah riset yang tidak meninggalkan bukti di kitab lokal (dibaca `cek`, lihat `python mesin/bahts.py tanda`).
-# Satu baris satu langkah: takhrij8 <kunci {H:}>, tafsir <surat:ayat>, khilaf <istilah>.
-# Langkah yang tidak bisa dijalankan: «belum <langkah> <objek> <alasan>», lalu sebut di laporan akhir.
+# Satu baris satu langkah: takhrij8 <kunci {H:}>, tafsir <surat:ayat>, khilaf <istilah>,
+# cari <istilah> | <catatan> (istilah kunci tiap مبحث di connector shamela; istilahnya tertulis di judul atau matan bagian itu).
+# Langkah yang tidak bisa dijalankan: «belum <langkah> <objek> <alasan>» («belum cari <istilah> | <alasan>»), lalu sebut di laporan akhir.
 tafsir 1:2 تيسير الكريم الرحمن للسعدي lewat connector tafsir
+cari توحيد الربوبية | shamela_search_phrase tanpa scope: 3052 halaman, di antaranya قانون التأويل ص376-380

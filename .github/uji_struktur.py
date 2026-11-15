@@ -96,11 +96,20 @@ def utama():
         riset = f / "riset.txt"
         for nama, isi, pesan in (
                 ("tanpa riset.txt", None, "tafsir belum tercatat di riset.txt untuk 1 ayat: 1:2 →"),
-                ("riset tercatat", "﻿tafsir 1:2\r\n# catatan\r\n", "): 0\ncatatan kaki tanpa bukti"),
-                ("riset rentang", "tafsir 1:1-7\n", "): 0\ncatatan kaki tanpa bukti"),
+                ("riset tercatat", "﻿tafsir 1:2\r\n# catatan\r\ncari الربوبية\r\n", "): 0\ncatatan kaki tanpa bukti"),
+                ("riset rentang", "tafsir 1:1-7\ncari توحيد الربوبية | 3052 halaman\n", "): 0\ncatatan kaki tanpa bukti"),
                 ("riset langkah asing", "ngaco 1:2\ntafsir 1:2\n", "riset.txt baris 1: «ngaco 1:2» tidak dikenal"),
                 ("riset belum tanpa alasan", "belum tafsir 1:2\n", "tulis alasannya sesudah objek"),
-                ("riset belum beralasan", "belum tafsir 1:2 connector mati\n", "): 0\ncatatan kaki tanpa bukti"),
+                ("riset belum beralasan", "belum tafsir 1:2 connector mati\nbelum cari توحيد الربوبية | kuota habis\n",
+                 "): 0\ncatatan kaki tanpa bukti"),
+                ("riset cari belum tanpa alasan", "tafsir 1:2\nbelum cari توحيد الربوبية\n", "tulis alasannya sesudah «|»"),
+                ("riset cari tanpa istilah Arab", "tafsir 1:2\ncari | catatan\n", "tulis istilah huruf Arab yang dicari"),
+                # istilah yang tidak tertulis di bagian itu tidak menutupnya, juga yang hanya ada di catatan kaki
+                # (judul kitab rujukan) atau di kata urutan judul («المبحث الأول:»)
+                ("riset cari istilah lain", "tafsir 1:2\ncari الاستصحاب\n",
+                 "cari belum tercatat di riset.txt untuk 1 مبحث: «المبحث الأول: تعريف توحيد الربوبية»"),
+                ("riset cari istilah catatan kaki", "tafsir 1:2\ncari القضاء\ncari المبحث\n",
+                 "cari belum tercatat di riset.txt untuk 1 مبحث: «المبحث الأول: تعريف توحيد الربوبية»"),
                 ("riset ayat tidak ada", "tafsir 1:8\n", "tafsir «1:8»: surat/ayat itu tidak ada"),
                 ("riset rentang terbalik", "tafsir 1:5-2\n", "tafsir «1:5-2»: rentang ayat harus dari kecil ke besar"),
                 ("riset rentang raksasa", "tafsir 2:1-999999999999\n", "surat/ayat itu tidak ada"),
@@ -110,12 +119,34 @@ def utama():
             else:
                 riset.write_text(isi, encoding="utf8", newline="")
             cek(nama, dasar, pesan=pesan)
+        # bahts berفصل: tiap #B wajib, #F berisi #B tidak, #F tanpa #B (التمهيد) wajib
+        riset.write_text("tafsir 1:2\ncari الربوبية\n", encoding="utf8")
+        out = cek("riset cari berفصل", dasar.replace("#F المبحث الأول: تعريف توحيد الربوبية", "#F التمهيد\nنص التمهيد.\n"
+                                                     "#F الفصل الأول: التوحيد\nوفيه مبحث.\n#B المبحث الأول: تعريف توحيد الربوبية"))
+        assert "cari belum tercatat di riset.txt untuk 1 مبحث: «التمهيد»" in out, out
+        out = cek("riset cari berفصل tercatat", dasar.replace("#F المبحث الأول: تعريف توحيد الربوبية", "#F الفصل الأول: التوحيد\n"
+                                                              "وفيه مبحث.\n#B المبحث الأول: تعريف توحيد الربوبية"))
+        assert "cari belum tercatat" not in out, out
+        # bahts tanpa فصل: isi مطلب (#B) termasuk مبحث (#F) induknya; «#B المبحث» = tingkat مبحث walau #F bukan «الفصل»
+        riset.write_text("tafsir 1:2\ncari الاستصحاب\n", encoding="utf8")
+        out = cek("riset cari isi مطلب", dasar.replace("#K الخاتمة", "#B المطلب الأول: حجيته\nويظهر للباحث أن الاستصحاب حجة.\n"
+                                                       "#K الخاتمة"))
+        assert "cari belum tercatat" not in out, out
+        out = cek("riset cari #B مبحث", dasar.replace("#F المبحث الأول: تعريف توحيد الربوبية", "#F فصل أول: التوحيد\nوفيه مبحث.\n"
+                                                      "#B المبحث الأول: تعريف توحيد الربوبية"))
+        assert "untuk 1 مبحث: «المبحث الأول: تعريف توحيد الربوبية»" in out, out
+        # kata urutan judul berharakat tidak menutup bagian; istilah sebelum «:» di judul tetap dihitung
+        berharakat = dasar.replace("#F المبحث الأول: تعريف توحيد الربوبية", "#F المَبْحَثُ الأَوَّلُ في تعريف الربوبية: لغة")
+        for isi, ada in (("cari المبحث\ncari الأول\n", True), ("cari الربوبية\n", False)):
+            riset.write_text("tafsir 1:2\n" + isi, encoding="utf8")
+            out = cek("riset cari judul berharakat " + isi.split()[1], berharakat)
+            assert ("cari belum tercatat" in out) == ada, out
         riset.write_bytes("tafsir 1:2".encode("utf-16"))
         cek("riset bukan UTF-8", dasar, pesan="riset.txt bukan UTF-8")
         cek("riset kitab bukan UTF-8 tetap dilaporkan", "@bentuk: kitab\n" + dasar, pesan="riset.txt bukan UTF-8")
         riset.write_text("tafsir 1:" + "9" * 5000 + "\n", encoding="utf8")
         cek("riset angka melampaui batas konversi", dasar, pesan="surat/ayat itu tidak ada")
-        riset.write_text("tafsir 1:2\n", encoding="utf8")
+        riset.write_text("tafsir 1:2\ncari الربوبية\n", encoding="utf8")
         out = cek("riset melewati rentang ayat yang ditolak", dasar.replace("{Q:1:2}", "{Q:1:1-10000}"),
                   True, "surat/ayat itu tidak ada")
         assert "belum tercatat" not in out, out
@@ -362,7 +393,7 @@ def utama():
         # `tahap`: keadaan dibaca ulang dari barang aslinya. Yang diam-diam menyesatkan: PDF lama dilaporkan TERKINI sesudah
         # naskah diubah, folder .rakit-* tanpa penanda disuruh/dibiarkan dibuang, atau rakit yang jalan tidak terlihat.
         ikhlas = akar / "bahts" / "ahmad" / "ikhlas"
-        (ikhlas / "riset.txt").write_text("tafsir 1:2\n", encoding="utf8")
+        (ikhlas / "riset.txt").write_text("tafsir 1:2\ncari الربوبية\n", encoding="utf8")
 
         def tahap():
             r = bahts("tahap", "bahts/ahmad/ikhlas")
@@ -401,7 +432,7 @@ def utama():
         out = tahap()
         assert "NASKAH=PERHATIAN" in out and "HASIL=USANG" in out and "lalu rakit" in out, out
         assert out.rstrip().endswith('cek "bahts/ahmad/ikhlas"'), out
-        (ikhlas / "riset.txt").write_text("tafsir 1:2\n", encoding="utf8")
+        (ikhlas / "riset.txt").write_text("tafsir 1:2\ncari الربوبية\n", encoding="utf8")
         (ikhlas / "naskah.txt").write_text("@fromat: imam\n" + dasar, encoding="utf8")
         out = tahap()
         assert "NASKAH=GAGAL" in out and 'cek "bahts/ahmad/ikhlas"' in out and "HASIL=USANG" in out, out
@@ -455,12 +486,12 @@ def utama():
         def kode_(out):
             return re.findall(r"^  ! ([0-9a-f]{6}) ", out, re.M)
 
-        k = kode_(naskah_(sisip(luar), "tafsir 1:2\n"))
+        k = kode_(naskah_(sisip(luar), "tafsir 1:2\ncari الربوبية\n"))
         assert len(k) == 1, k
         out = tahap()
         assert "NASKAH=PERHATIAN" in out and "HASIL=TERKINI" in out and "lalu rakit" not in out, out
         assert out.rstrip().endswith('cek "bahts/ahmad/ikhlas"') and "bukti" not in out, out
-        terima = f"tafsir 1:2\nterima {k[0]} lafaz dan halamannya dicocokkan sendiri ke penelitiannya\n"
+        terima = f"tafsir 1:2\ncari الربوبية\nterima {k[0]} lafaz dan halamannya dicocokkan sendiri ke penelitiannya\n"
         (ikhlas / "riset.txt").write_text(terima, encoding="utf8")
         out = tahap()
         assert "NASKAH=LOLOS" in out and "diterima 1" in out and "HASIL=TERKINI" in out, out
@@ -475,9 +506,12 @@ def utama():
             out = naskah_(teks, terima)
             assert len(kode_(out)) == 2 and "kode itu tidak muncul lagi" in out, (nama, out)
         # perhatian riset.txt tidak bisa diterima: langkahnya dijalankan, atau «belum <langkah> <objek> <alasan>»
-        k_riset = kode_(naskah_(dasar, ""))
+        k_riset = kode_(naskah_(dasar, "cari الربوبية\n"))
         assert len(k_riset) == 1, k_riset
-        out = naskah_(dasar, f"terima {k_riset[0]} connector tafsir sedang mati\n")
+        k_cari = kode_(naskah_(dasar, "tafsir 1:2\n"))
+        out = naskah_(dasar, f"tafsir 1:2\nterima {k_cari[0]} connector shamela sedang mati\n")
+        assert "perhatian riset.txt tidak bisa diterima" in out and len(kode_(out)) == 2, out
+        out = naskah_(dasar, f"cari الربوبية\nterima {k_riset[0]} connector tafsir sedang mati\n")
         assert "perhatian riset.txt tidak bisa diterima" in out and len(kode_(out)) == 2, out
         # «terima» yang rusak = perhatian, tidak menerima apa pun
         for isi, pesan in ((f"terima {k[0]}\n", "tulis «terima <kode"), (f"terima {k[0]} ok\n", "paling sedikit 3 kata"),
@@ -485,13 +519,13 @@ def utama():
                            (f"terima {k[0]} alasan yang cukup panjang\nterima {k[0]} alasan kedua yang panjang\n",
                             "satukan alasannya"),
                            ("terima 000000 alasan basi yang panjang\n", "kode itu tidak muncul lagi")):
-            out = naskah_(sisip(luar), "tafsir 1:2\n" + isi)
+            out = naskah_(sisip(luar), "tafsir 1:2\ncari الربوبية\n" + isi)
             assert pesan in out and not re.search(r"^perhatian \(lolos.*: 0$", out, re.M), (isi, out)
         (ikhlas / "naskah.txt").write_text(dasar, encoding="utf8")
         hasil.append("terima: beralasan tidak menahan; kode tetap saat baris bergeser, baru saat isi/baris kembar "
                      "berubah; perhatian riset, alasan pendek, kode rusak/kembar/basi = perhatian")
         # laporan versi lama tanpa NASKAH_SHA256: tidak diketahui, bukan «naskah diubah»
-        (ikhlas / "riset.txt").write_text("tafsir 1:2\n", encoding="utf8")
+        (ikhlas / "riset.txt").write_text("tafsir 1:2\ncari الربوبية\n", encoding="utf8")
         (ikhlas / "laporan.txt").write_text("HALAMAN=1\n", encoding="utf8")
         out = tahap()
         assert "HASIL=TIDAK_DIKETAHUI" in out and "naskah diubah" not in out.split("HASIL fasl")[0], out

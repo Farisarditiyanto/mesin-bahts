@@ -1,4 +1,5 @@
 # Jejak langkah riset yang tidak meninggalkan bukti di kitab lokal (dibaca `cek`, lihat `python mesin/bahts.py tanda`).
-# Satu baris satu langkah, ditulis begitu langkahnya dijalankan: takhrij8 <kunci {H:}>, tafsir <surat:ayat>, khilaf <istilah>.
-# Langkah yang tidak bisa dijalankan: «belum <langkah> <objek> <alasan>», lalu sebut di laporan akhir.
+# Satu baris satu langkah, ditulis begitu langkahnya dijalankan: takhrij8 <kunci {H:}>, tafsir <surat:ayat>, khilaf <istilah>,
+# cari <istilah> | <catatan> (istilah kunci tiap مبحث di connector shamela; istilahnya tertulis di judul atau matan bagian itu).
+# Langkah yang tidak bisa dijalankan: «belum <langkah> <objek> <alasan>» («belum cari <istilah> | <alasan>»), lalu sebut di laporan akhir.
 # Perhatian `cek` yang memang tidak bisa dibereskan atau salah tangkap: «terima <kode dari `cek`> <alasan yang bisa diperiksa>».

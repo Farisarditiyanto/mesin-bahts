@@ -21,7 +21,7 @@ def utama():
         f = akar / "uji"
         f.mkdir()
         dasar = (AKAR / "contoh" / "naskah.txt").read_text(encoding="utf8")
-        (f / "riset.txt").write_text("tafsir 1:2\n", encoding="utf8")
+        (f / "riset.txt").write_text("tafsir 1:2\ncari الربوبية\n", encoding="utf8")
 
         def jalan(cmd="cek", teks=dasar):
             (f / "naskah.txt").write_text(teks, encoding="utf8")
