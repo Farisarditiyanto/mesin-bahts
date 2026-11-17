@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""README.en.md dan README.ar.md = terjemahan README.md: judul `##`/`###` sama susunannya, tautan relatifnya sama,
+"""README.id.md dan README.ar.md = terjemahan README.md (Inggris): judul `##`/`###` sama susunannya, tautan relatifnya sama,
 baris pilihan bahasa di kepala tiap berkas menaut dua yang lain, dan tiap tautan jangkar `(#…)` menunjuk judul yang ada.
 Penjaga supaya terjemahan tidak tertinggal saat README.md diubah. Pakai: python .github/uji_readme.py [akar]"""
 import re
@@ -9,7 +9,7 @@ from pathlib import Path
 
 AKAR = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parent.parent
 ASAL = "README.md"
-TERJEMAHAN = ("README.en.md", "README.ar.md")
+TERJEMAHAN = ("README.id.md", "README.ar.md")
 SEMUA = (ASAL, *TERJEMAHAN)
 TAUTAN = re.compile(r"\]\((?!https?:|#)([^)\s]+)\)|src=\"(?!https?:)([^\"]+)\"")
 KEPALA = 5  # baris pilihan bahasa ada di sini; tautan antar-README di bagian bawah tidak dihitung

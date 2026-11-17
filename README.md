@@ -1,38 +1,40 @@
 # Mesin Bahts
 
-**Bahasa:** Indonesia · [English](README.en.md) · [العربية](README.ar.md)
+**Language:** English · [Indonesia](README.id.md) · [العربية](README.ar.md)
 
-**Mesin Bahts adalah perkakas bagi coding agent (Claude Code, Codex, OpenCode, dan sejenisnya) untuk menulis بحث, makalah syar'i berbahasa Arab: tiap kutipan dicocokkan ke halaman kitab Shamela (المكتبة الشاملة) yang dirujuk, lalu naskahnya dirakit jadi Word dan PDF.**
+**Mesin Bahts ("bahth engine") is a toolkit for coding agents (Claude Code, Codex, OpenCode and similar) to write a بحث, an Arabic-language Islamic studies research paper: every quotation is checked against the cited page of the Shamela library (المكتبة الشاملة) book, then the manuscript is built into Word and PDF.**
 
-<img src="dok/banner.jpg" width="100%" alt="Mahasiswi berjilbab di perpustakaan, kitab-kitab beterbangan di sekitarnya">
+<img src="dok/banner.jpg" width="100%" alt="A student in a hijab in a library with books flying around her">
 
-[![tes](https://github.com/Farisarditiyanto/mesin-bahts/actions/workflows/tes.yml/badge.svg)](https://github.com/Farisarditiyanto/mesin-bahts/actions/workflows/tes.yml)
-[![rilis](https://img.shields.io/github/v/release/Farisarditiyanto/mesin-bahts?label=rilis)](https://github.com/Farisarditiyanto/mesin-bahts/releases)
-[![lisensi](https://img.shields.io/badge/lisensi-AGPLv3%2B-blue)](LICENSE)
+[![tests](https://github.com/Farisarditiyanto/mesin-bahts/actions/workflows/tes.yml/badge.svg)](https://github.com/Farisarditiyanto/mesin-bahts/actions/workflows/tes.yml)
+[![release](https://img.shields.io/github/v/release/Farisarditiyanto/mesin-bahts?label=release)](https://github.com/Farisarditiyanto/mesin-bahts/releases)
+[![license](https://img.shields.io/badge/license-AGPLv3%2B-blue)](LICENSE)
 
-Agent menulis bahts di `naskah.txt`, satu folder per bahts. `cek` menolak kutipan yang tidak ada di halaman kitab yang dirujuk, lalu `rakit` menjadikan naskah itu Word dan PDF.
+The agent writes the bahts (paper) in `naskah.txt`, one folder per paper. `cek` rejects any quotation that is not on the cited book page, then `rakit` turns the manuscript into Word and PDF.
 
-README ini peta untuk agent. Pemakai cukup menempel tautan repo ini ke [coding agent](#agent-dan-connector), lalu menjawab pertanyaannya.
+This README is a map for agents. The user only pastes this repository's link into a [coding agent](#agents-and-connectors), then answers its questions.
 
 | | |
 |---|---|
-| Untuk | coding agent yang bisa menjalankan perintah; pemakainya mahasiswa penulis bahts |
-| Aturan kerja | [`AGENTS.md`](AGENTS.md) |
-| Pintu perintah | `python mesin/bahts.py <perintah>` |
-| Alur | `baru` → cari bahan → `ambil` → tulis `naskah.txt` → `cek` → `rakit` → pemeriksa → `cek` dan `rakit` ulang |
-| Connector MCP | `shamela` (wajib), `turath`, `hadithunlocked`, `tafsir`, `quran` |
-| Kebutuhan | disebut `python mesin/bahts.py periksa`; `rakit` butuh Windows + Microsoft Word |
-| Versi | [rilis](https://github.com/Farisarditiyanto/mesin-bahts/releases), [`CHANGELOG.md`](CHANGELOG.md) |
-| Lisensi | AGPLv3 atau sesudahnya ([`LICENSE`](LICENSE)) |
+| For | coding agents that can run commands; the end user is a student writing a bahts |
+| Working rules | [`AGENTS.md`](AGENTS.md) (in Indonesian) |
+| Command entry point | `python mesin/bahts.py <perintah>` |
+| Flow | `baru` → gather sources → `ambil` → write `naskah.txt` → `cek` → `rakit` → reviewer → `cek` and `rakit` again |
+| MCP connectors | `shamela` (required), `turath`, `hadithunlocked`, `tafsir`, `quran` |
+| Requirements | listed by `python mesin/bahts.py periksa`; `rakit` needs Windows + Microsoft Word |
+| Version | [releases](https://github.com/Farisarditiyanto/mesin-bahts/releases), [`CHANGELOG.md`](CHANGELOG.md) |
+| License | AGPLv3 or later ([`LICENSE`](LICENSE)) |
 
-## Mulai
+Commands, markers and program output are in Indonesian and are quoted here as they are typed or printed. Words used below: bahts = بحث (research paper), naskah = manuscript, kitab = book, `GAGAL` = failed, perhatian = warning, `BELUM` = not yet, `BERIKUTNYA` = next step.
 
-1. Baca [`AGENTS.md`](AGENTS.md) seluruhnya. Itu aturan kerjanya. Mulai dari «Pemakai baru».
-2. Jalankan `python mesin/bahts.py periksa` (Linux/macOS: `python3`). Bereskan tiap baris `BELUM` dengan perintah yang disebutnya.
-3. Pastikan connector `shamela` tersambung: ada alat `shamela_search_phrase`. Cara mendaftarkan dan masuk per agent: `AGENTS.md` «Pemakai baru» langkah 4.
-4. Sesi lanjutan, atau tidak tahu bahts sampai mana: `python mesin/bahts.py tahap <folder>`. Ikuti baris `BERIKUTNYA`.
+## Getting started
 
-Repo belum ada di komputer: jalankan blok ini dari folder Dokumen pemakai, sebelum langkah 2. Folder tujuan dan cara tanpa `git`: `AGENTS.md` «Pemakai baru» langkah 1.
+1. Read all of [`AGENTS.md`](AGENTS.md). Those are the working rules. Start from the section «Pemakai baru» (new user).
+2. Run `python mesin/bahts.py periksa` (Linux/macOS: `python3`). Fix each `BELUM` line with the command it names.
+3. Make sure the `shamela` connector is connected: the tool `shamela_search_phrase` exists. How to register it and sign in, per agent: `AGENTS.md` «Pemakai baru» step 4.
+4. Later session, or you do not know how far a bahts has got: `python mesin/bahts.py tahap <folder>`. Follow the `BERIKUTNYA` line.
+
+The repository is not on the computer yet: run this block from the user's Documents folder, before step 2. Target folder and the way without `git`: `AGENTS.md` «Pemakai baru» step 1.
 
 ```bash
 git clone https://github.com/Farisarditiyanto/mesin-bahts
@@ -40,111 +42,111 @@ cd mesin-bahts
 python mesin/bahts.py periksa
 ```
 
-Kebutuhan komputer dan cara membereskannya ada di satu tempat: `python mesin/bahts.py periksa`. `rakit` butuh Windows + Microsoft Word desktop; Linux/macOS bisa menulis dan `cek`, tanpa Word dan PDF. Bahan butuh connector `shamela` (akun shamela.link); الدراسات السابقة butuh kunci OpenAlex (`AGENTS.md` «Pemakai baru» langkah 6).
+Computer requirements and how to fix them are in one place: `python mesin/bahts.py periksa`. `rakit` needs Windows + desktop Microsoft Word; Linux/macOS can write and run `cek`, without Word and PDF. Gathering sources needs the `shamela` connector (a shamela.link account); الدراسات السابقة (previous studies) needs an OpenAlex key (`AGENTS.md` «Pemakai baru» step 6).
 
-### Agent dan connector
+### Agents and connectors
 
-| Agent | Membaca daftar connector dari |
+| Agent | Reads the connector list from |
 |---|---|
-| [Claude Code](https://claude.com/claude-code) (juga tab Code aplikasi Claude) | `.mcp.json`, plus menu Connectors aplikasi Claude |
-| [OpenCode](https://opencode.ai) (gratis) | `opencode.json` |
-| [Command Code](https://commandcode.ai) | `.mcp.json`, plus entri `shamela` lokal yang membawa `clientId` |
-| Codex (CLI dan aplikasinya) | didaftarkan agent |
-| [Hermes Agent](https://hermes-agent.nousresearch.com) (gratis) | didaftarkan agent |
+| [Claude Code](https://claude.com/claude-code) (also the Code tab of the Claude app) | `.mcp.json`, plus the Connectors menu of the Claude app |
+| [OpenCode](https://opencode.ai) (free) | `opencode.json` |
+| [Command Code](https://commandcode.ai) | `.mcp.json`, plus a local `shamela` entry that carries the `clientId` |
+| Codex (CLI and app) | registered by the agent |
+| [Hermes Agent](https://hermes-agent.nousresearch.com) (free) | registered by the agent |
 
-- Perintah mendaftarkan dan masuk `shamela` per agent: `AGENTS.md` «Pemakai baru» langkah 4 (satu-satunya tempat).
-- Model gratis lebih sering salah langkah, jadi pemeriksa langkah 5 makin penting.
-- Connector: `shamela` wajib; `turath`, `hadithunlocked`, `tafsir`, `quran` tanpa akun. Gunanya dan urutan cadangannya: `AGENTS.md` langkah 4-5 dan Alur kerja langkah 2. Angka uji tiap connector, termasuk MCP resmi shamela.ws yang sengaja tidak dipasang: [`dok/uji-riset.md`](dok/uji-riset.md).
-- Semua connector hanya penunjuk jalan: kitabnya tetap di-`ambil`, kutipannya tetap harus lolos `cek`.
+- Commands to register `shamela` and sign in, per agent: `AGENTS.md` «Pemakai baru» step 4 (the only place).
+- Free models take wrong steps more often, so the step 5 reviewer matters even more.
+- Connectors: `shamela` is required; `turath`, `hadithunlocked`, `tafsir`, `quran` need no account. What each is for and the fallback order: `AGENTS.md` steps 4-5 and «Alur kerja» (workflow) step 2. Test figures for each connector, including the official shamela.ws MCP that is deliberately not installed: [`dok/uji-riset.md`](dok/uji-riset.md).
+- Every connector is only a signpost: the book is still downloaded with `ambil`, and the quotation must still pass `cek`.
 
-### Sampaikan ke pemakai
+### Tell the user
 
-- Nama di sampul nama pemakai: isinya tanggung jawabnya. Ia perlu bertanya ke dosen apakah bantuan AI dibolehkan.
-- `cek` tidak menggantikan membaca: minta pemakai memeriksa sendiri kutipan utamanya.
-- Sebagian model gratis memakai isi obrolan untuk melatih modelnya.
-- Proyek ini tidak mewakili kampus mana pun.
+- The name on the cover is the user's name: the content is their responsibility. They need to ask their lecturer whether AI assistance is allowed.
+- `cek` does not replace reading: ask the user to check their main quotations themselves.
+- Some free models use the conversation to train their models.
+- This project does not represent any campus.
 
-### Batasan
+### Limits
 
-- Bukan untuk mode obrolan biasa (Claude chat, ChatGPT): agent harus bisa menjalankan perintah di komputer pemakai.
-- Bukan penjamin isi: `cek` hanya membuktikan teksnya ada di juz/halaman itu. Pembicara, konteks bab, dan mutu sumber dinilai pemeriksa langkah 5 (`AGENTS.md` «Alur kerja»).
-- Bukan untuk makalah berbahasa selain Arab: bentuk halaman, rujukan, dan الفهارس mengikuti pedoman bahts berbahasa Arab ([Standar halaman](#standar-halaman)).
-- Bukan pengolah kata: isi diubah lewat `naskah.txt`, bukan lewat `.docx`.
-- Tanpa Windows + Microsoft Word tidak ada Word dan PDF, dan pengganti Word tidak dipakai.
+- Not for plain chat mode (Claude chat, ChatGPT): the agent must be able to run commands on the user's computer.
+- Not a guarantee of content: `cek` only proves that the text is on that volume/page. The speaker, the chapter context and the quality of the source are judged by the step 5 reviewer (`AGENTS.md` «Alur kerja»).
+- Not for papers in a language other than Arabic: page layout, references and الفهارس follow the guidelines for Arabic-language bahts ([Page standard](#page-standard)).
+- Not a word processor: content is changed through `naskah.txt`, not through the `.docx`.
+- Without Windows + Microsoft Word there is no Word or PDF output, and no Word substitute is used.
 
-## Cara kerja
+## How it works
 
-| Langkah | Perintah | Hasil |
+| Step | Command | Result |
 |---|---|---|
-| Buat folder | `baru <folder> "<judul>"` | `naskah.txt` (kerangka), `riset.txt` |
-| Cari bahan | connector `shamela_*`, `temukan`, `katalog`, `hadits`, `dirasat`; tanpa internet: `tafsir <surat:ayat>`, `takhrij <id> <juz> <hal>`, `rawi <id> <juz> <hal>`, `akar <id> "<akar>"`; kitab yang tidak ada di Shamela: `waqfeya "<judul>"` | nomor kitab + juz/halaman (penunjuk) |
-| Unduh kitab | `ambil <id>` atau `ambil <folder>`; Waqfeya: `ambil w<nomor>` | `kitab/<id>/`, `kitab/waqfeya/w<nomor>/` |
-| Data cetak | `kartu <id>` | rujukan pertama dan المصادر |
-| Baca teks | `cari`, `teks`, `bab`, `halaman` | teks lokal untuk disalin persis |
-| Periksa | `cek <folder>` (`--jejak` untuk kutipan yang tidak ketemu) | `GAGAL: n`, perhatian, `NASKAH_SHA256` |
-| Pemeriksa | `bukti <folder> [awal-akhir]` | teks halaman di sekitar tiap catatan kaki, dan paragraf isi tanpa catatan kaki |
-| Rakit | `rakit <folder> [--fasl n]` (Windows + Word) | `.docx` + `.pdf` (sampul, catatan kaki, المصادر والمراجع, الفهارس), `HALAMAN_ISI`, `HALAMAN` |
+| Create the folder | `baru <folder> "<judul>"` | `naskah.txt` (outline), `riset.txt` |
+| Find sources | connector `shamela_*`, `temukan`, `katalog`, `hadits`, `dirasat`; without internet: `tafsir <surat:ayat>`, `takhrij <id> <juz> <hal>`, `rawi <id> <juz> <hal>`, `akar <id> "<akar>"`; books not in Shamela: `waqfeya "<judul>"` | book number + volume/page (a pointer) |
+| Download a book | `ambil <id>` or `ambil <folder>`; Waqfeya: `ambil w<nomor>` | `kitab/<id>/`, `kitab/waqfeya/w<nomor>/` |
+| Publication data | `kartu <id>` | first reference and المصادر |
+| Read the text | `cari`, `teks`, `bab`, `halaman` | local text to copy exactly |
+| Check | `cek <folder>` (`--jejak` for quotations that are not found) | `GAGAL: n`, perhatian, `NASKAH_SHA256` |
+| Reviewer | `bukti <folder> [awal-akhir]` | the page text around each footnote, and body paragraphs without a footnote |
+| Build | `rakit <folder> [--fasl n]` (Windows + Word) | `.docx` + `.pdf` (cover, footnotes, المصادر والمراجع, الفهارس), `HALAMAN_ISI`, `HALAMAN` |
 | Status | `tahap <folder>` | `NASKAH=`, `HASIL=`, `RAKIT=`, `BERIKUTNYA` |
-| Diagram | `diagram <folder>` (Node.js + Chrome/Edge) | tiap `<nama>.mmd` (Mermaid) jadi `<nama>.png`, dicetak lewat `#G` |
+| Diagrams | `diagram <folder>` (Node.js + Chrome/Edge) | each `<nama>.mmd` (Mermaid) becomes `<nama>.png`, printed through `#G` |
 
-Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumennya: `python mesin/bahts.py`. Daftar tanda naskah (`#F`, `{Q:}`, `{H:}`, `@format`, …): `python mesin/bahts.py tanda`. Naskah contoh yang lolos `cek`: [`contoh/naskah.txt`](contoh/naskah.txt) (`ambil 11223`, lalu `cek contoh`).
+Every command = `python mesin/bahts.py <perintah>`. Full list with arguments: `python mesin/bahts.py`. List of manuscript markers (`#F`, `{Q:}`, `{H:}`, `@format`, …): `python mesin/bahts.py tanda`. A sample manuscript that passes `cek`: [`contoh/naskah.txt`](contoh/naskah.txt) (`ambil 11223`, then `cek contoh`).
 
-### Yang dibuktikan `cek`
+### What `cek` proves
 
-- Tiap kutipan bertanda petik harus terbaca di juz/halaman kitab yang dirujuk. Tidak ada di sana, atau tanpa alamat = `GAGAL`.
-- Juz/halaman yang tercetak di catatan kaki dicocokkan dengan alamat buktinya. Nama kitab di catatan kaki harus sesuai buktinya, dan derajat hadits di takhrij harus terbaca di halaman bukti. Kutipan di حاشية المحقق, atau yang di kitab diantar «قال …» orang lain, jadi perhatian.
-- Ayat dan angka di kutipan dicocokkan pada kemunculan berkata utuh di halaman bukti; angka dari halaman tetangga tidak dihitung.
-- Ayat dicetak dari mushaf Hafs rasm Utsmani (`mesin/quran_hafs_v22.json`) lewat `{Q:surah:ayat}`. Ayat yang diketik sendiri dalam ﴿…﴾ dengan rujukan «سورة …» = `GAGAL`; tanpa rujukan = perhatian. Ayat tanpa ﴿…﴾ sesudah «قال الله تعالى» yang dirujuk «سورة …» juga `GAGAL`.
-- `<<sid|juz|hal|#123>>` lolos hanya kalau 123 kepala hadits di awal baris halaman itu («123 - حدثنا», «36 - (123)», «(123) - حدثنا»); nomor ayat dan nomor catatan ditolak. Ini membuktikan nomornya ada, bukan lafaznya.
-- Takhrij «رقم الحديث (123)، 4/56.» yang langsung diikuti bukti: nomornya harus kepala hadits di sekitar halaman itu, lafaz buktinya harus di hadits bernomor itu. Hasilnya perhatian, bukan `GAGAL`.
-- `cek --jejak`: kutipan yang tidak ketemu dicari di kitab lain yang sudah diunduh, paling banyak 3 kitab per teks; lafaz yang sedikit berbeda ditunjuk sebagai «Paling mirip»; kutipan yang menyambung ke halaman berikutnya ditunjuk rentangnya (ص21-22). Hanya petunjuk. Kitab yang tidak terbaca dilewati dengan peringatan «jejak belum lengkap». Pencarian pertama menyiapkan teks kitab, jadi bisa lama.
-- Sumber di luar Shamela: `<<luar|berkas.pdf|hal>>` hanya ditunjuk halamannya, tidak pernah diloloskan. Kitab Waqfeya `<<w…|berkas|hal>>`: lafaznya tidak dinilai `cek` karena OCR salah huruf; pemeriksa membacanya di scan. `GAGAL` hanya kalau kitab belum diunduh, halamannya tidak ada, atau kutipannya terbaca persis di halaman lain.
-- Cara menukil (perhatian, bukan `GAGAL`): kalimat di luar tanda petik yang 8 kata atau lebih berurutan sama persis dengan halaman buktinya, nukilan makna tanpa «انظر:», kutipan lafaz yang hanya diantar «قال …:» tetapi dirujuk «انظر:», dan kutipan lebih dari 60 kata. Batas kata = aturan repo. Apakah nukilan makna setia pada halaman buktinya tidak dinilai: bukti berpotongan hanya membuktikan potongannya.
-- Takhrij di luar Shahihain tanpa derajat (dan tanpa «ولم أقف على حكم …») = `GAGAL`.
-- Perhatian wajib ditangani: tiap baris dicetak dengan kodenya («! 3f9a2c baris …»), lalu dibereskan di naskah, atau diterima dengan `terima <kode> <alasan>` di `riset.txt` kalau memang tidak bisa dibereskan. Selama ada yang belum ditangani, `tahap` mencetak `NASKAH=PERHATIAN` dan `rakit` mencetak «BELUM SELESAI». Perhatian `riset.txt` tidak bisa diterima. Alasannya tidak dinilai mesin: itu tugas pemeriksa langkah 5.
-- Yang tidak bisa dinilai `cek` (pembicara, mu'tamad tidaknya kitab, kutipan tanpa catatan kaki): akhir «Alur kerja» di `AGENTS.md`. Itu tugas pemeriksa langkah 5.
+- Every quotation in quotation marks must be readable on the volume/page of the cited book. Not there, or without an address = `GAGAL`.
+- The volume/page printed in the footnote is matched against the address of its evidence. The book name in the footnote must agree with its evidence, and the hadith grade in a takhrij must be readable on the evidence page. A quotation in the حاشية المحقق (editor's footnote), or one that the book introduces with «قال …» of someone else, becomes a perhatian.
+- Verses and numbers inside a quotation are matched on whole-word occurrences on the evidence page; a number from a neighbouring page does not count.
+- Verses are printed from the Hafs mushaf in Uthmani script (`mesin/quran_hafs_v22.json`) through `{Q:surah:ayat}`. A verse typed by hand inside ﴿…﴾ with a «سورة …» reference = `GAGAL`; without a reference = perhatian. A verse without ﴿…﴾ after «قال الله تعالى» that is referenced «سورة …» is also `GAGAL`.
+- `<<sid|juz|hal|#123>>` passes only if 123 is a hadith head at the start of a line on that page («123 - حدثنا», «36 - (123)», «(123) - حدثنا»); verse numbers and note numbers are rejected. This proves the number is there, not the wording.
+- A takhrij «رقم الحديث (123)، 4/56.» followed directly by evidence: the number must be a hadith head around that page, and the evidence wording must be in the hadith with that number. The result is a perhatian, not `GAGAL`.
+- `cek --jejak`: a quotation that is not found is searched for in the other downloaded books, at most 3 books per text; slightly different wording is pointed out as «Paling mirip»; a quotation that continues onto the next page is shown with its range (ص21-22). A hint only. A book that cannot be read is skipped with the warning «jejak belum lengkap». The first search prepares the book text, so it can take long.
+- Sources outside Shamela: `<<luar|berkas.pdf|hal>>` only gets its page pointed out, it is never passed. Waqfeya books `<<w…|berkas|hal>>`: `cek` does not judge the wording because the OCR gets letters wrong; the reviewer reads it in the scan. `GAGAL` only if the book is not downloaded, the page does not exist, or the quotation is read exactly on another page.
+- Ways of quoting (perhatian, not `GAGAL`): a sentence outside quotation marks with 8 or more consecutive words identical to its evidence page, a paraphrase without «انظر:», a verbatim quotation only introduced by «قال …:» but referenced with «انظر:», and a quotation longer than 60 words. The word limits are repository rules. Whether a paraphrase is faithful to its evidence page is not judged: evidence with a fragment only proves the fragment.
+- A takhrij outside the Sahihayn without a grade (and without «ولم أقف على حكم …») = `GAGAL`.
+- Every perhatian must be handled: each line is printed with its code («! 3f9a2c baris …»), then fixed in the manuscript, or accepted with `terima <kode> <alasan>` in `riset.txt` if it really cannot be fixed. While any is unhandled, `tahap` prints `NASKAH=PERHATIAN` and `rakit` prints «BELUM SELESAI». A perhatian from `riset.txt` cannot be accepted. The reason is not judged by the machine: that is the step 5 reviewer's job.
+- What `cek` cannot judge (the speaker, whether the book is mu'tamad, quotations without a footnote): the end of «Alur kerja» in `AGENTS.md`. That is the step 5 reviewer's job.
 
-`cek` dan `rakit` tidak memakai internet atau connector: hasilnya harus sama tanpa jaringan.
+`cek` and `rakit` use neither the internet nor the connectors: their result must be the same without a network.
 
-### Standar halaman
+### Page standard
 
-- Dasarnya «[القواعد المنظمة لتسجيل الرسالة العلمية وكتابتها وطباعتها وتقديمها](https://units.imamu.edu.sa/colleges/cmc/AcademicDepts/SiteAssets/Pages/d_j_e_p/%D8%A7%D9%84%D9%82%D9%88%D8%A7%D8%B9%D8%AF%20%D8%A7%D9%84%D9%85%D9%86%D8%B8%D9%85%D8%A9%20%D9%84%D8%AA%D8%B3%D8%AC%D9%8A%D9%84%20%D8%A7%D9%84%D8%B1%D8%B3%D8%A7%D9%84%D8%A9%20%D8%A7%D9%84%D8%B9%D9%84%D9%85%D9%8A%D8%A9.pdf)» (جامعة الإمام, 1442 H) dan catatan dosen bahts kelas معهد العلوم الإسلامية والعربية في جاكرتا. Asal tiap aturan: [`dok/standar.svg`](dok/standar.svg).
-- Dosen minta bentuk lain: lihat `AGENTS.md` «Sebelum tiap bahts» (`@format`, `@templat`, `@sampul`, `@spasi`, `@catatan_kaki`). Di folder pemakai jangan mengubah berkas `mesin/`; profil baru di `mesin/format.json` = perubahan mesin.
-- Angka: aturan kampus dan catatan dosen tidak menyebut jenis angka. Contoh resmi kampus memakai ٠١٢٣ di nomor halaman, catatan kaki, rujukan, tahun, nomor ayat, dan فهرس: «[دليل إعداد وكتابة الرسائل العلمية](https://units.imamu.edu.sa/shis/sij/FilesLibrary/Documents/Guide%20to%20preparing%20and%20writing%20scientific%20theses.pdf)» (جامعة الإمام, cetakan kedua) dan «[مجلة العلوم الشرعية](https://journals.imamu.edu.sa/index.php/jis)». Jadi PDF mencetak ٠١٢٣ di semua tempat itu, apa pun angka yang diketik di naskah. Tautan dan DOI (`https://…`, `www.…`, `doi.org/…`, `10.xxxx/…`) dicetak kiri-ke-kanan apa adanya.
-- Dosen minta 0123 → `@angka: latin`. Hanya nomor ayat di catatan kaki → `@angka_ayat: latin`.
+- The basis is «[القواعد المنظمة لتسجيل الرسالة العلمية وكتابتها وطباعتها وتقديمها](https://units.imamu.edu.sa/colleges/cmc/AcademicDepts/SiteAssets/Pages/d_j_e_p/%D8%A7%D9%84%D9%82%D9%88%D8%A7%D8%B9%D8%AF%20%D8%A7%D9%84%D9%85%D9%86%D8%B8%D9%85%D8%A9%20%D9%84%D8%AA%D8%B3%D8%AC%D9%8A%D9%84%20%D8%A7%D9%84%D8%B1%D8%B3%D8%A7%D9%84%D8%A9%20%D8%A7%D9%84%D8%B9%D9%84%D9%85%D9%8A%D8%A9.pdf)» (جامعة الإمام, Imam Muhammad ibn Saud Islamic University, 1442 AH) and the notes of the bahts class lecturer at معهد العلوم الإسلامية والعربية في جاكرتا. The origin of each rule: [`dok/standar.svg`](dok/standar.svg).
+- The lecturer asks for another layout: see `AGENTS.md` «Sebelum tiap bahts» (`@format`, `@templat`, `@sampul`, `@spasi`, `@catatan_kaki`). In the user's folder do not change files in `mesin/`; a new profile in `mesin/format.json` is a change to the machine.
+- Digits: the campus rules and the lecturer's notes do not name the kind of digits. The campus's official examples use ٠١٢٣ for page numbers, footnotes, references, years, verse numbers and فهرس: «[دليل إعداد وكتابة الرسائل العلمية](https://units.imamu.edu.sa/shis/sij/FilesLibrary/Documents/Guide%20to%20preparing%20and%20writing%20scientific%20theses.pdf)» (جامعة الإمام, second edition) and «[مجلة العلوم الشرعية](https://journals.imamu.edu.sa/index.php/jis)». So the PDF prints ٠١٢٣ in all those places, whatever digits are typed in the manuscript. Links and DOIs (`https://…`, `www.…`, `doi.org/…`, `10.xxxx/…`) are printed left-to-right as they are.
+- The lecturer asks for 0123 → `@angka: latin`. Only the verse numbers in footnotes → `@angka_ayat: latin`.
 
-## Repo
+## Repository
 
-| Letak | Isi |
+| Location | Contents |
 |---|---|
-| `mesin/bahts.py` | satu-satunya pintu perintah |
-| `mesin/olah.py`, `naskah.py`, `cek_*.py`, dan modul pembantunya | `cek`; pembagian tiap berkas: `AGENTS.md` «Letak kode `cek`» |
-| `mesin/quran_hafs_v22.json`, `nama_surah.json` | teks mushaf dan nama surat |
-| `mesin/shamela.py` | unduh kitab, katalog, `temukan`, `scan` |
-| `mesin/jaringan.py` | transport layanan luar, pengalihan aman, jatah, dan unduhan utuh |
-| `mesin/hadits.py`, `dirasat.py` | penunjuk takhrij, penelitian terdahulu |
-| `mesin/waqfeya.py` | kitab Waqfeya: katalog, `ambil w…`, OCR, potongan scan (PDF/PNG) |
-| `mesin/layanan.py` | `tafsir`, `takhrij`, `rawi`, dan `akar` tanpa internet (tabel layanan Shamela di `kitab/_meta`) |
-| `mesin/diagram.py` | diagram Mermaid jadi PNG (`diagram`) |
-| `mesin/tahap.py`, `berkas.py` | keadaan bahts dan folder `.rakit-*` |
-| `mesin/rakit.ps1`, `word.ps1`, `teks_pdf.py` | perakit Word/PDF, identitas proses Word miliknya, dan teks PDF |
-| `mesin/format.json` | profil bentuk halaman (`@format`) |
-| `mesin/sampul_qism.docx`, `sampul.doc`, `sampul_jakarta.docx`, `kepala_kotak.docx` | templat sampul dan kepala halaman |
-| `mesin/naskah_baru.txt`, `riset_baru.txt` | kerangka dari `baru` |
-| `contoh/` | `naskah.txt` + `riset.txt` contoh dan `jebakan/` untuk tes |
-| `.mcp.json`, `opencode.json` | daftar connector (`opencode.json` = salinan untuk OpenCode) |
-| `dok/` | `mutamad.md` (kitab mu'tamad tiap mazhab), `uji-riset.md`, `takhrij.md` |
+| `mesin/bahts.py` | the only command entry point |
+| `mesin/olah.py`, `naskah.py`, `cek_*.py`, and their helper modules | `cek`; what each file does: `AGENTS.md` «Letak kode `cek`» |
+| `mesin/quran_hafs_v22.json`, `nama_surah.json` | mushaf text and surah names |
+| `mesin/shamela.py` | book download, catalogue, `temukan`, `scan` |
+| `mesin/jaringan.py` | transport for outside services, safe redirects, rate limits, and complete downloads |
+| `mesin/hadits.py`, `dirasat.py` | takhrij pointers, previous studies |
+| `mesin/waqfeya.py` | Waqfeya books: catalogue, `ambil w…`, OCR, scan cut-outs (PDF/PNG) |
+| `mesin/layanan.py` | `tafsir`, `takhrij`, `rawi`, and `akar` without internet (Shamela service tables in `kitab/_meta`) |
+| `mesin/diagram.py` | Mermaid diagrams to PNG (`diagram`) |
+| `mesin/tahap.py`, `berkas.py` | state of a bahts and of the `.rakit-*` folders |
+| `mesin/rakit.ps1`, `word.ps1`, `teks_pdf.py` | Word/PDF builder, the identity of its own Word process, and PDF text |
+| `mesin/format.json` | page layout profiles (`@format`) |
+| `mesin/sampul_qism.docx`, `sampul.doc`, `sampul_jakarta.docx`, `kepala_kotak.docx` | cover and page header templates |
+| `mesin/naskah_baru.txt`, `riset_baru.txt` | the outline made by `baru` |
+| `contoh/` | sample `naskah.txt` + `riset.txt` and `jebakan/` for tests |
+| `.mcp.json`, `opencode.json` | connector list (`opencode.json` = the copy for OpenCode) |
+| `dok/` | `mutamad.md` (the mu'tamad books of each madhhab), `uji-riset.md`, `takhrij.md` |
 | `.github/` | `uji_*.py`, `workflows/tes.yml` |
-| `kitab/`, `bahts/`, `sampul_saya.txt`, `keluaran_saya.txt`, `kunci_openalex.txt` | data pemakai di komputernya, tidak di git |
+| `kitab/`, `bahts/`, `sampul_saya.txt`, `keluaran_saya.txt`, `kunci_openalex.txt` | user data on their computer, not in git |
 
-### Mengubah mesin
+### Changing the machine
 
-- Aturannya: `AGENTS.md` «Untuk yang mengubah mesin».
-- Tes: `python .github/uji_semua.py` (daftar dibaca dari `.github/workflows/tes.yml`; kitab tes: baris `ambil` di berkas itu).
-- Perubahan yang dirasakan pemakai masuk [`CHANGELOG.md`](CHANGELOG.md) bagian «Belum dirilis».
-- [`README.en.md`](README.en.md) dan [`README.ar.md`](README.ar.md) = terjemahan berkas ini: ubah ketiganya bersamaan (`.github/uji_readme.py` mencocokkannya).
-- Masalah: issue berisi keluaran `periksa`, perintahnya, dan pesannya.
+- The rules: `AGENTS.md` «Untuk yang mengubah mesin».
+- Tests: `python .github/uji_semua.py` (the list is read from `.github/workflows/tes.yml`; test books: the `ambil` line in that file).
+- Changes the user notices go into [`CHANGELOG.md`](CHANGELOG.md), section «Belum dirilis».
+- [`README.id.md`](README.id.md) and [`README.ar.md`](README.ar.md) are translations of this file: change all three together (`.github/uji_readme.py` compares them).
+- Problems: an issue with the output of `periksa`, the command, and its message.
 
-### Lisensi
+### License
 
-Kode: GNU AGPLv3 atau versi sesudahnya ([`LICENSE`](LICENSE)); versi sampai 94d62d3 (termasuk rilis 7.0.0) tetap MIT. Bahts hasil mesin milik penulisnya; templat yang tersalin ke bahts boleh dipakai tanpa syarat (izin tambahan di `NOTICE`). Teks mushaf, font, logo, dan teks kitab: [`NOTICE`](NOTICE).
+Code: GNU AGPLv3 or any later version ([`LICENSE`](LICENSE)); versions up to 94d62d3 (including release 7.0.0) remain MIT. A bahts produced by the machine belongs to its author; templates copied into a bahts may be used without conditions (additional permission in `NOTICE`). Mushaf text, fonts, logo, and book texts: [`NOTICE`](NOTICE).

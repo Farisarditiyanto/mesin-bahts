@@ -1,6 +1,6 @@
 # Mesin Bahts — آلة البحث
 
-**اللغة:** [Indonesia](README.md) · [English](README.en.md) · العربية
+**اللغة:** [English](README.md) · [Indonesia](README.id.md) · العربية
 
 <p dir="rtl"><strong>Mesin Bahts (آلة البحث) عُدّة للوكلاء البرمجيين (Claude Code وCodex وOpenCode ونحوها) لكتابة البحث الشرعي باللغة العربية: يُطابَق كل نقل بصفحة كتاب المكتبة الشاملة (Shamela) المحال عليها، ثم يُخرَج نص البحث ملفَّي Word وPDF.</strong></p>
 
@@ -150,7 +150,7 @@ python mesin/bahts.py periksa
 - القواعد: `AGENTS.md` «Untuk yang mengubah mesin».
 - الاختبار: `python .github/uji_semua.py` (القائمة تُقرأ من `.github/workflows/tes.yml`؛ كتب الاختبار في سطر `ambil` منه).
 - التغيير الذي يحسه المستخدم يُكتب في [`CHANGELOG.md`](CHANGELOG.md) قسم «Belum dirilis».
-- هذا الملف و[`README.en.md`](README.en.md) ترجمتان لـ[`README.md`](README.md): تُعدَّل الثلاثة معًا (`.github/uji_readme.py` يطابق بينها).
+- هذا الملف و[`README.id.md`](README.id.md) ترجمتان لـ[`README.md`](README.md): تُعدَّل الثلاثة معًا (`.github/uji_readme.py` يطابق بينها).
 - المشكلات: issue فيه ناتج `periksa` والأمر والرسالة.
 
 ### الترخيص
