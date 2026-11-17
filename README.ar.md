@@ -1,6 +1,8 @@
 # Mesin Bahts — آلة البحث
 
-**اللغة:** [Indonesia](README.md) · العربية
+**اللغة:** [Indonesia](README.md) · [English](README.en.md) · العربية
+
+<p dir="rtl"><strong>Mesin Bahts (آلة البحث) عُدّة للوكلاء البرمجيين (Claude Code وCodex وOpenCode ونحوها) لكتابة البحث الشرعي باللغة العربية: يُطابَق كل نقل بصفحة كتاب المكتبة الشاملة (Shamela) المحال عليها، ثم يُخرَج نص البحث ملفَّي Word وPDF.</strong></p>
 
 <img src="dok/banner.jpg" width="100%" alt="طالبة محجبة في مكتبة تتطاير حولها الكتب">
 
@@ -10,9 +12,20 @@
 
 <div dir="rtl">
 
-يكتب الوكيلُ **البحثَ** الشرعي باللغة العربية في `naskah.txt`، لكل بحث مجلد. يرفض `cek` كل نقل لا يوجد في صفحة كتاب الشاملة المحال عليها، ثم يُخرج `rakit` نصَّ البحث ملفَّي Word وPDF.
+يكتب الوكيلُ البحثَ في `naskah.txt`، لكل بحث مجلد. يرفض `cek` كل نقل لا يوجد في صفحة الكتاب المحال عليها، ثم يُخرج `rakit` نصَّ البحث ملفَّي Word وPDF.
 
 هذا الملف خريطة للوكيل. يكفي المستخدمَ أن يلصق رابط هذا المستودع في [وكيل برمجي](#الوكلاء-والموصلات) (coding agent)، ثم يجيب عن أسئلته.
+
+| | |
+|---|---|
+| لمن | وكيل برمجي يستطيع تشغيل الأوامر؛ والمستخدم طالب يكتب بحثًا |
+| قواعد العمل | [`AGENTS.md`](AGENTS.md) (بالإندونيسية) |
+| مدخل الأوامر | `python mesin/bahts.py <perintah>` |
+| المسار | `baru` ← جمع المادة ← `ambil` ← كتابة `naskah.txt` ← `cek` ← المراجِع ← `rakit` |
+| موصِّلات MCP | `shamela` (إلزامي)، `turath`، `hadithunlocked`، `tafsir`، `quran` |
+| المتطلبات | يذكرها `python mesin/bahts.py periksa`؛ ويحتاج `rakit` إلى Windows وMicrosoft Word |
+| الإصدار | [الإصدارات](https://github.com/Farisarditiyanto/mesin-bahts/releases)، [`CHANGELOG.md`](CHANGELOG.md) |
+| الترخيص | AGPLv3 أو ما بعدها ([`LICENSE`](LICENSE)) |
 
 ## البداية
 
@@ -20,6 +33,18 @@
 2. شغِّل `python mesin/bahts.py periksa` (في Linux/macOS: `python3`). عالج كل سطر `BELUM` بالأمر الذي يذكره.
 3. تأكد أن الموصِّل `shamela` متصل، أي أن الأداة `shamela_search_phrase` موجودة. طريقة تسجيله والدخول في كل وكيل: `AGENTS.md` قسم «Pemakai baru» الخطوة 4.
 4. جلسة لاحقة، أو لا تعرف أين وصل البحث: `python mesin/bahts.py tahap <folder>`، واتبع سطر `BERIKUTNYA`.
+
+<div dir="ltr">
+
+```bash
+git clone https://github.com/Farisarditiyanto/mesin-bahts
+cd mesin-bahts
+python mesin/bahts.py periksa
+```
+
+</div>
+
+مجلد `git clone` والطريقة بلا `git`: `AGENTS.md` «Pemakai baru» الخطوة 1.
 
 متطلبات الحاسوب وطريقة معالجتها في مكان واحد: `python mesin/bahts.py periksa`. يحتاج `rakit` إلى Windows وMicrosoft Word المكتبي؛ ويمكن في Linux/macOS الكتابة و`cek` دون Word وPDF. جمع المادة يحتاج الموصِّل `shamela` (حساب shamela.link)، والدراسات السابقة تحتاج مفتاح OpenAlex (`AGENTS.md` «Pemakai baru» الخطوة 6).
 
@@ -34,7 +59,7 @@
 | [Hermes Agent](https://hermes-agent.nousresearch.com) (مجاني) | يسجِّله الوكيل |
 
 - أوامر تسجيل `shamela` والدخول لكل وكيل: `AGENTS.md` «Pemakai baru» الخطوة 4 (وهو مكانها الوحيد).
-- وضع المحادثة العادي (Claude chat، ChatGPT) لا يستطيع تشغيل الآلة. والنماذج المجانية أكثر خطأً في الخطوات، فالمراجِع في الخطوة 5 أهم.
+- النماذج المجانية أكثر خطأً في الخطوات، فالمراجِع في الخطوة 5 أهم.
 - الموصِّلات: `shamela` إلزامي؛ و`turath`، `hadithunlocked`، `tafsir`، `quran` بلا حساب. فائدتها وترتيب البدائل: `AGENTS.md` الخطوتان 4-5 و«Alur kerja» الخطوة 2. أرقام اختبار كل موصِّل، ومنها خادم MCP الرسمي لـshamela.ws الذي لم يُثبَّت عمدًا: [`dok/uji-riset.md`](dok/uji-riset.md).
 - كل الموصِّلات دلالة على الطريق فقط: الكتاب يُنزَّل بـ`ambil`، والنقل يجب أن يجتاز `cek`.
 
@@ -44,6 +69,14 @@
 - `cek` لا يغني عن القراءة: اطلب منه أن يراجع بنفسه أهم النقول.
 - بعض النماذج المجانية تستعمل المحادثة في تدريب نماذجها.
 - هذا المشروع لا يمثل أي جامعة.
+
+### الحدود
+
+- ليس لوضع المحادثة العادي (Claude chat، ChatGPT): لا بد أن يستطيع الوكيل تشغيل الأوامر على حاسوب المستخدم.
+- ليس ضمانًا للمحتوى: `cek` يثبت فقط أن النص موجود في ذلك الجزء/الصفحة. أما القائل وسياق الباب وجودة المصدر فيحكم فيها المراجِع في الخطوة 5 (`AGENTS.md` «Alur kerja»).
+- ليس للبحوث بغير العربية: شكل الصفحة والتوثيق والفهارس على قواعد البحث العربي ([معيار الصفحة](#معيار-الصفحة)).
+- ليس محرِّر نصوص: يُعدَّل المحتوى من `naskah.txt` لا من ملف `.docx`.
+- بلا Windows وMicrosoft Word لا يخرج Word ولا PDF، ولا يُستعمل بديل عن Word.
 
 ## طريقة العمل
 
@@ -115,7 +148,7 @@
 - القواعد: `AGENTS.md` «Untuk yang mengubah mesin».
 - الاختبار: `python .github/uji_semua.py` (القائمة تُقرأ من `.github/workflows/tes.yml`؛ كتب الاختبار في سطر `ambil` منه).
 - التغيير الذي يحسه المستخدم يُكتب في [`CHANGELOG.md`](CHANGELOG.md) قسم «Belum dirilis».
-- هذا الملف ترجمة لـ`README.md`: يُعدَّلان معًا.
+- هذا الملف و[`README.en.md`](README.en.md) ترجمتان لـ[`README.md`](README.md): تُعدَّل الثلاثة معًا (`.github/uji_readme.py` يطابق بينها).
 - المشكلات: issue فيه ناتج `periksa` والأمر والرسالة.
 
 ### الترخيص

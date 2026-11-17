@@ -1,6 +1,8 @@
 # Mesin Bahts
 
-**Bahasa:** Indonesia · [العربية](README.ar.md)
+**Bahasa:** Indonesia · [English](README.en.md) · [العربية](README.ar.md)
+
+**Mesin Bahts adalah perkakas bagi coding agent (Claude Code, Codex, OpenCode, dan sejenisnya) untuk menulis بحث, makalah syar'i berbahasa Arab: tiap kutipan dicocokkan ke halaman kitab Shamela (المكتبة الشاملة) yang dirujuk, lalu naskahnya dirakit jadi Word dan PDF.**
 
 <img src="dok/banner.jpg" width="100%" alt="Mahasiswi berjilbab di perpustakaan, kitab-kitab beterbangan di sekitarnya">
 
@@ -8,9 +10,20 @@
 [![rilis](https://img.shields.io/github/v/release/Farisarditiyanto/mesin-bahts?label=rilis)](https://github.com/Farisarditiyanto/mesin-bahts/releases)
 [![lisensi](https://img.shields.io/badge/lisensi-AGPLv3%2B-blue)](LICENSE)
 
-Agent menulis **بحث** (makalah syar'i berbahasa Arab) di `naskah.txt`, satu folder per bahts. `cek` menolak kutipan yang tidak ada di halaman kitab Shamela yang dirujuk, lalu `rakit` menjadikan naskah itu Word dan PDF.
+Agent menulis bahts di `naskah.txt`, satu folder per bahts. `cek` menolak kutipan yang tidak ada di halaman kitab yang dirujuk, lalu `rakit` menjadikan naskah itu Word dan PDF.
 
 README ini peta untuk agent. Pemakai cukup menempel tautan repo ini ke [coding agent](#agent-dan-connector), lalu menjawab pertanyaannya.
+
+| | |
+|---|---|
+| Untuk | coding agent yang bisa menjalankan perintah; pemakainya mahasiswa penulis bahts |
+| Aturan kerja | [`AGENTS.md`](AGENTS.md) |
+| Pintu perintah | `python mesin/bahts.py <perintah>` |
+| Alur | `baru` → cari bahan → `ambil` → tulis `naskah.txt` → `cek` → pemeriksa → `rakit` |
+| Connector MCP | `shamela` (wajib), `turath`, `hadithunlocked`, `tafsir`, `quran` |
+| Kebutuhan | disebut `python mesin/bahts.py periksa`; `rakit` butuh Windows + Microsoft Word |
+| Versi | [rilis](https://github.com/Farisarditiyanto/mesin-bahts/releases), [`CHANGELOG.md`](CHANGELOG.md) |
+| Lisensi | AGPLv3 atau sesudahnya ([`LICENSE`](LICENSE)) |
 
 ## Mulai
 
@@ -18,6 +31,14 @@ README ini peta untuk agent. Pemakai cukup menempel tautan repo ini ke [coding a
 2. Jalankan `python mesin/bahts.py periksa` (Linux/macOS: `python3`). Bereskan tiap baris `BELUM` dengan perintah yang disebutnya.
 3. Pastikan connector `shamela` tersambung: ada alat `shamela_search_phrase`. Cara mendaftarkan dan masuk per agent: `AGENTS.md` «Pemakai baru» langkah 4.
 4. Sesi lanjutan, atau tidak tahu bahts sampai mana: `python mesin/bahts.py tahap <folder>`. Ikuti baris `BERIKUTNYA`.
+
+```bash
+git clone https://github.com/Farisarditiyanto/mesin-bahts
+cd mesin-bahts
+python mesin/bahts.py periksa
+```
+
+Folder tujuan `git clone` dan cara tanpa `git`: `AGENTS.md` «Pemakai baru» langkah 1.
 
 Kebutuhan komputer dan cara membereskannya ada di satu tempat: `python mesin/bahts.py periksa`. `rakit` butuh Windows + Microsoft Word desktop; Linux/macOS bisa menulis dan `cek`, tanpa Word dan PDF. Bahan butuh connector `shamela` (akun shamela.link); الدراسات السابقة butuh kunci OpenAlex (`AGENTS.md` «Pemakai baru» langkah 6).
 
@@ -32,7 +53,7 @@ Kebutuhan komputer dan cara membereskannya ada di satu tempat: `python mesin/bah
 | [Hermes Agent](https://hermes-agent.nousresearch.com) (gratis) | didaftarkan agent |
 
 - Perintah mendaftarkan dan masuk `shamela` per agent: `AGENTS.md` «Pemakai baru» langkah 4 (satu-satunya tempat).
-- Mode obrolan biasa (Claude chat, ChatGPT) tidak bisa menjalankan mesin. Model gratis lebih sering salah langkah, jadi pemeriksa langkah 5 makin penting.
+- Model gratis lebih sering salah langkah, jadi pemeriksa langkah 5 makin penting.
 - Connector: `shamela` wajib; `turath`, `hadithunlocked`, `tafsir`, `quran` tanpa akun. Gunanya dan urutan cadangannya: `AGENTS.md` langkah 4-5 dan Alur kerja langkah 2. Angka uji tiap connector, termasuk MCP resmi shamela.ws yang sengaja tidak dipasang: [`dok/uji-riset.md`](dok/uji-riset.md).
 - Semua connector hanya penunjuk jalan: kitabnya tetap di-`ambil`, kutipannya tetap harus lolos `cek`.
 
@@ -42,6 +63,14 @@ Kebutuhan komputer dan cara membereskannya ada di satu tempat: `python mesin/bah
 - `cek` tidak menggantikan membaca: minta pemakai memeriksa sendiri kutipan utamanya.
 - Sebagian model gratis memakai isi obrolan untuk melatih modelnya.
 - Proyek ini tidak mewakili kampus mana pun.
+
+### Batasan
+
+- Bukan untuk mode obrolan biasa (Claude chat, ChatGPT): agent harus bisa menjalankan perintah di komputer pemakai.
+- Bukan penjamin isi: `cek` hanya membuktikan teksnya ada di juz/halaman itu. Pembicara, konteks bab, dan mutu sumber dinilai pemeriksa langkah 5 (`AGENTS.md` «Alur kerja»).
+- Bukan untuk makalah berbahasa selain Arab: bentuk halaman, rujukan, dan الفهارس mengikuti pedoman bahts berbahasa Arab ([Standar halaman](#standar-halaman)).
+- Bukan pengolah kata: isi diubah lewat `naskah.txt`, bukan lewat `.docx`.
+- Tanpa Windows + Microsoft Word tidak ada Word dan PDF, dan pengganti Word tidak dipakai.
 
 ## Cara kerja
 
@@ -113,7 +142,7 @@ Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumenn
 - Aturannya: `AGENTS.md` «Untuk yang mengubah mesin».
 - Tes: `python .github/uji_semua.py` (daftar dibaca dari `.github/workflows/tes.yml`; kitab tes: baris `ambil` di berkas itu).
 - Perubahan yang dirasakan pemakai masuk [`CHANGELOG.md`](CHANGELOG.md) bagian «Belum dirilis».
-- [`README.ar.md`](README.ar.md) = terjemahan berkas ini: ubah keduanya bersamaan.
+- [`README.en.md`](README.en.md) dan [`README.ar.md`](README.ar.md) = terjemahan berkas ini: ubah ketiganya bersamaan (`.github/uji_readme.py` mencocokkannya).
 - Masalah: issue berisi keluaran `periksa`, perintahnya, dan pesannya.
 
 ### Lisensi
