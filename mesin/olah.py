@@ -74,7 +74,9 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   #L teks             paragraf bahasa Latin, kiri ke kanan (mis. الملخص bahasa Inggris); tanpa catatan kaki; Times New Roman
                       12 (judulnya 14), profil bisa mengubahnya lewat kunci "latin" di mesin/format.json
                       «#L **Abstract**» (satu baris penuh diapit **) = judul Latin tebal di tengah; paragraf #L
-                      sesudahnya diberi jarak antar paragraf (6 pt) sampai blok bukan #L
+                      sesudahnya diberi jarak antar paragraf (6 pt) sampai blok bukan #L. Judul itu mulai halaman baru
+                      kalau sebelumnya ada isi (mis. الملخص Arab), jadi الملخص dan Abstract tidak sehalaman;
+                      langsung di bawah judul #K/#F/#B/#M tetap sehalaman dengan judulnya
   #T teks             kotak matn: paragraf dalam bingkai, seluruhnya merah (boleh memuat catatan kaki)
   #J sel | sel | sel  satu baris tabel (mis. جدول المقارنة); sel dipisah « | ». Baris #J berturut-turut = satu tabel bergaris
                       selebar halaman; baris pertamanya = kepala (tebal, berlatar abu-abu, diulang di halaman berikutnya).
@@ -549,6 +551,8 @@ def _urai_baris(ctx, baris):
                 m = re.fullmatch(r"\*\*([^*]+)\*\*", t.strip())  # «#L **Abstract**»: judul Latin tebal di tengah
                 if m and not m[1].strip():
                     galat.append(f"baris {n}: judul #L **…** kosong :: {b[:40]}")
+                if m and blok and blok[-1]["k"] not in ("K", "F", "B", "M", "H"):  # judul Latin sesudah isi: halaman sendiri
+                    blok.append({"k": "H", "runs": [], "n": n})
                 blok.append({"k": "L", "runs": [{"t": m[1].strip() if m else t}], "n": n, **({"tengah": True} if m else {})})
             elif k in ("T", "V"):  # kotak matn atau bait syair: paragraf biasa (boleh bercatatan kaki), dicetak rakit.ps1 menurut k
                 if k == "V":  # kata yang dipecah «...~» dicek dan dicetak utuh, bukan sebagai dua bagian kutipan
