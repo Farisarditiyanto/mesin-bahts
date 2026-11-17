@@ -69,7 +69,7 @@ jobs:
       # opencode.json = salinan terpaksa .mcp.json (OpenCode tidak membaca .mcp.json): daftar connector harus sama
       - name: connector opencode.json sama dengan .mcp.json
         run: python -c "import json; a={k:v['url'] for k,v in json.load(open('.mcp.json', encoding='utf-8'))['mcpServers'].items()}; b={k:v['url'] for k,v in json.load(open('opencode.json', encoding='utf-8'))['mcp'].items()}; assert a==b, (a,b)"
-      # README.ar.md = terjemahan README.md: bagian dan tautan relatifnya harus sama
+      # README.en.md dan README.ar.md = terjemahan README.md: bagian dan tautan relatifnya harus sama
       - run: python .github/uji_readme.py
       # gerbang bug (aturan di .ruff.toml; `ruff check` tanpa --config memakainya juga)
       - uses: astral-sh/setup-uv@v10.3.3
