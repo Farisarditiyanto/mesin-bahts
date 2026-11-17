@@ -45,6 +45,9 @@ Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
   halaman <id> <juz> <hal>     isi satu halaman (juz "-" untuk kitab satu jilid); <hal> boleh rentang, mis. 10-14
                                (paling banyak 20 halaman sekali panggil)
   scan <id> <juz> <hal>        alamat scan cetakan halaman itu (PDF di turath.io, butuh internet), untuk bacaan yang meragukan
+  ekspor <id|w…> [...] [--ke <folder>]   seluruh kitab jadi satu .docx untuk dibaca di Word (kanan-ke-kiri, judul bab,
+                               penanda juz/halaman, حاشية sesudah halamannya); yang belum diunduh diunduh dulu.
+                               Bawaan ke folder Downloads; nama berkas = judul kitab. Bukan bahan bahts
 
 Kitab Waqfeya (scan cetakan + OCR, untuk kitab yang tidak ada di Shamela; disimpan di kitab/waqfeya, dipakai semua bahts):
   waqfeya "<judul/pengarang>" [maks]   cari di katalog Waqfeya (±10.000 kitab) -> nomor w… (diunduh sekali, ±17 MB)
@@ -714,6 +717,20 @@ def perintah_rakit(a):
     rakit(a[0], fasl)
 
 
+def perintah_ekspor(a):
+    """`ekspor <id|w…> [...] [--ke <folder>]`: --ke boleh di mana saja."""
+    import ekspor
+    a, ke = list(a), Path.home() / "Downloads"
+    if "--ke" in a:
+        i = a.index("--ke")
+        if i + 1 >= len(a) or a[i + 1].startswith("--"):
+            raise ValueError("--ke perlu nama folder")
+        ke = Path(a.pop(i + 1)); a.pop(i)
+    if not a or any(x.startswith("--") for x in a):
+        raise ValueError(f"argumen tidak dikenal atau kurang: {a}")
+    ekspor.ekspor(a, ke)
+
+
 PERINTAH = {  # nama: (jumlah argumen minimal, maksimal (None = diperiksa pemanggilnya), pemanggil)
     "periksa": (0, 0, lambda a: periksa()),
     "siapkan": (0, 0, lambda a: siapkan()),
@@ -735,6 +752,7 @@ PERINTAH = {  # nama: (jumlah argumen minimal, maksimal (None = diperiksa pemang
     "bab": (2, 2, lambda a, **k: ketemu(shamela.bab(a[0], a[1], **k))),
     "halaman": (3, 3, lambda a: ketemu(waqfeya.halaman(*a) if wq(a[0]) else halaman(*a))),
     "scan": (3, 3, lambda a: ketemu(shamela.scan(*a))),
+    "ekspor": (1, None, perintah_ekspor),
     "tafsir": (1, 1, lambda a: ketemu(layanan.tafsir(a[0]))),
     "takhrij": (3, 3, lambda a: ketemu(layanan.takhrij(*a))),
     "rawi": (1, 3, lambda a: ketemu(layanan.rawi(*a)) if len(a) != 2 else sys.exit(
