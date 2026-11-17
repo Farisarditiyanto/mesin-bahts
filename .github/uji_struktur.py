@@ -92,6 +92,11 @@ def utama():
         mulakhas = dasar.replace("#K المقدمة", "#K الملخص\n" + "كلمة " * 600 + "\n#K المقدمة", 1)
         isi = perkiraan.search(cek("الملخص panjang sebelum المقدمة", mulakhas)).group(1)
         assert isi == isi_asli, f"perkiraan halaman isi ikut menghitung الملخص: ±{isi}, contoh ±{isi_asli}"
+        # «#L **Abstract**» sesudah isi الملخص = halaman sendiri; langsung di bawah judul #K tetap sehalaman dengan judulnya
+        for nama, sisip, n in (("Abstract sesudah الملخص beda halaman", "#K الملخص\nنص عربي.\n#L **Abstract**\n#L English text.\n", 2),
+                               ("Abstract langsung di bawah #K sehalaman", "#K الملخص\n#L **Abstract**\n#L English text.\n", 1)):
+            out = cek(nama, dasar.replace("#K المقدمة", sisip + "#K المقدمة", 1))
+            assert f"sebelum المقدمة {n}," in out, (nama, out)
         # riset.txt: jejak langkah connector hanya pernah jadi perhatian, apa pun isinya (cek_seluruh.periksa_riset)
         riset = f / "riset.txt"
         for nama, isi, pesan in (

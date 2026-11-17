@@ -6,6 +6,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- `#L **Abstract**` yang ditulis sesudah isi (mis. الملخص Arab) kini mulai halaman baru, jadi الملخص dan Abstract tidak tercetak sehalaman; langsung di bawah judul `#K` tetap sehalaman dengan judulnya.
 - README utama kini berbahasa Inggris (`README.md`); versi Indonesia pindah ke `README.id.md`. Ketiga README dibuka dengan satu kalimat tentang mesin ini, tabel ringkas, perintah mulai, dan bagian «Batasan».
 - `bukti` mencetak paragraf matan tiap catatan kaki berbukti Shamela/Waqfeya beserta isi catatan kaki utuh, supaya pemeriksa dapat membandingkan parafrase dan syaratnya dengan sumber, termasuk bila catatan penjelasan berada di tengah kutipan.
 - Pemeriksa langkah 5 kini menyertakan bukti di tiap temuan (perintah yang dijalankan, potongan keluarannya, aturan yang dilanggar); temuan yang tidak terbukti saat dijalankan ulang dibuang dan disebut di laporan akhir.
