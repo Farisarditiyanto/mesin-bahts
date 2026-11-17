@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """README.en.md dan README.ar.md = terjemahan README.md: judul `##`/`###` sama susunannya, tautan relatifnya sama,
-dan tiap berkas menaut dua yang lain (pilihan bahasa).
+baris pilihan bahasa di kepala tiap berkas menaut dua yang lain, dan tiap tautan jangkar `(#…)` menunjuk judul yang ada.
 Penjaga supaya terjemahan tidak tertinggal saat README.md diubah. Pakai: python .github/uji_readme.py [akar]"""
 import re
 import sys
@@ -11,30 +11,40 @@ ASAL = "README.md"
 TERJEMAHAN = ("README.en.md", "README.ar.md")
 SEMUA = (ASAL, *TERJEMAHAN)
 TAUTAN = re.compile(r"\]\((?!https?:|#)([^)\s]+)\)|src=\"(?!https?:)([^\"]+)\"")
+KEPALA = 5  # baris pilihan bahasa ada di sini; tautan antar-README di bagian bawah tidak dihitung
+
+
+def jangkar(judul):
+    """Id judul buatan GitHub: huruf kecil, tanda baca dibuang, spasi jadi «-»."""
+    return re.sub(r"[^\w\- ]", "", judul.strip().lower()).replace(" ", "-")
 
 
 def ciri(nama):
     teks = (AKAR / nama).read_text(encoding="utf-8")
-    bagian = "".join(str(len(m.group(1))) for m in re.finditer(r"(?m)^(#{2,3}) ", teks))  # mis. «233323»
-    tautan = {a or b for a, b in TAUTAN.findall(teks)}
-    return bagian, sorted(tautan - set(SEMUA)), tautan & set(SEMUA)
+    judul = re.findall(r"(?m)^(#{1,6}) (.+)$", teks)
+    bagian = "".join(str(len(pagar)) for pagar, _ in judul if len(pagar) in (2, 3))  # mis. «233323»
+    tautan = {a or b for a, b in TAUTAN.findall(teks)} - set(SEMUA)
+    bahasa = {a for a, _ in TAUTAN.findall("\n".join(teks.splitlines()[:KEPALA]))} & set(SEMUA)
+    putus = set(re.findall(r"\]\(#([^)\s]+)\)", teks)) - {jangkar(isi) for _, isi in judul}
+    return bagian, sorted(tautan), bahasa, sorted(putus)
 
 
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
-    b1, t1, _ = ciri(ASAL)
+    b1, t1, _, _ = ciri(ASAL)
     salah = []
-    for nama in TERJEMAHAN:
-        b2, t2, _ = ciri(nama)
+    for nama in SEMUA:
+        b2, t2, bahasa, putus = ciri(nama)
         if b1 != b2:
             salah.append(f"susunan judul (2 = ##, 3 = ###): {ASAL} {b1}, {nama} {b2}")
         if t1 != t2:
             salah.append(f"tautan relatif beda: hanya di {ASAL} {sorted(set(t1) - set(t2))}, "
                          f"hanya di {nama} {sorted(set(t2) - set(t1))}")
-    for nama in SEMUA:
-        kurang = set(SEMUA) - {nama} - ciri(nama)[2]
+        kurang = set(SEMUA) - {nama} - bahasa
         if kurang:
-            salah.append(f"{nama} tidak menaut {sorted(kurang)} (pilihan bahasa)")
+            salah.append(f"{nama}: {KEPALA} baris pertama tidak menaut {sorted(kurang)} (pilihan bahasa)")
+        if putus:
+            salah.append(f"{nama}: tautan jangkar tanpa judul {putus}")
     for s in salah:
         print("GAGAL", s)
     if salah:

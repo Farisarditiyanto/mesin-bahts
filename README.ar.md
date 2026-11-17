@@ -6,9 +6,9 @@
 
 <img src="dok/banner.jpg" width="100%" alt="طالبة محجبة في مكتبة تتطاير حولها الكتب">
 
-[![tes](https://github.com/Farisarditiyanto/mesin-bahts/actions/workflows/tes.yml/badge.svg)](https://github.com/Farisarditiyanto/mesin-bahts/actions/workflows/tes.yml)
-[![rilis](https://img.shields.io/github/v/release/Farisarditiyanto/mesin-bahts?label=rilis)](https://github.com/Farisarditiyanto/mesin-bahts/releases)
-[![lisensi](https://img.shields.io/badge/lisensi-AGPLv3%2B-blue)](LICENSE)
+[![الاختبار](https://github.com/Farisarditiyanto/mesin-bahts/actions/workflows/tes.yml/badge.svg)](https://github.com/Farisarditiyanto/mesin-bahts/actions/workflows/tes.yml)
+[![الإصدار](https://img.shields.io/github/v/release/Farisarditiyanto/mesin-bahts?label=%D8%A7%D9%84%D8%A5%D8%B5%D8%AF%D8%A7%D8%B1)](https://github.com/Farisarditiyanto/mesin-bahts/releases)
+[![الترخيص](https://img.shields.io/badge/%D8%A7%D9%84%D8%AA%D8%B1%D8%AE%D9%8A%D8%B5-AGPLv3%2B-blue)](LICENSE)
 
 <div dir="rtl">
 
@@ -21,11 +21,13 @@
 | لمن | وكيل برمجي يستطيع تشغيل الأوامر؛ والمستخدم طالب يكتب بحثًا |
 | قواعد العمل | [`AGENTS.md`](AGENTS.md) (بالإندونيسية) |
 | مدخل الأوامر | `python mesin/bahts.py <perintah>` |
-| المسار | `baru` ← جمع المادة ← `ambil` ← كتابة `naskah.txt` ← `cek` ← المراجِع ← `rakit` |
+| المسار | `baru` ← جمع المادة ← `ambil` ← كتابة `naskah.txt` ← `cek` ← `rakit` ← المراجِع ← إعادة `cek` و`rakit` |
 | موصِّلات MCP | `shamela` (إلزامي)، `turath`، `hadithunlocked`، `tafsir`، `quran` |
 | المتطلبات | يذكرها `python mesin/bahts.py periksa`؛ ويحتاج `rakit` إلى Windows وMicrosoft Word |
 | الإصدار | [الإصدارات](https://github.com/Farisarditiyanto/mesin-bahts/releases)، [`CHANGELOG.md`](CHANGELOG.md) |
 | الترخيص | AGPLv3 أو ما بعدها ([`LICENSE`](LICENSE)) |
+
+الأوامر والعلامات ومخرجات البرنامج بالإندونيسية، وتُذكر هنا كما تُكتب أو تُطبع. معاني ما يرد منها: bahts = البحث، naskah = نص البحث، kitab = الكتاب، `GAGAL` = فشل، perhatian = تنبيه، `BELUM` = لم يتم بعد، `BERIKUTNYA` = الخطوة التالية.
 
 ## البداية
 
@@ -33,6 +35,8 @@
 2. شغِّل `python mesin/bahts.py periksa` (في Linux/macOS: `python3`). عالج كل سطر `BELUM` بالأمر الذي يذكره.
 3. تأكد أن الموصِّل `shamela` متصل، أي أن الأداة `shamela_search_phrase` موجودة. طريقة تسجيله والدخول في كل وكيل: `AGENTS.md` قسم «Pemakai baru» الخطوة 4.
 4. جلسة لاحقة، أو لا تعرف أين وصل البحث: `python mesin/bahts.py tahap <folder>`، واتبع سطر `BERIKUTNYA`.
+
+إن لم يكن المستودع على الحاسوب: شغِّل هذه الأوامر من مجلد المستندات عند المستخدم، قبل الخطوة 2. المجلد الذي يُنزَّل إليه المستودع والطريقة بلا `git`: `AGENTS.md` «Pemakai baru» الخطوة 1.
 
 <div dir="ltr">
 
@@ -43,8 +47,6 @@ python mesin/bahts.py periksa
 ```
 
 </div>
-
-مجلد `git clone` والطريقة بلا `git`: `AGENTS.md` «Pemakai baru» الخطوة 1.
 
 متطلبات الحاسوب وطريقة معالجتها في مكان واحد: `python mesin/bahts.py periksa`. يحتاج `rakit` إلى Windows وMicrosoft Word المكتبي؛ ويمكن في Linux/macOS الكتابة و`cek` دون Word وPDF. جمع المادة يحتاج الموصِّل `shamela` (حساب shamela.link)، والدراسات السابقة تحتاج مفتاح OpenAlex (`AGENTS.md` «Pemakai baru» الخطوة 6).
 
@@ -130,7 +132,7 @@ python mesin/bahts.py periksa
 | `mesin/jaringan.py` | الاتصال بالخدمات الخارجية، التحويل الآمن، الحصص، والتنزيل الكامل |
 | `mesin/waqfeya.py` | كتب الوقفية: الفهرس، `ambil w…`، النص المستخرج آليا (OCR)، مقتطفات المصورة (PDF/PNG) |
 | `mesin/hadits.py`، `dirasat.py` | دلالة التخريج، الدراسات السابقة |
-| `mesin/layanan.py` | `tafsir` و`takhrij` و`rawi` دون إنترنت (جداول خدمات الشاملة في `kitab/_meta`) |
+| `mesin/layanan.py` | `tafsir` و`takhrij` و`rawi` و`akar` دون إنترنت (جداول خدمات الشاملة في `kitab/_meta`) |
 | `mesin/diagram.py` | تحويل مخططات Mermaid إلى PNG (`diagram`) |
 | `mesin/tahap.py`، `berkas.py` | حالة البحث ومجلدات `.rakit-*` |
 | `mesin/rakit.ps1`، `word.ps1`، `teks_pdf.py` | مُخرِج Word/PDF، هوية عملية Word التابعة له، ونص PDF |

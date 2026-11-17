@@ -19,7 +19,7 @@ README ini peta untuk agent. Pemakai cukup menempel tautan repo ini ke [coding a
 | Untuk | coding agent yang bisa menjalankan perintah; pemakainya mahasiswa penulis bahts |
 | Aturan kerja | [`AGENTS.md`](AGENTS.md) |
 | Pintu perintah | `python mesin/bahts.py <perintah>` |
-| Alur | `baru` → cari bahan → `ambil` → tulis `naskah.txt` → `cek` → pemeriksa → `rakit` |
+| Alur | `baru` → cari bahan → `ambil` → tulis `naskah.txt` → `cek` → `rakit` → pemeriksa → `cek` dan `rakit` ulang |
 | Connector MCP | `shamela` (wajib), `turath`, `hadithunlocked`, `tafsir`, `quran` |
 | Kebutuhan | disebut `python mesin/bahts.py periksa`; `rakit` butuh Windows + Microsoft Word |
 | Versi | [rilis](https://github.com/Farisarditiyanto/mesin-bahts/releases), [`CHANGELOG.md`](CHANGELOG.md) |
@@ -32,13 +32,13 @@ README ini peta untuk agent. Pemakai cukup menempel tautan repo ini ke [coding a
 3. Pastikan connector `shamela` tersambung: ada alat `shamela_search_phrase`. Cara mendaftarkan dan masuk per agent: `AGENTS.md` «Pemakai baru» langkah 4.
 4. Sesi lanjutan, atau tidak tahu bahts sampai mana: `python mesin/bahts.py tahap <folder>`. Ikuti baris `BERIKUTNYA`.
 
+Repo belum ada di komputer: jalankan blok ini dari folder Dokumen pemakai, sebelum langkah 2. Folder tujuan dan cara tanpa `git`: `AGENTS.md` «Pemakai baru» langkah 1.
+
 ```bash
 git clone https://github.com/Farisarditiyanto/mesin-bahts
 cd mesin-bahts
 python mesin/bahts.py periksa
 ```
-
-Folder tujuan `git clone` dan cara tanpa `git`: `AGENTS.md` «Pemakai baru» langkah 1.
 
 Kebutuhan komputer dan cara membereskannya ada di satu tempat: `python mesin/bahts.py periksa`. `rakit` butuh Windows + Microsoft Word desktop; Linux/macOS bisa menulis dan `cek`, tanpa Word dan PDF. Bahan butuh connector `shamela` (akun shamela.link); الدراسات السابقة butuh kunci OpenAlex (`AGENTS.md` «Pemakai baru» langkah 6).
 
@@ -124,7 +124,7 @@ Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumenn
 | `mesin/jaringan.py` | transport layanan luar, pengalihan aman, jatah, dan unduhan utuh |
 | `mesin/hadits.py`, `dirasat.py` | penunjuk takhrij, penelitian terdahulu |
 | `mesin/waqfeya.py` | kitab Waqfeya: katalog, `ambil w…`, OCR, potongan scan (PDF/PNG) |
-| `mesin/layanan.py` | `tafsir`, `takhrij`, dan `rawi` tanpa internet (tabel layanan Shamela di `kitab/_meta`) |
+| `mesin/layanan.py` | `tafsir`, `takhrij`, `rawi`, dan `akar` tanpa internet (tabel layanan Shamela di `kitab/_meta`) |
 | `mesin/diagram.py` | diagram Mermaid jadi PNG (`diagram`) |
 | `mesin/tahap.py`, `berkas.py` | keadaan bahts dan folder `.rakit-*` |
 | `mesin/rakit.ps1`, `word.ps1`, `teks_pdf.py` | perakit Word/PDF, identitas proses Word miliknya, dan teks PDF |
