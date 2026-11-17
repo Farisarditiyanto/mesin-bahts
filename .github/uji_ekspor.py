@@ -6,7 +6,8 @@ sampai .docx-nya dibuka di Word:
 - judul bab: tiap judul daftar isi tepat satu Heading dan tidak tercetak lagi sebagai paragraf biasa, juga di kitab
   yang tanda judulnya berkutip tunggal (1726), dan baris judul di teks yang bersebelahan dengan judul daftar isi yang
   sama (di kitab non-CI, mis. 7861; dicek langsung ke `tanpa_judul_ulang`);
-- OCR Waqfeya: baris sisa kalimat disambung, tapi judul («الباب الأول») dan catatan kaki «(١)» tetap paragraf sendiri
+- OCR Waqfeya: baris sisa kalimat disambung, tapi judul («الباب الأول», baris pendek «كلمة شكر») dan catatan kaki
+  «(١)» tetap paragraf sendiri, dan baris tanpa kata (nomor halaman cetak) dibuang
   (dicek langsung ke `paragraf_ocr`: CI tidak mengunduh kitab Waqfeya);
 - penanda halaman tidak berulang di kitab yang tiap haditsnya satu rekaman (1726);
 - .docx terbaca sebagai XML yang sah dan tiap paragrafnya kanan-ke-kiri.
@@ -40,8 +41,10 @@ gagal = []
 for urut in ([("Normal", "باب"), ("Heading2", "باب"), ("Normal", "نص")], [("Heading2", "باب"), ("Normal", "باب"), ("Normal", "نص")]):
     if (h := tanpa_judul_ulang(urut)) != [("Heading2", "باب"), ("Normal", "نص")]:
         gagal.append(f"tanpa_judul_ulang {urut} -> {h}")
-OCR = chr(10).join(["كذلك لم يذكر شيئا عن", "من بعده", "الباب الأول", "ابن معطى", "(١) معجم البلدان", "البحر المتوسط ."])
-if (h := paragraf_ocr(OCR)) != ["كذلك لم يذكر شيئا عن من بعده", "الباب الأول", "ابن معطى", "(١) معجم البلدان البحر المتوسط ."]:
+OCR = chr(10).join(["كذلك لم يذكر شيئا عن", "من بعده", "الباب الأول", "ابن معطى", "١٢", "(١) معجم البلدان", "البحر المتوسط .",
+                    "كلمة شكر", "إذا كان من سنة أصحاب الرسائل"])
+if (h := paragraf_ocr(OCR)) != ["كذلك لم يذكر شيئا عن من بعده", "الباب الأول", "ابن معطى", "(١) معجم البلدان البحر المتوسط .",
+                             "كلمة شكر", "إذا كان من سنة أصحاب الرسائل"]:
     gagal.append(f"paragraf_ocr: {h}")
 with tempfile.TemporaryDirectory(prefix="bahts-ekspor-") as ke:
     r = subprocess.run([sys.executable, str(REPO / "mesin" / "bahts.py"), "ekspor", *KITAB, "--ke", ke],

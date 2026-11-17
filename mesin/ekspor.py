@@ -29,7 +29,9 @@ SAMPAH_OCR = re.compile("[%s]" % "".join(f"{chr(a)}-{chr(z)}" for a, z in (
 AKHIR_PARAGRAF = re.compile(r"[.:؟!*»)\]]\s*$")  # baris OCR yang menutup kalimat
 # baris judul OCR (pendek, diawali kata judul): tidak disambung ke baris sebelum atau sesudahnya
 JUDUL_OCR = re.compile(r"^(?:ال)?(?:باب|فصل|مبحث|مطلب|كتاب|مسألة|تمهيد|مقدمة|خاتمة|فهرس)\b")
+KATA_OCR = re.compile(r"[^\W\d_]{2}")  # baris yang memuat kata (dua huruf berurutan)
 KATA_JUDUL_MAKS = 8
+KATA_JUDUL_PENDEK = 3  # baris sependek ini yang membuka paragraf baru («كلمة شكر», «الألف») = judul juga
 AWAL_HASYIAH = re.compile(r"^\s*\([0-9٠-٩۰-۹]+\)")  # «(١) …»: catatan kaki selalu paragraf baru
 
 
@@ -167,16 +169,17 @@ def _waqfeya(w):
 
 def paragraf_ocr(teks):
     """Baris OCR satu halaman -> paragraf: baris yang tidak menutup kalimat disambung baris berikutnya (sisa kalimat yang
-    turun baris), kecuali baris berikutnya awal catatan kaki «(١)»; baris judul («الباب الثاني») berdiri sendiri."""
+    turun baris), kecuali baris berikutnya awal catatan kaki «(١)»; baris judul («الباب الثاني», atau baris pendek yang membuka paragraf) berdiri sendiri."""
     out, tutup = [], True  # tutup: paragraf terakhir tidak boleh disambung
     for b in teks.splitlines():
-        if not (t := bersih(SAMPAH_OCR.sub("", b))):
+        if not KATA_OCR.search(t := bersih(SAMPAH_OCR.sub("", b))):  # nomor halaman cetak, titik, huruf lepas
             continue
         judul = JUDUL_OCR.match(t) is not None and len(t.split()) <= KATA_JUDUL_MAKS
         if out and not tutup and not judul and not AWAL_HASYIAH.match(t):
             out[-1] += " " + t
         else:
             out.append(t)
+            judul = judul or (len(t.split()) <= KATA_JUDUL_PENDEK and not AWAL_HASYIAH.match(t))
         tutup = judul or AKHIR_PARAGRAF.search(out[-1]) is not None
     return out
 
