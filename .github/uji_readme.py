@@ -4,6 +4,7 @@ baris pilihan bahasa di kepala tiap berkas menaut dua yang lain, dan tiap tautan
 Penjaga supaya terjemahan tidak tertinggal saat README.md diubah. Pakai: python .github/uji_readme.py [akar]"""
 import re
 import sys
+import unicodedata
 from pathlib import Path
 
 AKAR = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parent.parent
@@ -16,12 +17,16 @@ KEPALA = 5  # baris pilihan bahasa ada di sini; tautan antar-README di bagian ba
 
 def jangkar(judul):
     """Id judul buatan GitHub: huruf kecil, tanda baca dibuang, spasi jadi «-»."""
-    return re.sub(r"[^\w\- ]", "", judul.strip().lower()).replace(" ", "-")
+    return "".join(c for c in judul.strip().lower()
+                   if c in "- _" or c.isalnum() or unicodedata.category(c).startswith("M")).replace(" ", "-")
 
 
 def ciri(nama):
     teks = (AKAR / nama).read_text(encoding="utf-8")
-    judul = re.findall(r"(?m)^(#{1,6}) (.+)$", teks)
+    judul = re.findall(r"(?m)^(#{1,6}) (.+)$", re.sub(r"(?ms)^```.*?^```", "", teks))  # `# …` di blok kode bukan judul
+    kembar = {isi for _, isi in judul if [j for _, j in judul].count(isi) > 1}
+    if kembar:  # GitHub memberi akhiran -1, -2 pada id judul kembar: jangkarnya jadi tidak tetap
+        sys.exit(f"GAGAL {nama}: judul kembar {sorted(kembar)}")
     bagian = "".join(str(len(pagar)) for pagar, _ in judul if len(pagar) in (2, 3))  # mis. «233323»
     tautan = {a or b for a, b in TAUTAN.findall(teks)} - set(SEMUA)
     bahasa = {a for a, _ in TAUTAN.findall("\n".join(teks.splitlines()[:KEPALA]))} & set(SEMUA)
