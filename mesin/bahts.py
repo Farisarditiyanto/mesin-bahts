@@ -723,7 +723,7 @@ def perintah_ekspor(a):
     a, ke = list(a), Path.home() / "Downloads"
     if "--ke" in a:
         i = a.index("--ke")
-        if i + 1 >= len(a):
+        if i + 1 >= len(a) or a[i + 1].startswith("--"):
             raise ValueError("--ke perlu nama folder")
         ke = Path(a.pop(i + 1)); a.pop(i)
     if not a or any(x.startswith("--") for x in a):
@@ -752,7 +752,7 @@ PERINTAH = {  # nama: (jumlah argumen minimal, maksimal (None = diperiksa pemang
     "bab": (2, 2, lambda a, **k: ketemu(shamela.bab(a[0], a[1], **k))),
     "halaman": (3, 3, lambda a: ketemu(waqfeya.halaman(*a) if wq(a[0]) else halaman(*a))),
     "scan": (3, 3, lambda a: ketemu(shamela.scan(*a))),
-    "ekspor": (1, None, lambda a: perintah_ekspor(a)),
+    "ekspor": (1, None, perintah_ekspor),
     "tafsir": (1, 1, lambda a: ketemu(layanan.tafsir(a[0]))),
     "takhrij": (3, 3, lambda a: ketemu(layanan.takhrij(*a))),
     "rawi": (1, 3, lambda a: ketemu(layanan.rawi(*a)) if len(a) != 2 else sys.exit(

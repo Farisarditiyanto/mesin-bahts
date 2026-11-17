@@ -917,8 +917,7 @@ def rantai_judul(sid, t):
 
 def rekaman(sid):
     """Tiap rekaman kitab sid, urut berkasnya (urut kitab), satu-satu tanpa membuka seluruh kitab ke memori."""
-    with gzip.open(_folder(sid) / "pages.jsonl.gz", "rt", encoding="utf8") as f:
-        yield from map(json.loads, f)
+    yield from norma.rekaman(_folder(sid) / "pages.jsonl.gz")
 
 
 def judul_rekaman(sid):

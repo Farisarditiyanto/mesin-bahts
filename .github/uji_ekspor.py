@@ -7,12 +7,11 @@ sampai .docx-nya dibuka di Word:
   yang tanda judulnya berkutip tunggal (1726), dan baris judul di teks yang bersebelahan dengan judul daftar isi yang
   sama (di kitab non-CI, mis. 7861; dicek langsung ke `tanpa_judul_ulang`);
 - OCR Waqfeya: baris sisa kalimat disambung, tapi judul («الباب الأول», baris pendek «كلمة شكر») dan catatan kaki
-  «(١)» tetap paragraf sendiri, dan baris tanpa kata (nomor halaman cetak) dibuang
-  (dicek langsung ke `paragraf_ocr`: CI tidak mengunduh kitab Waqfeya);
+  «(١)» tetap paragraf sendiri; aksara lain, angka, huruf tunggal, dan batas paragraf kosong tetap ada;
 - penanda halaman tidak berulang di kitab yang tiap haditsnya satu rekaman (1726);
 - .docx terbaca sebagai XML yang sah dan tiap paragrafnya kanan-ke-kiri.
 Kitabnya kitab CI (baris `ambil` di tes.yml). `ekspor` hanya membaca kitab/, jadi dijalankan di repo ini."""
-import gzip, re, subprocess, sys, tempfile, zipfile
+import gzip, json, re, shutil, subprocess, sys, tempfile, zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -34,18 +33,7 @@ def paragraf(docx):
     return out
 
 
-sys.path.insert(0, str(REPO / "mesin"))
-from ekspor import paragraf_ocr, tanpa_judul_ulang  # noqa: E402
-
 gagal = []
-for urut in ([("Normal", "باب"), ("Heading2", "باب"), ("Normal", "نص")], [("Heading2", "باب"), ("Normal", "باب"), ("Normal", "نص")]):
-    if (h := tanpa_judul_ulang(urut)) != [("Heading2", "باب"), ("Normal", "نص")]:
-        gagal.append(f"tanpa_judul_ulang {urut} -> {h}")
-OCR = chr(10).join(["كذلك لم يذكر شيئا عن", "من بعده", "الباب الأول", "ابن معطى", "١٢", "(١) معجم البلدان", "البحر المتوسط .",
-                    "كلمة شكر", "إذا كان من سنة أصحاب الرسائل"])
-if (h := paragraf_ocr(OCR)) != ["كذلك لم يذكر شيئا عن من بعده", "الباب الأول", "ابن معطى", "(١) معجم البلدان البحر المتوسط .",
-                             "كلمة شكر", "إذا كان من سنة أصحاب الرسائل"]:
-    gagal.append(f"paragraf_ocr: {h}")
 with tempfile.TemporaryDirectory(prefix="bahts-ekspor-") as ke:
     r = subprocess.run([sys.executable, str(REPO / "mesin" / "bahts.py"), "ekspor", *KITAB, "--ke", ke],
                        cwd=REPO, capture_output=True, text=True, encoding="utf-8")
@@ -72,6 +60,50 @@ with tempfile.TemporaryDirectory(prefix="bahts-ekspor-") as ke:
     judul = sum(g.startswith("Heading") for g, _, _ in paragraf(hasil["1726"])) - 1  # minus judul kitab
     if judul != toc:
         gagal.append(f"1726: {judul} judul Heading, daftar isi {toc} (dobel atau hilang)")
+
+    # Kitab kecil di salinan mesin: alur pemakai, tanpa mengganti fungsi produk atau mengunduh Waqfeya di CI.
+    akar = Path(ke) / "repo"
+    shutil.copytree(REPO / "mesin", akar / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__"))
+    for sid in ("1", "2"):
+        d = akar / "kitab" / sid
+        d.mkdir(parents=True)
+        (d / "book_metadata.json").write_text(json.dumps({"title_ar": "عنوان &amp; كتاب\x01", "main_author_name_ar": "مؤلف &#xfd41;"}), encoding="utf8")
+        with gzip.open(d / "pages.jsonl.gz", "wt", encoding="utf8") as f:
+            f.write(json.dumps({"page_id": 1, "page_num": 1, "part": None,
+                                "body": "باب طويل\n<span id='toc-1' class='x' data-type = 'title'>باب\rطويل</span>.\nباب طويل\n"
+                                "... لم يحذف النص<br>كلمة أخرى\n&#xfd41; &amp; &#x26;lt;لفظ&#x26;gt;\n"
+                                'إذا كان أ < ب وكانت ج > د ثبت المقصود.\nأول <span title="x > y">ثان</span> ثالث',
+                                "footnotes": "(¬١) حاشية"}) + "\n")
+        with gzip.open(d / "toc.jsonl.gz", "wt", encoding="utf8") as f:
+            f.write(json.dumps({"page_id": 1, "title_id": 1, "shamela_title_id": 1, "parent_id": None, "title_text": "باب طويل"}) + "\n")
+    w = akar / "kitab" / "waqfeya" / "w0123abcd"
+    w.mkdir(parents=True)
+    (w / "kitab.json").write_text(json.dumps({"judul": "عنوان كتاب", "pengarang": "مؤلف", "berkas": ["الكتاب"]}), encoding="utf8")
+    (w / "1.pdf").write_bytes(b"%PDF-1.4\n")  # ekspor membaca OCR, bukan PDF scan
+    with gzip.open(w / "1.txt.gz", "wt", encoding="utf8") as f:
+        f.write("كذلك لم يذكر شيئا عن\nمن بعده\nالباب الأول\nابن معطى\n١٢\n(١) معجم البلدان\nالبحر المتوسط .\n"
+                "كلمة شكر\nإذا كان من سنة أصحاب الرسائل\n\nفقد بقي معنى جديد\nالكلمة اليونانية λόγος معناها كلمة.\nز\n٣٫١٤\n")
+    r = subprocess.run([sys.executable, str(akar / "mesin" / "bahts.py"), "ekspor", "1", "2", "w0123abcd", "--ke", str(akar / "out")],
+                       cwd=akar, capture_output=True, text=True, encoding="utf8")
+    ps = {sid: paragraf(docx) for sid, docx in (b.split("\t") for b in r.stdout.splitlines() if "\t" in b)}
+    if r.returncode or set(ps) != {"1", "2", "w0123abcd"}:
+        sys.exit(f"ekspor kitab kecil: {r.stdout}\n{r.stderr}")
+    for sid in ("1", "2"):
+        harus = [("Heading1", "عنوان & كتاب"), ("Pengarang", "مؤلف رضي الله عنه"), ("Halaman", "[ص ١]"),
+                 ("Heading1", "باب طويل"), ("Normal", "... لم يحذف النص"), ("Normal", "كلمة أخرى"),
+                 ("Normal", "رضي الله عنه & &lt;لفظ&gt;"), ("Normal", "إذا كان أ < ب وكانت ج > د ثبت المقصود."),
+                 ("Normal", "أول ثان ثالث"), ("Hasyiah", "ـــــــــــــــ"), ("Hasyiah", "(١) حاشية")]
+        if [(g, t) for g, t, _ in ps[sid]] != harus:
+            gagal.append(f"{sid}: judul/teks/entitas berubah: {ps[sid]}")
+    harus = ["كذلك لم يذكر شيئا عن من بعده", "الباب الأول", "ابن معطى", "١٢", "(١) معجم البلدان البحر المتوسط .",
+             "كلمة شكر", "إذا كان من سنة أصحاب الرسائل", "فقد بقي معنى جديد الكلمة اليونانية λόγος معناها كلمة.", "ز", "٣٫١٤"]
+    if [t for g, t, _ in ps["w0123abcd"] if g == "Normal"] != harus:
+        gagal.append(f"Waqfeya: isi OCR/batas paragraf berubah: {ps['w0123abcd']}")
+    for args in (("1", "--ke"), ("1", "--ke", "--salah"), ("1", "--ke", ke, "--ke", ke)):
+        r = subprocess.run([sys.executable, str(akar / "mesin" / "bahts.py"), "ekspor", *args],
+                           cwd=akar, capture_output=True, text=True, encoding="utf8")
+        if r.returncode != 1 or r.stdout.strip() or "Traceback" in r.stderr:
+            gagal.append(f"ekspor {args}: argumen salah diterima/traceback: {r.stdout} {r.stderr}")
 
 if gagal:
     sys.exit("GAGAL\n" + "\n".join(gagal))
