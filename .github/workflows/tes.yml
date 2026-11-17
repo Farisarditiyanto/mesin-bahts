@@ -63,6 +63,8 @@ jobs:
       - run: python .github/uji_layanan.py
       # `halaman` tanpa «\r» mentah (kata tersambung saat disalin); argumen/bendera berlebih ditolak, bukan ditelan
       - run: python .github/uji_perintah.py
+      # `ekspor`: .docx tanpa ligatur hormat (kotak di Word), tag/«¬», judul dobel, atau penanda halaman berulang
+      - run: python .github/uji_ekspor.py
       - run: python .github/uji_diagram.py
       # kitab Waqfeya tiruan (tanpa internet): `cek` tidak menilai lafaz OCR, GAGAL hanya yang pasti salah; nomor cetak dari baris nomor saja
       - run: python .github/uji_waqfeya.py

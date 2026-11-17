@@ -203,7 +203,7 @@ from cek_seluruh import (KEPALA_PERHATIAN, RISET, periksa_dirasat, periksa_khati
 from cek_rujukan import rujukan_halaman
 from cek_sumber import standar_baris
 from cek_tautsiq import gelar
-from dasar import AD, ANGKA_LATIN, BELUM_DIUNDUH, BUKAN_RUJUKAN, HERE, HURUF_LATIN, LUAR, SURAH, TINGKAT_JUDUL, TandaRusak, perintah
+from dasar import AD, ANGKA_LATIN, BELUM_DIUNDUH, BUKAN_RUJUKAN, HERE, HORMAT_CETAK, HURUF_LATIN, LUAR, SURAH, TINGKAT_JUDUL, TandaRusak, perintah
 from laporan import gabung_kembar
 from naskah import Pemeriksaan, urai
 
@@ -248,14 +248,6 @@ KATA_PER_HALAMAN_18 = 260
 META = frozenset("judul jenis nama nim fasl musyrif jabatan thalibah basmalah sampul tahun berkas format angka angka_ayat tanpa pustaka malahiq templat halaman_baru nomor bentuk rumuz warna model kepala_judul sifat qism".split()) | {f"minimal_{k}" for k in MINIMAL} | TIMPA.keys() | GAYA.keys()
 # @warna: nama -> RGB. Biru tua: tetap nyaman dibaca untuk paragraf panjang dan jelas beda dari hitam serta merah lafaz matn
 WARNA = {"biru": (20, 60, 150)}
-# lambang hormat Unicode 14 (﵀-﵏ ﷾ ﷿) tidak ada di huruf cetak (Traditional Arabic, Sakkal Majalla): kotak kosong di PDF.
-# Dicetak dengan kalimatnya; `cek` sudah membuang keduanya (norma.LIGATUR_HORMAT, HORMAT)
-HORMAT_CETAK = str.maketrans({
-    "﵀": "رحمه الله", "﵁": "رضي الله عنه", "﵂": "رضي الله عنها", "﵃": "رضي الله عنهم",
-    "﵄": "رضي الله عنهما", "﵅": "رضي الله عنهن", "﵆": "صلى الله عليه وآله", "﵇": "عليه السلام",
-    "﵈": "عليهم السلام", "﵉": "عليهما السلام", "﵊": "عليه الصلاة والسلام", "﵋": "قدس سره",
-    "﵌": "صلى الله عليه وآله وسلم", "﵍": "عليها السلام", "﵎": "تبارك وتعالى", "﵏": "رحمهم الله",
-    "﷾": "سبحانه وتعالى", "﷿": "عز وجل"})
 KUAT = re.compile(r"[^\W\d_]|[،؛؟]")  # huruf, atau tanda baca Arab (tanda teks Arab)
 # tautan/DOI di teks Arab: angkanya tetap 0-9 (hindi) dan rakit.ps1 mencetaknya kiri-ke-kanan apa adanya (bahan "tautan"),
 # karena Word (angka konteks) mencetak «10.21608» di teks kanan-ke-kiri sebagai «١٠,٢١٦٠٨». Tanda baca penutup kalimat

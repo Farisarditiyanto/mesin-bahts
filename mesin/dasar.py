@@ -6,6 +6,14 @@ from pathlib import Path
 
 HERE = Path(__file__).parent
 SURAH = json.loads((HERE / "nama_surah.json").read_text(encoding="utf8"))
+# Ligatur hormat Unicode 14 (﵀-﵏ ﷾ ﷿) tidak ada di huruf cetak (Traditional Arabic, Sakkal Majalla, Arial): kotak kosong di
+# Word/PDF. Teks yang dicetak (`rakit`, `ekspor`) memakai kalimatnya; `cek` membuangnya (norma.LIGATUR_HORMAT, HORMAT)
+HORMAT_CETAK = str.maketrans({
+    "﵀": "رحمه الله", "﵁": "رضي الله عنه", "﵂": "رضي الله عنها", "﵃": "رضي الله عنهم",
+    "﵄": "رضي الله عنهما", "﵅": "رضي الله عنهن", "﵆": "صلى الله عليه وآله", "﵇": "عليه السلام",
+    "﵈": "عليهم السلام", "﵉": "عليهما السلام", "﵊": "عليه الصلاة والسلام", "﵋": "قدس سره",
+    "﵌": "صلى الله عليه وآله وسلم", "﵍": "عليها السلام", "﵎": "تبارك وتعالى", "﵏": "رحمهم الله",
+    "﷾": "سبحانه وتعالى", "﷿": "عز وجل"})
 
 
 class TandaRusak(ValueError):
