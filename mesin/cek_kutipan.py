@@ -4,6 +4,7 @@ soal kutipan itu: حاشية المحقق, pembicara lain, kata nafi, angka, sis
 import bisect, re
 from pathlib import Path
 
+import cocok
 import norma
 import shamela
 import sumber_pdf
@@ -111,19 +112,19 @@ def cek_waqfeya(bukti, kutipan, galat, perhatian, fn):
 def _petunjuk(sid, juz, q):
     """Tempat q di seluruh kitab untuk pesan kesalahan: matan dulu (juz yang ditulis didahulukan), baru حاشية."""
     tempat, hasyiah = [], None
-    padat_, ix = shamela._cache(sid), shamela.indeks(sid)
+    padat_, ix = shamela.padat_kitab(sid), shamela.indeks(sid)
     kena = set(padat_.kena(q))  # rekaman lain tidak memuat q: tidak menambah apa pun
     # urutan rekaman(sid, "-"): per juz (urut kemunculan pertamanya), lalu urut berkas
     for r in (padat_.isi({"part": ix[i][0]}, i) for ii in kitab(sid).values() for i in ii if i in kena):
-        h = shamela.tempat(r, q)
+        h = cocok.tempat(r, q)
         if h:
-            t = (shamela._juz(r) != juz, shamela.letak(shamela._juz(r), h))
+            t = (shamela.nama_juz(r.get("part")) != juz, shamela.letak(shamela.nama_juz(r.get("part")), h))
             if t not in tempat:
                 tempat.append(t)
         elif not hasyiah:
-            h = shamela.tempat(r, q, "footnotes")
+            h = cocok.tempat(r, q, "footnotes")
             if h:
-                hasyiah = shamela.letak(shamela._juz(r), h) + " [حاشية]"
+                hasyiah = shamela.letak(shamela.nama_juz(r.get("part")), h) + " [حاشية]"
     if tempat:
         tempat = [t for _, t in sorted(tempat, key=lambda t: t[0])]
         lagi = f" (dan {len(tempat) - 3} tempat lain)" if len(tempat) > 3 else ""
@@ -146,7 +147,7 @@ def _cek_bagian(sid, juz, hal, p1, p2, teks, utuh, perhatian, rinci=True):
     """Cek satu teks (kutipan, satu bagian kutipan berelipsis, atau potongan) di juz/hal; '' kalau cocok.
     rinci=False: pesan kesalahannya tidak disusun (mencari di seluruh kitab), untuk pemanggil yang hanya butuh cocok/tidak."""
     q = norma.padat(teks)
-    jenis, lain = cari_di(sid, juz, p1, p2, q, utuh, shamela.kata_dalam(teks))
+    jenis, lain = cari_di(sid, juz, p1, p2, q, utuh, cocok.kata_dalam(teks))
     if jenis in ("hasyiah", "hasyiah?"):
         perhatian.append(pesan_hasyiah(sid, juz, hal, teks, jenis == "hasyiah?"))
     if jenis:
@@ -366,7 +367,7 @@ JUDUL_MUHAQQIQ = re.compile(
 def judul_muhaqqiq(sid, rr, q, utuh=True):
     """Judul (atau induknya) tulisan muhaqqiq/penerbit yang menaungi awal q (`padat`) di matan rr; '' kalau bukan."""
     for r in rr:
-        c = shamela._cocok(r, q, "body", utuh)
+        c = cocok.letak_pertama(r, q, "body", utuh)
         if c:
             return next((j for j in shamela.rantai_judul(sid, shamela.judul_naung(sid, r, c)) if JUDUL_MUHAQQIQ.search(j)), "")
     return ""
@@ -378,16 +379,16 @@ def susunan_kitab(rr, bagian, celah, ujung=([], []), dalam=None):
     tiap bagian harus sama dengan angka kitab di tempatnya. Calon susunan hanya dari halaman bukti (`dalam`),
     dengan batas kata yang sama seperti pemeriksaan huruf. Kembalikan (galat, perhatian, bagian kitab yang cocok)."""
     q = [norma.padat(b) for b in bagian]
-    kata = [shamela.kata_dalam(b) for b in bagian]
+    kata = [cocok.kata_dalam(b) for b in bagian]
     terbaik = None
     for sisi, _ in norma.BAGIAN:
         raw = norma.TAGS.sub(lambda m: " " * len(m.group()), "\n".join(r.get(sisi) or "" for r in rr))
         # Raw utuh diperlukan untuk ayat tepat sebelum/sesudah halaman bukti. Yang dibatasi hanya posisi calon.
-        sah, tak_pasti, catatan, offset = [], [], [], 0  # catatan = حاشية yang tertulis di body (`shamela.catatan_body`)
+        sah, tak_pasti, catatan, offset = [], [], [], 0  # catatan = حاشية yang tertulis di body (`cocok.catatan_body`)
         for r in rr:
             t = r.get(sisi) or ""
             if sisi == "body":
-                catatan += [(offset + a, offset + z) for a, z in shamela.catatan_body(t)]
+                catatan += [(offset + a, offset + z) for a, z in cocok.catatan_body(t)]
             batas = [(0, r.get("page_num"))] + [(m.start(), int(m[1])) for m in norma.PENANDA.finditer(t)]
             samar = sisi == "footnotes" and len(batas) == 1
             for i, (a, h) in enumerate(batas):
@@ -421,10 +422,10 @@ def susunan_kitab(rr, bagian, celah, ujung=([], []), dalam=None):
             n = bisect.bisect_right(sah, (a, float("inf"))) - 1
             return n >= 0 and sah[n][0] <= a and z <= sah[n][1]
 
-        def cocok(i, j, k):
-            return (len(q[i]) < KUTIPAN_MIN or shamela._utuh(rek, "body", j, k, kata[i])) and di_halaman(mulai(j), akhir(k))
+        def lolos(i, j, k):
+            return (len(q[i]) < KUTIPAN_MIN or cocok.potongan_utuh(rek, "body", j, k, kata[i])) and di_halaman(mulai(j), akhir(k))
 
-        for letak in susunan_bagian(pd, q, maks=float("inf"), cocok=cocok):
+        for letak in susunan_bagian(pd, q, maks=float("inf"), cocok=lolos):
             hasil = _nilai_susunan(raw, angka, letak, bagian, celah, ujung, mulai, akhir, di_halaman)
             kunci = (bool(hasil[0]), len(hasil[1]))
             jenis = ("footnotes?" if any(a <= mulai(j) < z for a, z in tak_pasti for j, _ in letak) else
@@ -618,9 +619,9 @@ def ragu_akhir(rr, akhir):
         return []
     q = norma.padat(akhir)
     for r in rr:
-        c = shamela._cocok(r, q, "body", True)
+        c = cocok.letak_pertama(r, q, "body", True)
         if c:
-            teks, (_, ujung) = norma.ruas_halaman(r, "body")[0], shamela._batas_kata(r, "body")
+            teks, (_, ujung) = norma.ruas_halaman(r, "body")[0], cocok.batas_kata(r, "body")
             sesudah = teks[c[1]:min((u for u in ujung if u > c[1]), default=c[1])]
             if sesudah == "الا" and not henti(r, c[1]):
                 return ["di kitab kutipan ini disambung «إلا» (pengecualiannya terpotong): pastikan maknanya tidak terbalik"]
@@ -643,22 +644,22 @@ def ragu_kutipan(rr, awal, pot, periksa_angka=True, dulu=lambda: None, pengarang
             ragu.append(f"angka {'، '.join(sorted(angka - ada))} di kutipan tidak terbaca di halaman itu: cocokkan sendiri")
     q = norma.padat(awal)
     def letak(r):  # awal kutipan di rekaman r; kutipan yang menyambung ke rekaman berikutnya: ujung rekaman = awalnya
-        c = shamela._cocok(r, q, "body", True)
+        c = cocok.letak_pertama(r, q, "body", True)
         if c or k_utuh:
             return c
         teks = norma.ruas_halaman(r, "body")[0]
         n = next((n for n in range(min(len(q), len(teks)) - 1, 9, -1) if teks.endswith(q[:n])), 0)
-        return n and len(teks) - n in shamela._batas_kata(r, "body")[0] and (len(teks) - n, len(teks))
-    k_utuh = any(shamela._cocok(r, q, "body", True) for r in rr)
+        return n and len(teks) - n in cocok.batas_kata(r, "body")[0] and (len(teks) - n, len(teks))
+    k_utuh = any(cocok.letak_pertama(r, q, "body", True) for r in rr)
     for k, r in enumerate(rr):
         c = letak(r)
         if c:
-            teks, mulai = norma.ruas_halaman(r, "body")[0], sorted(shamela._batas_kata(r, "body")[0])
+            teks, mulai = norma.ruas_halaman(r, "body")[0], sorted(cocok.batas_kata(r, "body")[0])
             sebelum = [a for a in mulai if a <= c[0]]  # awal kata kutipan (huruf sambung و/ف ikut kata itu)
             kata = teks[sebelum[-2]:sebelum[-1]] if len(sebelum) > 1 else None
             lalu = None if kata else rr[k - 1] if k else dulu()
             if lalu:  # kutipan mulai di awal rekaman: kata terakhir rekaman sebelumnya
-                awal_lalu = shamela._batas_kata(lalu, "body")[0]
+                awal_lalu = cocok.batas_kata(lalu, "body")[0]
                 kata = norma.ruas_halaman(lalu, "body")[0][max(awal_lalu):] if awal_lalu else None
             if kata in NAFI and not henti(lalu or r, len(norma.ruas_halaman(lalu, "body")[0]) if lalu else sebelum[-1]):
                 ragu.append(f"di kitab tepat sebelum kutipan ada «{kata}»: pastikan maknanya tidak terbalik")
@@ -685,9 +686,9 @@ SEBUTAN_PENGARANG = frozenset(map(norma.padat, "المصنف المؤلف الش
 
 
 def _kata_titik(r):
-    """`shamela.kata_titik_dua` matan r, atau [] kalau pemotongan katanya tidak sama dengan `_batas_kata`."""
-    teks, mulai = norma.ruas_halaman(r, "body")[0], sorted(shamela._batas_kata(r, "body")[0])
-    kata = shamela.kata_titik_dua(r)
+    """`cocok.kata_titik_dua` matan r, atau [] kalau pemotongan katanya tidak sama dengan `cocok.batas_kata`."""
+    teks, mulai = norma.ruas_halaman(r, "body")[0], sorted(cocok.batas_kata(r, "body")[0])
+    kata = cocok.kata_titik_dua(r)
     return kata if [w for w, _ in kata] == [teks[a:b] for a, b in zip(mulai, mulai[1:] + [len(teks)])] else []
 
 

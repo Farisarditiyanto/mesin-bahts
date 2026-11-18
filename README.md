@@ -122,7 +122,8 @@ Every command = `python mesin/bahts.py <perintah>`. Full list with arguments: `p
 | `mesin/bahts.py` | the only command entry point |
 | `mesin/olah.py`, `naskah.py`, `cek_*.py`, and their helper modules | `cek`; what each file does: `AGENTS.md` «Letak kode `cek`» |
 | `mesin/quran_hafs_v22.json`, `nama_surah.json` | mushaf text and surah names |
-| `mesin/shamela.py` | book download, catalogue, `temukan`, `scan` |
+| `mesin/shamela.py` | book download, catalogue, `cari`, `teks`, `bab`, `halaman` |
+| `mesin/turath.py` | turath.io client: `temukan`, `scan` |
 | `mesin/jaringan.py` | transport for outside services, safe redirects, rate limits, and complete downloads |
 | `mesin/hadits.py`, `dirasat.py` | takhrij pointers, previous studies |
 | `mesin/waqfeya.py` | Waqfeya books: catalogue, `ambil w…`, OCR, scan cut-outs (PDF/PNG) |

@@ -14,12 +14,13 @@ Tafsir tidak bernomor, jadi edisi lain kitab tafsir hanya disebut.
 Penunjuk jalan saja: halaman yang ditunjuk tetap dibaca dengan `halaman`, dan yang dikutip tetap harus lolos `cek`.
 Tanpa internet sesudah tabelnya diunduh sekali (`siapkan`), jadi tidak berkuota seperti connector.
 """
-import functools, re
+import bisect, functools, json, re
 
 import jaringan, norma, shamela
 from shamela import ROOT, RAW, TAGS
-from dasar import perintah
-from kitab_lokal import kepala_hadits, lepas, rangkaian_kitab
+from dasar import HALAMAN_MAKS, angka, perintah
+from kitab_lokal import halaman_di, kepala_hadits, rangkaian_kitab
+from quran import mushaf
 
 TABEL = {"tafsir": "_meta/tafsir_xrefs.parquet", "hadits": "_meta/hadith_xrefs.parquet", "rawi": "_meta/narrators.parquet",
          "akar": "_meta/root_dictionary.parquet"}
@@ -35,7 +36,7 @@ def siapkan(*nama):
         if not f.exists():
             f.parent.mkdir(parents=True, exist_ok=True)
             print(f"layanan {n}: mengunduh …", flush=True)
-            jaringan.unduh(f"{RAW}/{TABEL[n]}", f, lambda q: open(q, "wb"))
+            jaringan.unduh(f"{RAW}/{TABEL[n]}", f, jaringan.tulis_biner)
     if not nama:
         print(f"layanan Shamela: {', '.join(TABEL)} siap")
 
@@ -55,7 +56,7 @@ def _baris(nama):
 
 @functools.cache
 def _katalog():
-    return {r["shamela_id"]: r for r in shamela._meta()}
+    return {r["shamela_id"]: r for r in shamela.isi_katalog()}
 
 
 def _wafat(sid):
@@ -77,6 +78,11 @@ def _nama(sid):
 def _karya(sid):
     """Penanda kitab lintas edisi: group_id katalog (edisi-edisi satu kitab berbagi nomor ini), atau nomor kitabnya."""
     return _katalog().get(sid, {}).get("group_id") or sid
+
+
+def _lokal():
+    """Himpunan nomor kitab yang sudah diunduh."""
+    return set(shamela.punya())
 
 
 def _edisi_lokal(sid):
@@ -102,11 +108,11 @@ def _tempat(sid, s):
     i = shamela.rekaman_shamela(sid).get(s)
     if i is None:
         return None
-    ix, awal = shamela._indeks(sid)
-    return None if awal[i] is None else (shamela._juz({"part": ix[i][0]}), awal[i], ix[i][2])
+    ix, awal = shamela.indeks_awal(sid)
+    return None if awal[i] is None else (shamela.nama_juz(ix[i][0]), awal[i], ix[i][2])
 
 
-@functools.cache
+@shamela.cache_kitab()
 def _kepala_ruas(sid, i):
     """[(semua nomor satu kepala hadits, nomor globalnya)] di rekaman ke-i (aturan `cek`). مسلم: «134 - (2951)» =
     ((134, 2951), 2951): nomor berkurung = nomor global, angka di depannya = urutan riwayat dalam كتاب itu."""
@@ -122,7 +128,7 @@ def _kepala(sid, i):
     return sorted({g for _, g in _kepala_ruas(sid, i)})
 
 
-@functools.cache
+@shamela.cache_kitab()
 def _peta_nomor(sid):
     """({semua nomor satu kepala: [rekaman]}, {nomor global: [rekaman]}) seluruh kitab sid (dibaca sekali per perintah)."""
     ruas, globl = {}, {}
@@ -133,7 +139,7 @@ def _peta_nomor(sid):
     return ruas, globl
 
 
-@functools.cache
+@shamela.cache_kitab()
 def _sirap(sid, i):
     kata = norma.norm(TAGS.sub(" ", shamela.rekaman_ke(sid, i).get("body") or "")).split()
     return frozenset(tuple(kata[k:k + SIRAP]) for k in range(len(kata) - SIRAP + 1))
@@ -166,13 +172,13 @@ def _seberang(asal, i, tujuan):
 
 def _baris_seberang(asal, i, e):
     """Baris «edisi lokal e» untuk hadits di rekaman i edisi asal."""
-    ix, awal = shamela._indeks(e)
+    ix, awal = shamela.indeks_awal(e)
     out = []
     for n, j, cocok in _seberang(asal, i, e):
         if j is None:
             out.append(f"      edisi lokal [{e}]: nomor {n} tidak ditemukan sebagai kepala hadits (penomoran edisi beda?)")
             continue
-        juz, a, z = shamela._juz({"part": ix[j][0]}), awal[j], ix[j][2]
+        juz, a, z = shamela.nama_juz(ix[j][0]), awal[j], ix[j][2]
         catat = "" if cocok else " — LAFAZ TIDAK COCOK: penomoran edisi beda, jangan dipakai tanpa dibaca"
         out.append(f"      edisi lokal [{e}] {_katalog()[e]['title_ar']}: رقم {n}، {shamela.letak(juz, (a, z))}{catat} -> "
                    + _perintah_halaman(e, juz, a, z))
@@ -183,7 +189,7 @@ def _cetak_kitab(sid, halaman_shamela, hadits=False):
     """Baris-baris satu kitab tabel: juz/halaman cetak tiap tempat (kitab sudah diunduh), lalu edisi lokal lain kitab itu
     (hadits: lewat nomor; tafsir: hanya disebut). Kitab yang belum diunduh: edisi lokalnya disebut lebih dulu, baru `ambil`."""
     lain = _edisi_lokal(sid)
-    if sid not in set(shamela.punya()):
+    if sid not in _lokal():
         if not lain:
             return [f"[{sid}] {_nama(sid)}: belum diunduh -> {perintah(f'ambil {sid}')}"]
         guna = ("unduh sekali sebagai jembatan nomor hadits ke edisi lokal" if hadits
@@ -216,14 +222,13 @@ def _cetak_kitab(sid, halaman_shamela, hadits=False):
 def tafsir(rujukan):
     """`tafsir <surat:ayat>` (atau surat:ayat-ayat): kitab tafsir yang menafsirkan ayat itu beserta juz/halaman cetak
     awal pembahasannya, urut dari pengarang yang lebih dulu wafat. Kembalikan jumlah kitab."""
-    import cek_ayat
     m = re.fullmatch(r"\s*(\d+)\s*:\s*(\d+)(?:\s*-\s*(\d+))?\s*", rujukan)
     if not m:
         raise SystemExit(f"Tulis ayatnya surat:ayat atau surat:ayat-ayat, mis. «2:219» atau «2:219-220», bukan «{rujukan}».")
     s, a, z = int(m[1]), int(m[2]), int(m[3] or m[2])
     if not 1 <= s <= 114:
         raise SystemExit(f"Surat {s} tidak ada: nomor surat 1-114.")
-    urut = {k: i + 1 for i, k in enumerate(cek_ayat.QURAN)}  # nomor ayat se-mushaf = kunci layanan tafsir Shamela
+    urut = {k: i + 1 for i, k in enumerate(mushaf())}  # nomor ayat se-mushaf = kunci layanan tafsir Shamela
     if not (1 <= a <= z) or f"{s}:{z}" not in urut:
         raise SystemExit(f"Ayat {rujukan} tidak ada di mushaf (surat {s} punya {sum(k.startswith(f'{s}:') for k in urut)} ayat).")
     kunci = {urut[f"{s}:{x}"] for x in range(a, z + 1)}
@@ -243,12 +248,11 @@ def takhrij(sid, juz, hal):
     """`takhrij <id> <juz> <hal>` (hal boleh rentang a-b): tiap hadits di halaman itu beserta tempat hadits yang sama di
     kitab hadits lain yang dicakup layanan Shamela. Edisi yang tidak ditunjuk tabel (mis. 1727) dijembatani lewat nomor ke
     edisi yang ditunjuk (mis. 711), yang harus sudah diunduh. Kembalikan jumlah hadits yang punya data takhrij."""
-    angka = lambda x: int(x) if str(x).isdigit() else x
-    sid, juz = int(shamela._folder(sid).name), angka(juz)
+    sid, juz = shamela.nomor_kitab(sid), angka(juz)
     shamela.info(sid)  # belum diunduh -> pesan yang jelas
     halaman = _rentang(hal)
-    if halaman is None or halaman.stop - halaman.start > 20:
-        raise SystemExit(f"Halaman ditulis angka (mis. 31) atau rentang awal-akhir paling banyak 20 halaman (mis. 31-32), bukan «{hal}».")
+    if halaman is None or halaman.stop - halaman.start > HALAMAN_MAKS:
+        raise SystemExit(f"Halaman ditulis angka (mis. 31) atau rentang awal-akhir paling banyak {HALAMAN_MAKS} halaman (mis. 31-32), bukan «{hal}».")
     rekaman = {int(p["shamela_page_id"]): p for h in halaman for p, _ in shamela.rekaman_halaman(sid, juz, h)}
     if not rekaman:
         raise SystemExit(f"[{sid}] TIDAK ADA halaman {juz}/{hal}. Yang ada: {shamela.daftar_juz(sid)} (juz \"-\" = kitab satu jilid)")
@@ -262,7 +266,7 @@ def takhrij(sid, juz, hal):
                   "sama ikut lewat nomor hadits): " + "؛ ".join(f"[{b}] {_katalog()[b]['title_ar']}" for b in kitab_tabel)
                   + ". Untuk kitab lain: `hadits`, connector, atau `temukan`.")
             return 0
-        lokal = [b for b in tabel_sekarya if b in set(shamela.punya())]
+        lokal = [b for b in tabel_sekarya if b in _lokal()]
         if not lokal:
             print(f"[{sid}] {_nama(sid)}: layanan takhrij Shamela memakai edisi "
                   + "، ".join(f"[{b}] {_katalog()[b]['title_ar']}" for b in tabel_sekarya)
@@ -328,7 +332,6 @@ def _rawi_semua():
 
 
 def _json(teks, kunci):
-    import json
     try:
         return json.loads(teks).get(kunci) or []
     except (TypeError, ValueError, AttributeError):
@@ -361,7 +364,7 @@ def _edisi_sumber(judul):
     الرجال»; «الجرح والتعديل لابن أبي حاتم» = ketiga «الجرح والتعديل»), yang paling banyak berbagi kata judul lebih dulu."""
     q = norma.padat(judul)
     hasil = []
-    for r in shamela._meta():
+    for r in shamela.isi_katalog():
         jp = norma.padat(shamela.judul_pokok(r["title_ar"])[0]) if r["title_ar"] else ""
         if len(jp) >= 6 and (q.startswith(jp) or jp.startswith(q)):
             kata = set(judul.split())
@@ -370,8 +373,7 @@ def _edisi_sumber(judul):
 
 
 def _judul_sumber(sumber):
-    import re as re_
-    m = re_.match(r"(.*?)\s*\(([^()]*)\)\s*$", sumber or "")
+    m = re.match(r"(.*?)\s*\(([^()]*)\)\s*$", sumber or "")
     return m.group(1) if m else (sumber or "")
 
 
@@ -396,24 +398,23 @@ def _nama_inti(r):
     return norma.padat(" ".join(kata))
 
 
-@functools.cache
+@shamela.cache_kitab()
 def _judul_padat(e):
-    return [norma.padat(t["title_text"]) for t in shamela._toc(e)[0]]
+    return [norma.padat(t["title_text"]) for t in shamela.daftar_isi(e)[0]]
 
 
 def _di_tarjamah(e, k, j, inti):
     """Letak (k, j) kitab e berada di tarjamah rawi ini: judul daftar isi yang menaunginya memuat nama intinya. Kitab
     yang daftar isinya tidak memuat nama rawi ini (judul per bab/huruf), dan حاشية: nama inti harus terbaca
     TARJAMAH_JARAK huruf sebelumnya."""
-    import bisect
     if not inti:
         return False
     _, _, teks, (_, s_, awal, rek) = rangkaian_kitab(e)[k]
     if s_ == 0 and any(inti in t for t in _judul_padat(e)):  # judul daftar isinya per tarjamah, bukan per bab
         i = bisect.bisect_right(awal, j) - 1
         p = shamela.rekaman_ke(e, rek[i])
-        if shamela._toc(e)[0] and p.get("page_id") is not None:
-            calon = shamela._judul_calon(p | {"page_id": int(p["page_id"])}, shamela._toc(e)[0],
+        if shamela.daftar_isi(e)[0] and p.get("page_id") is not None:
+            calon = shamela.judul_calon(p | {"page_id": int(p["page_id"])}, shamela.daftar_isi(e)[0],
                                          (j - awal[i], j - awal[i] + 1), None, "body")
             if calon[0] is not None:  # judul yang mungkin menaungi lebih dari satu = ragu: semuanya harus tarjamah rawi ini
                 return all(t is not None and inti in norma.padat(t["title_text"]) for t in calon)
@@ -424,7 +425,7 @@ def _letak_ucapan(daftar, inti=""):
     """Baris letak tiap ucapan [(teks, sumber)] satu rawi, dicari lafaznya di edisi lokal kitab sumbernya (juz/halaman di
     tabel sering dari edisi lain). Ucapan yang lafaznya muncul sekali di kitab itu = jangkar tarjamah rawi ini; ucapan
     umum («قال أبو داود: ثقة») yang muncul berkali-kali hanya ditunjuk kalau satu kemunculannya dekat jangkar."""
-    lokal = set(shamela.punya())
+    lokal = _lokal()
     letak, jangkar = [], {}
     for teks, sumber in daftar:
         edisi = _edisi_sumber(_judul_sumber(sumber))
@@ -456,9 +457,8 @@ def _letak_ucapan(daftar, inti=""):
         if pilih:
             e, (k, j) = pilih
             juz, tanda, _, ruas = rangkaian_kitab(e)[k]
-            from kitab_lokal import halaman_di
             a, z = halaman_di(ruas, j, j + len(q))
-            juz = "-" if juz is None else juz
+            juz = shamela.nama_juz(juz)
             out.append(f"terbaca di [{e}] {_katalog()[e]['title_ar']} {shamela.letak(juz, (a, z))}{tanda} -> "
                        + _perintah_halaman(e, juz, a, z if z is not None else a))
         elif ada and all(len(m) == 1 for m in ada.values()):
@@ -501,7 +501,7 @@ def _rawi_halaman(sid, juz, hal):
     sanad = [x for p, _ in rekaman for x in _sanad(p)]
     jembatan = None
     if not sanad and rekaman:
-        tabel = [b for b in _tabel_kitab("hadits") if _karya(b) == _karya(sid) and b != sid and b in set(shamela.punya())]
+        tabel = [b for b in _tabel_kitab("hadits") if _karya(b) == _karya(sid) and b != sid and b in _lokal()]
         if tabel:
             jembatan = tabel[0]
             for p, _ in rekaman:
@@ -517,8 +517,7 @@ def rawi(*a):
     dan semua ucapan جرح وتعديل rawi itu beserta tempatnya di edisi lokal; `rawi "<nama>"`: cari nomor rawi menurut nama.
     Kembalikan jumlah rawi yang dicetak."""
     if len(a) == 3:
-        angka = lambda x: int(x) if str(x).isdigit() else x
-        sid = int(shamela._folder(a[0]).name)
+        sid = shamela.nomor_kitab(a[0])
         shamela.info(sid)
         juz, hal = angka(a[1]), angka(a[2])
         sanad, rekaman, jembatan = _rawi_halaman(sid, juz, hal)
@@ -532,7 +531,7 @@ def rawi(*a):
         if not nomor and not lain:
             tabel = [b for b in _tabel_kitab("hadits") if _karya(b) == _karya(sid)]
             print(f"[{sid}] {juz}/{hal}: tidak ada sanad dari layanan Shamela di halaman ini."
-                  + (f" Edisi yang bertautan: {perintah(f'ambil {tabel[0]}')} (jembatan nomor hadits)." if tabel and tabel[0] not in set(shamela.punya()) else ""))
+                  + (f" Edisi yang bertautan: {perintah(f'ambil {tabel[0]}')} (jembatan nomor hadits)." if tabel and tabel[0] not in _lokal() else ""))
             return 0
         print(f"[{sid}] {juz}/{hal}: {len(sanad)} sanad, {len(nomor)} rawi (layanan sanad Shamela"
               + (f", lewat edisi [{jembatan}]" if jembatan else "") + "). Rincian جرح وتعديل: " + perintah("rawi <nomor>"))
@@ -564,7 +563,7 @@ def rawi(*a):
                 for teks, sumber, *_ in daftar:
                     print(f"    «{teks}» — {sumber}\n      {next(letak)}")
         finally:
-            lepas()
+            shamela.lepas()
         print("\nPenunjuk saja: yang dikutip di bahts = lafaz di halaman kitab rijal yang dibaca sendiri, dan lolos `cek`.")
         return 1
     q = norma.padat(x)
@@ -623,7 +622,7 @@ def akar(sid, akar_):
     mencocokkan kata (huruf sambung dan «ال» di depan boleh), urut dari yang paling sering, dengan ejaan kitab itu
     sendiri. Untuk menemukan istilah yang tidak tertangkap frasa atau `--potongan` («الشفيع» untuk akar شفع).
     Kembalikan jumlah kata yang cocok."""
-    sid = int(shamela._folder(sid).name)
+    sid = shamela.nomor_kitab(sid)
     shamela.info(sid)
     a = norma.norm(str(akar_).translate(HAMZAH_AKAR)).replace(" ", "")
     if not 2 <= len(a) <= 5 or not re.fullmatch(r"[ء-ي]+", a):
@@ -637,7 +636,7 @@ def akar(sid, akar_):
     if not bentuk:
         raise SystemExit(f"Akar «{a}» tidak ada di kamus akar Shamela (hamzah akar ditulis «ء», mis. «ءخذ»).")
     kunci, ejaan = {}, {}  # kata kitab tanpa harakat -> bentuk `norm`; (bentuk, ejaan kitab) -> jumlah
-    for i in range(len(shamela._indeks(sid)[0])):
+    for i in range(len(shamela.indeks(sid))):
         p = shamela.rekaman_ke(sid, i)
         for bagian, _ in norma.BAGIAN:
             for w in KATA_ARAB.findall(TAGS.sub(" ", p.get(bagian) or "")):

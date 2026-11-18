@@ -26,19 +26,19 @@ class _AlihAman(urllib.request.HTTPRedirectHandler):
         return baru
 
 
-def buka(url, data=None, kepala=UA, waktu=60, coba=3):
+def buka(url, data=None, kepala=UA, waktu=60):
     """Satu pintu permintaan ke layanan luar (temukan, hadits, dirasat, font). Galat sementara (koneksi putus/direset,
-    SSL terputus, waktu habis, HTTP 500/502/503) dicoba lagi sampai `coba` kali dengan jeda 1, 2, 4 detik.
+    SSL terputus, waktu habis, HTTP 500/502/503) dicoba lagi sampai COBA kali dengan jeda 1, 2, 4 detik.
     Penolakan lain (4xx, 429 jatah habis, 504) langsung dilempar: artinya beda per layanan, pemanggil yang menjelaskan."""
     pembuka = urllib.request.build_opener(_AlihAman)
-    for i in range(coba):
+    for i in range(COBA):
         try:
             return pembuka.open(urllib.request.Request(url, data, kepala), timeout=waktu)
         except urllib.error.HTTPError as e:
-            if e.code not in SEMENTARA or i == coba - 1:
+            if e.code not in SEMENTARA or i == COBA - 1:
                 raise
         except GAGAL_JARINGAN:
-            if i == coba - 1:
+            if i == COBA - 1:
                 raise
         time.sleep(2 ** i)
 
@@ -57,6 +57,20 @@ def tunggu_jatah(e, ulang, habis):
     if tunggu > SABAR_JATAH or not ulang:
         raise SystemExit(habis.format(menit=tunggu // 60 + 1))
     time.sleep(tunggu + 1)
+
+
+def buka_berjatah(habis, url, data=None, kepala=UA):
+    """`buka` untuk layanan berjatah: HTTP 429 ditunggu lalu diulang sekali (`tunggu_jatah`, pesan `habis`)."""
+    for ulang in (True, False):
+        try:
+            return buka(url, data, kepala)
+        except urllib.error.HTTPError as e:
+            tunggu_jatah(e, ulang, habis)
+
+
+def tulis_biner(jalur):
+    """Penulis unduhan yang disimpan apa adanya (tanpa kompresi), untuk `unduh`."""
+    return open(jalur, "wb")
 
 
 def unduh(url, tujuan, buka):

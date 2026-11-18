@@ -128,7 +128,8 @@ python mesin/bahts.py periksa
 | `mesin/bahts.py` | المدخل الوحيد للأوامر |
 | `mesin/olah.py`، `naskah.py`، `cek_*.py` وما يعينها | `cek`؛ تقسيم الملفات: `AGENTS.md` «Letak kode `cek`» |
 | `mesin/quran_hafs_v22.json`، `nama_surah.json` | نص المصحف وأسماء السور |
-| `mesin/shamela.py` | تنزيل الكتب، فهرس الكتب، `temukan`، `scan` |
+| `mesin/shamela.py` | تنزيل الكتب، فهرس الكتب، `cari`، `teks`، `bab`، `halaman` |
+| `mesin/turath.py` | الاتصال بموقع turath.io: `temukan`، `scan` |
 | `mesin/jaringan.py` | الاتصال بالخدمات الخارجية، التحويل الآمن، الحصص، والتنزيل الكامل |
 | `mesin/waqfeya.py` | كتب الوقفية: الفهرس، `ambil w…`، النص المستخرج آليا (OCR)، مقتطفات المصورة (PDF/PNG) |
 | `mesin/hadits.py`، `dirasat.py` | دلالة التخريج، الدراسات السابقة |

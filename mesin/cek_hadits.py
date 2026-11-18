@@ -3,8 +3,8 @@
 serta طرف/rawi {H:} yang harus terbaca di halaman bukti."""
 import functools, re
 
+import cocok
 import norma
-import shamela
 from dasar import ANGKA_LATIN, ELIPSIS, POTONGAN_MIN, TAKHRIJ_AWAL
 from kitab_lokal import bagian_kitab, bersih_hadits, kepala_hadits, rekaman
 
@@ -158,10 +158,10 @@ def hadits_janggal(h, terbukti, sekitar):
     rujukan = [rekaman(int(s), z, max(1, a - MUNDUR_KEPALA), b + 1) for s, z, a, b in terbukti]
     teks = " ".join(r.get(b) or "" for rr in rujukan for r in rr for b in ("body", "footnotes"))
     kata = lambda t: [norma.padat(w) for w in norma.norm(t).split()]  # norm: «عز وجل»/«﷿» dibuang di kedua sisi
-    lepas = lambda ww: ww | {w[1:] for w in ww if w[:1] in shamela.SAMBUNG}  # «وإني» di kitab = «إني» di طرف
+    lepas = lambda ww: ww | {w[1:] for w in ww if w[:1] in cocok.SAMBUNG}  # «وإني» di kitab = «إني» di طرف
     di_kitab = lepas(set(kata(teks)))
     ada = di_kitab | lepas(set(kata(sekitar)))
-    terbaca = lambda w, ada: w in ada or w[:1] in shamela.SAMBUNG and w[1:] in ada
+    terbaca = lambda w, ada: w in ada or w[:1] in cocok.SAMBUNG and w[1:] in ada
     taraf = [w for w in dict.fromkeys(kata(h["t"])) if len(w) >= TARAF_KATA]
     hilang = [w for w in taraf if not terbaca(w, ada)]
     galat = perhatian = None

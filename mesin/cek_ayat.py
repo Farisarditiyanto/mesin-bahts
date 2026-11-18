@@ -1,18 +1,18 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Ayat {Q:}: teks mushaf yang dicetak, rujukan «سورة …، آية: n», ayat yang diketik sendiri, dan pencocokan ayat
 yang dikutip kitab dengan ayat yang tercetak (termasuk salah ketik dan ayat tanpa ﴿﴾ di kitab)."""
-import difflib, functools, json, re
+import difflib, functools, re
 
 import norma
-from dasar import AD, ANGKA_LATIN, AYAT_KITAB, HERE, RUJUKAN_AYAT, SURAH, TandaRusak, perintah
+from dasar import AD, ANGKA_LATIN, AYAT_KITAB, RUJUKAN_AYAT, SURAH, TandaRusak, perintah
 
 try:
     from rapidfuzz.distance import Levenshtein
 except ImportError:  # pustaka belum dipasang ulang sesudah `git pull`
     raise SystemExit("Pustaka Python belum terpasang; cara memasangnya disebut oleh: " + perintah("periksa"))
 from petik import kutipan_semua
+from quran import mushaf
 
-QURAN = json.loads((HERE / "quran_hafs_v22.json").read_text(encoding="utf8"))
 BEDA_AYAT = 2  # huruf kerangka ayat tercetak yang boleh tidak ada di ayat bertanda kitab (ayat_tercetak)
 # ﴿…﴾ (atau terbalik ﴾…﴿) berhuruf Arab yang diketik di naskah; {Q:} jadi «﴿2:255﴾» (angka), jadi ﴾ sesudah angka
 # dan ﴿ sebelum angka = batas dua {Q:}, bukan kurung ayat terbalik
@@ -278,7 +278,7 @@ def _quran_kerangka_nomor():
 
 @functools.cache
 def _quran_padat_nomor():
-    return [(k, x) for k, v in QURAN.items() for x in bentuk_ayat(v)]
+    return [(k, x) for k, v in mushaf().items() for x in bentuk_ayat(v)]
 
 
 def _di_quran(b):
@@ -335,7 +335,7 @@ def ayat(spec):
         raise TandaRusak(f"{{Q:{spec}}}: kata ke-i s.d. j hanya untuk satu ayat ({{Q:surat:ayat:i-j}})")
     p[1] = "-".join(str(int(x)) for x in p[1].split("-"))  # «٢» dan «02» = ayat 2
     s = int(p[0])
-    if any(f"{s}:{n}" not in QURAN for n in map(int, p[1].split("-"))):
+    if any(f"{s}:{n}" not in mushaf() for n in map(int, p[1].split("-"))):
         raise TandaRusak(f"{{Q:{spec}}}: surat/ayat itu tidak ada")
     if "-" in p[1]:
         a, b = map(int, p[1].split("-"))
@@ -343,11 +343,11 @@ def ayat(spec):
             raise TandaRusak(f"{{Q:{spec}}}: rentang ayat harus dari kecil ke besar")
         bagian = []
         for n in range(a, b + 1):
-            bagian.append(QURAN[f"{s}:{n}"])
+            bagian.append(mushaf()[f"{s}:{n}"])
             if n < b:
                 bagian.append(" " + str(n).translate(AD))
         return " ".join(bagian).replace("  ", " "), s, p[1]
-    t = QURAN[f"{s}:{p[1]}"]
+    t = mushaf()[f"{s}:{p[1]}"]
     if len(p) > 2:
         i, _, j = p[2].partition("-")
         i = int(i); j = int(j or i)

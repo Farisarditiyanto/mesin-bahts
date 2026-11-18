@@ -82,8 +82,8 @@ Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex dan DOAJ
 import difflib, hashlib, json, os, re, shutil, subprocess, sys, sysconfig, time, urllib.error, zipfile
 from pathlib import Path
 
-import diagram, dirasat, hadits, jaringan, layanan, norma, shamela, waqfeya  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
-from dasar import perintah
+import diagram, dirasat, hadits, jaringan, layanan, norma, shamela, turath, waqfeya  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
+from dasar import HALAMAN_MAKS, perintah
 from berkas import FolderKerja, PemulihanGagal, bahan, kosongkan_penulis, kunci, terbitkan
 
 MESIN = Path(__file__).resolve().parent
@@ -616,7 +616,7 @@ def ambil(nomor):
 
 
 def bendera_temukan(frasa, a):
-    """Argumen `shamela.temukan` dari `temukan "<frasa>" [maks] [--mazhab m,…] [--kitab id,…] [--halaman n]`."""
+    """Argumen `turath.temukan` dari `temukan "<frasa>" [maks] [--mazhab m,…] [--kitab id,…] [--halaman n]`."""
     maks, saring, tersebut = 20, {"--mazhab": "", "--kitab": "", "--halaman": "1"}, set()
     contoh = {"--mazhab": "hanbali", "--kitab": "8370", "--halaman": "2"}
     while a:
@@ -633,9 +633,6 @@ def bendera_temukan(frasa, a):
             maks, a = angka(a[0], "maks"), a[1:]
     daftar = lambda s: [x.strip() for x in s.replace("،", ",").split(",") if x.strip()]
     return frasa, maks, daftar(saring["--mazhab"]), daftar(saring["--kitab"]), angka(saring["--halaman"], "halaman")
-
-
-HALAMAN_MAKS = 20
 
 
 def halaman(sid, juz, hal):
@@ -743,7 +740,7 @@ PERINTAH = {  # nama: (jumlah argumen minimal, maksimal (None = diperiksa pemang
     "diagram": (1, 1, lambda a: sys.exit(1 if diagram.render(folder_bahts(a[0])) else 0)),
     "kitab": (0, 0, lambda a: shamela.daftar()),
     "katalog": (1, 1, lambda a: ketemu(shamela.katalog(pola(a[0])))),
-    "temukan": (1, None, lambda a: ketemu(shamela.temukan(*bendera_temukan(a[0], a[1:])))),
+    "temukan": (1, None, lambda a: ketemu(turath.temukan(*bendera_temukan(a[0], a[1:])))),
     "ambil": (1, None, lambda a: ambil(a)),
     "kartu": (1, 1, lambda a: waqfeya.kartu(a[0]) if wq(a[0]) else shamela.kartu(a[0])),
     "cari": (2, 2, lambda a, **k: ketemu(waqfeya.cari(a[0], a[1]) if wq(a[0]) else shamela.cari(a[0], a[1], **k))),
@@ -751,7 +748,7 @@ PERINTAH = {  # nama: (jumlah argumen minimal, maksimal (None = diperiksa pemang
     "teks": (2, 4, lambda a, **k: ketemu(shamela.teks(a[0], a[1], *(angka(x, apa) for x, apa in zip(a[2:], ("lebar", "maks"))), **k))),
     "bab": (2, 2, lambda a, **k: ketemu(shamela.bab(a[0], a[1], **k))),
     "halaman": (3, 3, lambda a: ketemu(waqfeya.halaman(*a) if wq(a[0]) else halaman(*a))),
-    "scan": (3, 3, lambda a: ketemu(shamela.scan(*a))),
+    "scan": (3, 3, lambda a: ketemu(turath.scan(*a))),
     "ekspor": (1, None, perintah_ekspor),
     "tafsir": (1, 1, lambda a: ketemu(layanan.tafsir(a[0]))),
     "takhrij": (3, 3, lambda a: ketemu(layanan.takhrij(*a))),

@@ -120,7 +120,8 @@ Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumenn
 | `mesin/bahts.py` | satu-satunya pintu perintah |
 | `mesin/olah.py`, `naskah.py`, `cek_*.py`, dan modul pembantunya | `cek`; pembagian tiap berkas: `AGENTS.md` «Letak kode `cek`» |
 | `mesin/quran_hafs_v22.json`, `nama_surah.json` | teks mushaf dan nama surat |
-| `mesin/shamela.py` | unduh kitab, katalog, `temukan`, `scan` |
+| `mesin/shamela.py` | unduh kitab, katalog, `cari`, `teks`, `bab`, `halaman` |
+| `mesin/turath.py` | klien turath.io: `temukan`, `scan` |
 | `mesin/jaringan.py` | transport layanan luar, pengalihan aman, jatah, dan unduhan utuh |
 | `mesin/hadits.py`, `dirasat.py` | penunjuk takhrij, penelitian terdahulu |
 | `mesin/waqfeya.py` | kitab Waqfeya: katalog, `ambil w…`, OCR, potongan scan (PDF/PNG) |

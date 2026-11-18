@@ -4,6 +4,7 @@ kutipannya, tiap {Q:} dengan teks ayatnya, dan tiap paragraf isi tanpa catatan k
 import re, tempfile
 from pathlib import Path
 
+import cocok
 import norma
 import shamela
 from dasar import ELIPSIS, KUTIPAN_MIN, WAQFEYA_BUKTI, perintah
@@ -51,7 +52,7 @@ def _penunjuk_waqfeya(w, n, hal, kutipan):
     ocr = {"persis": "kutipan terbaca persis di OCR", "mirip": f"kutipan mirip {rinci}% di OCR",
            "tidak": "kutipan TIDAK terbaca di OCR (salah huruf OCR, atau lafaz/halaman salah)",
            "lain": "kutipan terbaca di halaman lain (lihat `cek`)", "makna": "nukilan makna"}.get(keadaan, keadaan)
-    nc = waqfeya.nomor_cetak(w, int(n), waqfeya._rentang(hal)[0])
+    nc = waqfeya.nomor_cetak(w, int(n), waqfeya.rentang(hal)[0])
     ocr += f"; nomor cetak terbaca di OCR: {nc}" if nc is not None else "; nomor cetak tidak terbaca di OCR"
     return (f"{waqfeya.data(w)['judul']} [Waqfeya, OCR; {ocr}]: {_ringkas(teks, 2 * SEKITAR)} || scan: "
             f"{perintah(f'halaman {w} {n} {hal}')} (lafaz dan nomor halaman cetak dinilai dari scan)")
@@ -72,7 +73,7 @@ def _penunjuk_bukti(sid, juz, hal, kutipan):
     letak_judul = None
     for r in rr if q else ():
         for bagian, _ in norma.BAGIAN:
-            c, h = shamela._cocok(r, q, bagian), shamela.tempat(r, q, bagian, dalam=(p1, p2))
+            c, h = cocok.letak_pertama(r, q, bagian), cocok.tempat(r, q, bagian, dalam=(p1, p2))
             if c and h and p1 <= (h[0] or 0) and (h[1] or 0) <= p2:
                 letak_judul = letak_judul or (r, c, h, bagian)
     if not letak_judul and rr:
@@ -93,7 +94,7 @@ def _penunjuk_bukti(sid, juz, hal, kutipan):
             raw = teks[bagian]
             if qk not in padat_[bagian]:
                 continue
-            i = shamela._letak_asli(raw, qk)
+            i = cocok.letak_asli(raw, qk)
             h = ([x[1] for x in re.finditer(r"⦗([\d-]+)⦘", raw[:i + 1])] or [hal])[-1]
             a, z = max(0, i - SEKITAR), i + len(kutipan) + SEKITAR
             sebagian = f" (hanya awal kutipan yang ada: «{' '.join(kata_awal[:k])}»)" if k < len(kata_awal) else ""

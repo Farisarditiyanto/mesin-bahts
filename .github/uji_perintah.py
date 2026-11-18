@@ -77,7 +77,7 @@ if kode != 1 or "berlebih" not in err:
 # hadits «n -» di edisi lokal: Bukhari 1 = 1681 1/6, Muslim 1907 = 1727 3/1515, Bukhari 856 = 1/171 (rekamannya mulai
 # ص170: halaman penanda, bukan halaman rekaman). Kitab yang belum diunduh tidak ditandai.
 sys.path.insert(0, str(AKAR / "mesin"))
-import hadits
+import jaringan
 
 riwayat = [("صحيح البخاري", 1), ("صحيح البخاري", 856), ("صحيح مسلم", 1907), ("مسند أحمد", 1), ("صحيح البخاري", 999999)]
 jawaban = {"hits": {"total": {"value": len(riwayat)}, "hits": [
@@ -86,7 +86,7 @@ jawaban = {"hits": {"total": {"value": len(riwayat)}, "hits": [
 keluar = io.StringIO()
 keluar.reconfigure = lambda **kw: None
 with patch.object(sys, "argv", [str(AKAR / "mesin" / "bahts.py"), "hadits", "إنما الأعمال بالنيات"]), \
-        patch.object(hadits, "buka", side_effect=lambda *a, **kw: io.BytesIO(json.dumps(jawaban).encode("utf8"))), \
+        patch.object(jaringan, "buka", side_effect=lambda *a, **kw: io.BytesIO(json.dumps(jawaban).encode("utf8"))), \
         contextlib.redirect_stdout(keluar):
     try:
         runpy.run_path(str(AKAR / "mesin" / "bahts.py"), run_name="__main__")

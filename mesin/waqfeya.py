@@ -14,7 +14,7 @@ import ast, csv, difflib, functools, gzip, hashlib, json, re, urllib.parse
 from pathlib import Path
 
 import jaringan, norma, shamela
-from dasar import perintah
+from dasar import ANGKA_LATIN, HALAMAN_MAKS, perintah
 from berkas import sementara
 
 DATASET = "ieasybooks-org/waqfeya-library"
@@ -25,7 +25,6 @@ KATALOG = shamela.ROOT / "_meta" / "waqfeya.tsv"
 DATA = "kitab.json"  # ditulis terakhir: tandanya kitab sudah utuh terunduh
 PEMISAH = "\nPAGE_SEPARATOR\n"  # pemisah halaman di berkas OCR dataset
 NOMOR = re.compile(r"w[0-9a-f]{8}")
-HALAMAN_MAKS = 20
 LAIN_MIN = 25  # huruf `padat` kutipan paling sedikit sebelum «ada di halaman lain» dipercaya (GAGAL)
 MIRIP_MIN = 85  # skor rapidfuzz (0-100) paling rendah untuk «mirip» di `cari`
 LIPUT_MIRIP = 0.85  # bagian huruf kutipan yang terbaca berurutan di OCR halaman itu: «mirip» (salah huruf OCR biasa)
@@ -33,7 +32,6 @@ LIPUT_BUKAN = 0.6  # di bawah ini halaman yang ditulis jelas bukan tempat kutipa
 # kamus berkolom dan kitab berhamisy: urutan baris OCR-nya kacau (kutipan 15 kata utuh 0-5% di uji 152 kitab)
 RAWAN_KATEGORI = re.compile(r"المعاجم|القواميس")
 RAWAN_JUDUL = re.compile(r"بهامش|^(?:ال)?(?:معجم|قاموس|مفردات|مختار الصحاح|لسان العرب|تاج العروس|الصحاح|العين|جمهرة اللغة|تهذيب اللغة|مقاييس)")
-ANGKA = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
 
 
 def nomor(baris):
@@ -44,7 +42,7 @@ def nomor(baris):
 def _siapkan_katalog():
     if not KATALOG.exists():
         print("katalog Waqfeya: mengunduh (±17 MB, sekali saja) …", flush=True)
-        jaringan.unduh(f"{RAW}/index.tsv", KATALOG, lambda q: open(q, "wb"))
+        jaringan.unduh(f"{RAW}/index.tsv", KATALOG, jaringan.tulis_biner)
 
 
 @functools.cache
@@ -91,7 +89,7 @@ def _kata_nama(nama):
 def _pengarang_shamela():
     """{nomor kitab Shamela: kata nama pengarangnya} (untuk mencocokkan judul pendek Shamela, mis. «المحصول»)."""
     try:
-        return {int(r["shamela_id"]): _kata_nama(r["main_author_name_ar"]) for r in shamela._meta()}
+        return {int(r["shamela_id"]): _kata_nama(r["main_author_name_ar"]) for r in shamela.isi_katalog()}
     except SystemExit:
         return {}
 
@@ -118,10 +116,10 @@ def _judul_tanpa_pengarang():
     """{judul pokok Shamela `padat`: {nomor}}, juga tanpa nama pengarang yang ditempel «لـ…» di akhir («المحصول
     للرازي» → «المحصول»): shamela.judul_pokok hanya membuang للشيخ/لابن/لأبي…"""
     out = {}
-    for j, ss in shamela._judul_pokok_padat().items():
+    for j, ss in shamela.judul_pokok_padat().items():
         out.setdefault(j, set()).update(ss)
     try:
-        daftar = shamela._meta()
+        daftar = shamela.isi_katalog()
     except SystemExit:
         return out
     for r in daftar:
@@ -268,7 +266,7 @@ def _ambil(w):
             jaringan.unduh(f"{RAW}/{urllib.parse.quote(f['txt'])}", d / f"{i}.txt.gz", lambda q: gzip.open(q, "wb", compresslevel=6))
         if not _isi(d / f"{i}.pdf"):
             print(f"{w}: berkas {i}/{len(b['berkas'])} ({f['nama']}) …", flush=True)
-            jaringan.unduh(f"{RAW}/{urllib.parse.quote(f['pdf'])}", d / f"{i}.pdf", lambda q: open(q, "wb"))
+            jaringan.unduh(f"{RAW}/{urllib.parse.quote(f['pdf'])}", d / f"{i}.pdf", jaringan.tulis_biner)
     simpan = {k: b[k] for k in ("judul", "pengarang", "kategori", "halaman")}
     simpan.update(nomor=w, berkas=[f["nama"] for f in b["berkas"]], dataset=DATASET, revisi=REVISI, folder=b["folder"])
     with sementara(d / DATA) as part:  # ditulis terakhir dan utuh: tanda kitab sudah lengkap
@@ -302,7 +300,7 @@ BARIS_NOMOR = re.compile(r"[\s\-–—ـ()\[\]]*(\d{1,4})[\s\-–—ـ()\[\]]*")
 def _angka_tepi(teks):
     """Nomor di dua baris pertama dan dua baris terakhir halaman yang isinya hanya nomor itu. Angka di baris berteks
     (nomor catatan kaki «(٢) قال…», tahun) tidak dihitung: lebih baik «tidak terbaca» daripada nomor salah."""
-    baris = [x.translate(ANGKA) for x in teks.splitlines() if x.strip()]
+    baris = [x.translate(ANGKA_LATIN) for x in teks.splitlines() if x.strip()]
     return {int(m[1]) for x in baris[:2] + baris[-2:] if (m := BARIS_NOMOR.fullmatch(x))}
 
 
@@ -319,8 +317,8 @@ def nomor_cetak(w, n, h):
     return None
 
 
-def _rentang(hal):
-    m = re.fullmatch(r"\s*(\d+)\s*(?:-\s*(\d+))?\s*", str(hal).translate(ANGKA))
+def rentang(hal):
+    m = re.fullmatch(r"\s*(\d+)\s*(?:-\s*(\d+))?\s*", str(hal).translate(ANGKA_LATIN))
     if not m:
         raise ValueError(f"hal = urutan halaman di berkas PDF (mis. 57 atau 57-59), bukan «{hal}»")
     a, z = int(m[1]), int(m[2] or m[1])
@@ -366,10 +364,10 @@ def gambar(w, n, a, z):
 def halaman(w, n, hal):
     """`halaman w… <berkas> <hal>`: teks OCR tiap halaman PDF + nomor cetak yang terbaca + PDF scan halaman itu."""
     d = data(w)
-    n = int(str(n).translate(ANGKA)) if str(n).translate(ANGKA).isdigit() else 0
+    n = int(str(n).translate(ANGKA_LATIN)) if str(n).translate(ANGKA_LATIN).isdigit() else 0
     if not 1 <= n <= len(d["berkas"]):
         raise SystemExit(f"Kitab {w}: berkas = nomor urut 1..{len(d['berkas'])} ({_daftar_berkas(w)}), bukan «{n}».")
-    a, z = _rentang(hal)
+    a, z = rentang(hal)
     hh = ocr(w, n)
     if a > len(hh):
         raise SystemExit(f"Kitab {w} berkas {n} hanya {len(hh)} halaman PDF.")
@@ -488,7 +486,7 @@ def periksa_kutipan(w, n, hal, bagian):
     d = data(w)
     if not 1 <= n <= len(d["berkas"]):
         return "rusak", f"berkas = nomor urut 1..{len(d['berkas'])} ({_daftar_berkas(w)})"
-    a, z = _rentang(hal)
+    a, z = rentang(hal)
     pp = _padat(w, n)
     if z > len(pp):
         return "rusak", f"berkas {n} hanya {len(pp)} halaman PDF"
@@ -512,7 +510,7 @@ def periksa_kutipan(w, n, hal, bagian):
 
 def cuplikan(w, n, hal, kutipan, sekitar=300):
     """Teks OCR di sekitar letak kutipan (untuk `bukti`), atau awal halaman kalau tidak ketemu."""
-    a, z = _rentang(hal)
+    a, z = rentang(hal)
     t = " ".join(norma.norm(x) for x in ocr(w, n)[a - 1:z])
     m = _letak(t, norma.padat(kutipan or "")) if kutipan and len(norma.padat(kutipan)) >= 4 else None
     if m:

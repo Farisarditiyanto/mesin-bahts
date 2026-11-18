@@ -432,14 +432,14 @@ def utama():
             # Proses baru: pembacaan katalog tidak boleh diam-diam mengimpor pandas.
             r = subprocess.run([sys.executable, "-c",
                 "import sys; sys.path.insert(0, 'mesin'); import shamela; "
-                "assert shamela._meta(); assert 'pandas' not in sys.modules; "
+                "assert shamela.isi_katalog(); assert 'pandas' not in sys.modules; "
                 "assert shamela.nomor_judul('رسالة في القضاء والقدر')[0]; "
                 "assert shamela.katalog('(رياض') > 0; shamela.katalog('a{99999999999}')"],
                 cwd=akar, capture_output=True, encoding="utf8", env=dict(os.environ, PYTHONIOENCODING="utf8"))
             assert r.returncode == 0, r.stdout + r.stderr
 
         def konsumen_katalog():
-            import contextlib, io, shamela
+            import contextlib, io, jaringan, shamela, turath
             rows = [{"shamela_id": 99001, "book_id": 777, "category_id": 7, "title_ar": "كتاب تجريبي",
                      "main_author_name_ar": "مؤلف", "category_name_ar": "قسم", "has_multi_part": False},
                     {"shamela_id": 99002, "has_multi_part": True}]
@@ -453,16 +453,16 @@ def utama():
                 "meta": json.dumps({"vol": 1, "page": 9, "book_name": "كتاب", "author_name": "مؤلف"})}
                 for sid in (99001, 99002)]}
             out = io.StringIO()
-            with patch.object(shamela, "_meta", return_value=rows), contextlib.redirect_stdout(out):
-                with patch.object(shamela, "_ls", side_effect=ls), patch.object(shamela, "unduh", side_effect=ambil), patch.object(shamela, "_cache"):
-                    shamela._ambil(99001)
-                with patch.object(shamela, "buka", side_effect=lambda *a: io.StringIO(json.dumps(jawaban))):
-                    assert shamela.temukan("نص البحث") == 2
+            with patch.object(shamela, "isi_katalog", return_value=rows), contextlib.redirect_stdout(out):
+                with patch.object(shamela, "_ls", side_effect=ls), patch.object(shamela, "unduh", side_effect=ambil), patch.object(shamela, "padat_kitab"):
+                    shamela.ambil_satu(99001)
+                with patch.object(jaringan, "buka", side_effect=lambda *a: io.StringIO(json.dumps(jawaban))):
+                    assert turath.temukan("نص البحث") == 2
             assert len(unduh) == 3 and all("/07__" in u and "/777__" in u for u in unduh), unduh
             assert "ج- ص9" in out.getvalue() and "ج1 ص9" in out.getvalue(), out.getvalue()
 
         def temukan_saring():
-            import contextlib, io, shamela, urllib.parse
+            import contextlib, io, jaringan, shamela, turath, urllib.parse
             rows = [{"shamela_id": 99001, "has_multi_part": False}, {"shamela_id": 8370, "has_multi_part": True}]
             jawaban = {"count": 45, "data": [{"book_id": 99001, "snip": "نص", "meta": json.dumps(
                 {"vol": 1, "page": 9, "book_name": "كتاب", "author_name": "مؤلف"})}] * 20}
@@ -471,10 +471,10 @@ def utama():
                 alamat.append(urllib.parse.parse_qs(urllib.parse.urlsplit(url).query))
                 return io.StringIO(json.dumps(jawaban))
             out = io.StringIO()
-            with patch.object(shamela, "_meta", return_value=rows), patch.object(shamela, "buka", side_effect=buka), contextlib.redirect_stdout(out):
-                assert shamela.temukan("نص البحث", 20, ["hanafi", "hanbali"], [], 2) == 45
-                assert shamela.temukan("نص البحث", 5, [], ["8370"]) == 45
-                shamela.temukan("نص البحث")
+            with patch.object(shamela, "isi_katalog", return_value=rows), patch.object(jaringan, "buka", side_effect=buka), contextlib.redirect_stdout(out):
+                assert turath.temukan("نص البحث", 20, ["hanafi", "hanbali"], [], 2) == 45
+                assert turath.temukan("نص البحث", 5, [], ["8370"]) == 45
+                turath.temukan("نص البحث")
             assert alamat[0]["cat"] == ["14,17"] and alamat[0]["page"] == ["2"], alamat
             assert alamat[1]["book"] == ["8370"] and "cat" not in alamat[1], alamat
             assert "cat" not in alamat[2] and "book" not in alamat[2], alamat
@@ -484,15 +484,15 @@ def utama():
             assert "hasil berikutnya: naikkan maks" in keluar, "maks kecil + --halaman melompati hasil"
             jawaban["data"] = []
             out = io.StringIO()
-            with patch.object(shamela, "_meta", return_value=rows), patch.object(shamela, "buka", side_effect=buka), contextlib.redirect_stdout(out):
-                assert shamela.temukan("نص البحث", 20, [], [], 9) == 0
+            with patch.object(shamela, "isi_katalog", return_value=rows), patch.object(jaringan, "buka", side_effect=buka), contextlib.redirect_stdout(out):
+                assert turath.temukan("نص البحث", 20, [], [], 9) == 0
             assert "Halaman 9 melewati akhir hasil: 45" in out.getvalue(), out.getvalue()
-            with patch.object(shamela, "_meta", return_value=rows), patch.object(
-                    shamela, "buka", side_effect=AssertionError("saringan salah tidak boleh sampai ke turath")):
+            with patch.object(shamela, "isi_katalog", return_value=rows), patch.object(
+                    jaringan, "buka", side_effect=AssertionError("saringan salah tidak boleh sampai ke turath")):
                 for salah, kata in ((dict(mazhab=["zahiri"]), "zahiri"), (dict(mazhab=["hanafi"], kitab=["8370"]), "salah satu"),
                                     (dict(kitab=["5"]), "katalog")):
                     try:
-                        shamela.temukan("نص البحث", **salah)
+                        turath.temukan("نص البحث", **salah)
                     except ValueError as e:
                         assert kata in str(e), e
                     else:

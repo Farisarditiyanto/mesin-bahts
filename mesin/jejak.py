@@ -6,7 +6,7 @@ import difflib, zlib
 import norma
 import shamela
 from dasar import ELIPSIS
-from kitab_lokal import halaman_di, lepas, rangkaian_kitab, tempat_kitab
+from kitab_lokal import halaman_di, rangkaian_kitab, tempat_kitab
 
 # `cek --jejak`, kutipan yang lafaznya sedikit berbeda dengan kitab; satuannya huruf `padat`
 MIRIP_BENIH = 14  # panjang potongan kutipan yang harus ada persis di kitab
@@ -106,7 +106,7 @@ def jejak(tertolak, maks=3):
             # Pencarian hanya petunjuk: sumber lain yang rusak tidak boleh menutup hasil kitab yang sehat.
             rusak.append(f"kitab {sid} ({type(e).__name__})")
         finally:
-            lepas()
+            shamela.lepas()
         if all(len(e["dapat"]) >= maks for e in cari.values()):
             break
     for e in cari.values():  # tiap potongan benih kena salah ketik: cari tanpa benih, hanya di kitab yang dirujuk
@@ -119,7 +119,7 @@ def jejak(tertolak, maks=3):
             except (OSError, EOFError, ValueError, TypeError, AttributeError, KeyError, IndexError, zlib.error) as x:
                 rusak.append(f"kitab {sid} ({type(x).__name__})")
             finally:
-                lepas()
+                shamela.lepas()
     baris = []
     for entri in cari.values():
         t, asli = entri["dapat"], entri["teks"]

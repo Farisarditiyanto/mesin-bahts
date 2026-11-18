@@ -82,8 +82,14 @@ BELUM_DIUNDUH = "kitab {} belum diunduh"  # pesan GAGAL per bukti; ringkasan lap
 # kutipan yang tidak ada di kitab buktinya; pesan yang sama dikenali `urai` untuk Pemeriksaan.tertolak (`cek --jejak`)
 TIDAK_KETEMU = "teks TIDAK KETEMU di kitab {}"
 RENTANG_MAKS = 50  # halaman paling banyak satu bukti (dan satu rentang tercetak)
+HALAMAN_MAKS = 20  # halaman paling banyak sekali panggil `halaman` dan `takhrij`
 HURUF_LATIN = "A-Za-zÀ-ɏḀ-ỿ"  # huruf Latin, juga transliterasi (ā ī ū ḥ)
 QAUL = re.compile(r"(?:^|\s)[وف]?(?:قال|قالت|يقول|تقول)(?:\s+[^\s:]+){0,4}\s*:?\s*$")  # pengantar nukilan «قال الشيخ:»
+
+
+def angka(x):
+    """Juz atau halaman yang diketik pemakai: «05» dan «٥» = 5 (int() membaca angka Arab ٠-٩ juga); bukan angka = apa adanya."""
+    return int(x) if str(x).isdigit() else x
 
 
 def perintah(argumen):
