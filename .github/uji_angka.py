@@ -12,7 +12,7 @@ from pathlib import Path
 
 AKAR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(AKAR / "mesin"))
-from berkas import bahan as alamat_bahan
+from olah import alamat_bahan
 sys.stdout.reconfigure(encoding="utf-8")  # konsol Windows (cp1252) tidak bisa mencetak huruf Arab
 
 

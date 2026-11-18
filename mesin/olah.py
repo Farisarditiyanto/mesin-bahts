@@ -193,11 +193,12 @@ riset.txt (di folder bahts, di samping naskah.txt): jejak langkah riset yang tid
                       belum tercatat = perhatian, juga baris riset.txt yang rusak atau kunci takhrij8 yang tidak ada di naskah.
                       Tidak pernah GAGAL: isinya ditulis agen sendiri, jadi mesin hanya menunjuk yang belum dicatat
 """
-import difflib, hashlib, io, json, math, os, re
+import dataclasses, difflib, hashlib, io, json, math, os, re
 from pathlib import Path
 
 import norma
-from berkas import bahan, sementara
+import produk
+from berkas import sementara
 from cek_seluruh import (KEPALA_PERHATIAN, RISET, periksa_dirasat, periksa_khatimah, periksa_muqaddimah, periksa_riset,
                          porsi_kutipan)
 from cek_rujukan import rujukan_halaman
@@ -304,26 +305,12 @@ def kata(runs):
     return sum(len(re.findall(r"[؀-ۿ]+", r.get("t") or "")) for r in runs)
 
 
-def sumber_tertimpa(folder, berkas, sumber, laporan="laporan.txt"):
+def sumber_tertimpa(folder, berkas, sumber, laporan=produk.LAPORAN):
     """Nama bahan pemakai yang bertabrakan dengan nama hasil akhir, juga sesudah `potong` mengganti @berkas."""
     tujuan = {(folder / nama).resolve().as_posix().casefold()
-              for nama in (f"{berkas}.docx", f"{berkas}.pdf", laporan)}
+              for nama in (produk.docx(berkas), produk.pdf(berkas), laporan)}
     return [nama for nama in dict.fromkeys(sumber)
             if (folder / nama.strip()).resolve().as_posix().casefold() in tujuan]
-
-
-def nama_potongan(berkas, label, fasl):
-    """Nama berkas hasil `rakit --fasl`: «<@berkas> - <label potongan>» (dipakai `potong` dan `tahap`)."""
-    nama = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "-", label).strip(" .")
-    return f"{berkas} - {nama or 'fasl' + fasl}"
-
-
-def rentang_fasl(fasl):
-    """Nomor/rentang sah untuk hasil per فصل; dipakai perakit dan pembaca laporan tahap."""
-    m = re.fullmatch(r"([1-9][0-9]*)(?:-([1-9][0-9]*))?", fasl)
-    if not m or (m[2] and int(m[2]) < int(m[1])):
-        raise TandaRusak(f"--fasl «{fasl}»: tulis nomor #F, mis. «--fasl 2», atau rentang dari kecil ke besar, mis. «--fasl 1-2»")
-    return int(m[1]), int(m[2] or m[1])
 
 
 def potong(d, fasl):
@@ -333,7 +320,7 @@ def potong(d, fasl):
     sebelumnya, mis. المقدمة); المصادر dan الفهارس hanya di potongan yang memuat #F terakhir (bersama yang sesudahnya,
     mis. الخاتمة), dan فهرسnya hanya berisi isi potongan itu; nomor halaman tiap potongan mulai ١.
     Kembalikan label potongan (mis. «المقدمة والفصل الأول»), yang juga ditambahkan ke nama berkas hasil."""
-    dari, sampai = rentang_fasl(fasl)
+    dari, sampai = produk.rentang_fasl(fasl)
     blok = d["blok"]
     awal_f = [i for i, b in enumerate(blok) if b["k"] == "F"]
     if sampai > len(awal_f):
@@ -344,7 +331,7 @@ def potong(d, fasl):
     meta = d["meta"]
     label = [b["judul"].split(":")[0].strip() for b in blok if b["k"] in ("K", "F")]
     label = label[0] + "".join(" و" + x for x in label[1:])
-    meta["berkas"] = nama_potongan(meta["berkas"], label, fasl)
+    meta["berkas"] = produk.nama_potongan(meta["berkas"], label, fasl)
     if dari > 1:  # sampul dan halaman bernomor huruf (@nomor) hanya di potongan pertama
         meta["tanpa_sampul"] = True
         meta.pop("nomor", None)
@@ -387,14 +374,20 @@ def potong(d, fasl):
     return label
 
 
-def utama(folder, keluar=None):
-    """Olah naskah di `folder`. Kembalikan (jumlah galat, baris laporan, [(sid, kutipan)] yang «teks TIDAK KETEMU di kitab»)."""
-    ctx, lap = periksa(folder, keluar)
-    return len(ctx.galat), lap, list(ctx.tertolak)
+@dataclasses.dataclass
+class HasilCek:
+    """Hasil `periksa` atas satu naskah. Tidak ada yang ditulis ke berkas: bahan ditulis `tulis_bahan`, laporan dicetak
+    `cetak` atau ditulis `rakit`."""
+    ctx: Pemeriksaan  # putusan (galat, perhatian, diterima, tertolak) dan isi naskah yang terurai
+    bahan: dict  # bahan rakit (dibaca rakit.ps1 dan perkiraan_halaman)
+    laporan: list  # baris laporan `cek`
+    sidik_naskah: str  # SHA-256 naskah.txt
+    sidik_cetak: str  # SHA-256 bagian bahan yang tercetak (sidik_cetak)
+    tanpa_bukti: list  # awal teks tiap catatan kaki tanpa bukti (_tanpa_bukti)
 
 
-def periksa(folder, keluar=None):
-    """Urai dan periksa naskah di `folder`, tulis bahan rakit ke `keluar`. Kembalikan (Pemeriksaan, baris laporan).
+def periksa(folder):
+    """Urai dan periksa naskah di `folder`. Kembalikan HasilCek.
     Tahapannya urut; urutan itu juga urutan galat dan perhatian di laporan."""
     folder = Path(folder)
     naskah, baris = _baca_naskah(folder)
@@ -415,12 +408,13 @@ def periksa(folder, keluar=None):
     _bait_syair(ctx)
     sidik_naskah = hashlib.sha256(naskah).hexdigest()
     d = _bahan(ctx, profil, quran, sumber, sidik_naskah)
-    if ctx.bentuk != "kitab":  # muqarrar gabungan syarah (@bentuk: kitab) bukan riset baru
-        _cek_jumlah_halaman(ctx, d)
+    _cek_jumlah_halaman(ctx, d)
     # jumlah di ringkasan = baris yang dicetak; yang diterima di riset.txt tidak dihitung (laporannya terpisah)
     ctx.perhatian, ctx.diterima, ctx.kode = periksa_riset(folder, baris, gabung_kembar(ctx.perhatian), wajib=ctx.bentuk != "kitab")
-    _tulis_bahan(ctx, keluar, d)
-    return ctx, _laporan(ctx, n_matan, n_fn, sidik_naskah, sidik_cetak(d))
+    sidik_isi = sidik_cetak(d)
+    tanpa_bukti = _tanpa_bukti(ctx)
+    return HasilCek(ctx, d, _laporan(ctx, n_matan, n_fn, tanpa_bukti, sidik_naskah, sidik_isi), sidik_naskah, sidik_isi,
+                    tanpa_bukti)
 
 
 def _baca_naskah(folder):
@@ -791,12 +785,20 @@ def _cek_jumlah_kitab(ctx, quran):
             "tulis jumlah dari dosen di «@minimal_kitab: n»")
 
 
+def kurang_halaman(meta, halaman):
+    """(batas, asal) kalau `halaman` seluruh PDF kurang dari @minimal_halaman (bawaan MINIMAL); None = cukup, atau
+    tidak dinilai: batas 0, dan muqarrar gabungan syarah (@bentuk: kitab) bukan riset baru."""
+    batas, asal = batas_minimal(meta, "halaman")
+    return (batas, asal) if batas and meta.get("bentuk") != "kitab" and halaman < batas else None
+
+
 def _cek_jumlah_halaman(ctx, d):
-    """@minimal_halaman: perkiraan halaman seluruh PDF (sampul s.d. فهرس) tidak boleh kurang dari batasnya (bawaan
-    MINIMAL). Perkiraan dari jumlah kata, jadi kurang = perhatian; angka pasti `HALAMAN` dinilai lagi sesudah `rakit`."""
-    batas, asal = batas_minimal(ctx.meta, "halaman")
-    n = perkiraan_halaman(d) if batas else None
-    if n and n[1] < batas:
+    """@minimal_halaman: perkiraan halaman seluruh PDF (sampul s.d. فهرس) tidak boleh kurang dari batasnya.
+    Perkiraan dari jumlah kata, jadi kurang = perhatian; angka pasti `HALAMAN` dinilai lagi sesudah `rakit`."""
+    n = perkiraan_halaman(d)
+    kurang = n and kurang_halaman(ctx.meta, n[1])
+    if kurang:
+        batas, asal = kurang
         ctx.perhatian.append(
             (ctx.di("@minimal_halaman") or "") + f"perkiraan seluruh PDF ±{n[1]} halaman, kurang dari {batas} ({asal}): "
             "tambah pembahasan dari bahan yang benar-benar dibaca (bukan mengulang atau memperbesar huruf); kalau dosen "
@@ -1040,13 +1042,32 @@ def sidik_cetak(d):
     return hashlib.sha256(json.dumps(isi, ensure_ascii=False, sort_keys=True).encode("utf8")).hexdigest()
 
 
-def _tulis_bahan(ctx, keluar, d):
+def alamat_bahan(folder):
+    """Alamat bahan yang ditulis `cek`: satu per jalur bahts lengkap, termasuk dua folder bernama akhir sama."""
+    kunci = os.path.normcase(str(Path(folder).resolve()))
+    sidik = hashlib.sha256(kunci.encode("utf8")).hexdigest()
+    return Path(__file__).parent / "_tmp" / (sidik + ".json")
+
+
+def tulis_bahan(d, keluar):
     """Bahan rakit JSON."""
-    with sementara(keluar or bahan(ctx.folder)) as part:
+    with sementara(keluar) as part:
         part.write_text(json.dumps(d, ensure_ascii=False), encoding="utf8")
 
 
-def _laporan(ctx, n_matan, n_fn, sidik_naskah, sidik_isi):
+def _tanpa_bukti(ctx):
+    """Awal teks tiap catatan kaki tanpa bukti. Rujukan kitab tanpa bukti sudah jadi GAGAL atau perhatian: daftar ini
+    sisanya (catatan penjelasan, <<luar>>)."""
+    fn_teks = [(c, "".join(r.get("t", "") for r in c["runs"])) for c in ctx.catatan]
+    return [norma.HARAKAT.sub("", t)[:60] for c, t in fn_teks if c["bukti"] == 0 and not c["pdf"] and not c.get("wq")
+            and not t.startswith(BUKAN_RUJUKAN) and (c["luar"] or not rujukan_halaman(t))]
+
+
+def kepala_tanpa_bukti(n):
+    return f"catatan kaki tanpa bukti (selain rujukan ayat dan rujukan kitab di atas): {n}"
+
+
+def _laporan(ctx, n_matan, n_fn, fn_tanpa, sidik_naskah, sidik_isi):
     """Baris laporan `cek`: ringkasan, GAGAL, perhatian, catatan kaki tanpa bukti."""
     blok, pustaka, catatan, ayat_idx = ctx.blok, ctx.pustaka, ctx.catatan, ctx.ayat_idx
     hadits_idx, galat, perhatian, folder = ctx.hadits_idx, ctx.galat, ctx.perhatian, ctx.folder
@@ -1054,10 +1075,6 @@ def _laporan(ctx, n_matan, n_fn, sidik_naskah, sidik_isi):
     n_luar = sum(c["luar"] for c in catatan)  # disebut di ringkasan: tanda yang bisa menyembunyikan kutipan karangan
     n_pdf = sum(c["pdf"] for c in catatan)
     n_wq = sum(c.get("wq", 0) for c in catatan)
-    # rujukan kitab tanpa bukti sudah jadi GAGAL atau perhatian di atas: daftar ini sisanya (catatan penjelasan, <<luar>>)
-    fn_teks = [(c, "".join(r.get("t", "") for r in c["runs"])) for c in catatan]
-    fn_tanpa = [norma.HARAKAT.sub("", t)[:60] for c, t in fn_teks if c["bukti"] == 0 and not c["pdf"] and not c.get("wq")
-                and not t.startswith(BUKAN_RUJUKAN) and (c["luar"] or not rujukan_halaman(t))]
     lap = [f"blok={len(blok)} | kata matan={n_matan} | catatan kaki={len(catatan)} ({n_fn} kata) | ayat={len(ayat_idx)} | hadits={len(hadits_idx)} | pustaka={len(pustaka)}",
            f"bukti dicek ke Shamela lokal: {n_bukti}{f' | ditunjuk di PDF (bukan bukti): {n_pdf}' if n_pdf else ''}"
            f"{f' | <<{LUAR}>> (tidak dicek mesin): {n_luar}' if n_luar else ''}"
@@ -1073,8 +1090,32 @@ def _laporan(ctx, n_matan, n_fn, sidik_naskah, sidik_isi):
     if ctx.diterima:
         lap.append(f"perhatian diterima (alasan di {RISET}, dinilai pemeriksa): {len(ctx.diterima)}")
         lap += [f"  ✓ {k} {p}\n      alasan: {alasan}" for k, p, alasan in ctx.diterima]
-    lap.append(f"catatan kaki tanpa bukti (selain rujukan ayat dan rujukan kitab di atas): {len(fn_tanpa)}")
+    lap.append(kepala_tanpa_bukti(len(fn_tanpa)))
     lap += [f"  - {f}" for f in fn_tanpa]
-    lap.append(f"CETAK_SHA256={sidik_isi}")
-    lap.append(f"NASKAH_SHA256={sidik_naskah}")
+    lap.append(produk.baris(produk.CETAK, sidik_isi))
+    lap.append(produk.baris(produk.NASKAH, sidik_naskah))
     return lap
+
+
+def cetak(hasil, jalur, jejak=False):
+    """Laporan `cek` ke layar: baris laporan, petunjuk untuk teks yang tidak ketemu (jejak: dicari di kitab lain yang
+    sudah diunduh), lalu perkiraan halaman. jalur = bahts seperti diketik pemakai, untuk perintah yang disarankan."""
+    print("\n".join(hasil.laporan))
+    tertolak = hasil.ctx.tertolak
+    if tertolak:
+        if jejak:
+            print("petunjuk dari kitab lain (hanya petunjuk, bukan bukti; putusan tetap milik `cek`):")
+            import jejak as cari_jejak  # bendera `jejak` menutupi nama modulnya
+            print("\n".join(cari_jejak.jejak(tertolak)))
+        else:
+            n = len({norma.padat(t) for _, t in tertolak})
+            print(f"{n} teks tidak ditemukan di kitab yang dirujuk; cari di kitab lain yang sudah diunduh: "
+                  + perintah(f'cek "{jalur}" --jejak'))
+    elif jejak:
+        print("jejak: tidak ada bukti yang gagal «teks TIDAK KETEMU di kitab».")
+    n = perkiraan_halaman(hasil.bahan)
+    if n:
+        isi, total, rinci = n
+        print(f"perkiraan halaman isi (المقدمة s.d. الخاتمة): ±{isi}; seluruh PDF: ±{total} ("
+              + ", ".join(f"{k} {v}" for k, v in rinci.items()) + f", isi {isi}) "
+              "(kasar, dari jumlah kata; angka pasti = HALAMAN_ISI dan HALAMAN sesudah `rakit`)")

@@ -130,7 +130,7 @@ Every command = `python mesin/bahts.py <perintah>`. Full list with arguments: `p
 | `mesin/layanan.py` | `tafsir`, `takhrij`, `rawi`, and `akar` without internet (Shamela service tables in `kitab/_meta`) |
 | `mesin/diagram.py` | Mermaid diagrams to PNG (`diagram`) |
 | `mesin/ekspor.py` | a whole downloaded book (Shamela or Waqfeya) as a right-to-left .docx to read in Word (`ekspor`) |
-| `mesin/tahap.py`, `berkas.py` | state of a bahts and of the `.rakit-*` folders |
+| `mesin/tahap.py`, `rakit.py`, `produk.py` | state of a bahts; the Python side of `rakit` (lock, `.rakit-*` folders, installing the results); result file names and report lines |
 | `mesin/rakit.ps1`, `word.ps1`, `teks_pdf.py` | Word/PDF builder, the identity of its own Word process, and PDF text |
 | `mesin/format.json` | page layout profiles (`@format`) |
 | `mesin/sampul_qism.docx`, `sampul.doc`, `sampul_jakarta.docx`, `kepala_kotak.docx` | cover and page header templates |

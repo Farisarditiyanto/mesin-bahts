@@ -215,7 +215,7 @@ def utama():
 
         # @catatan_kaki/@spasi menimpa satu nilai profil @format di bahan yang dibaca rakit.ps1; profil lain tetap
         sys.path.insert(0, str(akar / "mesin"))
-        from berkas import bahan
+        from olah import alamat_bahan as bahan
         profil = json.loads((akar / "mesin" / "format.json").read_text(encoding="utf8"))
         format_bahan = lambda: json.loads(bahan(f).read_text(encoding="utf8"))["format"]
         dengan = lambda baris: dasar.replace("@format: imam_ayat16\n", baris)
@@ -378,16 +378,15 @@ def utama():
             "**الترمذي، محمد بن عيسى**. __السنن__.\n**العثيمين، محمد بن صالح**. __رسالة في القضاء والقدر__. دار الوطن، 1423هـ.")
         cek("urutan pustaka muallif", gaya)
         sys.path.insert(0, str(akar / "mesin"))
-        import berkas as berkas_
-        urut = [p.split("،")[0].strip("*") for p in json.loads(berkas_.bahan(f).read_text(encoding="utf8"))["pustaka"]]
+        urut = [p.split("،")[0].strip("*") for p in json.loads(bahan(f).read_text(encoding="utf8"))["pustaka"]]
         assert urut == ["القرآن الكريم.", "الترمذي", "أبو داود", "العثيمين", "ابن كثير"], urut
         hasil.append("standar أبو سليمان: الخاتمة, المقدمة رسالة, urutan pustaka muallif")
 
         # Salinan PDF: tanpa keluaran_saya.txt tidak ada apa-apa; dengan berkas itu tersalin per orang.
-        salin = ("import sys; sys.argv=['bahts']; import bahts\n"
-                 "f = bahts.AKAR / 'bahts' / 'ahmad' / 'ikhlas'\n"
+        salin = ("import rakit\n"
+                 "f = rakit.AKAR / 'bahts' / 'ahmad' / 'ikhlas'\n"
                  "(f / 'hasil.pdf').write_bytes(b'PDF')\n"
-                 "bahts.salin_keluaran(f, 'hasil')")
+                 "rakit.salin_keluaran(f, 'hasil')")
         jalan = lambda: subprocess.run([sys.executable, "-c", salin], cwd=akar / "mesin", capture_output=True, encoding="utf8", timeout=60)
         assert jalan().returncode == 0
         (akar / "keluaran_saya.txt").write_text(str(akar / "keluar") + "\n", encoding="utf8")
@@ -460,8 +459,8 @@ def utama():
 
         def pegang_rakit(apa, naskah_):  # rakit yang sedang jalan = proses yang memegang kunci rakit
             (ikhlas / "naskah.txt").write_text(naskah_, encoding="utf8")
-            p = subprocess.Popen([sys.executable, "-c", "import sys, time; from pathlib import Path; import berkas\n"
-                                  f"with berkas.kunci(Path('_tmp/rakit.pekerjaan'), apa='{apa}'):\n"
+            p = subprocess.Popen([sys.executable, "-c", "import sys, time; from pathlib import Path; import rakit\n"
+                                  f"with rakit.kunci(Path('_tmp/rakit.pekerjaan'), apa='{apa}'):\n"
                                   "    print('pegang', flush=True); time.sleep(60)"],
                                  cwd=akar / "mesin", stdout=subprocess.PIPE, encoding="utf8")
             try:
@@ -548,18 +547,18 @@ def utama():
         assert 'bukti "bahts/ahmad/ikhlas"' in out, out
         # folder kerja yang gagal dibuang sebagian tetap SEMENTARA (dicoba lagi), tidak jadi ASING
         sys.path.insert(0, str(akar / "mesin"))
-        import berkas as berkas_
+        import rakit as rakit_
         sisa = ikhlas / ".rakit-sebagian"
         (sisa / "word").mkdir(parents=True)
         (sisa / "rakit.sementara").write_text("")
         (sisa / "buka.txt").write_text("")
         with open(sisa / "buka.txt") as _terbuka:  # Windows: berkas yang terbuka tidak bisa dihapus
-            hilang = berkas_.FolderKerja(sisa).buang()
+            hilang = rakit_.FolderKerja(sisa).buang()
             assert not hilang or os.name != "nt", "berkas terbuka ikut terhapus"
             if not hilang:
-                assert berkas_.FolderKerja(sisa).keadaan() is berkas_.FolderKerja.Keadaan.SEMENTARA, list(sisa.iterdir())
+                assert rakit_.FolderKerja(sisa).keadaan() is rakit_.FolderKerja.Keadaan.SEMENTARA, list(sisa.iterdir())
         if sisa.exists():
-            assert berkas_.FolderKerja(sisa).buang() and not sisa.exists()
+            assert rakit_.FolderKerja(sisa).buang() and not sisa.exists()
         hasil.append("tahap: naskah, hasil (juga --fasl dan laporan lama), perhatian menahan, folder .rakit-*, "
                      "_arsip, rakit bahts ini dan bahts lain; folder kerja setengah terbuang tetap SEMENTARA")
         print(f"uji struktur: {len(hasil)} skenario sesuai, termasuk beban 2000 nukilan/4000 catatan kaki dan 500 data salah ketik")

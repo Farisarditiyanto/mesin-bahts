@@ -36,10 +36,10 @@ akar, nama, mode, lain = map(str, sys.argv[1:])
 akar = str(Path(akar).resolve())  # runner Windows GitHub: TEMP bernama pendek (RUNNER~1), mesin memakai jalur panjang
 sys.stdout.reconfigure(encoding="utf8"); sys.stderr.reconfigure(encoding="utf8")
 sys.path.insert(0, str(Path(akar) / "mesin"))
-import bahts, teks_pdf
+import bahts, huruf, rakit, teks_pdf
 bahts.os = types.SimpleNamespace(**dict(vars(os), name="nt"))
-bahts.font_terpasang = lambda: True
-bahts.huruf_ada = lambda nama: True
+huruf.font_terpasang = lambda: True
+huruf.huruf_ada = lambda nama: True
 run = subprocess.run
 if mode == "pdf-fail":
     def gagal(*a): raise RuntimeError("injeksi pembetulan PDF gagal")
@@ -47,7 +47,7 @@ if mode == "pdf-fail":
 if mode == "simpan-unlink-gagal":  # penanda bahan sementara tidak bisa dicabut (mis. terkunci antivirus)
     unlink = Path.unlink
     def cabut(self, *a, **k):
-        if self.name == bahts.RAKIT_SEMENTARA and ditolak:  # hanya sesudah penggantian hasil gagal
+        if self.name == rakit.FolderKerja.SEMENTARA and ditolak:  # hanya sesudah penggantian hasil gagal
             raise PermissionError("injeksi penanda tidak bisa dicabut")
         return unlink(self, *a, **k)
     Path.unlink = cabut
@@ -66,15 +66,15 @@ if mode in ("publish-fail", "rollback-blocked", "simpan-unlink-gagal"):
     Path.replace = ganti
 def word(args, **kwargs):
     if args[0] != "powershell": return run(args, **kwargs)
-    folder = Path(args[args.index("-Folder") + 1])
+    folder = Path(akar) / nama
     build = Path(args[args.index("-Build") + 1])
-    out = Path(args[args.index("-Hasil") + 1]) if "-Hasil" in args else folder
+    out = Path(args[args.index("-Hasil") + 1])
     if mode == "snapshot":
         r = run([sys.executable, str(Path(akar)/"mesin"/"bahts.py"), "cek", lain], capture_output=True)
         assert r.returncode == 0
     if mode == "lock":
         r = run([sys.executable, __file__, akar, nama, "ok", lain], capture_output=True, encoding="utf8")
-        # rakit kedua antre dulu (kabar «menunggu giliran»), lalu berhenti sesudah RAKIT_ANTRE habis
+        # rakit kedua antre dulu (kabar «menunggu giliran»), lalu berhenti sesudah rakit.ANTRE habis
         assert r.returncode != 0 and "Rakit lain" in r.stderr and "menunggu giliran" in r.stdout, r.stdout + r.stderr
         # yang antre menyebut pemegang kunci (folder, proses, jam mulai), supaya rakit yang bekerja tidak dimatikan
         assert f"{nama}, proses {os.getpid()}, mulai " in r.stdout and f"({nama}, proses {os.getpid()}" in r.stderr, r.stdout + r.stderr
@@ -97,26 +97,26 @@ def word(args, **kwargs):
     from pypdf import PdfWriter
     w = PdfWriter(); w.add_blank_page(width=100, height=100)
     with open(out / f"{hasil}.pdf", "wb") as h: w.write(h)
-    with open(out / "laporan.txt", "a", encoding="utf8") as h:
+    with open(args[args.index("-Laporan") + 1], "a", encoding="utf8") as h:
         h.write("HALAMAN=99\n" if mode == "pages-fail" else "HALAMAN=1\n")
     if mode == "changed":
         with open(folder / "naskah.txt", "a", encoding="utf8") as h: h.write("نص جديد.\n")
     return types.SimpleNamespace(returncode=0)
-bahts.subprocess.run = word
-bahts.RAKIT_ANTRE = 3  # antrean asli 30 menit; rakit di dalam rakit (mode lock) tidak boleh menunggu selama itu
-fasl = mode[5:] if mode.startswith("fasl:") else None
+subprocess.run = word
+rakit.ANTRE = 3  # antrean asli 30 menit; rakit di dalam rakit (mode lock) tidak boleh menunggu selama itu
+argumen = [nama, "--fasl", mode[5:]] if mode.startswith("fasl:") else [nama]
 if mode == "ps-yatim":  # rakit.ps1 yang Python-nya dimatikan masih hidup dan memegang kuncinya, seperti di rakit.ps1
-    bahts.RAKIT_PS_KUNCI.parent.mkdir(parents=True, exist_ok=True)
-    yatim = subprocess.Popen(["powershell", "-NoProfile", "-Command", f"$k = [IO.File]::Open('{bahts.RAKIT_PS_KUNCI}', "
+    rakit.PS_KUNCI.parent.mkdir(parents=True, exist_ok=True)
+    yatim = subprocess.Popen(["powershell", "-NoProfile", "-Command", f"$k = [IO.File]::Open('{rakit.PS_KUNCI}', "
                               "'OpenOrCreate', 'ReadWrite', 'None'); 'pegang'; Start-Sleep 60"],
                              stdout=subprocess.PIPE, text=True)
     assert yatim.stdout.readline().strip() == "pegang"
     try:
-        bahts.rakit(nama, fasl)
+        bahts.perintah_rakit(argumen)
     finally:
         yatim.kill()
 else:
-    bahts.rakit(nama, fasl)
+    bahts.perintah_rakit(argumen)
 '''
 
 
@@ -127,7 +127,8 @@ def utama():
         shutil.copytree(AKAR / "kitab" / "11223", akar / "kitab" / "11223")
         shutil.copytree(AKAR / "kitab" / "_meta", akar / "kitab" / "_meta")
         sys.path.insert(0, str(akar / "mesin"))
-        import bahts, norma
+        import norma, olah
+        from rakit import FolderKerja
         kitab = akar / "kitab" / "11223"
         pages = kitab / "pages.jsonl.gz"
         runner = akar / "word_fixture.py"
@@ -149,8 +150,8 @@ def utama():
             for f in (a, b):
                 r = jalan(akar, "cek", f)
                 assert r.returncode == 0, r.stdout + r.stderr
-            assert bahts.bahan(a) != bahts.bahan(b), "Dua jalur memakai satu bahan"
-            assert json.loads(bahts.bahan(a).read_text(encoding="utf8"))["meta"]["judul"] == "المطلوب"
+            assert olah.alamat_bahan(a) != olah.alamat_bahan(b), "Dua jalur memakai satu bahan"
+            assert json.loads(olah.alamat_bahan(a).read_text(encoding="utf8"))["meta"]["judul"] == "المطلوب"
 
         def cache_usang():
             sumber(pages)
@@ -548,7 +549,7 @@ def utama():
             lama = folder / ".rakit-lama"  # disimpan versi lama («Bahan percobaan disimpan») tanpa penanda apa pun
             if mode in ("sisa", "ps-yatim"):
                 yatim.mkdir(exist_ok=True); (yatim / "bahan.json").write_text("{}")
-                (yatim / bahts.RAKIT_SEMENTARA).write_text("")
+                (yatim / FolderKerja.SEMENTARA).write_text("")
                 lama.mkdir(exist_ok=True); (lama / "hasil.pdf").write_bytes(b"%PDF-HASIL-BARU")
             kerja_awal = set(folder.glob(".rakit-*"))
             r = subprocess.run([sys.executable, str(runner), str(akar), "a/sama", mode, "b/sama"],
@@ -559,7 +560,7 @@ def utama():
                 assert "Sisa rakit yang terhenti dibuang: .rakit-yatim" in r.stdout, r.stdout + r.stderr
                 assert (lama / "hasil.pdf").read_bytes() == b"%PDF-HASIL-BARU", "Folder versi lama tanpa penanda dibuang"
                 assert "Folder .rakit-lama dibiarkan" in r.stdout, r.stdout + r.stderr
-                assert any((k / bahts.RAKIT_SIMPAN).is_file() for k in kerja_awal), "Hasil baru rollback-blocked tidak bertanda"
+                assert any((k / FolderKerja.SIMPAN).is_file() for k in kerja_awal), "Hasil baru rollback-blocked tidak bertanda"
             elif mode not in ("rollback-blocked", "simpan-unlink-gagal"):
                 assert set(folder.glob(".rakit-*")) == kerja_awal, "Rakit meninggalkan atau membuang folder .rakit-* di folder bahts"
             if mode in ("snapshot", "lock", "ok", "pdf-fail", "sisa"):
@@ -579,7 +580,7 @@ def utama():
                 if mode in ("rollback-blocked", "simpan-unlink-gagal"):
                     assert "Pemulihan hasil belum lengkap" in r.stderr, r.stdout + r.stderr
                     simpanan = set(folder.glob(".rakit-*")) - kerja_awal  # hasil baru yang belum terpasang
-                    assert simpanan and all((k / bahts.RAKIT_SIMPAN).is_file() for k in simpanan), "Hasil baru tidak disimpan bertanda"
+                    assert simpanan and all((k / FolderKerja.SIMPAN).is_file() for k in simpanan), "Hasil baru tidak disimpan bertanda"
                     assert (folder / "hasil.docx").read_bytes().startswith(b"PK")
                     assert not (folder / "hasil.pdf").exists(), "DOCX baru dipasangkan dengan PDF lama"
                     assert not (folder / "laporan.txt").exists(), "DOCX baru dipasangkan dengan laporan lama"

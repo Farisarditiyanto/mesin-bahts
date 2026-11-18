@@ -1,8 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """`bukti <folder>`: untuk pemeriksa, tiap catatan kaki berbukti dicetak bersama teks kitab di sekitar letak
 kutipannya, tiap {Q:} dengan teks ayatnya, dan tiap paragraf isi tanpa catatan kaki."""
-import re, tempfile
-from pathlib import Path
+import re
 
 import cocok
 import norma
@@ -133,8 +132,7 @@ def bukti(folder, dari=None, sampai=None):
     kutipan; juga tiap paragraf isi tanpa catatan kaki (_tanpa_catatan), di urutan barisnya. Naskahnya diurai
     `olah.periksa` (sama dengan `cek`), tetapi laporan dan putusannya tidak dicetak.
     Tiap baris keluaran diawali «baris n», supaya bisa disaring. Kembalikan jumlah yang dicetak."""
-    with tempfile.TemporaryDirectory() as d:
-        ctx, _ = periksa(folder, Path(d) / "bahan.json")
+    ctx = periksa(folder).ctx
     dalam = lambda n: (dari is None or dari <= n) and (sampai is None or n <= sampai)
     polos = [{"n": n, "polos": t} for n, t in _tanpa_catatan(ctx.blok) if dalam(n)]
     pilih = sorted([u for u in ctx.penunjuk if dalam(u["n"])] + polos, key=lambda u: u["n"])  # sorted stabil

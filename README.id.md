@@ -128,7 +128,7 @@ Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumenn
 | `mesin/layanan.py` | `tafsir`, `takhrij`, `rawi`, dan `akar` tanpa internet (tabel layanan Shamela di `kitab/_meta`) |
 | `mesin/diagram.py` | diagram Mermaid jadi PNG (`diagram`) |
 | `mesin/ekspor.py` | satu kitab yang sudah diunduh (Shamela atau Waqfeya) jadi .docx kanan-ke-kiri untuk dibaca di Word (`ekspor`) |
-| `mesin/tahap.py`, `berkas.py` | keadaan bahts dan folder `.rakit-*` |
+| `mesin/tahap.py`, `rakit.py`, `produk.py` | keadaan bahts; alur `rakit` sisi Python (kunci, folder `.rakit-*`, pemasangan hasil); nama berkas hasil dan baris laporannya |
 | `mesin/rakit.ps1`, `word.ps1`, `teks_pdf.py` | perakit Word/PDF, identitas proses Word miliknya, dan teks PDF |
 | `mesin/format.json` | profil bentuk halaman (`@format`) |
 | `mesin/sampul_qism.docx`, `sampul.doc`, `sampul_jakarta.docx`, `kepala_kotak.docx` | templat sampul dan kepala halaman |

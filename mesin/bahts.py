@@ -79,43 +79,25 @@ Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex dan DOAJ
                                dan menurut makna. Saringan OpenAlex, mis. language:ar,type:dissertation
   dirasat-pdf <W…> <folder>    unduh PDF penelitian (nomor OpenAlex dari `dirasat`) ke folder bahts; butuh kunci OpenAlex
 """
-import difflib, hashlib, json, os, re, shutil, subprocess, sys, sysconfig, time, urllib.error, zipfile
+import difflib, hashlib, json, os, re, shutil, sys, sysconfig, urllib.error
 from pathlib import Path
 
-import diagram, dirasat, hadits, jaringan, layanan, norma, shamela, turath, waqfeya  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
+import diagram, dirasat, hadits, huruf, jaringan, layanan, shamela, turath, waqfeya  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
 from dasar import HALAMAN_MAKS, perintah
-from berkas import FolderKerja, PemulihanGagal, bahan, kosongkan_penulis, kunci, terbitkan
+from huruf import FONT, FONT_PEMAKAI
 
 MESIN = Path(__file__).resolve().parent
 AKAR = MESIN.parent
-# Font mushaf «KFGQPC HAFS Uthmanic Script» milik مجمع الملك فهد: tidak ikut repo (lihat NOTICE), diunduh oleh `siapkan`.
-FONT = "UthmanicHafs_V22.ttf"
 FONT_SUMBER = ("https://static-cdn.tarteel.ai/qul/fonts/" + FONT,  # dicoba berurutan
                "https://github.com/Farisarditiyanto/mesin-bahts/releases/download/v0.0.1/" + FONT)
 FONT_SHA256 = "aa68bffce289b4c0ebac68e90502eb69e42356abcd1603cb2b8e99c2c723f145"
 FONT_NAMA = "KFGQPC HAFS Uthmanic Script (TrueType)"
-FONT_PEMAKAI = Path(os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Windows\Fonts"))
 SAMPUL_SAYA = AKAR / "sampul_saya.txt"  # data sampul pemakai (@kunci: nilai); mengisi @kunci yang kosong di naskah baru
 DATA_DIRI = ("nama", "nim", "jenis", "fasl", "thalibah", "sampul")  # milik satu orang (sampul = kampusnya): tidak disalin dari SAMPUL_SAYA ke bahts/<orang>/…
 NAMA_FOLDER = r"[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+){0,2}"  # nama folder bahts yang diterima `baru`: «ikhlas» atau «bahts/<orang>/<topik>»
 BUKAN_BAHTS = {"mesin", "kitab"}  # folder akar yang bukan tempat bahts
-KELUARAN_SAYA = AKAR / "keluaran_saya.txt"  # opsional, satu baris: folder tempat `rakit` menaruh salinan PDF
 FORMAT = json.loads((MESIN / "format.json").read_text(encoding="utf8"))  # profil bentuk halaman; dipilih @format di naskah
-HURUF_SARAN = ("huruf ini ikut terpasang kalau Windows punya papan ketik Arab (Settings > Time & language > Language & region > Add a language > العربية).\n"
-               "          Atau lewat PowerShell admin (pemakai cukup klik Yes): Start-Process powershell -Verb RunAs -Wait -ArgumentList "
-               "\"Add-WindowsCapability -Online -Name Language.Fonts.Arab~~~und-ARAB~0.0.1.0\"")
 PUSTAKA = ("pyarrow", "pypdf", "fontTools", "rapidfuzz")  # nama modul; nama pemasangannya di requirements.txt
-
-
-def huruf_ada(nama):
-    """Huruf `nama` terpasang di Windows, untuk semua akun atau untuk akun ini saja (daftar huruf di registry)."""
-    import teks_pdf
-    # satu nama terdaftar bisa memuat beberapa huruf: «Cambria & Cambria Math»
-    return any(nama.lower() in (x.strip().lower() for x in terdaftar.split("&")) for terdaftar, _ in teks_pdf.huruf_terdaftar())
-
-
-def font_terpasang():
-    return any((d / FONT).exists() for d in (FONT_PEMAKAI, Path(r"C:\Windows\Fonts")))
 
 
 def siapkan():
@@ -143,7 +125,7 @@ def siapkan():
     print("font mushaf: ada di mesin/")
     if os.name != "nt":
         print("font mushaf: TIDAK dipasang (bukan Windows). `cek` tetap jalan; `rakit` butuh Windows + Microsoft Word.")
-    elif font_terpasang():
+    elif huruf.font_terpasang():
         print("font mushaf: sudah terpasang")
     else:
         # sama dengan klik kanan > Install: salin ke folder font pemakai + daftarkan, tanpa hak admin
@@ -195,14 +177,14 @@ def periksa():
             word = False
         baris(word, "Microsoft Word versi desktop", "pasang Microsoft Word (pemakai sendiri; butuh lisensinya). "
               "Tanpa Word naskah tetap bisa ditulis dan dicek, tetapi .docx dan .pdf tidak terbentuk", untuk_cek=False)
-        baris(font_terpasang(), "font mushaf", perintah("siapkan"), untuk_cek=False)
+        baris(huruf.font_terpasang(), "font mushaf", perintah("siapkan"), untuk_cek=False)
         # huruf tiap profil format.json; yang wajib hanya huruf profil bahts baru (@format di kerangka naskah)
         m = re.search(r"^@format:[ \t]*(\S+)", (MESIN / "naskah_baru.txt").read_text(encoding="utf8"), re.M)
         wajib = FORMAT[m.group(1) if m else "imam"]["huruf"]
         for h in dict.fromkeys(p["huruf"] for p in FORMAT.values()):
             profil = [k for k, p in FORMAT.items() if p["huruf"] == h]
-            baris(huruf_ada(h), f"huruf {h}" + ("" if h == wajib else f" (hanya untuk @format {', '.join(profil)})"),
-                  HURUF_SARAN, untuk_cek=False, untuk_rakit=h == wajib)
+            baris(huruf.huruf_ada(h), f"huruf {h}" + ("" if h == wajib else f" (hanya untuk @format {', '.join(profil)})"),
+                  huruf.HURUF_SARAN, untuk_cek=False, untuk_rakit=h == wajib)
     baris(bool(shutil.which("npx") and diagram.browser()), "Node.js + Chrome/Edge (hanya untuk `diagram`: Mermaid jadi PNG)",
           "pasang Node.js LTS (Windows: winget install OpenJS.NodeJS.LTS) dan Google Chrome atau Microsoft Edge; "
           "tanpa keduanya diagram tetap bisa dicetak dari PNG yang dibuat di tempat lain", untuk_cek=False, untuk_rakit=False)
@@ -308,267 +290,19 @@ def baru(nama, judul):
               + ("\nContoh @jenis (huruf Arab, tercetak di sampul): بحث صفي للمستوى الرابع" if "jenis" in kosong else ""))
 
 
-def cek(nama, keluar=None, jejak=False, ringkas=False):
-    """ringkas (dipakai `rakit`): naskah yang lolos dicetak satu baris; rinciannya tetap di laporan yang dikembalikan."""
+def jalur_ketik(nama):
+    """Bahts seperti diketik pemakai, untuk perintah yang disarankan."""
+    return nama.rstrip("/\\") or nama  # «"folder\"»: garis miring menelan tanda petik penutupnya
+
+
+def cek(nama, jejak=False):
+    """Periksa naskah, tulis bahannya, cetak laporannya. Kembalikan jumlah galat."""
     import olah
     f = folder_bahts(nama)
-    galat, lap, tertolak = olah.utama(f, keluar)
-    jalur = nama.rstrip("/\\") or nama  # «"folder\"»: garis miring menelan tanda petik penutupnya
-    if ringkas and not galat:
-        n = sum(b.startswith("  ! ") for b in lap)
-        terima = sum(b.startswith("  ✓ ") for b in lap)
-        # baris jumlah «catatan kaki tanpa bukti …: N» dari laporan itu sendiri, hanya kalau N > 0
-        fn = "".join(f"; {b}" for b in lap if b.startswith("catatan kaki tanpa bukti") and not b.endswith(": 0"))
-        print(f"cek: GAGAL 0, perhatian belum ditangani {n}" + (f", diterima {terima}" if terima else "")
-              + f"{fn} (rinciannya: laporan.txt sesudah rakit jadi, atau " + perintah(f'cek "{jalur}"') + ")")
-        return f, galat, lap
-    print("\n".join(lap))
-    if tertolak:
-        if jejak:
-            print("petunjuk dari kitab lain (hanya petunjuk, bukan bukti; putusan tetap milik `cek`):")
-            import jejak as cari_jejak  # bendera `jejak` menutupi nama modulnya
-            print("\n".join(cari_jejak.jejak(tertolak)))
-        else:
-            n = len({norma.padat(t) for _, t in tertolak})
-            print(f"{n} teks tidak ditemukan di kitab yang dirujuk; cari di kitab lain yang sudah diunduh: "
-                  + perintah(f'cek "{jalur}" --jejak'))
-    elif jejak:
-        print("jejak: tidak ada bukti yang gagal «teks TIDAK KETEMU di kitab».")
-    try:
-        n = olah.perkiraan_halaman(json.loads((keluar or bahan(f)).read_text(encoding="utf8")))
-    except (OSError, ValueError, KeyError, IndexError, TypeError):
-        n = None
-    if n:
-        isi, total, rinci = n
-        print(f"perkiraan halaman isi (المقدمة s.d. الخاتمة): ±{isi}; seluruh PDF: ±{total} ("
-              + ", ".join(f"{k} {v}" for k, v in rinci.items()) + f", isi {isi}) "
-              "(kasar, dari jumlah kata; angka pasti = HALAMAN_ISI dan HALAMAN sesudah `rakit`)")
-    return f, galat, lap
-
-
-RAKIT_ANTRE = 30 * 60  # detik; rakit terlama yang tercatat ±10 menit: dua rakit di depan masih tertampung
-RAKIT_PEKERJAAN = MESIN / "_tmp" / "rakit.pekerjaan"  # kunci seluruh pekerjaan rakit (berkas.kunci): satu rakit sekali jalan
-RAKIT_PS_KUNCI = MESIN / "_tmp" / "rakit.kunci"  # dibuka rakit.ps1 tanpa berbagi selama ia hidup (dilepas OS saat mati)
-RAKIT_GALAT = "rakit.galat"  # di folder kerja: pesan galat rakit.ps1 (UTF-8), ditulis sebelum PowerShell berhenti
-RAKIT_SEMENTARA, RAKIT_SIMPAN = FolderKerja.SEMENTARA, FolderKerja.SIMPAN  # penanda keadaan folder .rakit-* (berkas.FolderKerja)
-
-
-def rakit(nama, fasl=None):
-    if os.name == "nt":
-        try:
-            apa = folder_bahts(nama).relative_to(AKAR).as_posix()
-            with kunci(RAKIT_PEKERJAAN, tunggu=RAKIT_ANTRE, apa=apa):
-                _tunggu_ps_yatim()
-                _rakit(nama, fasl)
-        except PermissionError as e:  # hasil lama (atau yang baru) sedang dibuka aplikasi lain; hasil lama tetap utuh
-            sys.exit(f"Perakitan GAGAL: {Path(e.filename or '').name or 'hasil'} sedang terbuka di aplikasi lain (Word "
-                     f"atau pembaca PDF). Tutup dulu, lalu ulangi `rakit`. Hasil lama tidak berubah.")
-        except Exception as e:
-            sys.exit(f"Perakitan GAGAL: {type(e).__name__}: {e}")
-    else:
-        _, galat, _ = cek(nama)
-        sys.exit(f"Belum dirakit: {galat} galat harus beres dulu." if galat else
-                 "`rakit` butuh Windows + Microsoft Word. Naskahnya sudah lolos `cek`.")
-
-
-def _tunggu_ps_yatim():
-    """rakit.ps1 milik rakit yang dimatikan (Python-nya mati, PowerShell-nya belum) masih memakai Word dan folder
-    kerjanya: tunggu sampai ia berhenti sendiri, supaya Word tidak dipakai berdua dan foldernya tidak dibuang saat masih
-    ditulisi. Word-nya dibereskan rakit.ps1 itu sendiri (atau rakit.ps1 berikutnya, lewat catatan Word yatim)."""
-    batas, kabar = time.monotonic() + RAKIT_ANTRE, False
-    while _ps_yatim():
-        if time.monotonic() >= batas:
-            raise RuntimeError("rakit.ps1 dari rakit yang dimatikan masih jalan: tunggu sampai berhenti, lalu ulangi.")
-        if not kabar:
-            print("rakit.ps1 dari rakit sebelumnya yang dimatikan masih memakai Word: menunggu sampai berhenti sendiri "
-                  "(jangan matikan Word atau PowerShell-nya)...", flush=True)
-            kabar = True
-        time.sleep(2)
-
-
-def _ps_yatim():
-    """rakit.ps1 masih memegang RAKIT_PS_KUNCI (dibuka tanpa berbagi selama ia hidup)? Dipakai rakit dan `tahap`."""
-    try:
-        with open(RAKIT_PS_KUNCI, "rb"):
-            return False
-    except FileNotFoundError:
-        return False
-    except PermissionError:
-        return True
-
-
-def _buang_sisa(f, kerja):
-    """Buang folder kerja rakit ini dan folder .rakit-* yang tertinggal rakit yang dimatikan (Python-nya mati sebelum
-    membersihkannya). Aman: kunci rakit dipegang rakit ini dan rakit.ps1 sisa rakit lain sudah berhenti (_tunggu_ps_yatim),
-    jadi tidak ada rakit lain yang masih memakainya. Dipanggil sesudah rakit.ps1, yang menghentikan Word yatim rakit lama
-    (Word itu masih membuka berkas di foldernya). Yang dibuang hanya folder bertanda RAKIT_SEMENTARA (bahan sementara versi
-    ini). Tanpa penanda itu (hasil baru yang belum terpasang, atau folder dari versi lama yang mungkin sengaja disimpan)
-    hanya disebut, tidak pernah dibuang. Keadaan dan perpindahannya: berkas.FolderKerja."""
-    for sisa in FolderKerja.semua(f):
-        if sisa.keadaan() is not FolderKerja.Keadaan.SEMENTARA:
-            print(f"Folder {sisa.path.name} dibiarkan: mungkin berisi hasil yang sengaja disimpan; periksa isinya, lalu hapus sendiri.")
-        elif not sisa.buang():
-            print(f"Bahan sementara rakit belum bisa dibuang (ada berkas yang masih terbuka; `rakit` berikutnya mencoba lagi): {sisa.path}")
-        elif sisa.path != kerja:
-            print(f"Sisa rakit yang terhenti dibuang: {sisa.path.name}")
-
-
-def _word_gagal(kode, galat):
-    """Pesan rakit.ps1 yang gagal. Pesannya diambil dari berkas `galat` (ditulis trap rakit.ps1), bukan dari layar: layar
-    bisa dipotong `tail`/`grep` pemanggil. Tanpa berkas itu PowerShell mati sebelum sempat menulis apa pun."""
-    try:
-        isi = galat.read_text(encoding="utf8").strip()
-    except OSError:
-        isi = ""
-    if isi:
-        return f"Perakitan Word gagal (rakit.ps1, kode keluar {kode}): {isi}. Hasil lama belum diganti."
-    return (f"Perakitan Word gagal: rakit.ps1 berhenti tanpa pesan (kode keluar {kode}). Artinya PowerShell atau Word-nya "
-            "dimatikan dari luar (Stop-Process, Task Manager, batas waktu alat, terminal ditutup) atau mati mendadak. "
-            "Hasil lama belum diganti; ulangi `rakit`. Rakit yang sedang jalan jangan dimatikan: rakit berikutnya antre sendiri.")
-
-
-def _rakit(nama, fasl=None):
-    f = folder_bahts(nama)
-    folder_kerja = FolderKerja.buat(f)  # keadaan dan perpindahannya: berkas.FolderKerja
-    kerja = folder_kerja.path
-    try:
-        _rakit_di(nama, f, kerja, fasl)
-    except PemulihanGagal:  # hasil baru masih di folder kerja: jangan dibuang, juga oleh rakit berikutnya
-        folder_kerja.simpan()
-        print(f"Bahan percobaan disimpan: {kerja}")
-        raise
-    finally:  # berhasil, atau galat cek, Word gagal, berkas terkunci: hasil lama utuh, bahan sementara tidak dibutuhkan
-        _buang_sisa(f, kerja)
-
-
-def nama_khulasah(berkas):
-    return f"{berkas} - الخلاصات.pdf"
-
-
-def _khulasah_pdf(kerja, berkas, laporan):
-    """Paragraf {X} (خلاصة): rakit.ps1 mengekspor salinan PDF berstabilo kuning dan menulis «KHULASAH=a-b,…» (halaman
-    fisik awal-akhir tiap paragraf) di laporan. Di sini salinan itu dipotong jadi halaman-halaman itu saja.
-    Kembalikan nama berkasnya, atau None kalau naskah tidak memuat {X}."""
-    salinan = kerja / f"{berkas}.khulasah.pdf"
-    baris = [b for b in (kerja / laporan).read_text(encoding="utf8").splitlines() if b.startswith("KHULASAH=")]
-    if not baris or not salinan.exists():
-        return None
-    halaman = set()
-    for rentang in baris[-1].split("=", 1)[1].split(","):
-        a, _, b = rentang.partition("-")
-        halaman.update(range(int(a), int(b or a) + 1))
-    import teks_pdf
-    try:
-        teks_pdf.betulkan(salinan)
-    except Exception as e:
-        print(f"PERINGATAN: PDF khulasah jadi, tetapi teks Arabnya belum dibetulkan: {type(e).__name__}: {e}")
-    from pypdf import PdfReader, PdfWriter
-    r, w = PdfReader(salinan), PdfWriter()
-    for h in sorted(halaman):
-        if 1 <= h <= len(r.pages):
-            w.add_page(r.pages[h - 1])
-    nama = nama_khulasah(berkas)
-    with open(kerja / nama, "wb") as fh:
-        w.write(fh)
-    salinan.unlink()
-    print(f"KHULASAH: {len(baris[-1].split(','))} paragraf distabilo di {len(halaman)} halaman -> {nama}")
-    return nama
-
-
-def _rakit_di(nama, f, kerja, fasl=None):
-    build = kerja / "bahan.json"
-    f, galat, lap = cek(nama, build, ringkas=True)
-    if galat:
-        sys.exit(f"Belum dirakit: {galat} galat di atas harus beres dulu.")
-    if os.name != "nt":
-        sys.exit("`rakit` butuh Windows + Microsoft Word. Naskahnya sudah lolos `cek`.")
-    if not font_terpasang():
-        sys.exit(f"Font mushaf belum terpasang: {perintah('siapkan')}, lalu ulangi.")
-    d = json.loads(build.read_text(encoding="utf8"))
-    import dasar, olah
-    laporan = "laporan.txt"
-    if fasl:  # seluruh naskah sudah dicek di atas; yang dirakit hanya potongannya
-        try:
-            lap = [f"POTONGAN=--fasl {fasl}: {olah.potong(d, fasl)}"] + lap
-        except dasar.TandaRusak as e:
-            sys.exit(f"Belum dirakit: {e}")
-        build.write_text(json.dumps(d, ensure_ascii=False), encoding="utf8")
-        laporan = f"laporan-fasl{fasl}.txt"  # laporan seluruh naskah (rakit tanpa --fasl) tidak tertimpa
-    tabrakan = olah.sumber_tertimpa(f, d["meta"]["berkas"], d["sumber"], laporan)
-    if tabrakan:
-        sys.exit(f"Belum dirakit: hasil rakit akan menimpa bahan sumber «{tabrakan[0]}»: ganti @berkas atau nama berkas sumber")
-    huruf = d["format"]["huruf"]
-    if not huruf_ada(huruf):  # tanpa huruf profil, Word diam-diam memakai huruf lain
-        sys.exit(f"Huruf {huruf} (dipakai @format naskah ini) belum terpasang di Windows.\n       -> {HURUF_SARAN}\n"
-                 f"Sesudah itu: {perintah('periksa')}, lalu ulangi `rakit`.")
-    ps1 = MESIN / "rakit.ps1"
-    (kerja / "laporan.txt").write_text("\n".join(lap) + "\n", encoding="utf8")
-    r = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(ps1),
-                        "-Build", str(build), "-Folder", str(f), "-Hasil", str(kerja),
-                        "-Kunci", str(RAKIT_PS_KUNCI), "-Galat", str(kerja / RAKIT_GALAT)])
-    if r.returncode:
-        raise RuntimeError(_word_gagal(r.returncode, kerja / RAKIT_GALAT))
-    if laporan != "laporan.txt":
-        (kerja / "laporan.txt").replace(kerja / laporan)
-    berkas = d["meta"]["berkas"]
-    import teks_pdf
-    try:  # supaya teks Arab PDF tersalin dan tercari dengan benar; tampilannya tidak berubah
-        teks_pdf.betulkan(kerja / f"{berkas}.pdf")
-    except Exception as e:
-        print(f"PERINGATAN: PDF jadi, tetapi teks Arabnya belum dibetulkan (salin/cari bisa terbalik): {type(e).__name__}: {e}")
-    try:  # sampul, nomor halaman, dan pengantar «:» yang terpisah dari isinya; hasil tetap terbit
-        for p in teks_pdf.periksa(kerja / f"{berkas}.pdf", d):
-            print(f"PERINGATAN: {p}")
-    except Exception as e:
-        print(f"PERINGATAN: PDF jadi, tetapi belum diperiksa (sampul, nomor halaman): {type(e).__name__}: {e}")
-    with zipfile.ZipFile(kerja / f"{berkas}.docx") as z:
-        if z.testzip() or not {"[Content_Types].xml", "word/document.xml"} <= set(z.namelist()):
-            raise RuntimeError("Word menghasilkan DOCX yang tidak utuh; hasil lama belum diganti.")
-    kosongkan_penulis(kerja / f"{berkas}.docx")
-    from pypdf import PdfReader
-    halaman = len(PdfReader(kerja / f"{berkas}.pdf").pages)
-    if f"HALAMAN={halaman}" not in (kerja / laporan).read_text(encoding="utf8").splitlines() or not halaman:
-        raise RuntimeError("PDF dan laporan halaman tidak cocok; hasil lama belum diganti.")
-    if hashlib.sha256((f / "naskah.txt").read_bytes()).hexdigest() != d["naskah_sha256"]:
-        raise RuntimeError("Naskah berubah selama rakit; hasil lama belum diganti. Ulangi rakit.")
-    hasil = [f"{berkas}.docx", f"{berkas}.pdf", laporan]
-    khulasah = _khulasah_pdf(kerja, berkas, laporan)
-    if khulasah:
-        hasil.append(khulasah)
-    terbitkan(kerja, f, hasil)
-    if not khulasah and (f / nama_khulasah(berkas)).exists():  # naskah tidak lagi ber-{X}: salinan lama sudah usang
-        (f / nama_khulasah(berkas)).unlink()
-    for baris in (f / laporan).read_text(encoding="utf8").splitlines():
-        if baris.startswith(("HALAMAN", "CATATAN_KAKI", "KATA")):
-            print(baris)
-    batas, asal = olah.batas_minimal(d["meta"], "halaman")
-    # potongan --fasl memang lebih pendek dari bahts utuh; @bentuk: kitab tidak dinilai (sama dengan `cek`)
-    if batas and not fasl and d["meta"].get("bentuk") != "kitab" and halaman < batas:
-        print(f"PERINGATAN: PDF {halaman} halaman, kurang dari {batas} ({asal}): tambah pembahasan dari bahan yang "
-              "dibaca, atau tulis batas dari dosen di «@minimal_halaman: n»")
-    print(f"Jadi: {f / berkas}.docx dan .pdf")
-    salin_keluaran(f, berkas)
-    belum = sum(b.startswith("  ! ") for b in lap)
-    if belum:  # PDF tetap terbit (untuk dibaca dan diperiksa), tetapi bahts belum boleh dilaporkan selesai
-        jalur = nama.rstrip("/\\") or nama
-        print(f"BELUM SELESAI: {belum} perhatian belum ditangani (bereskan, atau «terima <kode> <alasan>» di riset.txt) "
-              "-> " + perintah(f'cek "{jalur}"'))
-
-
-def salin_keluaran(f, berkas):
-    """Salinan PDF di folder pilihan pemakai, per orang: bahts/ahmad/ikhlas -> <keluaran>/ahmad/<berkas>.pdf.
-    Induknya tetap folder bahts, jadi salinan yang gagal hanya diperingatkan."""
-    if not KELUARAN_SAYA.exists():
-        return
-    induk = KELUARAN_SAYA.read_text(encoding="utf-8-sig").strip()
-    bagian = f.relative_to(AKAR).parts[:-1]
-    tujuan = Path(induk, *bagian[bagian[:1] == ("bahts",):]) / f"{berkas}.pdf"
-    try:
-        tujuan.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(f / f"{berkas}.pdf", tujuan)
-        print(f"Salinan: {tujuan}")
-    except OSError as e:
-        print(f"PERINGATAN: PDF jadi di folder bahts, tetapi salinan ke {tujuan} gagal: {e}")
+    hasil = olah.periksa(f)
+    olah.tulis_bahan(hasil.bahan, olah.alamat_bahan(f))
+    olah.cetak(hasil, jalur_ketik(nama), jejak)
+    return len(hasil.ctx.galat)
 
 
 def angka(teks, apa):
@@ -669,7 +403,7 @@ def perintah_cek(a):
     if len([x for x in a if x != "--jejak"]) != 1 or folder.startswith("--"):
         sys.exit(f"Argumen perintah «cek» tidak dikenal atau berlebih: {a}\nBentuknya:\n"
                  f"{re.search(r'^  cek .*', __doc__, re.M).group(0)}")
-    sys.exit(1 if cek(folder, jejak="--jejak" in a)[1] else 0)
+    sys.exit(1 if cek(folder, jejak="--jejak" in a) else 0)
 
 
 def perintah_bukti(a):
@@ -686,21 +420,13 @@ def perintah_bukti(a):
 
 def perintah_tahap(a):
     """`tahap <folder>`: keadaan bahts dibaca ulang dari barang aslinya; mesin keadaannya di tahap.py. Folder bahts dan
-    bahan `cek` di mesin/_tmp tidak disentuh (bahannya ditulis ke folder sementara)."""
+    bahan `cek` di mesin/_tmp tidak disentuh."""
     import tahap
-    from berkas import lihat_kunci
-    f = folder_bahts(a[0])
-    rel = f.relative_to(AKAR).as_posix()
-    siapa = lihat_kunci(RAKIT_PEKERJAAN)
-    rakit_ = tahap.Rakit.JALAN if siapa is not None else tahap.Rakit.YATIM if _ps_yatim() else tahap.Rakit.BEBAS
-    siapa = siapa or ""
-    k = tahap.baca(f, a[0].rstrip("/\\") or a[0], rakit=rakit_, siapa=siapa,
-                   rakit_sini=os.path.normcase(siapa).startswith(os.path.normcase(rel + ",")))
-    print("\n".join(tahap.baris(k)))
+    print("\n".join(tahap.baris(tahap.baca(folder_bahts(a[0]), jalur_ketik(a[0])))))
 
 
 def perintah_rakit(a):
-    """`rakit <folder> [--fasl n]`: bendera boleh sebelum/sesudah folder."""
+    """`rakit <folder> [--fasl n]`: bendera boleh sebelum/sesudah folder. Alurnya di rakit.py."""
     a = list(a)
     fasl = None
     if "--fasl" in a:
@@ -711,7 +437,12 @@ def perintah_rakit(a):
         a.pop(i)
     if len(a) != 1 or a[0].startswith("--"):
         raise ValueError(f"argumen tidak dikenal atau berlebih: {a}")
-    rakit(a[0], fasl)
+    if os.name != "nt":
+        galat = cek(a[0])
+        sys.exit(f"Belum dirakit: {galat} galat harus beres dulu." if galat else
+                 "`rakit` butuh Windows + Microsoft Word. Naskahnya sudah lolos `cek`.")
+    import rakit
+    rakit.rakit(folder_bahts(a[0]), jalur_ketik(a[0]), fasl)
 
 
 def perintah_ekspor(a):

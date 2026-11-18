@@ -74,7 +74,7 @@ class Pemeriksaan:
     perhatian: list = dataclasses.field(default_factory=list)  # sesudah `periksa`: yang belum ditangani saja
     diterima: list = dataclasses.field(default_factory=list)  # [(kode, perhatian, alasan)] dari «terima» di riset.txt
     kode: dict = dataclasses.field(default_factory=dict)  # perhatian -> kodenya (laporan.kode), diisi `periksa`
-    # (sid, kutipan) yang GAGAL «teks TIDAK KETEMU di kitab»; dikembalikan `olah.utama` (untuk `cek --jejak`)
+    # (sid, kutipan) yang GAGAL «teks TIDAK KETEMU di kitab» (untuk `cek --jejak`)
     tertolak: list = dataclasses.field(default_factory=list)
     # ayat {Q:} dan catatan kaki berbukti, urut naskah, dengan nomor barisnya (dibaca `bukti`):
     #   {"n", "ayat": spec, "t": teks tercetak} atau {"n", "bukti": [sid|juz|hal…], "runs", "kutipan", "catatan"}
