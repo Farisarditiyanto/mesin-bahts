@@ -7,19 +7,18 @@
 - `cari`/`teks`/`bab` mencocokkan kata utuh; yang menyeberang batas kata hanya disebut jumlahnya;
 - `hadits` menandai riwayat yang kitabnya sudah diunduh dengan juz/halaman edisi lokal (layanan alminasa ditiru).
 Kitabnya kitab CI (baris `ambil` di tes.yml)."""
-import atexit, contextlib, io, json, runpy, shutil, subprocess, sys, tempfile
+import atexit, contextlib, io, json, re, runpy, subprocess, sys, tempfile
 from pathlib import Path
 from unittest.mock import patch
 
 sys.stdout.reconfigure(encoding="utf-8")
 from uji_semua import kitab_ci
+from bantu import salin_mesin
 REPO = Path(__file__).resolve().parent.parent
 SEMENTARA = tempfile.TemporaryDirectory(prefix="bahts-perintah-")
 atexit.register(SEMENTARA.cleanup)
 AKAR = Path(SEMENTARA.name)
-shutil.copytree(REPO / "mesin", AKAR / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__"))
-for sid in ("_meta", *map(str, kitab_ci())):
-    shutil.copytree(REPO / "kitab" / sid, AKAR / "kitab" / sid)
+salin_mesin(AKAR, ("_meta", *map(str, kitab_ci())))
 
 
 def jalankan(*a):
@@ -68,6 +67,31 @@ for sid, harus, jangan in (("2348", "تعليق وتحقيق: ماهر ياسي�
     kode, out, err = jalankan("kartu", sid)
     if kode or harus not in out or (jangan and jangan in out):
         gagal.append(f"kartu {sid}: harus memuat «{harus}»" + (f" tanpa «{jangan}»" if jangan else "") + f"; keluaran {out[:300]!r}")
+# `kartu`: bukti siap pakai di baris terakhirnya memakai juz yang diterima `cek` (kitab berjilid tidak ditulis «-»,
+# juga yang halamannya bersambung) dan halaman yang terbaca
+(AKAR / "uji-kartu").mkdir()
+
+
+def cek_bukti(bukti):
+    (AKAR / "uji-kartu" / "naskah.txt").write_text(
+        f"@judul: اختبار\n@bentuk: kitab\n@tanpa: pustaka\n#K مقدمة\nهذا معنى[^انظر: كتاب، ص5. {bukti}].\n", encoding="utf8")
+    return jalankan("cek", "uji-kartu")[1]
+
+
+if "kitab 1082 berjilid: tulis juz-nya" not in cek_bukti("<<1082|-|5>>"):
+    gagal.append("cek: juz «-» di kitab berjilid (1082) tidak ditolak")
+for sid in kitab_ci():
+    bukti = jalankan("kartu", str(sid))[1].strip().splitlines()[-1]
+    m = (re.search(rf"<<{sid}\|([^|<>]+)\|(\d+)>>", bukti)
+         or re.search(rf"<<{sid}\|(-)\|<hal>>> \(kitab satu jilid: juz \"-\"; halaman (\d+)-", bukti))
+    if not m:
+        gagal.append(f"kartu {sid}: baris terakhir bukan bukti siap pakai: {bukti!r}")
+        continue
+    juz, hal = m.groups()
+    if jalankan("halaman", str(sid), juz, hal)[0]:
+        gagal.append(f"kartu {sid}: halaman {juz}/{hal} dari baris bukti tidak terbaca")
+    if "berjilid" in cek_bukti(f"<<{sid}|{juz}|{hal}>>"):
+        gagal.append(f"kartu {sid}: juz «{juz}» dari baris bukti ditolak `cek`: {bukti!r}")
 kode, out, err = jalankan("kartu", "11223", "--potongan")
 if kode != 1 or "berlebih" not in err:
     gagal.append(f"kartu 11223 --potongan: harus ditolak (bendera hanya untuk cari/teks/bab); kode {kode}, galat {err[:80]!r}")

@@ -4,8 +4,9 @@
 Kegagalan rakit dihentikan oleh cek, sehingga pembersihan asli tetap diuji tanpa Word.
 Seluruh bahan dan tautan dibuat di TEMP; jaringan tidak dipakai.
 """
-import ctypes, hashlib, json, os, random, shutil, subprocess, sys, tempfile
+import ctypes, json, os, random, re, shutil, subprocess, sys, tempfile
 from pathlib import Path
+from bantu import salin_mesin
 
 AKAR = Path(__file__).resolve().parent.parent
 
@@ -15,9 +16,7 @@ def utama():
     gagal, lolos = [], []
     with tempfile.TemporaryDirectory(prefix="bahts-audit-") as t:
         akar = Path(t)
-        shutil.copytree(AKAR / "mesin", akar / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__", "*.ttf"))
-        for sid in ("_meta", "11223", "2348", "1082", "7283"):
-            shutil.copytree(AKAR / "kitab" / sid, akar / "kitab" / sid)
+        salin_mesin(akar, ("_meta", "11223", "2348", "1082", "7283"), huruf=False)
         f = akar / "uji"
         f.mkdir()
         dasar = (AKAR / "contoh" / "naskah.txt").read_text(encoding="utf8")
@@ -29,6 +28,9 @@ def utama():
                                capture_output=True, encoding="utf8", timeout=60)
             assert "Traceback" not in r.stderr and "GALAT MESIN" not in r.stdout, r.stdout + r.stderr
             return r
+
+        def sidik_naskah():
+            return re.search(r"^NASKAH_SHA256=(\w+)$", jalan().stdout, re.M)[1]
 
         def uji(nama, kerja):
             try:
@@ -138,14 +140,14 @@ def utama():
                 (f / "laporan.txt").write_text(f"NASKAH_SHA256={sidik}\n", encoding="utf8")
                 r = jalan("tahap")
                 assert "HASIL=TIDAK_DIKETAHUI" in r.stdout, r.stdout
-            sidik = hashlib.sha256((f / "naskah.txt").read_bytes()).hexdigest()
+            sidik = sidik_naskah()
             (f / "laporan.txt").write_text(f"NASKAH_SHA256={sidik}\n", encoding="utf8")
             assert "HASIL=TERKINI" in jalan("tahap").stdout
         uji("sidik laporan rusak tidak dianggap naskah berubah", hasil_rusak)
 
         def laporan_asing():
             jalan("tahap")
-            sidik = hashlib.sha256((f / "naskah.txt").read_bytes()).hexdigest()
+            sidik = sidik_naskah()
             (f / "laporan.txt").write_text(f"NASKAH_SHA256={sidik}\n", encoding="utf8")
             for fasl in ("catatan", "0", "2-1", "1.bak"):
                 lp = f / f"laporan-fasl{fasl}.txt"
@@ -229,8 +231,23 @@ def utama():
                 r = jalan("rakit", "@fromat: salah\n" + dasar)
                 assert not folder.exists(), r.stdout + r.stderr
             uji("folder terkunci tetap sementara lalu dibuang putaran berikutnya", folder_terkunci)
+
+            def berkas_terbuka():
+                folder = f / ".rakit-terbuka"
+                (folder / "word").mkdir(parents=True)
+                penanda = folder / "rakit.sementara"
+                penanda.write_text("")
+                (folder / "buka.txt").write_text("")
+                with open(folder / "buka.txt"):  # Windows: berkas yang masih terbuka tidak bisa dihapus
+                    r = jalan("rakit", "@fromat: salah\n" + dasar)
+                    assert r.returncode != 0 and "Belum dirakit" in r.stderr, r.stdout + r.stderr
+                    assert penanda.is_file() and not (folder / "word").exists(), "isi yang bisa dibuang tetap, atau penandanya hilang"
+                    assert "FOLDER_KERJA .rakit-terbuka=SEMENTARA" in jalan("tahap").stdout
+                r = jalan("rakit", "@fromat: salah\n" + dasar)
+                assert not folder.exists(), r.stdout + r.stderr
+            uji("folder sementara berisi berkas terbuka tetap sementara lalu dibuang putaran berikutnya", berkas_terbuka)
         else:
-            print("lewati junction dan handle direktori: khusus Windows")
+            print("lewati junction, handle direktori, dan berkas terbuka: khusus Windows")
     print(f"uji audit: {len(lolos)} lolos, {len(gagal)} gagal")
     return bool(gagal)
 

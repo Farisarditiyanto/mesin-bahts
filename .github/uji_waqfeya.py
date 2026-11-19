@@ -8,20 +8,21 @@ Yang dijaga:
 - ringkasan `cek` menghitung bukti Waqfeya sendiri, dan catatan kakinya tidak terdaftar «tanpa bukti»;
 - nomor halaman cetak dibaca dari baris yang isinya nomor saja («- ٢ -»), bukan dari nomor catatan kaki «(٣) قال…»;
 - kalimat yang diulang di kitab: kutipan yang benar di halaman yang OCR-nya rusak tidak disuruh pindah ke halaman lain
-  (putusan tidak bergantung pencarian mirip OCR: dulu tanpa rapidfuzz kasus ini GAGAL);
+  (putusan tidak bergantung pencarian mirip OCR);
 - bukti Waqfeya + bukti Shamela berpotongan di satu catatan kaki tidak GAGAL palsu (halaman cetak Waqfeya, kutipan);
 - kitab Waqfeya yang judulnya kitab Shamela = perhatian (pakai Shamela kalau edisinya sama);
 - `kartu` membaca halaman judul dari berkas sampul («الواجهة»), bukan selalu berkas 1;
 - `halaman`, `kartu`, `cari`, `bukti` mencetak OCR + scan; `ambil <folder>` mengenali nomor w… di naskah."""
 import atexit, gzip, json, shutil, subprocess, sys, tempfile
 from pathlib import Path
+from bantu import salin_mesin
 
 sys.stdout.reconfigure(encoding="utf-8")
 REPO = Path(__file__).resolve().parent.parent
 SEMENTARA = tempfile.TemporaryDirectory(prefix="bahts-waqfeya-")
 atexit.register(SEMENTARA.cleanup)
 AKAR = Path(SEMENTARA.name)
-shutil.copytree(REPO / "mesin", AKAR / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__"))
+salin_mesin(AKAR)
 (AKAR / "kitab" / "_meta").mkdir(parents=True)
 shutil.copy(REPO / "kitab" / "_meta" / "book_metadata.parquet", AKAR / "kitab" / "_meta")  # katalog: `siapkan`
 shutil.copytree(REPO / "kitab" / "11223", AKAR / "kitab" / "11223")  # kitab contoh/naskah.txt (baris `ambil` tes.yml)
@@ -127,17 +128,17 @@ kode, out, err = jalankan("cek", naskah(f'قال: "فترفع ما كان مبت
 if "tidak menyebut judul kitab buktinya «كتاب تجريبي»" not in out:
     gagal.append(f"judul kitab lain di catatan kaki berbukti Waqfeya tidak jadi perhatian: {(out + err)[-500:]}")
 # penanda «ada di Shamela»: judul Shamela berakhiran nama pengarang «المحصول للرازي» (2022) = awal judul Waqfeya
-r = subprocess.run([sys.executable, "-c", "import waqfeya; print(waqfeya._di_shamela({'judul': 'المحصول في علم أصول الفقه',"
-                    " 'pengarang': 'فخر الدين الرازي'}))"], cwd=AKAR / "mesin", capture_output=True, text=True,
-                   encoding="utf-8")
-if "2022" not in r.stdout:
-    gagal.append(f"_di_shamela tidak mengenali «المحصول للرازي» (2022): {r.stdout[-200:]} {r.stderr[-300:]}")
+kolom = ("title", "author", "category", "pages", "pdf_paths", "txt_paths")
+katalog = [("المحصول في علم أصول الفقه", "فخر الدين الرازي", "أصول الفقه", "500", "['./a/1.pdf']", "['./a/1.txt']"),
+           ("شرح منتهى الإرادات (ت_ التركي)", "منصور بن يونس البهوتي", "الفقه الحنبلي", "700", "['./b/1.pdf']", "['./b/1.txt']")]
+(AKAR / "kitab" / "_meta" / "waqfeya.tsv").write_text("\n".join("\t".join(b) for b in (kolom, *katalog)) + "\n", encoding="utf-8")
+kode, out, err = jalankan("waqfeya", "المحصول")
+if "ada di Shamela (2022" not in out:
+    gagal.append(f"waqfeya «المحصول»: «المحصول للرازي» (2022) tidak ditandai ada di Shamela: {out[-300:]} {err[-300:]}")
 # judul sama, pengarang lain: «شرح منتهى الإرادات» البهوتي bukan Shamela 776 (ابن النجار)
-r = subprocess.run([sys.executable, "-c", "import waqfeya; print(waqfeya._di_shamela({'judul': 'شرح منتهى الإرادات (ت_ التركي)',"
-                    " 'pengarang': 'منصور بن يونس البهوتي'}))"], cwd=AKAR / "mesin", capture_output=True, text=True,
-                   encoding="utf-8")
-if "776" in r.stdout or r.returncode:
-    gagal.append(f"_di_shamela menunjuk kitab Shamela pengarang lain: {r.stdout[-200:]} {r.stderr[-300:]}")
+kode, out, err = jalankan("waqfeya", "منتهى الإرادات")
+if kode or "شرح منتهى الإرادات (ت_ التركي) | منصور بن يونس البهوتي" not in out or "776" in out:
+    gagal.append(f"waqfeya «منتهى الإرادات»: kitab البهوتي ditunjuk ke kitab Shamela pengarang lain: {out[-300:]} {err[-300:]}")
 # kitab disebut lewat pengarangnya («الفارضي») = menyebut kitab buktinya; kata judul umum («تفسير القرآن») tidak cukup
 for isi, harus_perhatian in (("الفارضي، ص2.", False), ("تفسير القرآن العظيم، ص2.", True)):
     kode, out, err = jalankan("cek", naskah(f'قال: "فترفع ما كان مبتدأ على أنه اسمها"[^{isi} <<{W}|1|2>>].'))
@@ -214,6 +215,7 @@ import waqfeya
 from pypdf import PdfWriter
 def putus(self, f):
     f.write(b"%PDF-separuh")
+    print("penulisan diputus")
     raise OSError("penulisan putus")
 PdfWriter.write = putus
 try:
@@ -222,7 +224,9 @@ except OSError:
     pass
 """
 (d / "potong" / "1-2.pdf").unlink(missing_ok=True)
-subprocess.run([sys.executable, "-c", POTONG_PUTUS], cwd=AKAR / "mesin", capture_output=True)
+r = subprocess.run([sys.executable, "-c", POTONG_PUTUS], cwd=AKAR / "mesin", capture_output=True, text=True)
+if r.returncode or "penulisan diputus" not in r.stdout:
+    gagal.append(f"penulisan potongan PDF tidak sampai ke pemutus tiruan: {r.stdout[-200:]} {r.stderr[-300:]}")
 if (d / "potong" / "1-2.pdf").exists():
     gagal.append("potongan PDF yang penulisannya putus tertinggal dan nanti dipakai sebagai cache")
 kode, out, err = jalankan("halaman", W, "1", "2")

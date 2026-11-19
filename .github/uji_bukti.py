@@ -11,15 +11,14 @@ Yang diuji (kalau rusak, pemeriksa membaca teks yang salah tanpa sadar):
 """
 import json, shutil, subprocess, sys, tempfile
 from pathlib import Path
+from bantu import salin_mesin
 
 sys.stdout.reconfigure(encoding="utf-8")  # konsol Windows (cp1252) tidak bisa mencetak huruf Arab
 sys.stderr.reconfigure(encoding="utf-8")  # pesan assert juga memuat huruf Arab
 
 REPO = Path(__file__).resolve().parent.parent
 AKAR = Path(tempfile.mkdtemp(prefix="bahts-uji-bukti-"))
-shutil.copytree(REPO / "mesin", AKAR / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__"))
-for sid in ("_meta", "11223"):
-    shutil.copytree(REPO / "kitab" / sid, AKAR / "kitab" / sid)
+salin_mesin(AKAR, ("_meta", "11223"))
 shutil.copytree(REPO / "contoh", AKAR / "contoh", ignore=shutil.ignore_patterns("*.docx", "*.pdf", "laporan.txt", "jebakan"))
 sys.path.insert(0, str(AKAR / "mesin"))
 from shamela import padat  # bentuk yang dicocokkan `cek`

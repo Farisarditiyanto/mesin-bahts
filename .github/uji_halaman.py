@@ -1,147 +1,140 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""`halaman` membaca rekaman lewat indeks, tidak lagi seluruh kitab. Hasilnya harus sama persis dengan membaca seluruh
-kitab (cara lama, disalin di sini sebagai pembanding) untuk kitab yang dipilih (bawaan: kitab CI tetap), juga
-halaman yang tidak ada, angka Arab, dan juz "-". Kitab buatan menambah penanda ⦗n⦘ yang menurun, rekaman tanpa nomor
-halaman, juz bernama, dan حاشية bertanda halaman. Di Linux/macOS berkas yang ditulis mesin harus terbaca seperti
-berkas biasa (umask), bukan 0600 bawaan mkstemp. `cari`, `teks`, dan `bab` hanya mengurai rekaman yang memuat frasa:
-hasilnya harus sama dengan mengurai seluruh kitab."""
-import contextlib, gzip, hashlib, io, json, os, random, re, stat, sys, tempfile
+"""`halaman` dan `cari` lewat pintu pemakai harus mencetak isi halaman yang diminta, bukan halaman lain.
+
+Kitab buatan: tiap potongan teks (matan dan حاشية) berisi satu kata unik, jadi isi tiap juz/halaman diketahui dari
+pembuatannya: penanda ⦗n⦘ memindahkan teks sesudahnya ke halaman n (juga penanda menurun dan «٠٥»), teks sebelum penanda
+pertama milik nomor halaman rekaman, rekaman tanpa nomor halaman tidak bisa diminta, juz boleh bernama, dan حاشية
+bertanda halaman dicetak hanya di halamannya. Kitab asli (bawaan: kitab CI tetap; `UJI_HALAMAN=penuh` semua kitab lokal,
+`sampel` = CI + beberapa kitab lain): potongan awal beberapa rekaman, dibaca langsung dari berkas kitabnya, harus
+tercetak oleh `halaman` untuk juz/halaman rekaman itu. Di Linux/macOS berkas yang ditulis mesin mengikuti umask."""
+import gzip, json, os, random, re, stat, sys, tempfile
 from pathlib import Path
+from bantu import REPO, bahts, salin_mesin
 from uji_semua import kitab_ci
 
-AKAR = Path(__file__).resolve().parent.parent
-SAMPEL = 10  # kitab lokal di luar kitab CI yang ikut dibandingkan pada mode sampel
+SAMPEL = 10  # kitab lokal di luar kitab CI yang ikut diperiksa pada mode sampel
+REKAMAN = 8  # rekaman yang diperiksa tiap kitab asli
+SID = 990001
+HURUF = "تثجحخدذرزسشصضطظعغقمن"  # tanpa huruf sambung dan huruf yang disamakan ejaannya: tiap kata hanya cocok dengan dirinya
 ARAB = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
-sys.path.insert(0, str(AKAR / "mesin"))
-import shamela
-from norma import per_halaman
-from shamela import TAGS, nama_juz
-from dasar import perintah
+PENANDA = re.compile(r"⦗[٠-٩]+⦘")
+KATA = re.compile(f"[{HURUF}]{{5}}")
 sys.stdout.reconfigure(encoding="utf-8")
 
 
-def angka(x):
-    return int(x) if str(x).isdigit() else x
-
-
-def urai(semua):
-    """Tiap rekaman diurai sekali untuk semua panggilan `halaman_lama` di kitab itu: (rekaman, juz, juz angka, potongan,
-    nomor halamannya). Hasilnya sama dengan mengurai ulang di tiap panggilan, tanpa memakan sebagian besar waktu uji."""
-    out = []
-    for p in semua:
-        pot = per_halaman(p)
-        out.append((p, nama_juz(p.get("part")), angka(nama_juz(p.get("part"))), pot, [h for h, _ in pot if h is not None]))
-    return out
-
-
-def halaman_lama(sid, juz, hal, rekaman):
-    """Pembanding: `halaman` sebelum memakai indeks (membaca tiap rekaman kitab; `rekaman` = hasil `urai`, dibaca sekali)."""
-    ada, rentang = False, {}
-    juz, hal = angka(juz), angka(hal)
-    if juz == "-" and not any(jz == "-" or isinstance(jz_angka, int) for _, jz, jz_angka, _, _ in rekaman):
-        # kitab yang bagiannya hanya bernama: «-» = satu-satunya bagian yang punya halaman itu
-        di = {jz_angka for _, _, jz_angka, pot, hh in rekaman if hal in hh}
-        juz = di.pop() if len(di) == 1 else juz
-    for p, jz, jz_angka, pot, hh in rekaman:
-        if hh:
-            r = rentang.setdefault(jz, [min(hh), max(hh)])
-            r[0], r[1] = min(r[0], *hh), max(r[1], *hh)
-        if jz_angka != juz:
-            continue
-        bagian = [b for h, b in pot if h == hal]
-        if bagian:
-            ada = True
-            print(shamela.baris(TAGS.sub("", "".join(bagian))))  # «\r» Shamela jadi baris baru: cara cetak, bukan cara baca
-            fn = per_halaman(p, "footnotes")
-            if len(fn) > 1:
-                isi, catat = "".join(b for h, b in fn if h == hal), ""
-            else:
-                a, z = p.get("page_num"), pot[-1][0]
-                isi = fn[0][1]
-                catat = f" (حاشية rekaman ص{a}-{z}; halaman tiap catatan tidak tercatat)" if z != a else ""
-            if isi.strip():
-                print("ـــــ" + catat + "\n" + shamela.baris(TAGS.sub("", isi)))
-    if not ada:
-        print(f"[{sid}] TIDAK ADA halaman {juz}/{hal}. Yang ada: "
-              + "، ".join(f"juz {j} ص{a}-{z}" for j, (a, z) in rentang.items()) + " (juz \"-\" = kitab satu jilid)")
-    return ada
-
-
-def keluaran(f, *a):
-    b = io.StringIO()
-    with contextlib.redirect_stdout(b):
-        r = f(*a)
-    return r, b.getvalue()
-
-
-def bandingkan(sid, tambahan=(), contoh=60):
-    ix = shamela.indeks(sid)
-    semua = urai(shamela.norma.rekaman(shamela.folder(sid) / "pages.jsonl.gz"))
-    juz = sorted({"-" if j is None else str(j) for j, *_ in ix})
-    juz = juz[:2] + juz[-2:] + ["-", "٠١", "x"]  # kitab berjilid banyak: cukup juz awal dan akhir
-    hal = sorted({h for _, p1, p2, _ in ix for h in (p1, p2) if h is not None})
-    hal = sorted(set(hal[:contoh // 3] + hal[-contoh // 3:] + random.sample(hal, min(len(hal), contoh)))) + [0, 99999, "٥", "05", "a", *tambahan]
-    n = 0
-    for j in juz:
-        for h in hal:
-            shamela.indeks_awal.cache_clear(); shamela.indeks.cache_clear()
-            baru, lama = keluaran(shamela.halaman, str(sid), j, str(h)), keluaran(halaman_lama, str(sid), j, str(h), semua)
-            assert baru == lama, f"kitab {sid} juz {j} hal {h}:\nbaru={baru!r}\nlama={lama!r}"
-            n += 1
-    return n
-
-
-def sama_cari(sid, frasa, semua):
-    """`cari`, `teks`, `bab` lewat `berisi` = lewat seluruh rekaman kitab (`semua`: tiap rekaman diperiksa, teks
-    `padat`-nya dihitung di tempat dari teksnya, tanpa berkas padat)."""
-    baru = [keluaran(f, sid, frasa) for f in (shamela.cari, shamela.teks, shamela.bab)]
-    asli = shamela.berisi
-    shamela.berisi = lambda s, q: iter(semua)
-    try:
-        lama = [keluaran(f, sid, frasa) for f in (shamela.cari, shamela.teks, shamela.bab)]
-    finally:
-        shamela.berisi = asli
-    assert baru == lama, f"kitab {sid} «{frasa}»:\nbaru={baru!r}\nlama={lama!r}"
-    return 3
-
-
-def bandingkan_cari(sid, n=25):
-    """Frasa = potongan teks matan dan حاشية kitab itu sendiri (ketemu, ketemu banyak, dan lintas penanda ⦗n⦘), plus frasa yang tidak ada."""
-    semua = list(shamela.norma.rekaman(shamela.folder(sid) / "pages.jsonl.gz"))
-    teks = [t for r in semua for t in (r.get("body"), r.get("footnotes")) if t and shamela.padat(t)]
-    frasa = ["قال", "والله أعلم", "قولا لا يوجد مثله في كتاب من الكتب"]
-    for t in random.sample(teks, min(len(teks), n)):
-        kata = shamela.TAGS.sub("", t).split()
-        k = random.randrange(max(1, len(kata) - 4))
-        frasa.append(" ".join(kata[k:k + 4]))
-    return sum(sama_cari(sid, x, semua) for x in frasa if shamela.padat(x))
+def kata(i):
+    """Kata unik ke-i: lima huruf."""
+    return "".join(HURUF[i // len(HURUF) ** k % len(HURUF)] for k in range(5))
 
 
 def kitab_buatan(root):
-    random.seed(7)
-    kata = "قال الشيخ العلم العمل النية <span>".split()
-    t = lambda: " ".join(random.choice(kata) for _ in range(6))
-    rek = []
+    """Tulis kitab SID; kembalikan (cetak, letak, buta, lintas):
+    cetak = {(juz, halaman): [kata, …]} yang harus dicetak `halaman`, urut rekaman, matan tiap rekaman lalu حاشية-nya;
+    letak = {kata: (juz, halaman)} untuk kata yang halamannya pasti; buta = kata matan di rekaman tanpa nomor halaman
+    sebelum penanda pertamanya; lintas = (kata, kata berikutnya, juz) yang dipisah satu penanda halaman."""
+    acak = random.Random(7)
+    nomor = iter(range(10 ** 6))
+    baru = lambda: kata(next(nomor))
+    cetak, letak, buta, lintas, rekaman = {}, {}, [], None, []
     for i in range(400):
-        body = t() + "".join(f" ⦗{random.choice(['٣', '12', str(random.randint(1, 60)), '٠٥'])}⦘ " + t()
-                             for _ in range(random.randint(0, 3)))
-        rek.append({"page_id": i, "part": random.choice([None, "1", "2", "المقدمة"]),
-                    "page_num": random.choice([None, i % 40 + 1, i % 40 + 1, random.randint(1, 60)]), "body": body,
-                    # penanda حاشية ber-angka Arab: hanya itu yang dibaca PENANDA, jadi حاشية bertanda halaman ikut diuji
-                    "footnotes": random.choice(["", "(1) " + t(), f"(1) {t()} ⦗{str(random.randint(1, 60)).translate(ARAB)}⦘ (2) {t()}"])})
-    d = root / "990001"
+        juz = acak.choice([None, "1", "2", "المقدمة"])
+        hal = acak.choice([None, i % 40 + 1, i % 40 + 1, acak.randint(1, 60)])
+        matan = [(hal, baru())]
+        for n in acak.sample(range(1, 61), acak.randint(0, 3)):  # acak: penanda menurun ikut ada
+            matan.append((n, baru()))
+        body = matan[0][1] + " <span>x</span>"
+        for n, k in matan[1:]:
+            body += f" ⦗{acak.choice([str(n), str(n).zfill(2)]).translate(ARAB)}⦘ " + k
+        if len(matan) > 1 and hal is not None:
+            lintas = (matan[0][1], matan[1][1], juz)
+        bentuk = acak.choice(["kosong", "satu", "bertanda"])
+        fn, catatan = "", []  # catatan = [(halaman, atau "semua" = tiap halaman rekaman ini, kata)]
+        if bentuk == "satu":  # حاشية tanpa penanda: halaman tiap catatan tidak tercatat, tercetak di tiap halaman rekaman
+            catatan = [("semua", baru())]
+            fn = "(1) " + catatan[0][1]
+        elif bentuk == "bertanda":
+            n = acak.randint(1, 60)
+            catatan = [(hal, baru()), (n, baru())]
+            fn = f"(1) {catatan[0][1]} ⦗{str(n).translate(ARAB)}⦘ (2) {catatan[1][1]}"
+        for h in dict.fromkeys(h for h, _ in matan):  # tiap halaman rekaman ini, sekali
+            if h is None:
+                buta += [k for hh, k in matan if hh is None]
+                continue
+            cetak.setdefault((juz, h), []).extend([k for hh, k in matan if hh == h]
+                                                  + [k for hh, k in catatan if hh in ("semua", h)])
+        for h, k in matan:
+            if h is not None:
+                letak[k] = (juz, h)
+        rekaman.append({"page_id": i, "part": juz, "page_num": hal, "body": body, "footnotes": fn})
+    d = root / str(SID)
     d.mkdir(parents=True)
     with gzip.open(d / "pages.jsonl.gz", "wt", encoding="utf8") as g:
-        g.writelines(json.dumps(r, ensure_ascii=False) + "\n" for r in rek)
-    with gzip.open(d / "toc.jsonl.gz", "wt", encoding="utf8") as g:  # untuk `bab`
-        g.writelines(json.dumps({"title_id": i, "page_id": i, "title_text": f"باب {i}", "parent_id": None}, ensure_ascii=False) + "\n"
-                     for i in range(0, 400, 50))
+        g.writelines(json.dumps(r, ensure_ascii=False) + "\n" for r in rekaman)
     (d / "book_metadata.json").write_text("{}", encoding="utf8")
+    return cetak, letak, buta, lintas
+
+
+def halaman(akar, juz, hal):
+    """(kode keluar, kata unik yang dicetak `halaman`, keluaran mentahnya)."""
+    r = bahts(akar, "halaman", SID, "-" if juz is None else juz, hal)
+    assert "Traceback" not in r.stderr, r.stderr
+    return r.returncode, KATA.findall(r.stdout), r.stdout
+
+
+def uji_buatan(akar):
+    cetak, letak, buta, lintas = kitab_buatan(akar / "kitab")
+    n = 0
+    # tiap halaman tiap juz, 20 halaman sekali panggil: di bawah tiap kepala hanya kata halaman itu, urut
+    for juz in sorted({j for j, _ in cetak}, key=str):
+        nama = "-" if juz is None else juz
+        for awal in (1, 21, 41, 61):
+            _, _, out = halaman(akar, juz, f"{awal}-{awal + 19}")
+            potong = re.split(rf"^===== \[{SID}\] {nama}/(\d+) =====$", out, flags=re.M)
+            assert potong[1::2] == [str(h) for h in range(awal, awal + 20)], f"halaman {nama} {awal}-{awal + 19}: {out[:300]}"
+            for hal, isi in zip(potong[1::2], potong[2::2]):
+                harus = cetak.get((juz, int(hal)), [])
+                assert KATA.findall(isi) == harus, f"halaman {nama}/{hal}: {KATA.findall(isi)}, harusnya {harus}"
+                assert harus or "TIDAK ADA halaman" in isi, isi[:200]
+                n += 1
+    # halaman tunggal; «٥», «05», dan juz «٠١»/«01» = angka yang sama
+    assert cetak["1", 5] and buta
+    for juz, hal in (("1", "5"), ("1", "٥"), ("1", "05"), ("٠١", "5"), ("01", "5")):
+        kode, dapat, _ = halaman(akar, juz, hal)
+        assert kode == 0 and dapat == cetak["1", 5], f"halaman {juz}/{hal} bukan juz 1 halaman 5: {dapat}"
+    # juz/halaman bukan angka dan yang tidak ada = tidak ada (kode keluar 1), bukan halaman lain
+    for juz, hal in (("1", "0"), ("1", "99999"), ("1", "a"), ("x", "5"), ("9", "5")):
+        kode, dapat, out = halaman(akar, juz, hal)
+        assert kode != 0 and not dapat and "TIDAK ADA halaman" in out, f"halaman {juz}/{hal}: {out[:200]}"
+    # `cari`: kata unik ditunjuk di juz/halaman tempatnya ditulis; frasa yang menyeberang penanda halaman tetap ketemu;
+    # kata yang tidak ada dikatakan tidak ketemu
+    tempat = lambda r: [(j.strip("«»"), int(h)) for j, h in re.findall(rf"^\[{SID}\] ج(\S+) ص(\d+)", r.stdout, re.M)]
+    for k in random.Random(11).sample(sorted(letak), 15):
+        juz, hal = letak[k]
+        r = bahts(akar, "cari", SID, k)
+        assert tempat(r) == [("-" if juz is None else juz, hal)], f"cari {k} ({juz}/{hal}): {r.stdout[:300]}"
+    a, b, juz = lintas
+    r = bahts(akar, "cari", SID, f"{a} {b}")
+    assert tempat(r)[:1] == [("-" if juz is None else juz, letak[a][1])], f"cari lintas penanda: {r.stdout[:300]}"
+    r = bahts(akar, "cari", SID, kata(999_999))
+    assert r.returncode != 0 and f"[{SID}] TIDAK KETEMU" in r.stdout, r.stdout[:300]
+    # indeks dari versi mesin lain dibuat ulang, bukan dipakai
+    f = akar / "kitab" / str(SID) / "indeks.json"
+    juz, hal = next(k for k in cetak if k[0] == "1")
+    lama = json.loads(f.read_text(encoding="utf8"))
+    lama["versi"] = 1
+    f.write_text(json.dumps(lama), encoding="utf8")
+    assert halaman(akar, juz, hal)[1] == cetak[juz, hal] and json.loads(f.read_text(encoding="utf8"))["versi"] != 1, \
+        "indeks versi lain masih dipakai"
+    if os.name != "nt":
+        umask = os.umask(0); os.umask(umask)
+        mode = stat.S_IMODE(f.stat().st_mode)
+        assert mode == 0o666 & ~umask, f"indeks.json {oct(mode)}, harusnya {oct(0o666 & ~umask)} (umask)"
+    return n + 30
 
 
 def kitab_diuji():
     """Bawaan: kitab CI tetap. `UJI_HALAMAN=penuh`: semua kitab lokal; `sampel`: CI + SAMPEL kitab lain."""
-    semua = shamela.punya()
+    semua = sorted(int(p.name) for p in (REPO / "kitab").iterdir() if p.name.isdigit() and (p / "pages.jsonl.gz").exists())
     mode = os.environ.get("UJI_HALAMAN", "ci")
     if mode == "penuh":
         return semua
@@ -149,71 +142,50 @@ def kitab_diuji():
         sys.exit(f"UJI_HALAMAN={mode}: pilih ci, sampel, atau penuh")
     ci = set(kitab_ci())
     if kurang := ci - set(semua):
-        sys.exit("Kitab CI belum diunduh: " + perintah("ambil " + " ".join(map(str, sorted(kurang)))))
+        sys.exit("Kitab CI belum diunduh: python mesin/bahts.py ambil " + " ".join(map(str, sorted(kurang))))
     if mode == "ci":
         print(f"halaman: {len(ci)} kitab CI tetap")
         return sorted(ci)
     benih = int(os.environ.get("UJI_HALAMAN_BENIH") or random.SystemRandom().randrange(10 ** 6))
     lain = [s for s in semua if s not in ci]
-    pilih = sorted({s for s in semua if s in ci} | set(random.Random(benih).sample(lain, min(SAMPEL, len(lain)))))
+    pilih = sorted(ci | set(random.Random(benih).sample(lain, min(SAMPEL, len(lain)))))
     print(f"halaman: sampel {len(pilih)} dari {len(semua)} kitab (UJI_HALAMAN_BENIH={benih}); "
           f"semua kitab: UJI_HALAMAN=penuh atau `uji_semua.py --penuh`")
     return pilih
 
 
-def utama():
-    random.seed(3)
-    dipilih = kitab_diuji()
-    n = sum(bandingkan(sid, contoh=12) + bandingkan_cari(sid) for sid in dipilih)
-    asli = shamela.ROOT
-    with tempfile.TemporaryDirectory() as tmp:
-        shamela.ROOT = Path(tmp)
-        kitab_buatan(shamela.ROOT)
-        n += bandingkan(990001, range(1, 61)) + bandingkan_cari(990001)
-        # indeks lama (versi 1: satu daftar per rekaman, tanpa sidik .gz) tetap dipakai dengan benar, lalu ditulis ulang
-        f = shamela.ROOT / "990001" / shamela.INDEKS
-        d = json.loads(f.read_text(encoding="utf8"))
-        with gzip.open(f.with_name("pages.jsonl.gz")) as g:
-            sumber = hashlib.sha256(g.read()).hexdigest()
-        lama = {"versi": 1, "sumber": sumber, "rekaman": [list(x) for x in zip(d["juz"], d["hal"], d["akhir"], d["letak"])]}
-        f.write_text(json.dumps(lama, ensure_ascii=False), encoding="utf8")
-        n += bandingkan(990001)
-        assert "sumber_gz" in json.loads(f.read_text(encoding="utf8")), "indeks lama tidak ditulis ulang"
-        if os.name != "nt":
-            umask = os.umask(0); os.umask(umask)
-            mode = stat.S_IMODE(f.stat().st_mode)
-            assert mode == 0o666 & ~umask, f"indeks.json {oct(mode)}, harusnya {oct(0o666 & ~umask)} (umask)"
-    shamela.ROOT = asli
+def uji_asli(sid):
+    """Awal matan beberapa rekaman kitab sid (sebelum penanda pertama = halaman nomor rekaman itu) tercetak oleh
+    `halaman <juz> <nomor>`."""
+    with gzip.open(REPO / "kitab" / str(sid) / "pages.jsonl.gz", "rt", encoding="utf8") as g:
+        rekaman = [json.loads(b) for b in g]
+    calon = []
+    for p in rekaman:
+        awal = PENANDA.split(p.get("body") or "")[0]
+        potong = re.search(r"[ء-ْ]+(?: [ء-ْ]+){3}", awal)  # empat kata huruf Arab (boleh berharakat) berurutan, sebaris
+        if potong and isinstance(p.get("page_num"), int):
+            calon.append((p.get("part"), p["page_num"], potong[0]))
+    acak = random.Random(sid)
+    pilih = calon[:1] + calon[-1:] + acak.sample(calon, min(len(calon), REKAMAN - 2))
+    assert pilih, f"kitab {sid}: tidak ada rekaman yang bisa diperiksa"
+    for juz, hal, potong in pilih:
+        juz = "-" if juz is None else str(juz)
+        r = bahts(REPO, "halaman", sid, juz, hal)
+        assert r.returncode == 0 and potong in r.stdout, f"halaman {sid} {juz} {hal}: tidak memuat «{potong}»: {r.stdout[:200]} {r.stderr[-200:]}"
     if os.name != "nt":  # kitab yang diunduh `ambil` (lewat berkas sementara) juga mengikuti umask
-        for sid in dipilih:
-            mode = stat.S_IMODE((shamela.folder(sid) / "pages.jsonl.gz").stat().st_mode)
-            assert mode == 0o666 & ~umask, f"kitab {sid}: pages.jsonl.gz {oct(mode)}"
-    # rentang «a-b» = halaman tunggal berurutan, masing-masing diberi kepala, termasuk halaman bolong di tengah kitab
-    import bahts
-    for sid in dipilih:
-        ix, awal = shamela.indeks_awal(sid)
-        juz, hal = next(((e[0], a) for e, a in zip(ix, awal) if a is not None), (None, None))
-        if hal is None:
-            continue
-        juz = "-" if juz is None else juz
-        r, isi = keluaran(bahts.halaman, sid, juz, f"{hal}-{hal + 2}")
-        harus = "".join(f"===== [{sid}] {juz}/{h} =====\n" + keluaran(shamela.halaman, sid, juz, h)[1]
-                        for h in range(hal, hal + 3))
-        assert r and isi == harus, f"halaman rentang {sid} {juz}/{hal}-{hal + 2} beda dari halaman tunggal"
-        n += 1
-    # `kartu`: baris bukti siap pakai memakai juz yang diterima `cek` dan halaman yang terbaca, juga untuk kitab berjilid
-    # yang halamannya bersambung («متسلسلة الترقيم», 6178): dulu agent menulis juz "-" lalu GAGAL «berjilid»
-    import kitab_lokal
-    for sid in dipilih:
-        baris = keluaran(shamela.kartu, sid)[1].splitlines()[-1]
-        m = (re.search(rf"mis\. <<{sid}\|([^|<>]+)\|(\d+)>>", baris)
-             or re.search(rf"<<{sid}\|(-)\|<hal>>> \(kitab satu jilid: juz \"-\"; halaman (\d+)-", baris))
-        assert m, f"kartu {sid}: baris bukti tidak ada atau bentuknya lain: {baris!r}"
-        juz, hal = m.groups()
-        assert kitab_lokal.salah_juz(sid, juz, hal) == "", f"kartu {sid}: {baris!r} -> {kitab_lokal.salah_juz(sid, juz, hal)}"
-        assert keluaran(shamela.halaman, sid, juz, hal)[0], f"kartu {sid}: halaman {juz}/{hal} tidak terbaca"
-        n += 1
-    print(f"halaman: {n} panggilan sama dengan cara lama")
+        umask = os.umask(0); os.umask(umask)
+        mode = stat.S_IMODE((REPO / "kitab" / str(sid) / "pages.jsonl.gz").stat().st_mode)
+        assert mode == 0o666 & ~umask, f"kitab {sid}: pages.jsonl.gz {oct(mode)}"
+    return len(pilih)
+
+
+def utama():
+    with tempfile.TemporaryDirectory(prefix="bahts-halaman-") as t:
+        akar = Path(t)
+        salin_mesin(akar, huruf=False)
+        n = uji_buatan(akar)
+    n += sum(uji_asli(sid) for sid in kitab_diuji())
+    print(f"halaman: {n} pemeriksaan sesuai isi kitabnya")
 
 
 if __name__ == "__main__":

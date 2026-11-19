@@ -4,16 +4,16 @@ sampai .docx-nya dibuka di Word:
 - ligatur hormat Unicode 14 (﵁ ﷿ …) tidak ada di huruf Word: harus tercetak sebagai kalimatnya, bukan kotak (11223);
 - tag HTML, entitas HTML («&amp;», 711), dan tanda «¬» Shamela di nomor حاشية («(¬١)», 2348) tidak ikut tercetak;
 - judul bab: tiap judul daftar isi tepat satu Heading dan tidak tercetak lagi sebagai paragraf biasa, juga di kitab
-  yang tanda judulnya berkutip tunggal (1726), dan baris judul di teks yang bersebelahan dengan judul daftar isi yang
-  sama (di kitab non-CI, mis. 7861; dicek langsung ke `tanpa_judul_ulang`);
+  yang tanda judulnya berkutip tunggal (1726);
 - OCR Waqfeya: baris sisa kalimat disambung, tapi judul («الباب الأول», baris pendek «كلمة شكر») dan catatan kaki
   «(١)» tetap paragraf sendiri; aksara lain, angka, huruf tunggal, dan batas paragraf kosong tetap ada;
 - penanda halaman tidak berulang di kitab yang tiap haditsnya satu rekaman (1726);
 - .docx terbaca sebagai XML yang sah dan tiap paragrafnya kanan-ke-kiri.
 Kitabnya kitab CI (baris `ambil` di tes.yml). `ekspor` hanya membaca kitab/, jadi dijalankan di repo ini."""
-import gzip, json, re, shutil, subprocess, sys, tempfile, zipfile
+import gzip, json, re, subprocess, sys, tempfile, zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from bantu import salin_mesin
 
 sys.stdout.reconfigure(encoding="utf-8")
 REPO = Path(__file__).resolve().parent.parent
@@ -63,7 +63,7 @@ with tempfile.TemporaryDirectory(prefix="bahts-ekspor-") as ke:
 
     # Kitab kecil di salinan mesin: alur pemakai, tanpa mengganti fungsi produk atau mengunduh Waqfeya di CI.
     akar = Path(ke) / "repo"
-    shutil.copytree(REPO / "mesin", akar / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__"))
+    salin_mesin(akar)
     for sid in ("1", "2"):
         d = akar / "kitab" / sid
         d.mkdir(parents=True)

@@ -1,33 +1,27 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Regresi tabel #J lewat `rakit` dan Word asli: tabel 2 sampai 6 kolom harus terakit.
 
-Lebar kolom tabel ≥3 kolom = 82 / (kolom - 1) persen; untuk 4 kolom itu pecahan (27.33) yang dulu ditolak Word
-(«Specified cast is not valid», rakit.ps1). Runner tanpa Word melaporkan lewati. Semua bahan tinggal di TEMP.
+Lebar kolom tabel ≥3 kolom = 82 / (kolom - 1) persen; untuk 4 kolom itu pecahan (27.33), yang ditolak Word
+kalau dikirim bukan sebagai bilangan tunggal («Specified cast is not valid», rakit.ps1). Runner tanpa Word melaporkan lewati. Semua bahan tinggal di TEMP.
 """
-import os, shutil, subprocess, sys, tempfile, zipfile
+import subprocess, sys, tempfile, zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-AKAR = Path(__file__).resolve().parent.parent
+from bantu import salin_mesin, tanpa_word
+
 NS = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
 
 
 def utama():
     sys.stdout.reconfigure(encoding="utf8")
-    if os.name != "nt":
-        print("lewati uji tabel Word: perlu Windows + Word asli")
-        return
-    import winreg
-    try:
-        with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"Word.Application\CLSID"):
-            pass
-    except FileNotFoundError:
-        print("lewati uji tabel Word: Microsoft Word tidak terpasang")
+    if alasan := tanpa_word():
+        print("lewati uji tabel Word: " + alasan)
         return
     kolom = range(2, 7)
     with tempfile.TemporaryDirectory(prefix="bahts-tabel-word-") as t:
         akar = Path(t)
-        shutil.copytree(AKAR / "mesin", akar / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__"))
+        salin_mesin(akar)
         folder = akar / "uji"
         folder.mkdir()
         berkas = "kerja"

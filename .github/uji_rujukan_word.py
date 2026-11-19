@@ -4,31 +4,25 @@
 Runner GitHub tidak menyediakan Word. Di sana tes dilewati secara terang; di PC yang punya Word tes wajib jalan.
 Semua naskah dan hasil tinggal di TEMP. Tidak memakai layanan luar atau bahan pribadi.
 """
-import os, re, shutil, subprocess, sys, tempfile, zipfile
+import re, subprocess, sys, tempfile, zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
 from pypdf import PdfReader
 
-AKAR = Path(__file__).resolve().parent.parent
+from bantu import salin_mesin, tanpa_word
+
 NS = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
 
 
 def utama():
     sys.stdout.reconfigure(encoding="utf8")
-    if os.name != "nt":
-        print("lewati uji rujukan Word: perlu Windows + Word asli")
-        return
-    import winreg
-    try:
-        with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"Word.Application\CLSID"):
-            pass
-    except FileNotFoundError:
-        print("lewati uji rujukan Word: Microsoft Word tidak terpasang")
+    if alasan := tanpa_word():
+        print("lewati uji rujukan Word: " + alasan)
         return
     with tempfile.TemporaryDirectory(prefix="bahts-rujukan-word-") as t:
         akar = Path(t)
-        shutil.copytree(AKAR / "mesin", akar / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__"))
+        salin_mesin(akar)
         folder = akar / "uji"
         folder.mkdir()
         # Kunci panjang sah menurut `tanda`. Sebelum diisi, penanda memperpanjang catatan kaki beberapa baris;

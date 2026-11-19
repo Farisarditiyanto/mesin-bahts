@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Tes angka lewat pintu pemakai (`bahts.py cek`, lalu bahan yang dibaca rakit.ps1): naskah contoh mengetik
 «ص5», «1423هـ», nim «123456789» (contoh sendiri «-»: tidak tercetak), dan «آية: ٢». Tanpa @angka, semua angka di teks Arab bahan rakit harus ٠-٩
-(bug yang pernah terjadi: PDF mencetak «آية: ٢» di samping «ص5» dan «1423هـ»).
+(bukan «آية: ٢» di samping «ص5» dan «1423هـ»).
 Dengan «@angka_ayat: latin», hanya catatan kaki rujukan ayat yang 0-9 (dan ditandai "al" untuk rakit.ps1); sisanya tetap ٠-٩.
 Dengan «@angka: latin», semua angka di teks Arab bahan rakit 0-9 (mesin/olah.py, _angka_cetak: ubah = latin).
 Tautan/DOI di catatan kaki tetap 0-9 dan titiknya tetap, juga DOI tanpa huruf di depannya, dan pola "tautan" bahan
-(dipakai rakit.ps1 untuk mencetaknya kiri-ke-kanan) menangkap seluruhnya tanpa titik penutup kalimat (bug yang pernah
-terjadi: PDF mencetak «doi.org/١٠,٢١٦٠٨/jasis.٢٠٢١,١٨٣١٣١»)."""
+(dipakai rakit.ps1 untuk mencetaknya kiri-ke-kanan) menangkap seluruhnya tanpa titik penutup kalimat (bukan
+«doi.org/١٠,٢١٦٠٨/jasis.٢٠٢١,١٨٣١٣١»)."""
 import json, re, shutil, subprocess, sys
 from pathlib import Path
 
