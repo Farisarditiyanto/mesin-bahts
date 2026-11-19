@@ -4,6 +4,10 @@
       "type": "http",
       "url": "https://shamela.link/mcp"
     },
+    "qurangallery": {
+      "type": "http",
+      "url": "https://qurangallery.com/mcp/shamela"
+    },
     "turath": {
       "type": "http",
       "url": "https://mcp.turath.io/mcp/"
