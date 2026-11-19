@@ -2,7 +2,7 @@
 """Regresi struktur lewat CLI asli di salinan TEMP, memakai contoh dan kitab asli.
 Tidak menjalankan Word: naskah yang kehilangan isi harus ditolak sebelum perakit dipanggil.
 """
-import json, os, random, re, shutil, subprocess, sys, tempfile
+import json, os, random, re, shutil, struct, subprocess, sys, tempfile, zipfile
 from pathlib import Path
 
 AKAR = Path(__file__).resolve().parent.parent
@@ -54,6 +54,17 @@ def utama():
                 cek("PNG utuh berbyte tambahan sesudah IEND", teks)
         # @minimal_halaman: bawaan 25 halaman seluruh PDF (perkiraan); contoh menulis 0 karena ±8 halaman
         assert "kurang dari" not in out and "@minimal_halaman: 0\n" in dasar, out
+        # @logo: berwarna = rakit.ps1 menukar word/media/image2.png sampul_qism.docx dengan milik sampul_jakarta.docx
+        cek("logo berwarna di sampul qism", "@logo: berwarna\n" + dasar)
+        cek("logo tidak dikenal", "@logo: biru\n" + dasar, True, "@logo: «biru» tidak dikenal")
+        for sampul, pesan in (("@sampul: jakarta", "@sampul: jakarta memakai logonya sendiri"),
+                              ("@sampul: mahad", "@sampul: mahad memakai logonya sendiri")):
+            cek("logo berwarna bukan di sampul qism", f"@logo: berwarna\n{sampul}\n" + dasar, True, pesan)
+        logo = {n: zipfile.ZipFile(AKAR / "mesin" / f"sampul_{n}.docx").read("word/media/image2.png") for n in ("qism", "jakarta")}
+        assert logo["qism"] != logo["jakarta"], "logo sampul qism dan jakarta sama: @logo: berwarna tidak mengubah apa pun"
+        for n, b in logo.items():  # logo tegak (tinggi > lebar); gambar kop sampul melebar: urutan gambar templat tidak bergeser
+            lebar, tinggi = struct.unpack(">II", b[16:24])
+            assert b[1:4] == b"PNG" and tinggi > lebar, f"word/media/image2.png sampul_{n}.docx bukan logo tegak"
         tanpa_batas = dasar.replace("@minimal_halaman: 0\n", "")
         cek("halaman kurang dari bawaan", tanpa_batas, pesan="halaman, kurang dari 25 (bawaan 25)")
         cek("batas halaman dari dosen, angka hindi", dasar.replace("@minimal_halaman: 0", "@minimal_halaman: ٩"),

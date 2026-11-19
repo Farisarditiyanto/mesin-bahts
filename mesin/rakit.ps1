@@ -137,7 +137,20 @@ try {
     # @sampul: qism = model قسم الشريعة (logo, judul dalam kurung, العام الجامعي): teks penanda diganti, bentuknya dari templat
     # jakarta = sama, dari sampul_jakarta.docx: «قسم الشريعة بجاكرتا», logo berwarna, baris @sifat, nomor tanpa «الرقم الجامعي:»
     $JAKARTA = $M.sampul -eq 'jakarta'
-    $doc = $word.Documents.Open($(if ($JAKARTA) { "$dir\sampul_jakarta.docx" } else { "$dir\sampul_qism.docx" }), $false, $true)
+    $SAMPUL = if ($JAKARTA) { "$dir\sampul_jakarta.docx" } else { "$dir\sampul_qism.docx" }
+    # @logo: berwarna = salinan sampul_qism.docx yang gambar logonya (word/media/image2.png) diganti logo berwarna
+    # sampul_jakarta.docx; kop, data, dan tata letak sampul qism tetap (.github/uji_struktur.py menjaga kedua gambarnya)
+    if (-not $JAKARTA -and $M.logo -eq 'berwarna') {
+        Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+        $LOGO = 'word/media/image2.png'
+        $z = [IO.Compression.ZipFile]::OpenRead("$dir\sampul_jakarta.docx")
+        try { $s = $z.GetEntry($LOGO).Open(); $ms = New-Object IO.MemoryStream; $s.CopyTo($ms); $s.Dispose(); $warna = $ms.ToArray() } finally { $z.Dispose() }
+        $SAMPUL = Join-Path (Split-Path -Parent $tmp) 'sampul_logo_berwarna.docx'
+        Copy-Item -LiteralPath "$dir\sampul_qism.docx" -Destination $SAMPUL -Force
+        $z = [IO.Compression.ZipFile]::Open($SAMPUL, 'Update')
+        try { $z.GetEntry($LOGO).Delete(); $s = $z.CreateEntry($LOGO).Open(); $s.Write($warna, 0, $warna.Length); $s.Dispose() } finally { $z.Dispose() }
+    }
+    $doc = $word.Documents.Open($SAMPUL, $false, $true)
     $doc.SaveAs2($tmp, 16)
     Draft
     # العام الجامعي bawaan = tahun hijriah saat tahun ajaran mulai (1 Agustus): satu tahun ajaran tetap satu tahun
