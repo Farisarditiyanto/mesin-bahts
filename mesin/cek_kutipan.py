@@ -489,7 +489,7 @@ def susunan_kitab(rr, bagian, celah, ujung, dalam):
         def lolos(i, j, k):
             return (len(q[i]) < KUTIPAN_MIN or cocok.potongan_utuh(rek, "body", j, k, kata[i])) and di_halaman(mulai(j), akhir(k))
 
-        for letak in susunan_bagian(pd, q, maks=float("inf"), cocok=lolos):
+        for letak in susunan_bagian(pd, q, maks=float("inf"), lolos=lolos):
             hasil = _nilai_susunan(raw, angka, letak, bagian, celah, ujung, mulai, akhir, di_halaman)
             kunci = (bool(hasil[0]), len(hasil[1]))
             jenis = ("footnotes?" if any(a <= mulai(j) < z for a, z in tak_pasti for j, _ in letak) else
@@ -518,6 +518,24 @@ NOMOR_KITAB_LAIN = ("rujukan kitab menulis nomor lain ({1}), tetapi teks ayat di
                     "pastikan nomornya ke mushaf")
 
 
+def _ayat_lain(spec, rujukan, ayat_kitab, teks, catat):
+    """Temuan kalau ayat yang dikutip kitab di tempat {Q:spec} bukan ayat itu: nomor di rujukan kitab [سورة: n] lain
+    (kecuali teks ayat kitab memang termuat di {Q:}: perhatian ke `catat`), atau suratnya lain. ayat_kitab = tiap ayat
+    bertanda di kitab di tempat itu (dengan tandanya), teks = teks kitab yang dibandingkan (`ayat_sama`)."""
+    if _nomor_lain(spec, rujukan):
+        if not any(ayat_persis(spec, a[1:-1]) for a in ayat_kitab):
+            return Temuan(f"ayat yang dikutip kitab di tempat {{Q:{spec[0]}}} adalah {'، '.join(rujukan)}: "
+                          "salin ayat yang benar")
+        catat.append(NOMOR_KITAB_LAIN.format(spec[0], '، '.join(rujukan)))
+    sama = ayat_sama(spec, teks, rujukan)
+    if not sama:
+        return Temuan(f"ayat yang dikutip kitab di tempat {{Q:{spec[0]}}} adalah surat lain "
+                      f"({'، '.join(rujukan) or ayat_kitab[0][:40]}): salin ayat yang benar")
+    if isinstance(sama, str):
+        catat.append(sama)
+    return None
+
+
 def _nilai_susunan(raw, angka, letak, bagian, celah, ujung, mulai, akhir, di_halaman):
     """(galat: Temuan atau None, perhatian) satu susunan letak bagian kutipan di teks asli kitab raw (lihat
     susunan_kitab)."""
@@ -541,17 +559,10 @@ def _nilai_susunan(raw, angka, letak, bagian, celah, ujung, mulai, akhir, di_hal
                 f"di kitab tidak ada ayat di tempat {{Q:}} (sesudah «…{' '.join(bagian[i].split()[-3:])}»), yang ada "
                 f"di kitab: «{dilompati[:40] or 'tidak ada apa-apa'}». {{Q:}} di dalam kutipan hanya untuk ayat yang memang "
                 "dikutip kitab di situ"), catat
-        if _nomor_lain(spec, rujukan):
-            if not any(ayat_persis(spec, m.group()[1:-1]) for m in AYAT_KITAB.finditer(antara)):
-                return Temuan(f"ayat yang dikutip kitab di tempat {{Q:{spec[0]}}} adalah {'، '.join(rujukan)}: "
-                              "salin ayat yang benar"), catat
-            catat.append(NOMOR_KITAB_LAIN.format(spec[0], '، '.join(rujukan)))
-        sama = spec and ayat_sama(spec, antara, rujukan)
-        if spec and not sama:
-            return Temuan(f"ayat yang dikutip kitab di tempat {{Q:{spec[0]}}} adalah surat lain "
-                          f"({'، '.join(rujukan) or AYAT_KITAB.search(antara).group()[:40]}): salin ayat yang benar"), catat
-        if isinstance(sama, str):
-            catat.append(sama)
+        if spec:
+            e = _ayat_lain(spec, rujukan, [m.group() for m in AYAT_KITAB.finditer(antara)], antara, catat)
+            if e:
+                return e, catat
         bertanda = " ".join(m.group()[1:-1] for m in AYAT_KITAB.finditer(antara))
         if spec and bertanda:  # ayat kitab tanpa tanda ﴿﴾ tidak bisa dipastikan batasnya
             e, p = pesan_tercetak(ayat_tercetak(spec, bertanda, antara), spec, bertanda)
@@ -585,17 +596,9 @@ def _nilai_susunan(raw, angka, letak, bagian, celah, ujung, mulai, akhir, di_hal
             continue
         rujukan = [m.group() for m in RUJUKAN_AYAT.finditer(raw, ayat_.end(), min(len(raw), ayat_.end() + 40))
                    if not norma.padat(raw[ayat_.end():m.start()])]
-        if _nomor_lain(spec, rujukan):
-            if not ayat_persis(spec, ayat_.group()[1:-1]):
-                return Temuan(f"ayat yang dikutip kitab di tempat {{Q:{spec[0]}}} adalah {'، '.join(rujukan)}: "
-                              "salin ayat yang benar"), catat
-            catat.append(NOMOR_KITAB_LAIN.format(spec[0], '، '.join(rujukan)))
-        sama = ayat_sama(spec, ayat_.group(), rujukan)
-        if not sama:
-            return Temuan(f"ayat yang dikutip kitab di tempat {{Q:{spec[0]}}} adalah surat lain "
-                          f"({'، '.join(rujukan) or ayat_.group()[:40]}): salin ayat yang benar"), catat
-        if isinstance(sama, str):
-            catat.append(sama)
+        e = _ayat_lain(spec, rujukan, [ayat_.group()], ayat_.group(), catat)
+        if e:
+            return e, catat
         e, p = pesan_tercetak(ayat_tercetak(spec, ayat_.group()[1:-1]), spec, ayat_.group()[1:-1])
         if e:
             return Temuan(e), catat

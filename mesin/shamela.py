@@ -297,15 +297,15 @@ def ambil_satu(sid):
     if r is None:
         raise LookupError("TIDAK ADA di katalog Shamela (nomornya dari `katalog` atau `temukan`)")
     top = [x["path"] for x in _ls() if x["path"].startswith(f"{int(r['category_id']):02d}__")]
-    folder = [x["path"] for x in _ls(top[0]) if x["path"].split("/")[-1].split("__")[0] == str(r['book_id'])] if top else []
-    if not folder:
+    asal = [x["path"] for x in _ls(top[0]) if x["path"].split("/")[-1].split("__")[0] == str(r['book_id'])] if top else []
+    if not asal:
         raise LookupError("folder kitabnya tidak ketemu di dataset Shamela (mungkin belum tersedia di sana)")
     dst.mkdir(parents=True, exist_ok=True)
     print(f"{sid}: mengunduh {r['title_ar']} …", flush=True)  # kitab besar: unduh + indeks makan belasan detik
     # isi kitab disimpan terkompres (.gz) supaya hemat disk: teks Arab menyusut ±5x
     # pages.jsonl terakhir: dialah tanda "sudah ada", jadi kitab yang unduhannya putus diunduh ulang
     for f in ("book_metadata.json", "toc.jsonl", "pages.jsonl"):
-        url = f"{RAW}/{urllib.parse.quote(folder[0])}/{f}"
+        url = f"{RAW}/{urllib.parse.quote(asal[0])}/{f}"
         if f.endswith(".jsonl"):
             unduh(url, dst / (f + ".gz"), lambda q: gzip.open(q, "wb", compresslevel=6))  # 9: 4x lebih lambat, hemat 6% saja
         else:

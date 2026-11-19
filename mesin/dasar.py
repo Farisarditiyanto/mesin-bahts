@@ -65,6 +65,10 @@ MERUJUK_KATA = "[أا]نظر|ينظر|ي?راجع"  # tanda nukilan makna di cat
 TAKHRIJ_AWAL = re.compile(r"\s*و?(?:أخرج|رواه)")  # catatan kaki takhrij: «أخرجه …», «رواه …»
 BUKAN_RUJUKAN = ("سورة", "سبق تخريجه")
 TINGKAT_JUDUL = {"K": 0, "F": 0, "R": 0, "B": 1, "M": 2, "S": 3}
+JUDUL_BAB = ("K", "F")  # judul tingkat teratas isi (مقدمة/خاتمة, فصل): selalu mulai halaman baru
+JUDUL_FIHRIS = (*JUDUL_BAB, "B", "M")  # judul tengah, masuk فهرس الموضوعات; #S (sub-judul kanan) tidak
+JUDUL_ISI = (*JUDUL_FIHRIS, "S")  # tiap judul bagian isi; #R (المصادر) bukan isi
+BATAS_BAB = (*JUDUL_BAB, "R")  # yang menutup isi satu bab: bab berikutnya atau المصادر
 ANGKA_LATIN = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "0123456789" * 2)  # angka Arab dan Persia -> 0-9
 KUTIPAN_MIN = 6  # huruf (bentuk `padat`) paling sedikit tiap bagian kutipan yang dicek
 POTONGAN_MIN = 7  # huruf paling sedikit potongan sendiri <<sid|juz|hal|potongan>> (potongan sah terpendek di bahts nyata: 7)
@@ -78,7 +82,6 @@ RUJUKAN_AYAT = re.compile(r"\[[^\]\n]*[ء-ي][^\]\n]*[0-9٠-٩][^\]\n]*\]")  # �
 LUAR = "luar"  # <<luar>>: sumbernya bukan kitab Shamela (jurnal, PDF penelitian, kamus); tidak bisa dicek mesin
 WAQFEYA = re.compile(r"[wW][0-9a-zA-Z]*\|")  # bukti kitab Waqfeya <<w…|…>> (bentuknya diperiksa WAQFEYA_BUKTI)
 WAQFEYA_BUKTI = re.compile(r"(w[0-9a-f]{8})\|(\d+)\|(\d+(?:-\d+)?)")  # <<w…|berkas|hal PDF>>
-BELUM_DIUNDUH = "kitab {} belum diunduh"  # pesan GAGAL per bukti (kitab_lokal.salah_juz)
 TIDAK_KETEMU = "teks TIDAK KETEMU di kitab {}"  # kutipan yang tidak ada di kitab buktinya (cek_kutipan)
 RENTANG_MAKS = 50  # halaman paling banyak satu bukti (dan satu rentang tercetak)
 HALAMAN_MAKS = 20  # halaman paling banyak sekali panggil `halaman` dan `takhrij`
@@ -91,6 +94,19 @@ def ekor(isi, *, rapat=False, lebar=45, apa="fn"):
     Spasi di depan «||» (rapat = satu, selain itu dua) dan lebar potongannya berbeda-beda antarpesan dan sengaja
     dibiarkan begitu: kode «terima» di riset.txt pemakai = sidik kalimat pesan, jadi menyeragamkannya membasikan semuanya."""
     return f"{' ' if rapat else '  '}|| {apa}: {isi[:lebar]}"
+
+
+KITAB = "kitab"  # @bentuk selain bahts: mis. muqarrar gabungan dua syarah
+
+
+def bentuk_kitab(meta):
+    """Naskah ber-«@bentuk: kitab» (meta = @data naskah atau "meta" bahan rakit), bukan bahts."""
+    return meta.get("bentuk") == KITAB
+
+
+def judul_baris(baris, tanda):
+    """Baris naskah mentah itu judul bertanda salah satu `tanda` («#F الفصل…» untuk "F")."""
+    return bool(re.match(rf"#[{''.join(tanda)}]\s", baris))
 
 
 def angka(x):

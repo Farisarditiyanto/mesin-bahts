@@ -495,9 +495,9 @@ POTONGAN = ("cari", "teks", "bab")  # perintah yang menerima --potongan (frasa b
 
 
 def tanda():
-    """Daftar tanda naskah: ditulis sekali di kepala olah.py (pintu `cek`; penguraiannya di naskah.py), dicetak dari sana."""
+    """Daftar tanda naskah: ditulis sekali di olah.py (pintu `cek`; penguraiannya di naskah.py), dicetak dari sana."""
     import olah
-    return olah.__doc__[olah.__doc__.index("Tanda di naskah"):].rstrip()
+    return olah.TANDA
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ import os, re, unicodedata
 from pathlib import Path
 
 from berkas import sementara
+from dasar import bentuk_kitab
 from norma import norm, padat
 
 ARAB = re.compile(r"[\u0600-\u06ff\ufb50-\ufdff\ufe70-\ufeff]")
@@ -182,7 +183,7 @@ def periksa(pdf, bahan):
     meta, fmt = bahan["meta"], bahan["format"]
     halaman = pypdf.PdfReader(pdf).pages
     pesan = []
-    awal = 0 if meta.get("bentuk") == "kitab" or meta.get("tanpa_sampul") else 1  # halaman 1 = sampul (bukan potongan --fasl)
+    awal = 0 if bentuk_kitab(meta) or meta.get("tanpa_sampul") else 1  # halaman 1 = sampul (bukan potongan --fasl)
     if awal and halaman:
         sampul = halaman[0].extract_text() or ""
         polos = re.sub(r"\s+", "", sampul.replace("…", "...")).translate(ANGKA)

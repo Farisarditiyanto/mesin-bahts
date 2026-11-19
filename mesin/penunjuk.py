@@ -8,7 +8,7 @@ import norma
 import shamela
 import waqfeya
 from cek_kutipan import bagian_kutipan
-from dasar import ELIPSIS, KUTIPAN_MIN, WAQFEYA_BUKTI, perintah
+from dasar import ELIPSIS, JUDUL_BAB, KUTIPAN_MIN, WAQFEYA_BUKTI, perintah
 from kitab_lokal import Bukti, akhir_rekaman, rekaman
 from olah import periksa
 
@@ -116,7 +116,7 @@ def _tanpa_catatan(blok):
     for b in blok:
         if b["k"] == "R":
             return
-        if b["k"] in ("K", "F"):
+        if b["k"] in JUDUL_BAB:
             bab_luar = b["k"] == "F" and bool(re.search(r"مقدم[ةه]|خاتم[ةه]", norma.HARAKAT.sub("", b.get("judul", ""))))
             di_isi = b["k"] == "F" and not bab_luar
         elif b["k"] in ("B", "M"):
@@ -149,10 +149,7 @@ def bukti(folder, dari=None, sampai=None):
         kepala = f"baris {u['n']} #{ke[u['n']]}"
         if u["runs"] is not tercetak:  # beberapa catatan kaki di satu paragraf: matannya dicetak sekali
             tercetak = u["runs"]
-            matan = "".join(r.get("t", "") for r in u["runs"]).strip()
-            # bait #V: olah._bait_syair sudah mengubah « // » jadi \v dan « ... » jadi tiga em space di runs; dicetak
-            # balik ke bentuk naskah supaya satu baris keluaran tetap satu «baris n»
-            print(f"{kepala} matan: {matan.replace(chr(11), ' // ').replace(chr(0x2003) * 3, ' ... ')}")
+            print(f"{kepala} matan: {''.join(r.get('t', '') for r in u['runs']).strip()}")
         print(f"{kepala} kutipan: " + (f"«{_ringkas(u['kutipan'])}»" if u["kutipan"] else "(tanpa kutipan bertanda petik)"))
         print(f"{kepala} catatan: {u['catatan']}")
         for b in u["bukti"]:

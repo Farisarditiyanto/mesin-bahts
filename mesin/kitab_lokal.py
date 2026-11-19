@@ -7,12 +7,13 @@ import bisect, dataclasses, re
 import cocok
 import norma
 import shamela
-from dasar import AD, ANGKA_LATIN, BELUM_DIUNDUH, RENTANG_MAKS, perintah
+from dasar import AD, ANGKA_LATIN, RENTANG_MAKS, perintah
 
 KEPALA_HADITS = re.compile(r"^[ \t\u200e\u200f]*(?:(\d+)[ \t]*[-–][ \t]*\((\d+)\)|\((\d+)\)[ \t]*[-–][ \t]*(?=[^\d\s])"
                            r"|(\d+(?:[ \t]*[،,و–-][ \t]*\d+)*)[ \t]*[-–][ \t]*(?=[^\d\s]))", re.M)
 BUKAN_KEPALA = frozenset(map(norma.padat, ("باب", "كتاب", "فصل", "مسألة")))  # judul bernomor, bukan hadits…
 SANAD = re.compile("حدث|اخبر|انبا|ثنا$")  # …kecuali diikuti sanad: «3403 - باب حدثني» di Bukhari
+BELUM_DIUNDUH = "kitab {} belum diunduh"  # pesan GAGAL per bukti
 
 
 def bersih_hadits(body):
@@ -341,12 +342,12 @@ def tempat_kitab(rangkaian, bagian):
     return terbaik[1:] if terbaik else None
 
 
-def susunan_bagian(pd, q, maks=50, cocok=None):
-    """Tiap susunan letak [(awal, akhir)] bagian-bagian q di pd: bagian berikutnya yang terdekat dan lolos `cocok`,
+def susunan_bagian(pd, q, maks=50, lolos=None):
+    """Tiap susunan letak [(awal, akhir)] bagian-bagian q di pd: bagian berikutnya yang terdekat dan lolos `lolos`,
     kalau diberikan (halaman/batas kata); calon yang ditolak tidak menutupi kemunculan sah sesudahnya."""
     def berikut(i, awal):
         j = pd.find(q[i], awal)
-        while j >= 0 and cocok is not None and not cocok(i, j, j + len(q[i])):
+        while j >= 0 and lolos is not None and not lolos(i, j, j + len(q[i])):
             j = pd.find(q[i], j + 1)
         return j
     j = berikut(0, 0)
