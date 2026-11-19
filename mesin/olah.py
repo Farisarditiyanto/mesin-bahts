@@ -204,7 +204,7 @@ from cek_seluruh import (KEPALA_PERHATIAN, RISET, periksa_dirasat, periksa_khati
 from cek_rujukan import rujukan_halaman
 from cek_sumber import standar_baris
 from cek_tautsiq import gelar
-from dasar import AD, ANGKA_LATIN, BELUM_DIUNDUH, BUKAN_RUJUKAN, HERE, HORMAT_CETAK, HURUF_LATIN, LUAR, SURAH, TINGKAT_JUDUL, TandaRusak, perintah
+from dasar import AD, ANGKA_LATIN, BUKAN_RUJUKAN, HERE, HORMAT_CETAK, HURUF_LATIN, LUAR, SURAH, TINGKAT_JUDUL, TandaRusak, perintah
 from laporan import gabung_kembar
 from naskah import Pemeriksaan, urai
 
@@ -258,8 +258,8 @@ HURUF_TAUTAN = r"[^\s؀-ۿ«»()\[\]]"
 TAUTAN = re.compile(rf"(?:https?://|www\.|doi\.org/|(?<![\w.])10\.[0-9]{{4,}}/)(?:{HURUF_TAUTAN}|\({HURUF_TAUTAN}*\))+(?<![.,:])")
 
 
-def galat_mesin(n, e):
-    return f"baris {n}: GALAT MESIN ({type(e).__name__}: {e}) — bukan salah naskah; laporkan barisnya ke pengurus mesin bahts"
+def galat_mesin(e):
+    return f"GALAT MESIN ({type(e).__name__}: {e}) — bukan salah naskah; laporkan barisnya ke pengurus mesin bahts"
 
 
 def hindi(s):
@@ -285,7 +285,6 @@ def hindi(s):
 
 
 GABUNG_PARUH = re.compile(r"\s*\.\.\.~\s*")  # «...~» di #V: dua paruh bait berbagi satu kata, disambung sebelum dicek dan dicetak
-BELUM_DIUNDUH_RE = re.compile(re.escape(BELUM_DIUNDUH).replace(r"\{\}", r"(\d+)"))
 BUKTI_SID = re.compile(r"<<(\d+)\|")  # nomor kitab di bukti <<sid|juz|hal>>
 BUKTI_WAQFEYA = re.compile(r"<<(w[0-9a-f]{8})\|")
 
@@ -478,7 +477,7 @@ def _baris_gambar(ctx, n, t):
     elif re.search(r"\[\^|<<|\{", ket):
         salah = "keterangan gambar tidak boleh memuat catatan kaki, bukti, atau tanda {Q:/{H: — tulis rujukannya di paragraf sesudahnya"
     if salah:  # barisnya tetap isi bagian itu (bukan «bagian kosong»); GAGAL menghentikan rakit
-        ctx.galat.append(f"baris {n}: #G {salah}")
+        ctx.galat.append(f"#G {salah}")
         ctx.blok.append({"k": "P", "runs": [], "n": n})
         return
     w, h = ukuran
@@ -491,92 +490,88 @@ def _baris_tabel(ctx, n, t):
     baris #J (tanpa judul atau paragraf di antaranya) = tabel yang sama, jadi jumlah selnya harus sama."""
     sel = [s.strip() for s in t.split(" | ")]
     if len(sel) < 2 or not all(sel):
-        ctx.galat.append(f"baris {n}: #J butuh paling sedikit dua sel berisi, dipisah « | » :: #J {t[:40]}")
+        ctx.galat.append(f"#J butuh paling sedikit dua sel berisi, dipisah « | » :: #J {t[:40]}")
         return
     sebelum = ctx.blok[-1] if ctx.blok else None
     if sebelum and sebelum["k"] == "J" and len(sebelum["sel"]) != len(sel):
-        ctx.galat.append(f"baris {n}: tabel ini {len(sebelum['sel'])} kolom (baris {sebelum['n']}), "
+        ctx.galat.append(f"tabel ini {len(sebelum['sel'])} kolom (baris {sebelum['n']}), "
                          f"baris ini {len(sel)} sel :: #J {t[:40]}")
         return
     try:
         isi = [urai(s, ctx) for s in sel]
     except TandaRusak as e:
-        ctx.galat.append(f"baris {n}: tanda rusak — {e}"); return
+        ctx.galat.append(f"tanda rusak — {e}"); return
     except (KeyError, IndexError, ValueError) as e:  # bukan salah tulis naskah: mesinnya yang keliru di baris ini
-        ctx.galat.append(galat_mesin(n, e)); return
+        ctx.galat.append(galat_mesin(e)); return
     # runs = gabungan semua sel (untuk perkiraan halaman dan penghitung lain); rakit.ps1 memakai sel
     ctx.blok.append({"k": "J", "sel": isi, "runs": [r for s in isi for r in (*s, {"t": " "})], "n": n})
 
 
 def _urai_baris(ctx, baris):
-    """Tiap baris naskah: @data, judul #…, rujukan sesudah #R, atau paragraf (diurai `urai`).
-    Tiap galat dan perhatian diberi nomor barisnya."""
-    di_baris, blok, pustaka, galat, perhatian = ctx.di_baris, ctx.blok, ctx.pustaka, ctx.galat, ctx.perhatian
+    """Tiap baris naskah diurai (`_satu_baris`); tiap galat dan perhatiannya menyebut nomor barisnya
+    (Pemeriksaan.selama_baris): pemakai langsung tahu tempatnya, tes jebakan mencocokkan per baris."""
     for n, b in baris:
         if AWAL_BAGIAN.match(b) and ctx.standar:  # bagian baru: nilai standar sumber bagian sebelumnya
-            perhatian += standar_baris(ctx.standar); ctx.standar.clear()
-        g0, p0, u0, s0, r0 = len(galat), len(perhatian), len(ctx.penunjuk), len(ctx.standar), len(ctx.rujuk_silang)
-        if b.startswith("@"):
-            _baca_data(ctx, n, b)
-        elif "#R" in di_baris and b.startswith("#"):
-            galat.append(f"baris {n}: {b.split()[0]} sesudah #R di baris {di_baris['#R']} tidak dirakit: "
-                         "pindahkan bagian isi sebelum #R; sesudah #R hanya satu rujukan per baris")
-        elif b.strip() == "#H":  # pindah halaman: blok sesudahnya mulai halaman baru (dibaca rakit.ps1 dan perkiraan_halaman)
-            blok.append({"k": "H", "runs": [], "n": n})
-        elif b.startswith("#"):
-            k, _, t = b[1:].partition(" ")
-            if k not in ("K", "F", "B", "M", "S", "R", "T", "V", "L", "J", "G") or not t.strip():
-                galat.append(f"baris {n}: judul harus «#K/#F/#B/#M/#S/#R/#T/#V/#L/#J/#G teks» :: {b[:40]}"); continue
-            if k == "G":  # gambar: berkas di folder bahts + keterangan, dicetak rakit.ps1
-                _baris_gambar(ctx, n, t)
-            elif k == "J":  # baris tabel: sel dipisah « | »; baris #J berturut-turut = satu tabel, dicetak rakit.ps1
-                _baris_tabel(ctx, n, t)
-            elif k == "L":  # tercetak apa adanya, kiri ke kanan; tanda naskah tidak diurai
-                if re.search(r"\[\^|<<|\{", t):
-                    galat.append(f"baris {n}: #L tidak boleh memuat catatan kaki, bukti, atau tanda {{Q:/{{H: :: {b[:40]}")
-                m = re.fullmatch(r"\*\*([^*]+)\*\*", t.strip())  # «#L **Abstract**»: judul Latin tebal di tengah
-                if m and not m[1].strip():
-                    galat.append(f"baris {n}: judul #L **…** kosong :: {b[:40]}")
-                if m and blok and blok[-1]["k"] not in ("K", "F", "B", "M", "H"):  # judul Latin sesudah isi: halaman sendiri
-                    blok.append({"k": "H", "runs": [], "n": n})
-                blok.append({"k": "L", "runs": [{"t": m[1].strip() if m else t}], "n": n, **({"tengah": True} if m else {})})
-            elif k in ("T", "V"):  # kotak matn atau bait syair: paragraf biasa (boleh bercatatan kaki), dicetak rakit.ps1 menurut k
-                if k == "V":  # kata yang dipecah «...~» dicek dan dicetak utuh, bukan sebagai dua bagian kutipan
-                    t = GABUNG_PARUH.sub("", t)
-                try:
-                    blok.append({"k": k, "runs": urai(t, ctx)})
-                except TandaRusak as e:
-                    galat.append(f"baris {n}: tanda rusak — {e}")
-                except (KeyError, IndexError, ValueError) as e:  # bukan salah tulis naskah: mesinnya yang keliru di baris ini
-                    galat.append(galat_mesin(n, e))
-            elif re.search(r"\[\^|<<|\{|\*\*", t):  # judul tercetak apa adanya (juga di فهرس الموضوعات): tanda ini ikut tercetak
-                galat.append(f"baris {n}: judul tidak boleh memuat catatan kaki [^, bukti <<, tanda {{Q:/{{H:/{{A:/{{N: atau **: "
-                             f"pindahkan ke paragraf sesudahnya :: {b[:40]}")
-            else:
-                if k == "R":
-                    di_baris["#R"] = n
-                blok.append({"k": k, "runs": [{"t": t, "b": True}], "judul": t, "n": n})
-        elif "#R" in di_baris:
-            pustaka.append(b.strip())
-            g = gelar(b, "pustaka")
-            if g:
-                perhatian.append(g)
-        else:
+            ctx.perhatian += standar_baris(ctx.standar); ctx.standar.clear()
+        with ctx.selama_baris(n):
+            _satu_baris(ctx, n, b)
+
+
+def _satu_baris(ctx, n, b):
+    """Satu baris naskah: @data, judul #…, rujukan sesudah #R, atau paragraf (diurai `urai`)."""
+    di_baris, blok, pustaka, galat, perhatian = ctx.di_baris, ctx.blok, ctx.pustaka, ctx.galat, ctx.perhatian
+    if b.startswith("@"):
+        _baca_data(ctx, n, b)
+    elif "#R" in di_baris and b.startswith("#"):
+        galat.append(f"{b.split()[0]} sesudah #R di baris {di_baris['#R']} tidak dirakit: "
+                     "pindahkan bagian isi sebelum #R; sesudah #R hanya satu rujukan per baris")
+    elif b.strip() == "#H":  # pindah halaman: blok sesudahnya mulai halaman baru (dibaca rakit.ps1 dan perkiraan_halaman)
+        blok.append({"k": "H", "runs": [], "n": n})
+    elif b.startswith("#"):
+        k, _, t = b[1:].partition(" ")
+        if k not in ("K", "F", "B", "M", "S", "R", "T", "V", "L", "J", "G") or not t.strip():
+            galat.append(f"judul harus «#K/#F/#B/#M/#S/#R/#T/#V/#L/#J/#G teks» :: {b[:40]}"); return
+        if k == "G":  # gambar: berkas di folder bahts + keterangan, dicetak rakit.ps1
+            _baris_gambar(ctx, n, t)
+        elif k == "J":  # baris tabel: sel dipisah « | »; baris #J berturut-turut = satu tabel, dicetak rakit.ps1
+            _baris_tabel(ctx, n, t)
+        elif k == "L":  # tercetak apa adanya, kiri ke kanan; tanda naskah tidak diurai
+            if re.search(r"\[\^|<<|\{", t):
+                galat.append(f"#L tidak boleh memuat catatan kaki, bukti, atau tanda {{Q:/{{H: :: {b[:40]}")
+            m = re.fullmatch(r"\*\*([^*]+)\*\*", t.strip())  # «#L **Abstract**»: judul Latin tebal di tengah
+            if m and not m[1].strip():
+                galat.append(f"judul #L **…** kosong :: {b[:40]}")
+            if m and blok and blok[-1]["k"] not in ("K", "F", "B", "M", "H"):  # judul Latin sesudah isi: halaman sendiri
+                blok.append({"k": "H", "runs": [], "n": n})
+            blok.append({"k": "L", "runs": [{"t": m[1].strip() if m else t}], "n": n, **({"tengah": True} if m else {})})
+        elif k in ("T", "V"):  # kotak matn atau bait syair: paragraf biasa (boleh bercatatan kaki), dicetak rakit.ps1 menurut k
+            if k == "V":  # kata yang dipecah «...~» dicek dan dicetak utuh, bukan sebagai dua bagian kutipan
+                t = GABUNG_PARUH.sub("", t)
             try:
-                blok.append({"k": "P", "runs": urai(b, ctx), "n": n})
+                blok.append({"k": k, "runs": urai(t, ctx)})
             except TandaRusak as e:
-                galat.append(f"baris {n}: tanda rusak — {e}")
+                galat.append(f"tanda rusak — {e}")
             except (KeyError, IndexError, ValueError) as e:  # bukan salah tulis naskah: mesinnya yang keliru di baris ini
-                galat.append(galat_mesin(n, e))
-        # tiap galat dan perhatian menyebut barisnya: pemakai langsung tahu tempatnya, tes jebakan mencocokkan per baris
-        galat[g0:] = [g if g.startswith("baris ") else f"baris {n}: {g}" for g in galat[g0:]]
-        perhatian[p0:] = [p if p.startswith("baris ") else f"baris {n}: {p}" for p in perhatian[p0:]]
-        for u in ctx.penunjuk[u0:]:
-            u["n"] = n
-        for c in ctx.standar[s0:]:
-            c["n"] = n
-        for r in ctx.rujuk_silang[r0:]:
-            r["n"] = n
+                galat.append(galat_mesin(e))
+        elif re.search(r"\[\^|<<|\{|\*\*", t):  # judul tercetak apa adanya (juga di فهرس الموضوعات): tanda ini ikut tercetak
+            galat.append(f"judul tidak boleh memuat catatan kaki [^, bukti <<, tanda {{Q:/{{H:/{{A:/{{N: atau **: "
+                         f"pindahkan ke paragraf sesudahnya :: {b[:40]}")
+        else:
+            if k == "R":
+                di_baris["#R"] = n
+            blok.append({"k": k, "runs": [{"t": t, "b": True}], "judul": t, "n": n})
+    elif "#R" in di_baris:
+        pustaka.append(b.strip())
+        g = gelar(b, "pustaka")
+        if g:
+            perhatian.append(g)
+    else:
+        try:
+            blok.append({"k": "P", "runs": urai(b, ctx), "n": n})
+        except TandaRusak as e:
+            galat.append(f"tanda rusak — {e}")
+        except (KeyError, IndexError, ValueError) as e:  # bukan salah tulis naskah: mesinnya yang keliru di baris ini
+            galat.append(galat_mesin(e))
 
 
 def _baca_data(ctx, n, b):
@@ -586,7 +581,7 @@ def _baca_data(ctx, n, b):
     k = k.strip()
     if k not in META:
         mirip = difflib.get_close_matches(k, sorted(META), n=1)
-        ctx.galat.append(f"baris {n}: @{k}: data tidak dikenal" +
+        ctx.galat.append(f"@{k}: data tidak dikenal" +
                          (f"; maksudnya @{mirip[0]}?" if mirip else "; lihat `tanda` untuk daftar data naskah"))
     ctx.meta[k] = v.strip()
     ctx.di_baris["@" + k] = n
@@ -1080,7 +1075,7 @@ def _laporan(ctx, n_matan, n_fn, fn_tanpa, sidik_naskah, sidik_isi):
            f"{f' | <<{LUAR}>> (tidak dicek mesin): {n_luar}' if n_luar else ''}"
            f"{f' | Waqfeya <<w…>> (lafaz dinilai pemeriksa dari scan): {n_wq}' if n_wq else ''} | GAGAL: {len(galat)}"]
     # kitab yang belum diunduh membuat tiap buktinya GAGAL: satu perintah untuk semuanya, sebelum daftar panjangnya
-    belum = list(dict.fromkeys(m.group(1) for g in galat for m in BELUM_DIUNDUH_RE.finditer(g)))
+    belum = list(dict.fromkeys(ctx.belum_diunduh))
     if belum:
         lap.append(f"  → {len(belum)} kitab belum diunduh; unduh semuanya sekaligus: "
                    + perintah("ambil " + folder.resolve().relative_to(HERE.parent.resolve()).as_posix()))

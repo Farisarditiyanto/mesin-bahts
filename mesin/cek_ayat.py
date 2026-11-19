@@ -368,6 +368,11 @@ def penanda_ayat(spec):
     return f" ﴿{s}:{a}﴾ "
 
 
+def tandai_ayat(teks):
+    """Teks dengan tiap {Q:spec} diganti penanda_ayat-nya: begitu kutipan dan potongan bukti dicek ke kitab."""
+    return re.sub(r"\{Q:([^}]*)\}", lambda m: penanda_ayat(m.group(1)), teks)
+
+
 def ayat_ketik(teks):
     """﴿…﴾ berhuruf Arab pertama yang diketik di luar tanda petik (di dalam petik, kutipannya dicek ke kitab), atau None."""
     dikutip = " ".join(kutipan_semua(teks))

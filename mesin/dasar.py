@@ -78,13 +78,19 @@ RUJUKAN_AYAT = re.compile(r"\[[^\]\n]*[ء-ي][^\]\n]*[0-9٠-٩][^\]\n]*\]")  # �
 LUAR = "luar"  # <<luar>>: sumbernya bukan kitab Shamela (jurnal, PDF penelitian, kamus); tidak bisa dicek mesin
 WAQFEYA = re.compile(r"[wW][0-9a-zA-Z]*\|")  # bukti kitab Waqfeya <<w…|…>> (bentuknya diperiksa WAQFEYA_BUKTI)
 WAQFEYA_BUKTI = re.compile(r"(w[0-9a-f]{8})\|(\d+)\|(\d+(?:-\d+)?)")  # <<w…|berkas|hal PDF>>
-BELUM_DIUNDUH = "kitab {} belum diunduh"  # pesan GAGAL per bukti; ringkasan laporan `cek` (olah._laporan) mengumpulkan nomornya dari pesan ini
-# kutipan yang tidak ada di kitab buktinya; pesan yang sama dikenali `urai` untuk Pemeriksaan.tertolak (`cek --jejak`)
-TIDAK_KETEMU = "teks TIDAK KETEMU di kitab {}"
+BELUM_DIUNDUH = "kitab {} belum diunduh"  # pesan GAGAL per bukti (kitab_lokal.salah_juz)
+TIDAK_KETEMU = "teks TIDAK KETEMU di kitab {}"  # kutipan yang tidak ada di kitab buktinya (cek_kutipan)
 RENTANG_MAKS = 50  # halaman paling banyak satu bukti (dan satu rentang tercetak)
 HALAMAN_MAKS = 20  # halaman paling banyak sekali panggil `halaman` dan `takhrij`
 HURUF_LATIN = "A-Za-zÀ-ɏḀ-ỿ"  # huruf Latin, juga transliterasi (ā ī ū ḥ)
 QAUL = re.compile(r"(?:^|\s)[وف]?(?:قال|قالت|يقول|تقول)(?:\s+[^\s:]+){0,4}\s*:?\s*$")  # pengantar nukilan «قال الشيخ:»
+
+
+def ekor(isi, *, rapat=False, lebar=45, apa="fn"):
+    """Ekor pesan `cek`: catatan kaki (apa="fn") atau tempat lain mana yang dimaksud, yaitu awal teksnya.
+    Spasi di depan «||» (rapat = satu, selain itu dua) dan lebar potongannya berbeda-beda antarpesan dan sengaja
+    dibiarkan begitu: kode «terima» di riset.txt pemakai = sidik kalimat pesan, jadi menyeragamkannya membasikan semuanya."""
+    return f"{' ' if rapat else '  '}|| {apa}: {isi[:lebar]}"
 
 
 def angka(x):

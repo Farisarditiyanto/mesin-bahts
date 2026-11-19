@@ -7,8 +7,9 @@ apakah teks ada di halaman buktinya."""
 import functools, re
 
 import norma
-from dasar import AYAT_DI_KUTIPAN, BUKAN_RUJUKAN, MERUJUK_KATA, TAKHRIJ_AWAL
+from dasar import AYAT_DI_KUTIPAN, BUKAN_RUJUKAN, MERUJUK_KATA, ekor
 from kitab_lokal import gabung
+from cek_hadits import takhrij
 from cek_sumber import PERANTARA
 from petik import diantar_qaul, luar_petik, seragam
 
@@ -36,7 +37,7 @@ def _gram_halaman(sid, juz, p1, p2):
     """Tiap deret SALIN_MIN kata berurutan di halaman bukti (matan dan حاشية); halaman yang bersambung dirangkai,
     jadi salinan yang menyeberang ke halaman berikutnya tetap terbaca."""
     gram = set()
-    for r in gabung(int(sid), juz, p1, p2):
+    for r in gabung(sid, juz, p1, p2):
         for bagian, _ in norma.BAGIAN:
             kata = [k for k, _ in _kata(norma.PENANDA.sub(" ", r.get(bagian) or ""))]
             gram.update(tuple(kata[i:i + SALIN_MIN]) for i in range(len(kata) - SALIN_MIN + 1))
@@ -44,8 +45,7 @@ def _gram_halaman(sid, juz, p1, p2):
 
 
 def _nash(isi):
-    isi = norma.HARAKAT.sub("", isi).lstrip()
-    return bool(TAKHRIJ_AWAL.match(isi)) or isi.startswith(BUKAN_NUKILAN)
+    return takhrij(isi) or norma.HARAKAT.sub("", isi).lstrip().startswith(BUKAN_NUKILAN)
 
 
 def salinan(penggal, mk, isi, terbukti):
@@ -57,7 +57,7 @@ def salinan(penggal, mk, isi, terbukti):
     kata = [k for k, _ in pasangan]
     if len(kata) < SALIN_MIN:
         return None
-    gram = set().union(*(_gram_halaman(*b) for b in terbukti))
+    gram = set().union(*(_gram_halaman(*b.tempat) for b in terbukti))
     terpanjang, i = [], 0
     while i <= len(kata) - SALIN_MIN:
         j = i
@@ -74,7 +74,7 @@ def salinan(penggal, mk, isi, terbukti):
     return (f"{len(terpanjang)} kata berurutan di luar tanda petik sama persis dengan halaman buktinya «{asli}…»: "
             f"beri tanda petik, atau tutup kitabnya lalu tulis ulang dengan kalimat sendiri; mengganti beberapa kata saja "
             f"bukan إعادة الصياغة (أبو سليمان، كتابة البحث العلمي، ص113). الاختصار yang memang memakai kata pengarang "
-            f"(ص114) boleh dibiarkan dan disebut di laporan akhir; batas {SALIN_MIN} kata aturan repo  || fn: {isi[:45]}")
+            f"(ص114) boleh dibiarkan dan disebut di laporan akhir; batas {SALIN_MIN} kata aturan repo{ekor(isi)}")
 
 
 def isyarat(penggal, mk, isi, terbukti, kutipan_di_catatan):
@@ -89,11 +89,11 @@ def isyarat(penggal, mk, isi, terbukti, kutipan_di_catatan):
         if bertanda or kutipan_di_catatan or PERANTARA.search(isi):  # «نقلا عن …» sudah menyebut cara menukilnya
             return None
         return (f"nukilan makna tanpa «انظر:»: catatan kaki untuk kalimat tanpa tanda petik diawali «انظر:» atau «راجع:» "
-                f"(أبو سليمان، كتابة البحث العلمي، ص114، 173); kalau itu lafaz kitab, beri tanda petik  || fn: {isi[:45]}")
+                f"(أبو سليمان، كتابة البحث العلمي، ص114، 173); kalau itu lafaz kitab, beri tanda petik{ekor(isi)}")
     s = seragam(penggal)
     if bertanda and ISYARAT.match(norma.HARAKAT.sub("", isi).lstrip()) and mk in s and diantar_qaul(s[:s.rfind(mk) - 1]):
         return (f"kutipan lafaz «{mk[:30]}» dirujuk «انظر:»: kata itu tanda nukilan makna (أبو سليمان، كتابة البحث العلمي، "
-                f"ص114، 173); buang «انظر:» dari catatan kakinya (aturan repo)  || fn: {isi[:45]}")
+                f"ص114، 173); buang «انظر:» dari catatan kakinya (aturan repo){ekor(isi)}")
     return None
 
 
@@ -106,4 +106,4 @@ def panjang(mk, isi):
         return None
     return (f"kutipan {n} kata «{mk[:30]}…»: lebih dari {KUTIPAN_MAKS} kata; kutip lafaz kuncinya saja dan ringkas sisanya "
             f"dengan «انظر:», kecuali nash yang memang harus utuh (definisi, nash pokok khilaf, kalimat yang dibantah) "
-            f"(أبو سليمان، كتابة البحث العلمي، ص112، 123، 219; batas {KUTIPAN_MAKS} kata aturan repo)  || fn: {isi[:45]}")
+            f"(أبو سليمان، كتابة البحث العلمي، ص112، 123، 219; batas {KUTIPAN_MAKS} kata aturan repo){ekor(isi)}")

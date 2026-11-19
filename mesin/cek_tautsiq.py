@@ -6,8 +6,9 @@ import functools, re
 
 import norma
 import shamela
-from dasar import BUKAN_RUJUKAN, TAKHRIJ_AWAL
+from dasar import BUKAN_RUJUKAN, ekor
 from kitab_lokal import bagian_kitab
+from cek_hadits import takhrij
 from cek_sumber import PERANTARA
 from petik import luar_petik, seragam
 
@@ -41,7 +42,7 @@ def jejak_kartu(sid):
     """(pasangan dua kata berurutan dari nilai data cetak `kartu`, tahun cetakan) kitab ini; kosong = kartunya tanpa
     data cetak, atau kitab hadits (data cetaknya di المصادر), atau kitab tidak terbaca."""
     try:
-        m = shamela.info(int(sid))
+        m = shamela.info(sid)
     except (LookupError, OSError, ValueError):
         return frozenset(), frozenset()
     if m.get("category_id") == KITAB_HADITS:
@@ -78,30 +79,28 @@ def data_cetak(isi, terbukti, sudah):
     """Perhatian tiap kitab yang dirujuk pertama kali tanpa data cetak. `sudah` = nomor kitab yang sudah pernah
     dirujuk (diisi di sini). Takhrij dan kitab hadits (data cetaknya di المصادر) tidak dinilai, tetapi takhrij yang
     memuat data cetak dihitung sebagai rujukan pertama kitab-kitabnya."""
-    teks = norma.HARAKAT.sub("", isi)
-    takhrij = TAKHRIJ_AWAL.match(teks) or teks.lstrip().startswith(BUKAN_RUJUKAN)
+    nash = takhrij(isi) or norma.HARAKAT.sub("", isi).lstrip().startswith(BUKAN_RUJUKAN)
     hasil = []
     for bagian, bb in bagian_kitab(isi, terbukti):
-        for sid in dict.fromkeys(str(int(b[0])) for b in bb):
+        for sid in dict.fromkeys(b.sid for b in bb):
             if sid in sudah:
                 continue
             berdata = _berdata(bagian, sid)
-            if takhrij and not berdata:
+            if nash and not berdata:
                 continue  # rujukan pertamanya nanti, di luar takhrij
             sudah.add(sid)
             if not berdata and any(jejak_kartu(sid)):
-                judul = shamela.info(int(sid))["title_ar"].split(" - ")[0]
+                judul = shamela.info(sid)["title_ar"].split(" - ")[0]
                 hasil.append(f"rujukan pertama «{judul}» tanpa data cetak: tulis data lengkapnya dari `kartu {sid}` "
                              f"(pengarang, muhaqqiq, penerbit-kota, cetakan-tahun, lalu juz/hal); rujukan berikutnya cukup "
-                             f"ringkas, tanpa data cetak (أبو سليمان، كتابة البحث العلمي، ص170)  || fn: {isi[:45]}")
+                             f"ringkas, tanpa data cetak (أبو سليمان، كتابة البحث العلمي، ص170){ekor(isi)}")
     return hasil
 
 
 def pemisah_sumber(isi, terbukti):
     """Perhatian kalau beberapa sumber di satu catatan kaki (bukan takhrij) dipisah «،», bukan «؛» (ص176 no. 15), atau
     None. Sumber «نقلا عن/مقتبس من» (satu sumber lewat perantara) dan sumber berlabel («وفي الأثر: …») tidak dinilai."""
-    teks = norma.HARAKAT.sub("", isi)
-    if TAKHRIJ_AWAL.match(teks):
+    if takhrij(isi):
         return None
     bagian = bagian_kitab(isi, terbukti)
     for (a, _), (b, _) in zip(bagian, bagian[1:]):
@@ -118,15 +117,15 @@ def pemisah_sumber(isi, terbukti):
             continue
         if ujung.endswith(("،", ",")):
             return (f"beberapa sumber dipisah «،»: pisahkan dengan «؛» («…، 7/43؛ الإنصاف، …») "
-                    f"(أبو سليمان، كتابة البحث العلمي، ص176)  || fn: {isi[:45]}")
+                    f"(أبو سليمان، كتابة البحث العلمي، ص176){ekor(isi)}")
     return None
 
 
-def gelar(teks, ekor):
+def gelar(teks, apa):
     """Perhatian kalau sebuah nama di luar kutipan bertanda petik diawali gelar («تحقيق: د. …»، «، الشيخ …»), atau
-    None. `ekor` = penunjuk tempatnya."""
-    g = norma.nama_bergelar(luar_petik(seragam(teks)), awal_nama=teks.lstrip().startswith("**"), catatan_kaki=ekor == "fn")
+    None. `apa` = tempatnya: "fn" (catatan kaki) atau "pustaka"."""
+    g = norma.nama_bergelar(luar_petik(seragam(teks)), awal_nama=teks.lstrip().startswith("**"), catatan_kaki=apa == "fn")
     if not g:
         return None
     return (f"gelar «{g}» di depan nama: buang gelarnya («تحقيق: عبد الله التركي»; `kartu` sudah tanpa gelar) "
-            f"(أبو سليمان، كتابة البحث العلمي، ص175-176)  || {ekor}: {teks[:45]}")
+            f"(أبو سليمان، كتابة البحث العلمي، ص175-176){ekor(teks, apa=apa)}")

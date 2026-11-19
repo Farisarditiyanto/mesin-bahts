@@ -6,8 +6,10 @@ import re
 import cocok
 import norma
 import shamela
+import waqfeya
+from cek_kutipan import bagian_kutipan
 from dasar import ELIPSIS, KUTIPAN_MIN, WAQFEYA_BUKTI, perintah
-from kitab_lokal import akhir_rekaman, rekaman, rentang_halaman, salah_halaman, salah_juz
+from kitab_lokal import Bukti, akhir_rekaman, rekaman
 from olah import periksa
 
 SEKITAR = 300  # huruf teks kitab yang dicetak `bukti` sebelum dan sesudah letak kutipan
@@ -39,12 +41,11 @@ def _teks_halaman(sid, juz, p1, p2, bagian):
 def _penunjuk_waqfeya(w, n, hal, kutipan):
     """Baris `bukti` untuk <<w…|berkas|hal>>: judul kitab Waqfeya, teks OCR di sekitar kutipan, dan scan yang harus
     dibaca pemeriksa (OCR bukan bukti)."""
-    import waqfeya
     if not waqfeya.ada(w):
         return f"kitab Waqfeya belum diunduh: {perintah('ambil ' + w)}"
     try:
         teks = waqfeya.cuplikan(w, int(n), hal, kutipan, SEKITAR)
-        bagian = [b for b in ELIPSIS.split(kutipan or "") if norma.padat(b)]
+        bagian = bagian_kutipan(kutipan)
         keadaan, rinci = waqfeya.periksa_kutipan(w, int(n), hal, bagian) if bagian else ("makna", None)
     except (ValueError, IndexError, SystemExit) as e:
         return f"bentuk/letak bukti rusak (lihat `cek`): {e}"
@@ -57,14 +58,14 @@ def _penunjuk_waqfeya(w, n, hal, kutipan):
             f"{perintah(f'halaman {w} {n} {hal}')} (lafaz dan nomor halaman cetak dinilai dari scan)")
 
 
-def _penunjuk_bukti(sid, juz, hal, kutipan):
-    """Baris `bukti` untuk satu <<sid|juz|hal>>: nama kitab, rantai judul, dan teks halaman itu di sekitar kutipan."""
-    e = salah_juz(sid, juz, hal) or salah_halaman(hal)
+def _penunjuk_bukti(b, kutipan):
+    """Baris `bukti` untuk satu bukti Shamela b: nama kitab, rantai judul, dan teks halaman itu di sekitar kutipan."""
+    e = b.salah()
     if e:
         return [e]
+    sid, juz, hal, p1, p2 = b.sid, b.juz, b.hal, b.p1, b.p2
     m = shamela.info(sid)
     hasil = [f"kitab: {m['title_ar']} — {m.get('main_author_name_ar') or '?'}"]
-    p1, p2 = rentang_halaman(hal)
     bagian_q = [x for x in ELIPSIS.split(kutipan or "") if len(norma.padat(x)) >= KUTIPAN_MIN]
     q = norma.padat(bagian_q[0]) if bagian_q else ""
     rr = sorted(rekaman(sid, juz, p1, p2), key=lambda r: r.get("page_num") or 0)
@@ -158,11 +159,13 @@ def bukti(folder, dari=None, sampai=None):
             if m := WAQFEYA_BUKTI.fullmatch(b):
                 print(f"{kepala} <<{b}>> {_penunjuk_waqfeya(*m.groups(), u['kutipan'])}")
                 continue
-            f = b.split("|")
-            if len(f) not in (3, 4) or not f[0].isdigit() or not re.fullmatch(r"\d+(-\d+)?", f[2]):
+            try:
+                bukti_ = Bukti.urai(b)
+            except ValueError:
                 print(f"{kepala} <<{_ringkas(b, 80)}>>: bentuk bukti rusak (lihat `cek`)"); continue
-            pot = re.sub(r"\{Q:[^}]*\}", " ﴿﴾ ", f[3]) if len(f) == 4 and not f[3].startswith("#") else None
-            for x in _penunjuk_bukti(int(f[0]), f[1], f[2], pot or u["kutipan"]):
+            pot = bukti_.potongan
+            pot = re.sub(r"\{Q:[^}]*\}", " ﴿﴾ ", pot) if pot is not None and not pot.startswith("#") else None
+            for x in _penunjuk_bukti(bukti_, pot or u["kutipan"]):
                 print(f"{kepala} <<{_ringkas(b, 80)}>> {x}")
     if not pilih:
         print("Tidak ada catatan kaki berbukti <<sid|juz|hal>> atau ayat {Q:} di " + (
