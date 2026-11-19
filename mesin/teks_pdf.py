@@ -7,38 +7,14 @@ sehingga ikut terbalik: «الله» tersalin «هللا», «المقدمة» �
 lain (syaddah jadi «ن»). Yang diubah hanya peta glyph -> huruf (ToUnicode); tampilan halaman tidak berubah.
 """
 import os, re, unicodedata
-from pathlib import Path
 
+import huruf
 from berkas import sementara
 from dasar import bentuk_kitab
 from norma import norm, padat
 
 ARAB = re.compile(r"[\u0600-\u06ff\ufb50-\ufdff\ufe70-\ufeff]")
 HARAKAT = re.compile(r"[\u064b-\u065f\u0670]")
-
-
-def huruf_terdaftar():
-    """(nama, berkas) tiap huruf di daftar huruf Windows (registry), semua akun dulu, lalu akun ini. nama = nama
-    terdaftar tanpa keterangan jenis, mis. «Traditional Arabic» atau «Cambria & Cambria Math» (dari «… (TrueType)»).
-    Daftar yang tidak terbaca dilewati."""
-    import winreg
-    for akar, folder in ((winreg.HKEY_LOCAL_MACHINE, Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts"),
-                         (winreg.HKEY_CURRENT_USER, Path(os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Windows\Fonts")))):
-        try:
-            with winreg.OpenKey(akar, r"Software\Microsoft\Windows NT\CurrentVersion\Fonts") as k:
-                daftar = [winreg.EnumValue(k, i)[:2] for i in range(winreg.QueryInfoKey(k)[1])]
-        except OSError:
-            continue
-        for nama, nilai in daftar:
-            yield re.sub(r"\s*\(.*\)$", "", nama), Path(nilai) if os.path.isabs(nilai) else folder / nilai
-
-
-def _berkas_huruf():
-    """{nama huruf tanpa spasi: berkas} dari daftar huruf Windows (semua akun, lalu akun ini)."""
-    hasil = {}
-    for nama, berkas in huruf_terdaftar():
-        hasil.setdefault(nama.replace(" ", ""), berkas)
-    return hasil
 
 
 def _isi_glyph(basefont, daftar):
@@ -238,7 +214,7 @@ def periksa(pdf, bahan):
 def betulkan(pdf):
     """Tulis ulang peta glyph -> huruf tiap huruf Word (Type0) di `pdf`. Hasil: jumlah glyph yang petanya diubah."""
     import pypdf
-    daftar = _berkas_huruf() if os.name == "nt" else {}
+    daftar = huruf.berkas() if os.name == "nt" else {}
     w = pypdf.PdfWriter(clone_from=pypdf.PdfReader(pdf))
     sudah, ubah = set(), 0
     for hal in w.pages:

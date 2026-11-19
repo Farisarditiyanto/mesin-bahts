@@ -36,8 +36,8 @@ def _tanya(query, maks):
     try:
         return json.loads(jawab)["hits"]
     except (ValueError, KeyError, TypeError) as e:  # bukan JSON (perawatan, wifi minta masuk) atau bentuknya berubah
-        raise SystemExit(f"hadits: jawaban alminasa.ai bukan data yang dikenal mesin ({type(e).__name__} {e}). Layanannya mungkin "
-                         "sedang perawatan atau berubah, atau wifi minta masuk dulu lewat peramban. Sementara itu pakai "
+        raise SystemExit(f"hadits: jawaban alminasa.ai {jaringan.JAWABAN_ASING} ({type(e).__name__} {e}). "
+                         f"{jaringan.SEBAB_ASING.capitalize()}. Sementara itu pakai "
                          "`temukan`, connector turath/shamela, atau `katalog` lalu `cari`.")
 
 

@@ -3,13 +3,13 @@
 AuthenticIlm/Shamela4_Full_DB ke folder kitab/, lalu cari kutipan secara offline
 (tanpa kredit, tanpa internet). Dipanggil lewat bahts.py.
 """
-import bisect, functools, gzip, hashlib, json, re, urllib.parse, urllib.request, zlib
+import bisect, functools, gzip, hashlib, json, re, urllib.parse, zlib
 from pathlib import Path
 
-import cocok, norma
+import cocok, gelar, norma
 from berkas import sementara
 from dasar import angka, perintah
-from jaringan import UA, tulis_biner, unduh, unduh_kitab
+from jaringan import buka, tulis_biner, unduh, unduh_kitab
 from norma import BAGIAN, HARAKAT, PENANDA, TAGS, BUKAN_ABJAD, per_halaman, ruas_halaman, norm, padat
 
 MESIN = Path(__file__).parent
@@ -26,7 +26,7 @@ def _ls(path=""):
     url = API + ("/" + urllib.parse.quote(path) if path else "")
     out = []
     while url:
-        with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60) as r:
+        with buka(url) as r:
             out += json.load(r)
             link = r.headers.get("Link")
         url = link.split(";")[0].strip("<> ") if link and 'rel="next"' in link else None
@@ -274,9 +274,9 @@ def daftar():
 
 def kartu(sid):
     """Data cetak kitab (pengarang, muhaqqiq, penerbit, cetakan) untuk rujukan pertama dan daftar pustaka, lalu satu
-    baris bentuk bukti <<…>> kitab itu (contoh_bukti). Gelar di nama muhaqqiq/penyusun dibuang (norma.buang_gelar):
+    baris bentuk bukti <<…>> kitab itu (contoh_bukti). Gelar di nama muhaqqiq/penyusun dibuang (gelar.buang_gelar):
     data ini disalin apa adanya ke catatan kaki dan المصادر."""
-    print("\n".join(norma.buang_gelar(b) for b in info(sid)["betaka_text"].replace("\r", "\n").rstrip("\n").split("\n")))
+    print("\n".join(gelar.buang_gelar(b) for b in info(sid)["betaka_text"].replace("\r", "\n").rstrip("\n").split("\n")))
     print(contoh_bukti(sid))
 
 

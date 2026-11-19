@@ -43,7 +43,10 @@ def buka(url, data=None, kepala=UA, waktu=60):
         time.sleep(2 ** i)
 
 
-SABAR_JATAH = 30  # detik; layanan minta menunggu lebih lama dari ini = jatah pencarian habis, bukan sekadar terlalu cepat
+# jawaban yang bukan JSON atau berbentuk lain: kalimat untuk pemakai, dipakai tiap layanan pencarian
+JAWABAN_ASING = "bukan data yang dikenal mesin"
+SEBAB_ASING = "layanannya mungkin sedang perawatan atau berubah, atau wifi minta masuk dulu lewat peramban"
+SABAR_JATAH = 30 # detik; layanan minta menunggu lebih lama dari ini = jatah pencarian habis, bukan sekadar terlalu cepat
 
 
 def tunggu_jatah(e, ulang, habis):
@@ -73,11 +76,12 @@ def tulis_biner(jalur):
     return open(jalur, "wb")
 
 
-def unduh(url, tujuan, buka):
-    """Unduh ke nama sementara unik, lalu ganti tujuan kalau utuh; dua unduhan tidak berbagi penulisan."""
+def unduh(url, tujuan, tulis):
+    """Unduh ke nama sementara unik, lalu ganti tujuan kalau utuh; dua unduhan tidak berbagi penulisan.
+    tulis(jalur) = penulis berkasnya (`tulis_biner`, atau yang mengompres)."""
     with sementara(tujuan) as part:
         n = 0
-        with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=120) as resp, buka(part) as o:
+        with buka(url, waktu=120) as resp, tulis(part) as o:
             while chunk := resp.read(1 << 20):
                 o.write(chunk); n += len(chunk)
             janji = resp.headers.get("Content-Length")

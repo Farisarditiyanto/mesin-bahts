@@ -1,97 +1,20 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Satu pintu mesin bahts:  python mesin/bahts.py <perintah>
-
-Sekali sesudah mengunduh repo:
-  periksa                      apa yang sudah siap di komputer ini, dan perintah untuk tiap yang belum
-  siapkan                      unduh katalog kitab, tabel layanan (tafsir, takhrij, rawi, akar) + font mushaf, lalu pasang
-                               font itu (Windows)
-
-Bahts (tiap bahts = satu folder berisi naskah.txt):
-  baru <folder> "<judul>"      buat folder bahts baru + kerangka naskah.txt; <folder> boleh bahts/<orang>/<topik>
-  cek <folder> [--jejak]       periksa naskah: tanda, ayat, dan semua bukti <<...>> ke kitab lokal;
-                               --jejak: teks yang tidak ada di kitabnya dicari di kitab lain yang sudah diunduh
-  bukti <folder> [baris|awal-akhir]   untuk pemeriksa: tiap catatan kaki berbukti <<sid|juz|hal>> (kalimat yang
-                               dibuktikan, isi catatan kaki, nama kitab, bab, dan teks halaman itu di sekitar kutipan)
-                               dan teks tiap ayat {Q:} persis seperti tercetak, juga tiap paragraf isi tanpa catatan
-                               kaki (untuk dinilai: penisbatan tanpa sumber); tiap baris keluaran diawali «baris n».
-                               Penunjuk saja, putusan tetap `cek`
-  rakit <folder> [--fasl n]    cek, lalu rakit .docx + .pdf (Word) ke dalam folder itu; --fasl 2 (atau 1-2): hanya #F
-                               ke-2, untuk bahts yang dikumpulkan bertahap per فصل (lihat `tanda`); `cek` tetap
-                               memeriksa seluruh naskah
-  tahap <folder>               tahap bahts sekarang dan satu langkah berikutnya: naskah (GAGAL/PERHATIAN/LOLOS), hasil
-                               rakit (BELUM/TERKINI/USANG, juga tiap --fasl), rakit yang sedang jalan, folder .rakit-*
-                               dan _arsip/rakit-*. Folder bahts tidak disentuh; untuk sesi baru yang tidak tahu bahts
-                               ini sampai mana
-  tanda                        daftar tanda yang dipakai di naskah.txt
-  diagram <folder>             tiap diagram Mermaid <nama>.mmd di folder itu jadi <nama>.png (butuh Node.js + Chrome/Edge),
-                               lalu dicetak dengan «#G <nama>.png | keterangan»; `cek` dan `rakit` hanya memakai PNG-nya
-
-Kitab (perpustakaan Shamela lokal, dipakai semua bahts):
-  kitab                        daftar kitab yang sudah diunduh
-  katalog "<pola>"             cari judul/pengarang di katalog Shamela (regex)
-  temukan "<frasa>" [maks] [--mazhab m,…] [--kitab id,…] [--halaman n]
-                               cari frasa di isi SEMUA kitab Shamela (turath.io, butuh internet) -> kitab + juz/halaman; 20 hasil
-                               tiap halaman. --mazhab: hanya kitab fikih mazhab itu; --kitab: hanya kitab itu, walau belum
-                               diunduh; --halaman 2: hasil ke-21 dan seterusnya
-  ambil <id|folder> [...]      unduh kitab (sekali saja); nama folder bahts = semua kitab yang dirujuk naskahnya
-  kartu <id>                   data cetak kitab (untuk rujukan pertama & daftar pustaka) + bentuk bukti <<…>> kitab itu
-  cari <id|semua> "<frasa>" [--potongan]
-                               cari frasa -> juz/halaman cetak; semua: paling banyak 40 baris, lalu jumlah kitab yang cocok.
-                               Frasa dicocokkan sebagai kata utuh (huruf sambung و ف ب ل ك dan «ال» di depan kata pertama
-                               boleh): «العربان» tidak cocok dengan «العرب ان». Yang hanya cocok sebagai potongan kata
-                               disebut jumlahnya; --potongan: ikut ditampilkan (mis. mencari awal kata)
-  teks <id> "<frasa>" [lebar] [maks] [--potongan]   teks asli di sekitar frasa, untuk disalin persis
-  bab <id> "<frasa>" [--potongan]   rantai judul kitab/bab tempat frasa berada
-  halaman <id> <juz> <hal>     isi satu halaman (juz "-" untuk kitab satu jilid); <hal> boleh rentang, mis. 10-14
-                               (paling banyak 20 halaman sekali panggil)
-  scan <id> <juz> <hal>        alamat scan cetakan halaman itu (PDF di turath.io, butuh internet), untuk bacaan yang meragukan
-  ekspor <id|w…> [...] [--ke <folder>]   seluruh kitab jadi satu .docx untuk dibaca di Word (kanan-ke-kiri, judul bab,
-                               penanda juz/halaman, حاشية sesudah halamannya); yang belum diunduh diunduh dulu.
-                               Bawaan ke folder Downloads; nama berkas = judul kitab. Bukan bahan bahts
-
-Kitab Waqfeya (scan cetakan + OCR, untuk kitab yang tidak ada di Shamela; disimpan di kitab/waqfeya, dipakai semua bahts):
-  waqfeya "<judul/pengarang>" [maks]   cari di katalog Waqfeya (±10.000 kitab) -> nomor w… (diunduh sekali, ±17 MB)
-  ambil w<nomor> [...]         unduh OCR + PDF scan kitab itu (sekali saja)
-  kartu w<nomor>               data katalog + OCR halaman judul (data cetak disalin dari scan-nya) + bentuk bukti
-  cari w<nomor> "<frasa>"      halaman PDF yang OCR-nya memuat frasa; tidak ada yang persis -> yang paling mirip
-  halaman w<nomor> <berkas> <hal>   teks OCR halaman PDF ke-hal di berkas itu + nomor cetak yang terbaca + PDF/PNG scan-nya.
-                               OCR bisa salah huruf: lafaz dan juz/halaman cetak disalin dari scan, bukti <<w…|berkas|hal>>
-
-Layanan Shamela (penunjuk jalan tanpa internet, dari dataset yang sama dengan `ambil`):
-  tafsir <surat:ayat[-ayat]>   kitab tafsir yang menafsirkan ayat itu (14 kitab, mis. الطبري، ابن كثير، زاد المسير) +
-                               juz/halaman cetak awal pembahasannya, urut dari pengarang yang lebih dulu wafat
-  takhrij <id> <juz> <hal>     hadits di halaman itu ada juga di mana: 8 kitab (البخاري، مسلم، أبو داود، الترمذي، النسائي،
-                               الموطأ، الطيالسي، ابن الجارود) + juz/halaman dan nomor haditsnya; edisi lain kitab itu
-                               (mis. مسلم 1727) lewat nomor hadits, dengan edisi yang dipakai Shamela (mis. 711) sebagai jembatan
-  rawi <id> <juz> <hal>        sanad tiap hadits di halaman itu, berurutan dari pengarang (layanan sanad Shamela di 8 kitab
-                               hadits; edisi lain lewat jembatan nomor hadits) + rutbah ringkas: ابن حجر، الذهبي، wafat
-  rawi <nomor> | rawi "<nama>" ucapan جرح وتعديل rawi itu + tempat lafaznya di edisi lokal kitab rijal sumbernya (dicari ulang,
-                               bukan juz/halaman tabel); dengan nama: cari nomor rawinya
-  akar <id> "<akar>"           bentuk kata berakar itu di kitab (kamus akar Shamela) + jumlahnya, dikelompokkan seperti
-                               `cari` mencocokkan kata: istilah yang tidak tertangkap frasa («الشفيع» untuk شفع)
-
-Takhrij (penunjuk jalan, «المنصة الحديثية», butuh internet):
-  hadits "<طرف>" [maks]        tempat hadits di 12 kitab hadits + hukum ulama; tetap dibaca di kitabnya sendiri. Kitab yang
-                               sudah diunduh: juz/halaman edisi lokal ikut dicetak (juz/halaman layanan bisa edisi lain)
-
-Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex dan DOAJ, butuh internet):
-  dirasat "<kata kunci>" [maks] [saringan]   judul, peneliti, tahun, jurnal, tautan, dan ringkasan; dicari menurut kata
-                               dan menurut makna. Saringan OpenAlex, mis. language:ar,type:dissertation
-  dirasat-pdf <W…> <folder>    unduh PDF penelitian (nomor OpenAlex dari `dirasat`) ke folder bahts; butuh kunci OpenAlex
-"""
-import difflib, hashlib, json, os, re, shutil, sys, sysconfig, urllib.error
+"""Satu pintu mesin bahts: python mesin/bahts.py <perintah>. Tabel perintahnya (DAFTAR) = teks bantuan dan yang dijalankan."""
+import difflib, hashlib, json, os, re, sys, sysconfig, urllib.error
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 import diagram, dirasat, hadits, huruf, jaringan, layanan, shamela, turath, waqfeya  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
 from dasar import HALAMAN_MAKS, perintah
-from huruf import FONT, FONT_PEMAKAI
+from huruf import FONT
 
 MESIN = Path(__file__).resolve().parent
 AKAR = MESIN.parent
 FONT_SUMBER = ("https://static-cdn.tarteel.ai/qul/fonts/" + FONT,  # dicoba berurutan
                "https://github.com/Farisarditiyanto/mesin-bahts/releases/download/v0.0.1/" + FONT)
 FONT_SHA256 = "aa68bffce289b4c0ebac68e90502eb69e42356abcd1603cb2b8e99c2c723f145"
-FONT_NAMA = "KFGQPC HAFS Uthmanic Script (TrueType)"
+BUTUH_WORD = "`rakit` butuh Windows + Microsoft Word."
 SAMPUL_SAYA = AKAR / "sampul_saya.txt"  # data sampul pemakai (@kunci: nilai); mengisi @kunci yang kosong di naskah baru
 DATA_DIRI = ("nama", "nim", "jenis", "fasl", "thalibah", "sampul")  # milik satu orang (sampul = kampusnya): tidak disalin dari SAMPUL_SAYA ke bahts/<orang>/…
 NAMA_FOLDER = r"[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+){0,2}"  # nama folder bahts yang diterima `baru`: «ikhlas» atau «bahts/<orang>/<topik>»
@@ -124,17 +47,11 @@ def siapkan():
         sys.exit(f"mesin/{FONT} berbeda dari font yang dikenal mesin (sha256 {FONT_SHA256}): pindahkan berkas itu, lalu ulangi `siapkan`.")
     print("font mushaf: ada di mesin/")
     if os.name != "nt":
-        print("font mushaf: TIDAK dipasang (bukan Windows). `cek` tetap jalan; `rakit` butuh Windows + Microsoft Word.")
+        print(f"font mushaf: TIDAK dipasang (bukan Windows). `cek` tetap jalan; {BUTUH_WORD}")
     elif huruf.font_terpasang():
         print("font mushaf: sudah terpasang")
     else:
-        # sama dengan klik kanan > Install: salin ke folder font pemakai + daftarkan, tanpa hak admin
-        import ctypes, winreg
-        FONT_PEMAKAI.mkdir(parents=True, exist_ok=True)
-        (FONT_PEMAKAI / FONT).write_bytes(f.read_bytes())
-        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows NT\CurrentVersion\Fonts") as k:
-            winreg.SetValueEx(k, FONT_NAMA, 0, winreg.REG_SZ, str(FONT_PEMAKAI / FONT))
-        ctypes.windll.gdi32.AddFontResourceW(str(FONT_PEMAKAI / FONT))
+        huruf.pasang_font(f)
         print("font mushaf: dipasang")
     print("Siap. Bahts baru: " + perintah('baru <folder> "<judul>"'))
 
@@ -185,8 +102,8 @@ def periksa():
             profil = [k for k, p in FORMAT.items() if p["huruf"] == h]
             baris(huruf.huruf_ada(h), f"huruf {h}" + ("" if h == wajib else f" (hanya untuk @format {', '.join(profil)})"),
                   huruf.HURUF_SARAN, untuk_cek=False, untuk_rakit=h == wajib)
-    baris(bool(shutil.which("npx") and diagram.browser()), "Node.js + Chrome/Edge (hanya untuk `diagram`: Mermaid jadi PNG)",
-          "pasang Node.js LTS (Windows: winget install OpenJS.NodeJS.LTS) dan Google Chrome atau Microsoft Edge; "
+    baris(bool(diagram.npx() and diagram.browser()), "Node.js + Chrome/Edge (hanya untuk `diagram`: Mermaid jadi PNG)",
+          f"pasang {diagram.PASANG_NODE} dan {diagram.PASANG_BROWSER}; "
           "tanpa keduanya diagram tetap bisa dicetak dari PNG yang dibuat di tempat lain", untuk_cek=False, untuk_rakit=False)
     print(f"\nMenulis dan `cek`: {'SIAP' if siap_cek else 'BELUM'}.  `rakit` (Word + PDF): {'SIAP' if siap_rakit else 'BELUM'}.")
     print("WSL tidak diperlukan. Connector shamela: wajib; connector lain ikut dipasang lewat agent (AGENTS.md «Pemakai baru» langkah 4-5).")
@@ -349,24 +266,62 @@ def ambil(nomor):
         sys.exit(f"Belum terunduh: {', '.join(gagal)} (lihat pesan di atas).")
 
 
+@dataclass(frozen=True)
+class Bendera:
+    """Satu bendera perintah. Yang bernilai (`kurang` terisi) memakai argumen sesudahnya sebagai nilainya."""
+    nama: str
+    kurang: str = ""  # pesan kalau nilainya tidak ada; kosong = bendera tanpa nilai
+    bukan_nilai: Callable[[str], bool] = lambda x: False  # argumen sesudahnya yang tidak diterima sebagai nilai
+    ganda: str = ""  # pesan kalau disebut dua kali; kosong = sebutan kedua dibaca sebagai argumen biasa
+
+
+POTONGAN = Bendera("--potongan")  # frasa boleh cocok di tengah kata
+JEJAK = Bendera("--jejak")
+FASL = Bendera("--fasl", "--fasl perlu nomor #F, mis. --fasl 2")
+KE = Bendera("--ke", "--ke perlu nama folder", lambda x: x.startswith("--"))
+SARING = tuple(Bendera(n, f"{n} butuh nilai, mis. {n} {contoh}", lambda x: not x.strip(" ,،"),
+                       f"{n} disebut dua kali; nilai ganda ditulis dengan koma, mis. {n} {contoh},…")
+               for n, contoh in (("--mazhab", "hanbali"), ("--kitab", "8370"), ("--halaman", "2")))
+
+
+def urai(a, sah):
+    """Pengurai bendera semua perintah: tiap argumen jadi (nama bendera tanpa «--», nilai) atau (None, argumen), menurut
+    urutan ketikannya. Bendera boleh di mana saja; yang salah pakai = ValueError saat sampai di situ."""
+    sah, a, tersebut = {b.nama: b for b in sah}, list(a), set()
+    while a:
+        x = a.pop(0)
+        b = sah.get(x)
+        if b is None or (x in tersebut and not b.ganda):
+            yield None, x
+        elif not b.kurang:
+            yield x[2:], True
+        else:
+            if not a or b.bukan_nilai(a[0]):
+                raise ValueError(b.kurang)
+            if x in tersebut:
+                raise ValueError(b.ganda)
+            tersebut.add(x)
+            yield x[2:], a.pop(0)
+
+
+def pisah(a, sah):
+    """`urai` sampai habis: (argumen biasa, {bendera: nilai})."""
+    urut = list(urai(a, sah))
+    return [x for n, x in urut if n is None], {n: x for n, x in urut if n}
+
+
 def bendera_temukan(frasa, a):
     """Argumen `turath.temukan` dari `temukan "<frasa>" [maks] [--mazhab m,…] [--kitab id,…] [--halaman n]`."""
-    maks, saring, tersebut = 20, {"--mazhab": "", "--kitab": "", "--halaman": "1"}, set()
-    contoh = {"--mazhab": "hanbali", "--kitab": "8370", "--halaman": "2"}
-    while a:
-        if a[0] in saring:
-            if len(a) < 2 or not a[1].strip(" ,،"):
-                raise ValueError(f"{a[0]} butuh nilai, mis. {a[0]} {contoh[a[0]]}")
-            if a[0] in tersebut:
-                raise ValueError(f"{a[0]} disebut dua kali; nilai ganda ditulis dengan koma, mis. {a[0]} {contoh[a[0]]},…")
-            tersebut.add(a[0])
-            saring[a[0]], a = a[1], a[2:]
-        elif a[0].startswith("--"):
-            raise ValueError(f"bendera «{a[0]}» tidak dikenal")
+    maks, saring = 20, {"mazhab": "", "kitab": "", "halaman": "1"}
+    for nama, nilai in urai(a, PERINTAH["temukan"].bendera):
+        if nama:
+            saring[nama] = nilai
+        elif nilai.startswith("--"):
+            raise ValueError(f"bendera «{nilai}» tidak dikenal")
         else:
-            maks, a = angka(a[0], "maks"), a[1:]
+            maks = angka(nilai, "maks")
     daftar = lambda s: [x.strip() for x in s.replace("،", ",").split(",") if x.strip()]
-    return frasa, maks, daftar(saring["--mazhab"]), daftar(saring["--kitab"]), angka(saring["--halaman"], "halaman")
+    return frasa, maks, daftar(saring["mazhab"]), daftar(saring["kitab"]), angka(saring["halaman"], "halaman")
 
 
 def halaman(sid, juz, hal):
@@ -397,13 +352,13 @@ def ketemu(n):
 
 def perintah_cek(a):
     """`cek <folder> [--jejak]`: bendera boleh sebelum/sesudah folder; bendera saja = kurang argumen."""
-    folder = next((x for x in a if x != "--jejak"), None)
-    if folder is None:
-        sys.exit(f"Perintah «cek» kurang argumen. Bentuknya:\n  {re.search(r'^  cek .*', __doc__, re.M).group(0)}")
-    if len([x for x in a if x != "--jejak"]) != 1 or folder.startswith("--"):
-        sys.exit(f"Argumen perintah «cek» tidak dikenal atau berlebih: {a}\nBentuknya:\n"
-                 f"{re.search(r'^  cek .*', __doc__, re.M).group(0)}")
-    sys.exit(1 if cek(folder, jejak="--jejak" in a) else 0)
+    folder, k = pisah(a, PERINTAH["cek"].bendera)
+    bentuk = PERINTAH["cek"].bantuan().split("\n")[0]
+    if not folder:
+        sys.exit(f"Perintah «cek» kurang argumen. Bentuknya:\n  {bentuk}")
+    if len(folder) != 1 or folder[0].startswith("--"):
+        sys.exit(f"Argumen perintah «cek» tidak dikenal atau berlebih: {a}\nBentuknya:\n{bentuk}")
+    sys.exit(1 if cek(folder[0], jejak="jejak" in k) else 0)
 
 
 def perintah_bukti(a):
@@ -427,71 +382,158 @@ def perintah_tahap(a):
 
 def perintah_rakit(a):
     """`rakit <folder> [--fasl n]`: bendera boleh sebelum/sesudah folder. Alurnya di rakit.py."""
-    a = list(a)
-    fasl = None
-    if "--fasl" in a:
-        i = a.index("--fasl")
-        if i + 1 >= len(a):
-            raise ValueError("--fasl perlu nomor #F, mis. --fasl 2")
-        fasl = a.pop(i + 1)
-        a.pop(i)
+    a, k = pisah(a, PERINTAH["rakit"].bendera)
     if len(a) != 1 or a[0].startswith("--"):
         raise ValueError(f"argumen tidak dikenal atau berlebih: {a}")
     if os.name != "nt":
         galat = cek(a[0])
         sys.exit(f"Belum dirakit: {galat} galat harus beres dulu." if galat else
-                 "`rakit` butuh Windows + Microsoft Word. Naskahnya sudah lolos `cek`.")
+                 f"{BUTUH_WORD} Naskahnya sudah lolos `cek`.")
     import rakit
-    rakit.rakit(folder_bahts(a[0]), jalur_ketik(a[0]), fasl)
+    rakit.rakit(folder_bahts(a[0]), jalur_ketik(a[0]), k.get("fasl"))
 
 
 def perintah_ekspor(a):
     """`ekspor <id|w…> [...] [--ke <folder>]`: --ke boleh di mana saja."""
     import ekspor
-    a, ke = list(a), Path.home() / "Downloads"
-    if "--ke" in a:
-        i = a.index("--ke")
-        if i + 1 >= len(a) or a[i + 1].startswith("--"):
-            raise ValueError("--ke perlu nama folder")
-        ke = Path(a.pop(i + 1)); a.pop(i)
+    a, k = pisah(a, PERINTAH["ekspor"].bendera)
     if not a or any(x.startswith("--") for x in a):
         raise ValueError(f"argumen tidak dikenal atau kurang: {a}")
-    ekspor.ekspor(a, ke)
+    ekspor.ekspor(a, Path(k["ke"]) if "ke" in k else Path.home() / "Downloads")
 
 
-PERINTAH = {  # nama: (jumlah argumen minimal, maksimal (None = diperiksa pemanggilnya), pemanggil)
-    "periksa": (0, 0, lambda a: periksa()),
-    "siapkan": (0, 0, lambda a: siapkan()),
-    "baru": (2, 2, lambda a: baru(a[0], a[1])),
-    "cek": (0, None, perintah_cek),
-    "rakit": (1, None, perintah_rakit),
-    "bukti": (1, 2, perintah_bukti),
-    "tahap": (1, 1, perintah_tahap),
-    "tanda": (0, 0, lambda a: print(tanda())),
-    "diagram": (1, 1, lambda a: sys.exit(1 if diagram.render(folder_bahts(a[0])) else 0)),
-    "kitab": (0, 0, lambda a: shamela.daftar()),
-    "katalog": (1, 1, lambda a: ketemu(shamela.katalog(pola(a[0])))),
-    "temukan": (1, None, lambda a: ketemu(turath.temukan(*bendera_temukan(a[0], a[1:])))),
-    "ambil": (1, None, lambda a: ambil(a)),
-    "kartu": (1, 1, lambda a: waqfeya.kartu(a[0]) if wq(a[0]) else shamela.kartu(a[0])),
-    "cari": (2, 2, lambda a, **k: ketemu(waqfeya.cari(a[0], a[1]) if wq(a[0]) else shamela.cari(a[0], a[1], **k))),
-    "waqfeya": (1, 2, lambda a: ketemu(waqfeya.cari_katalog(a[0], *(angka(x, "maks") for x in a[1:])))),
-    "teks": (2, 4, lambda a, **k: ketemu(shamela.teks(a[0], a[1], *(angka(x, apa) for x, apa in zip(a[2:], ("lebar", "maks"))), **k))),
-    "bab": (2, 2, lambda a, **k: ketemu(shamela.bab(a[0], a[1], **k))),
-    "halaman": (3, 3, lambda a: ketemu(waqfeya.halaman(*a) if wq(a[0]) else halaman(*a))),
-    "scan": (3, 3, lambda a: ketemu(turath.scan(*a))),
-    "ekspor": (1, None, perintah_ekspor),
-    "tafsir": (1, 1, lambda a: ketemu(layanan.tafsir(a[0]))),
-    "takhrij": (3, 3, lambda a: ketemu(layanan.takhrij(*a))),
-    "rawi": (1, 3, lambda a: ketemu(layanan.rawi(*a)) if len(a) != 2 else sys.exit(
-        "Perintah «rawi»: tulis <id> <juz> <hal>, satu nomor rawi, atau satu nama dalam tanda petik.")),
-    "akar": (2, 2, lambda a: ketemu(layanan.akar(*a))),
-    "hadits": (1, 2, lambda a: ketemu(hadits.cari(a[0], *(angka(x, "maks") for x in a[1:])))),
-    "dirasat": (1, 3, lambda a: dirasat.cari(a[0], *(angka(x, "maks") for x in a[1:2]), *a[2:])),
-    "dirasat-pdf": (2, 2, lambda a: dirasat.pdf(a[0], folder_bahts(a[1]))),
-}
+KOLOM = 29  # lebar kolom bentuk di teks bantuan
 
-POTONGAN = ("cari", "teks", "bab")  # perintah yang menerima --potongan (frasa boleh cocok di tengah kata)
+
+@dataclass(frozen=True)
+class Perintah:
+    """Satu baris tabel perintah: yang dicetak bantuan dan yang dijalankan pintu CLI."""
+    bentuk: str  # seperti diketik: nama perintah, lalu argumennya
+    uraian: str  # antarbaris "\n"; diawali "\n" = uraian mulai di baris sesudah bentuk
+    jalankan: Callable | None = None  # None = bentuk lain perintah yang sudah punya baris: hanya bantuan
+    paling_sedikit: int = 0  # jumlah argumen
+    paling_banyak: int | None = 0  # None = penangannya sendiri yang memisah bendera (`pisah`) dan memeriksa sisanya
+    bendera: tuple = ()
+
+    @property
+    def nama(self):
+        return self.bentuk.split()[0]
+
+    def bantuan(self):
+        awal, *lanjut = self.uraian.split("\n")
+        kepala = self.bentuk if not awal else self.bentuk.ljust(KOLOM) if len(self.bentuk) < KOLOM else self.bentuk + "   "
+        return "\n".join(["  " + kepala + awal] + [" " * (KOLOM + 2) + x for x in lanjut])
+
+
+DAFTAR = (  # urutan dan judul kelompok = teks bantuan
+    "Sekali sesudah mengunduh repo:",
+    Perintah("periksa", "apa yang sudah siap di komputer ini, dan perintah untuk tiap yang belum",
+             lambda a: periksa(), 0, 0),
+    Perintah("siapkan", "unduh katalog kitab, tabel layanan (tafsir, takhrij, rawi, akar) + font mushaf, lalu pasang\n"
+             "font itu (Windows)",
+             lambda a: siapkan(), 0, 0),
+    "Bahts (tiap bahts = satu folder berisi naskah.txt):",
+    Perintah('baru <folder> "<judul>"', "buat folder bahts baru + kerangka naskah.txt; <folder> boleh bahts/<orang>/<topik>",
+             lambda a: baru(a[0], a[1]), 2, 2),
+    Perintah("cek <folder> [--jejak]", "periksa naskah: tanda, ayat, dan semua bukti <<...>> ke kitab lokal;\n"
+             "--jejak: teks yang tidak ada di kitabnya dicari di kitab lain yang sudah diunduh",
+             perintah_cek, 0, None, (JEJAK,)),
+    Perintah("bukti <folder> [baris|awal-akhir]", "untuk pemeriksa: tiap catatan kaki berbukti <<sid|juz|hal>> (kalimat yang\n"
+             "dibuktikan, isi catatan kaki, nama kitab, bab, dan teks halaman itu di sekitar kutipan)\n"
+             "dan teks tiap ayat {Q:} persis seperti tercetak, juga tiap paragraf isi tanpa catatan\n"
+             "kaki (untuk dinilai: penisbatan tanpa sumber); tiap baris keluaran diawali «baris n».\n"
+             "Penunjuk saja, putusan tetap `cek`",
+             perintah_bukti, 1, 2),
+    Perintah("rakit <folder> [--fasl n]", "cek, lalu rakit .docx + .pdf (Word) ke dalam folder itu; --fasl 2 (atau 1-2): hanya #F\n"
+             "ke-2, untuk bahts yang dikumpulkan bertahap per فصل (lihat `tanda`); `cek` tetap\n"
+             "memeriksa seluruh naskah",
+             perintah_rakit, 1, None, (FASL,)),
+    Perintah("tahap <folder>", "tahap bahts sekarang dan satu langkah berikutnya: naskah (GAGAL/PERHATIAN/LOLOS), hasil\n"
+             "rakit (BELUM/TERKINI/USANG, juga tiap --fasl), rakit yang sedang jalan, folder .rakit-*\n"
+             "dan _arsip/rakit-*. Folder bahts tidak disentuh; untuk sesi baru yang tidak tahu bahts\n"
+             "ini sampai mana",
+             perintah_tahap, 1, 1),
+    Perintah("tanda", "daftar tanda yang dipakai di naskah.txt",
+             lambda a: print(tanda()), 0, 0),
+    Perintah("diagram <folder>", "tiap diagram Mermaid <nama>.mmd di folder itu jadi <nama>.png (butuh Node.js + Chrome/Edge),\n"
+             "lalu dicetak dengan «#G <nama>.png | keterangan»; `cek` dan `rakit` hanya memakai PNG-nya",
+             lambda a: sys.exit(1 if diagram.render(folder_bahts(a[0])) else 0), 1, 1),
+    "Kitab (perpustakaan Shamela lokal, dipakai semua bahts):",
+    Perintah("kitab", "daftar kitab yang sudah diunduh",
+             lambda a: shamela.daftar(), 0, 0),
+    Perintah('katalog "<pola>"', "cari judul/pengarang di katalog Shamela (regex)",
+             lambda a: ketemu(shamela.katalog(pola(a[0]))), 1, 1),
+    Perintah('temukan "<frasa>" [maks] [--mazhab m,…] [--kitab id,…] [--halaman n]', "\n"
+             "cari frasa di isi SEMUA kitab Shamela (turath.io, butuh internet) -> kitab + juz/halaman; 20 hasil\n"
+             "tiap halaman. --mazhab: hanya kitab fikih mazhab itu; --kitab: hanya kitab itu, walau belum\n"
+             "diunduh; --halaman 2: hasil ke-21 dan seterusnya",
+             lambda a: ketemu(turath.temukan(*bendera_temukan(a[0], a[1:]))), 1, None, SARING),
+    Perintah("ambil <id|folder> [...]", "unduh kitab (sekali saja); nama folder bahts = semua kitab yang dirujuk naskahnya",
+             lambda a: ambil(a), 1, None),
+    Perintah("kartu <id>", "data cetak kitab (untuk rujukan pertama & daftar pustaka) + bentuk bukti <<…>> kitab itu",
+             lambda a: waqfeya.kartu(a[0]) if wq(a[0]) else shamela.kartu(a[0]), 1, 1),
+    Perintah('cari <id|semua> "<frasa>" [--potongan]', "\n"
+             "cari frasa -> juz/halaman cetak; semua: paling banyak 40 baris, lalu jumlah kitab yang cocok.\n"
+             "Frasa dicocokkan sebagai kata utuh (huruf sambung و ف ب ل ك dan «ال» di depan kata pertama\n"
+             "boleh): «العربان» tidak cocok dengan «العرب ان». Yang hanya cocok sebagai potongan kata\n"
+             "disebut jumlahnya; --potongan: ikut ditampilkan (mis. mencari awal kata)",
+             lambda a, **k: ketemu(waqfeya.cari(a[0], a[1]) if wq(a[0]) else shamela.cari(a[0], a[1], **k)), 2, 2, (POTONGAN,)),
+    Perintah('teks <id> "<frasa>" [lebar] [maks] [--potongan]', "teks asli di sekitar frasa, untuk disalin persis",
+             lambda a, **k: ketemu(shamela.teks(a[0], a[1], *(angka(x, apa) for x, apa in zip(a[2:], ("lebar", "maks"))), **k)), 2, 4, (POTONGAN,)),
+    Perintah('bab <id> "<frasa>" [--potongan]', "rantai judul kitab/bab tempat frasa berada",
+             lambda a, **k: ketemu(shamela.bab(a[0], a[1], **k)), 2, 2, (POTONGAN,)),
+    Perintah("halaman <id> <juz> <hal>", 'isi satu halaman (juz "-" untuk kitab satu jilid); <hal> boleh rentang, mis. 10-14\n'
+             "(paling banyak 20 halaman sekali panggil)",
+             lambda a: ketemu(waqfeya.halaman(*a) if wq(a[0]) else halaman(*a)), 3, 3),
+    Perintah("scan <id> <juz> <hal>", "alamat scan cetakan halaman itu (PDF di turath.io, butuh internet), untuk bacaan yang meragukan",
+             lambda a: ketemu(turath.scan(*a)), 3, 3),
+    Perintah("ekspor <id|w…> [...] [--ke <folder>]", "seluruh kitab jadi satu .docx untuk dibaca di Word (kanan-ke-kiri, judul bab,\n"
+             "penanda juz/halaman, حاشية sesudah halamannya); yang belum diunduh diunduh dulu.\n"
+             "Bawaan ke folder Downloads; nama berkas = judul kitab. Bukan bahan bahts",
+             perintah_ekspor, 1, None, (KE,)),
+    "Kitab Waqfeya (scan cetakan + OCR, untuk kitab yang tidak ada di Shamela; disimpan di kitab/waqfeya, dipakai semua bahts):",
+    Perintah('waqfeya "<judul/pengarang>" [maks]', "cari di katalog Waqfeya (±10.000 kitab) -> nomor w… (diunduh sekali, ±17 MB)",
+             lambda a: ketemu(waqfeya.cari_katalog(a[0], *(angka(x, "maks") for x in a[1:]))), 1, 2),
+    Perintah("ambil w<nomor> [...]", "unduh OCR + PDF scan kitab itu (sekali saja)"),
+    Perintah("kartu w<nomor>", "data katalog + OCR halaman judul (data cetak disalin dari scan-nya) + bentuk bukti"),
+    Perintah('cari w<nomor> "<frasa>"', "halaman PDF yang OCR-nya memuat frasa; tidak ada yang persis -> yang paling mirip"),
+    Perintah("halaman w<nomor> <berkas> <hal>", "teks OCR halaman PDF ke-hal di berkas itu + nomor cetak yang terbaca + PDF/PNG scan-nya.\n"
+             "OCR bisa salah huruf: lafaz dan juz/halaman cetak disalin dari scan, bukti <<w…|berkas|hal>>"),
+    "Layanan Shamela (penunjuk jalan tanpa internet, dari dataset yang sama dengan `ambil`):",
+    Perintah("tafsir <surat:ayat[-ayat]>", "kitab tafsir yang menafsirkan ayat itu (14 kitab, mis. الطبري، ابن كثير، زاد المسير) +\n"
+             "juz/halaman cetak awal pembahasannya, urut dari pengarang yang lebih dulu wafat",
+             lambda a: ketemu(layanan.tafsir(a[0])), 1, 1),
+    Perintah("takhrij <id> <juz> <hal>", "hadits di halaman itu ada juga di mana: 8 kitab (البخاري، مسلم، أبو داود، الترمذي، النسائي،\n"
+             "الموطأ، الطيالسي، ابن الجارود) + juz/halaman dan nomor haditsnya; edisi lain kitab itu\n"
+             "(mis. مسلم 1727) lewat nomor hadits, dengan edisi yang dipakai Shamela (mis. 711) sebagai jembatan",
+             lambda a: ketemu(layanan.takhrij(*a)), 3, 3),
+    Perintah("rawi <id> <juz> <hal>", "sanad tiap hadits di halaman itu, berurutan dari pengarang (layanan sanad Shamela di 8 kitab\n"
+             "hadits; edisi lain lewat jembatan nomor hadits) + rutbah ringkas: ابن حجر، الذهبي، wafat",
+             lambda a: ketemu(layanan.rawi(*a)) if len(a) != 2 else sys.exit(
+                 "Perintah «rawi»: tulis <id> <juz> <hal>, satu nomor rawi, atau satu nama dalam tanda petik."), 1, 3),
+    Perintah('rawi <nomor> | rawi "<nama>"', "ucapan جرح وتعديل rawi itu + tempat lafaznya di edisi lokal kitab rijal sumbernya (dicari ulang,\n"
+             "bukan juz/halaman tabel); dengan nama: cari nomor rawinya"),
+    Perintah('akar <id> "<akar>"', "bentuk kata berakar itu di kitab (kamus akar Shamela) + jumlahnya, dikelompokkan seperti\n"
+             "`cari` mencocokkan kata: istilah yang tidak tertangkap frasa («الشفيع» untuk شفع)",
+             lambda a: ketemu(layanan.akar(*a)), 2, 2),
+    "Takhrij (penunjuk jalan, «المنصة الحديثية», butuh internet):",
+    Perintah('hadits "<طرف>" [maks]', "tempat hadits di 12 kitab hadits + hukum ulama; tetap dibaca di kitabnya sendiri. Kitab yang\n"
+             "sudah diunduh: juz/halaman edisi lokal ikut dicetak (juz/halaman layanan bisa edisi lain)",
+             lambda a: ketemu(hadits.cari(a[0], *(angka(x, "maks") for x in a[1:]))), 1, 2),
+    "Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex dan DOAJ, butuh internet):",
+    Perintah('dirasat "<kata kunci>" [maks] [saringan]', "judul, peneliti, tahun, jurnal, tautan, dan ringkasan; dicari menurut kata\n"
+             "dan menurut makna. Saringan OpenAlex, mis. language:ar,type:dissertation",
+             lambda a: dirasat.cari(a[0], *(angka(x, "maks") for x in a[1:2]), *a[2:]), 1, 3),
+    Perintah("dirasat-pdf <W…> <folder>", "unduh PDF penelitian (nomor OpenAlex dari `dirasat`) ke folder bahts; butuh kunci OpenAlex",
+             lambda a: dirasat.pdf(a[0], folder_bahts(a[1])), 2, 2),
+)
+PERINTAH = {p.nama: p for p in DAFTAR if isinstance(p, Perintah) and p.jalankan}
+
+
+def bantuan():
+    """Teks bantuan seluruhnya: tiap judul kelompok dan baris DAFTAR."""
+    return "Satu pintu mesin bahts:  python mesin/bahts.py <perintah>\n" + "".join(
+        f"\n{x}\n" if isinstance(x, str) else x.bantuan() + "\n" for x in DAFTAR)
 
 
 def tanda():
@@ -505,28 +547,26 @@ if __name__ == "__main__":
     sys.stderr.reconfigure(encoding="utf-8")  # pesan galat memuat «» dan huruf Arab; konsol Windows tidak bisa mencetaknya
     cmd, *a = sys.argv[1:] or [""]
     if cmd in ("", "-h", "--help", "bantuan"):
-        print(__doc__); sys.exit(0)
+        print(bantuan()); sys.exit(0)
     if cmd not in PERINTAH:
         mirip = difflib.get_close_matches(cmd, PERINTAH, n=1)
         sys.exit(f"Perintah «{cmd}» tidak dikenal." + (f" Maksudnya «{mirip[0]}»?" if mirip else "")
                  + "\nDaftar perintah: " + perintah(""))
-    # cukup baris bantuan perintah itu, berikut baris lanjutannya yang menjorok
-    bantu = re.search(rf"^  {re.escape(cmd)}\s.*(?:\n {{20,}}\S.*)*", __doc__, re.M)
-    bentuk = bantu.group(0) if bantu else cmd
-    paling_sedikit, paling_banyak, jalankan = PERINTAH[cmd]
+    p = PERINTAH[cmd]
+    bentuk = p.bantuan()
     k = {}
-    if cmd in POTONGAN and "--potongan" in a:  # bendera boleh di mana saja; tidak dihitung sebagai argumen
-        a, k = [x for x in a if x != "--potongan"], {"potongan": True}
-    if len(a) < paling_sedikit:
+    if p.paling_banyak is not None:  # bendera boleh di mana saja; tidak dihitung sebagai argumen
+        a, k = pisah(a, p.bendera)
+    if len(a) < p.paling_sedikit:
         sys.exit(f"Perintah «{cmd}» kurang argumen. Bentuknya:\n{bentuk}")
-    if paling_banyak is not None and len(a) > paling_banyak:
+    if p.paling_banyak is not None and len(a) > p.paling_banyak:
         # argumen berlebih ditolak, bukan ditelan: `halaman 1679 - 8 9` jangan diam-diam mengabaikan 9
         bendera = [x for x in a if x.startswith("--")]
-        sys.exit(f"Argumen perintah «{cmd}» tidak dikenal atau berlebih: {a[paling_banyak:]}"
+        sys.exit(f"Argumen perintah «{cmd}» tidak dikenal atau berlebih: {a[p.paling_banyak:]}"
                  + (f" (perintah «{cmd}» tidak punya bendera {', '.join(bendera)})" if bendera else "")
                  + f"\nBentuknya:\n{bentuk}")
     try:
-        jalankan(a, **k)
+        p.jalankan(a, **k)
     except urllib.error.HTTPError as e:
         if not 400 <= e.code < 500 or e.code == 429:
             sys.exit(f"Perintah '{cmd}': layanannya sedang menolak atau sibuk (HTTP {e.code}). Ulangi sebentar lagi.")

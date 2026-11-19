@@ -7,6 +7,7 @@ import functools, re
 import norma
 import shamela
 from dasar import BUKAN_RUJUKAN, ekor
+from gelar import GELAR, KUNCI_NAMA, nama_bergelar
 from kitab_lokal import bagian_kitab
 from cek_hadits import takhrij
 from cek_sumber import PERANTARA
@@ -26,7 +27,7 @@ KITAB_HADITS = 6  # kategori Shamela كتب السنة: data cetaknya di الم�
 
 def _kata(teks):
     """Kata Arab tanpa harakat dan gelar, huruf yang sering ditulis beda disamakan (أإآ->ا، ة->ه، ى->ي)."""
-    teks = norma.GELAR.sub(" ", norma.HARAKAT.sub("", teks))
+    teks = GELAR.sub(" ", norma.HARAKAT.sub("", teks))
     return re.findall(r"[ء-ي]+", re.sub("[أإآ]", "ا", teks).replace("ة", "ه").replace("ى", "ي"))
 
 
@@ -49,7 +50,7 @@ def jejak_kartu(sid):
         return frozenset(), frozenset()
     pasangan, tahun, judul = set(), set(), set()
     for baris in (m.get("betaka_text") or "").replace("\r", "\n").split("\n"):
-        k = norma.KUNCI_NAMA.match(norma.HARAKAT.sub("", baris))
+        k = KUNCI_NAMA.match(norma.HARAKAT.sub("", baris))
         nilai = norma.HARAKAT.sub("", baris)[k.end():] if k else baris
         kata = _kata(nilai)
         dua = _jejak(kata)
@@ -124,7 +125,7 @@ def pemisah_sumber(isi, terbukti):
 def gelar(teks, apa):
     """Perhatian kalau sebuah nama di luar kutipan bertanda petik diawali gelar («تحقيق: د. …»، «، الشيخ …»), atau
     None. `apa` = tempatnya: "fn" (catatan kaki) atau "pustaka"."""
-    g = norma.nama_bergelar(luar_petik(seragam(teks)), awal_nama=teks.lstrip().startswith("**"), catatan_kaki=apa == "fn")
+    g = nama_bergelar(luar_petik(seragam(teks)), awal_nama=teks.lstrip().startswith("**"), catatan_kaki=apa == "fn")
     if not g:
         return None
     return (f"gelar «{g}» di depan nama: buang gelarnya («تحقيق: عبد الله التركي»; `kartu` sudah tanpa gelar) "

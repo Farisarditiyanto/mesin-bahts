@@ -13,7 +13,7 @@ tidak jalan. Dengan kunci: sekitar 300 kali `dirasat` atau 100 PDF sehari; jatah
 import json, os, re, time, urllib.error, urllib.parse
 from pathlib import Path
 
-from jaringan import buka
+from jaringan import JAWABAN_ASING, SEBAB_ASING, buka
 from dasar import perintah
 from berkas import sementara
 
@@ -170,8 +170,7 @@ def cari(kata, maks=10, saringan=""):
                                  "Contoh yang sah: language:ar, type:dissertation, publication_year:>2014")
             continue
         except JAWABAN_RUSAK as e:
-            print(f"GAGAL — jawabannya bukan data yang dikenal mesin (layanannya mungkin sedang perawatan atau berubah, "
-                  f"atau wifi minta masuk dulu lewat peramban): {type(e).__name__} {e}")
+            print(f"GAGAL — jawabannya {JAWABAN_ASING} ({SEBAB_ASING}): {type(e).__name__} {e}")
             gagal += 1
             rusak += 1
             continue
