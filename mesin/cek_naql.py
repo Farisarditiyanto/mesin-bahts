@@ -4,9 +4,10 @@ di antara tanda petik (ص113، 173), nukilan makna ditandai «انظر»/«را�
 katanya (ص113), dan kutipan berukuran wajar (ص123، 219). Kitab itu membolehkan الاختصار memakai kata pengarang (ص114)
 dan tidak melarang «انظر» pada kutipan lafaz: batas kata dan larangan itu aturan repo, ditulis begitu di tiap pesan. Semuanya perhatian, tidak pernah GAGAL: `cek` tetap hanya memutus
 apakah teks ada di halaman buktinya."""
-import functools, re
+import re
 
 import norma
+import shamela
 from dasar import AYAT_DI_KUTIPAN, BUKAN_RUJUKAN, MERUJUK_KATA, ekor
 from kitab_lokal import gabung
 from cek_hadits import takhrij
@@ -32,7 +33,7 @@ def _kata(teks):
     return [(k, asli) for asli in AYAT_DI_KUTIPAN.sub(" ", teks).split() for k in norma.norm(asli).split()]
 
 
-@functools.lru_cache(maxsize=512)
+@shamela.cache_kitab(512)
 def _gram_halaman(sid, juz, p1, p2):
     """Tiap deret SALIN_MIN kata berurutan di halaman bukti (matan dan حاشية); halaman yang bersambung dirangkai,
     jadi salinan yang menyeberang ke halaman berikutnya tetap terbaca."""

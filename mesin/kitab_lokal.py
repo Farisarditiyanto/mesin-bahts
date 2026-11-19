@@ -332,7 +332,7 @@ def tempat_kitab(rangkaian, bagian):
     Yang ditunjuk rentang tersempit: kutipan ber-... tidak boleh ditunjuk di tempat bagian umumnya kebetulan berjauhan."""
     terbaik = None
     for juz, tanda, teks, ruas in rangkaian:
-        for letak in susunan_bagian(teks, bagian, len(teks)):
+        for letak in susunan_bagian(teks, bagian):
             h1, h2 = halaman_di(ruas, letak[0][0], letak[-1][1])
             lebar = (h2 or 0) - (h1 or 0)
             if lebar <= RENTANG_MAKS and (terbaik is None or lebar < terbaik[0]):
@@ -342,7 +342,7 @@ def tempat_kitab(rangkaian, bagian):
     return terbaik[1:] if terbaik else None
 
 
-def susunan_bagian(pd, q, maks=50, lolos=None):
+def susunan_bagian(pd, q, lolos=None):
     """Tiap susunan letak [(awal, akhir)] bagian-bagian q di pd: bagian berikutnya yang terdekat dan lolos `lolos`,
     kalau diberikan (halaman/batas kata); calon yang ditolak tidak menutupi kemunculan sah sesudahnya."""
     def berikut(i, awal):
@@ -351,7 +351,7 @@ def susunan_bagian(pd, q, maks=50, lolos=None):
             j = pd.find(q[i], j + 1)
         return j
     j = berikut(0, 0)
-    while j >= 0 and maks:
+    while j >= 0:
         letak, k = [(j, j + len(q[0]))], j + len(q[0])
         for i, b in enumerate(q[1:], 1):
             n = berikut(i, k)
@@ -359,5 +359,4 @@ def susunan_bagian(pd, q, maks=50, lolos=None):
                 return
             letak.append((n, n + len(b))); k = n + len(b)
         yield letak
-        maks -= 1
         j = berikut(0, j + 1)

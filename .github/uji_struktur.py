@@ -547,6 +547,21 @@ def utama():
         assert 'bukti "bahts/ahmad/ikhlas"' in out, out
         hasil.append("tahap: naskah, hasil (juga --fasl dan laporan lama), perhatian menahan, folder .rakit-*, "
                      "_arsip, rakit bahts ini dan bahts lain")
+
+        # @sampul kapital + @logo: berwarna, @malahiq: akhir tanpa #R, JPEG dengan byte isi 0xFF, saran `ambil` berspasi
+        cek("@sampul QISM + @logo berwarna", "@sampul: QISM\n@logo: berwarna\n" + dasar)
+        cek("@malahiq akhir tanpa pustaka", "@tanpa: pustaka\n@malahiq: akhir\n" + dasar.split("#R ")[0] + "#K الملاحق\nملحق.\n",
+            True, "@malahiq: akhir memerlukan #R")
+        (f / "isi_ff.jpg").write_bytes(b"\xff\xd8\xff\xff\xc0\x00\x0b\x08\x00\x0a\x00\x14\x03\x01\x11\x00\xff\xd9")
+        cek("JPEG dengan byte pengisi 0xFF", sisip("#G isi_ff.jpg | شكل"))
+        spasi = akar / "naskah uji"
+        spasi.mkdir()
+        (spasi / "naskah.txt").write_text(
+            "@judul: فحص\n@nama: فلان\n@tanpa: pustaka\n@minimal_halaman: 0\n"
+            "#K المقدمة\nنص[^كتاب، ص5. <<999999|-|5>>].\n#K الخاتمة\nنتائج.\n", encoding="utf8")
+        r = bahts("cek", "naskah uji")
+        assert r.returncode != 0 and 'ambil "naskah uji"' in r.stdout, r.stdout + r.stderr
+        hasil.append("sampul kapital + logo berwarna, malahiq akhir tanpa #R, JPEG 0xFF, saran ambil berspasi")
         print(f"uji struktur: {len(hasil)} skenario sesuai, termasuk beban 2000 nukilan/4000 catatan kaki dan 500 data salah ketik")
 
 

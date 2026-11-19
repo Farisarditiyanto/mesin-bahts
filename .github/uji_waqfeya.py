@@ -165,6 +165,9 @@ if "nomor cetak terbaca: 3" not in out:
 kode, out, err = jalankan("halaman", W, "1", "9")
 if not kode or "hanya 3 halaman" not in out + err:
     gagal.append(f"halaman di luar berkas tidak ditolak: kode {kode} {(out + err)[-200:]}")
+kode, out, err = jalankan("halaman", W, "abc", "1")
+if not kode or "bukan «abc»" not in out + err:
+    gagal.append(f"halaman berkas bukan angka tidak menyebut masukan asli «abc»: kode {kode} {(out + err)[-200:]}")
 
 kode, out, err = jalankan("kartu", W)
 if kode or f"<<{W}|1|" not in out or "دار السلام المصرية" not in out or "berkas 2" not in out:

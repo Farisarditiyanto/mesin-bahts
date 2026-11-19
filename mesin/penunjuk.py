@@ -107,7 +107,7 @@ def _penunjuk_bukti(b, kutipan):
     return hasil + [f"{shamela.letak(juz, (p1, p2))}: {sebab}; awal halaman: {raw[:2 * SEKITAR]}{'…' * (len(raw) > 2 * SEKITAR)}"]
 
 
-def _tanpa_catatan(blok):
+def _tanpa_catatan(blok, dikecualikan=()):
     """(baris, teks) tiap paragraf isi tanpa satu pun catatan kaki. Isi = bab #F (bukan yang bernama مقدمة/خاتمة) dan
     #B/#M di bawahnya, atau #B/#M langsung sesudah #K المقدمة; #K dan المصادر (#R) bukan isi. `cek` tidak bisa
     menilai kalimat tanpa catatan kaki, jadi pemeriksa langkah 5 yang menilai apakah ada penisbatan atau fakta di
@@ -121,7 +121,7 @@ def _tanpa_catatan(blok):
             di_isi = b["k"] == "F" and not bab_luar
         elif b["k"] in ("B", "M"):
             di_isi = not bab_luar
-        elif di_isi and b["k"] == "P" and not any("fn" in r for r in b["runs"]):
+        elif di_isi and b["k"] == "P" and b["n"] not in dikecualikan and not any("fn" in r for r in b["runs"]):
             teks = "".join(r.get("t", "") for r in b["runs"]).strip()
             if teks:
                 yield b["n"], teks
@@ -135,7 +135,7 @@ def bukti(folder, dari=None, sampai=None):
     Tiap baris keluaran diawali «baris n», supaya bisa disaring. Kembalikan jumlah yang dicetak."""
     ctx = periksa(folder).ctx
     dalam = lambda n: (dari is None or dari <= n) and (sampai is None or n <= sampai)
-    polos = [{"n": n, "polos": t} for n, t in _tanpa_catatan(ctx.blok) if dalam(n)]
+    polos = [{"n": n, "polos": t} for n, t in _tanpa_catatan(ctx.blok, ctx.ayat_matan) if dalam(n)]
     pilih = sorted([u for u in ctx.penunjuk if dalam(u["n"])] + polos, key=lambda u: u["n"])
     ke, tercetak = {}, None
     for u in pilih:

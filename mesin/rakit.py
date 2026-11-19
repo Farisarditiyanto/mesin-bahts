@@ -220,9 +220,9 @@ class PemulihanGagal(RuntimeError):
     """Hasil lama belum bisa dipasang kembali: cadangan dan hasil baru sengaja ditinggalkan untuk diselamatkan."""
 
 
-def terbitkan(kerja, folder, nama):
-    """Pindahkan SEMUA hasil lama ke cadangan sebelum memasang hasil baru; pulihkan bila penggantian gagal.
-    Berhasil = cadangan dibuang (semuanya bisa dirakit ulang dari naskah),
+def terbitkan(kerja, folder, nama, buang=()):
+    """Pindahkan SEMUA hasil lama (termasuk `buang`, mis. salinan khulasah usang) ke cadangan sebelum memasang hasil baru;
+    pulihkan bila penggantian gagal. Berhasil = cadangan dibuang (semuanya bisa dirakit ulang dari naskah),
     supaya folder bahts tidak menumpuk satu cadangan tiap rakit. Rename berlaku per berkas, bukan transaksi
     atomik pasangan. Bila proses dimatikan di tengah, hasil dapat belum lengkap, tetapi hasil baru tidak
     dipasangkan dengan hasil lama.
@@ -232,7 +232,7 @@ def terbitkan(kerja, folder, nama):
     cadangan = Path(tempfile.mkdtemp(prefix=CADANGAN, dir=arsip))
     lama, baru = [], []
     try:
-        for n in nama:
+        for n in dict.fromkeys((*nama, *buang)):
             if (folder / n).exists():
                 (folder / n).replace(cadangan / n)
                 lama.append(n)
@@ -278,11 +278,9 @@ def kosongkan_penulis(docx):
                 o.writestr(i, isi)
 
 
-
-
 def nama_kunci(folder):
     """Nama bahts yang ditulis pemegang kunci rakit: jalur foldernya dari folder mesin."""
-    return Path(folder).relative_to(AKAR).as_posix()
+    return Path(folder).resolve().relative_to(AKAR).as_posix()
 
 
 def milik(pemegang, folder):
@@ -406,10 +404,11 @@ def _rakit_di(f, jalur, kerja, fasl):
     if galat:
         olah.cetak(cek, jalur)
         sys.exit(f"Belum dirakit: {galat} galat di atas harus beres dulu.")
+    laporan = produk.laporan(fasl)
     # naskah yang lolos dicetak satu baris; rinciannya tetap di laporan
     print(f"cek: GAGAL 0, perhatian belum ditangani {belum}" + (f", diterima {terima}" if terima else "")
           + (f"; {olah.kepala_tanpa_bukti(len(cek.tanpa_bukti))}" if cek.tanpa_bukti else "")
-          + f" (rinciannya: {produk.LAPORAN} sesudah rakit jadi, atau " + perintah(f'cek "{jalur}"') + ")")
+          + f" (rinciannya: {laporan} sesudah rakit jadi, atau " + perintah(f'cek "{jalur}"') + ")")
     if not huruf.font_terpasang():
         sys.exit(f"Font mushaf belum terpasang: {perintah('siapkan')}, lalu ulangi.")
     d, lap = cek.bahan, cek.laporan
@@ -418,12 +417,11 @@ def _rakit_di(f, jalur, kerja, fasl):
             lap = [produk.baris_potongan(fasl, olah.potong(d, fasl))] + lap
         except dasar.TandaRusak as e:
             sys.exit(f"Belum dirakit: {e}")
-    laporan = produk.laporan(fasl)
     berkas = d["meta"]["berkas"]
     tabrakan = olah.sumber_tertimpa(f, berkas, d["sumber"], laporan)
     if tabrakan:
         sys.exit(f"Belum dirakit: hasil rakit akan menimpa bahan sumber «{tabrakan[0]}»: ganti @berkas atau nama berkas sumber")
-    huruf_profil = d["format"]["huruf"]
+    huruf_profil = d["cetak"]["format"]["huruf"]
     if not huruf.huruf_ada(huruf_profil):  # tanpa huruf profil, Word diam-diam memakai huruf lain
         sys.exit(f"Huruf {huruf_profil} (dipakai @format naskah ini) belum terpasang di Windows.\n       -> {huruf.HURUF_SARAN}\n"
                  f"Sesudah itu: {perintah('periksa')}, lalu ulangi `rakit`.")
@@ -456,13 +454,13 @@ def _rakit_di(f, jalur, kerja, fasl):
         raise RuntimeError("PDF dan laporan halaman tidak cocok; hasil lama belum diganti.")
     if hashlib.sha256((f / "naskah.txt").read_bytes()).hexdigest() != cek.sidik_naskah:
         raise RuntimeError("Naskah berubah selama rakit; hasil lama belum diganti. Ulangi rakit.")
-    terbit = [docx.name, pdf.name, laporan]
+    terbit, buang = [docx.name, pdf.name, laporan], []
     khulasah = produk.khulasah(berkas)
     if _khulasah_pdf(salinan_khulasah, kerja / khulasah, produk.nilai(baris, produk.KHULASAH)):
         terbit.append(khulasah)
-    terbitkan(kerja, f, terbit)
-    if khulasah not in terbit and (f / khulasah).exists():  # naskah tidak lagi ber-{X}: salinan lama sudah usang
-        (f / khulasah).unlink()
+    elif (f / khulasah).exists():  # naskah tidak lagi ber-{X}: salinan lama dibuang bersama penggantian hasil
+        buang.append(khulasah)
+    terbitkan(kerja, f, terbit, buang)
     for b in baris:
         if b.startswith(produk.HITUNGAN):
             print(b)
@@ -484,6 +482,8 @@ def salin_keluaran(f, berkas):
     if not KELUARAN_SAYA.exists():
         return
     induk = KELUARAN_SAYA.read_text(encoding="utf-8-sig").strip()
+    if not induk:
+        return
     bagian = f.relative_to(AKAR).parts[:-1]
     tujuan = Path(induk, *bagian[bagian[:1] == ("bahts",):]) / produk.pdf(berkas)
     try:

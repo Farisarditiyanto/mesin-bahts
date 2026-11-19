@@ -4,14 +4,13 @@ yang dikutip kitab dengan ayat yang tercetak (termasuk salah ketik dan ayat tanp
 import difflib, functools, re
 
 import norma
-from dasar import AD, ANGKA_LATIN, AYAT_KITAB, RUJUKAN_AYAT, SURAH, TandaRusak, perintah
+from dasar import AD, ANGKA_LATIN, AYAT_KITAB, RUJUKAN_AYAT, SURAH, TandaRusak, mushaf, perintah
 
 try:
     from rapidfuzz.distance import Levenshtein
 except ImportError:  # pustaka belum dipasang ulang sesudah `git pull`
     raise SystemExit("Pustaka Python belum terpasang; cara memasangnya disebut oleh: " + perintah("periksa"))
 from petik import kutipan_semua
-from quran import mushaf
 
 BEDA_AYAT = 2  # huruf kerangka ayat tercetak yang boleh tidak ada di ayat bertanda kitab (ayat_tercetak)
 # ﴿…﴾ (atau terbalik ﴾…﴿) berhuruf Arab yang diketik di naskah; {Q:} jadi «﴿2:255﴾» (angka), jadi ﴾ sesudah angka

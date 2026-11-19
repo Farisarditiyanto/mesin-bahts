@@ -1,11 +1,27 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Konstanta dan alat kecil yang dipakai lebih dari satu bagian `cek`: letak mesin, nama surat, pola angka, pola
 kutipan, pesan GAGAL bersama, dan TandaRusak (salah tulis naskah, bukan galat mesin)."""
-import json, os, re, shutil, sys
+import functools, json, os, re, shutil, sys
 from pathlib import Path
 
 HERE = Path(__file__).parent
 SURAH = json.loads((HERE / "nama_surah.json").read_text(encoding="utf8"))
+
+
+@functools.cache
+def mushaf():
+    """{«surat:ayat»: teks ayat} (riwayat Hafs), urut mushaf; dibaca saat pertama dipakai (±1 MB)."""
+    return json.loads((HERE / "quran_hafs_v22.json").read_text(encoding="utf8"))
+
+
+@functools.cache
+def profil_format():
+    """Profil bentuk halaman dari format.json (dipilih @format di naskah); dibaca sekali saat pertama dipakai."""
+    return json.loads((HERE / "format.json").read_text(encoding="utf8"))
+
+
+# Pemisah judul utama dan sub-judul sampul «… - …» (dipakai `baru` dan `olah.rencana_cetak`)
+SUBJUDUL = re.compile(r"^(.+?)\s+[-–—]\s*(.+)$")
 # Ligatur hormat Unicode 14 (﵀-﵏ ﷾ ﷿) tidak ada di huruf cetak (Traditional Arabic, Sakkal Majalla, Arial): kotak kosong di
 # Word/PDF. Teks yang dicetak (`rakit`, `ekspor`) memakai kalimatnya; `cek` membuangnya (norma.LIGATUR_HORMAT, HORMAT)
 HORMAT_CETAK = str.maketrans({

@@ -95,6 +95,16 @@ for sid in kitab_ci():
 kode, out, err = jalankan("kartu", "11223", "--potongan")
 if kode != 1 or "berlebih" not in err:
     gagal.append(f"kartu 11223 --potongan: harus ditolak (bendera hanya untuk cari/teks/bab); kode {kode}, galat {err[:80]!r}")
+kode, out, err = jalankan("cari", "1082", "العربان", "--potongan", "--potongan")
+if kode != 1 or "berlebih" not in err:
+    gagal.append(f"cari --potongan kembar: harus ditolak; kode {kode}, galat {err[:80]!r}")
+kode, out, err = jalankan("cari", "w0123abcd", "الحمد", "--potongan")
+if kode != 1 or "Traceback" in err or "--potongan" not in err:
+    gagal.append(f"cari w… --potongan: harus ditolak dengan pesan jelas; kode {kode}, galat {err[:120]!r}")
+kode, out, err = jalankan("periksa")
+baris_sm = [b for b in out.splitlines() if "Sakkal Majalla" in b]
+if not baris_sm or "jakarta" not in baris_sm[0]:
+    gagal.append(f"periksa: Sakkal Majalla harus menyebut profil jakarta (huruf_judul); dapat {baris_sm!r}")
 
 # `hadits`: juz/halaman layanan bisa dari edisi lain (uji pakai: Ibn Majah 2192 «3/311» edisi Risalah, padahal edisi lokal
 # 1198 = 2/738; takhrij yang memercayainya tidak lolos `cek`). Riwayat yang kitabnya sudah diunduh diberi juz/halaman kepala

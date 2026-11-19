@@ -12,7 +12,7 @@ from xml.sax.saxutils import escape
 
 import shamela, waqfeya
 from berkas import sementara
-from dasar import HORMAT_CETAK
+from dasar import AD, HORMAT_CETAK
 from norma import per_halaman
 
 KONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f￾￿]")  # tidak sah di XML
@@ -20,7 +20,6 @@ JUDUL = re.compile(r"""<span\b(?=[^>]*\bdata-type\s*=\s*(?:"title"|'title'))
     (?=[^>]*\bid\s*=\s*["']?toc-(?P<nomor>\d+)\b)[^>]*>(?P<teks>.*?)</span>""", re.S | re.X)
 PEMISAH_HTML = frozenset(("br", "p", "div", "li", "tr", "td", "th"))
 BARIS = re.compile(r"\r\n?|\n")
-ANGKA = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
 NAMA_TERLARANG = re.compile(r'[\\/:*?"<>|\x00-\x1f]')  # tidak boleh di nama berkas Windows
 TINGKAT_MAKS = 4  # judul yang lebih dalam tetap Heading 4
 PEMISAH_HASYIAH = "ـــــــــــــــ"
@@ -163,7 +162,7 @@ def _shamela(sid):
             if isinstance(hal, int) and (juz != tadi[0] or hal > tadi[1]):  # rekaman tanpa nomor halaman: tanpa penanda
                 tadi = juz, hal
                 out.append(("Halaman", f"[{juz + ' ' if juz and not juz.isdigit() else 'ج' + juz + ' ' if juz else ''}ص {hal}]"
-                            .translate(ANGKA)))
+                            .translate(AD)))
             if k == 0:  # judul daftar isi yang tidak bertanda di body: di awal rekamannya
                 out += [_judul(t, d) for n, j, d in judul.get(p["page_id"], ()) if n not in bertanda and (t := bersih(j))]
             out += _baris_body(teks, tingkat)
@@ -181,7 +180,7 @@ def _waqfeya(w):
         if len(d["berkas"]) > 1:
             out.append(("Heading2", bersih(nama)))
         for n, teks in enumerate(waqfeya.ocr(w, i), 1):
-            out.append(("Halaman", f"[PDF ص {n}]".translate(ANGKA)))
+            out.append(("Halaman", f"[PDF ص {n}]".translate(AD)))
             out += [("Normal", t) for t in paragraf_ocr(teks)]
     return d["judul"], out
 

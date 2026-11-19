@@ -10,7 +10,7 @@ import os, re, unicodedata
 
 import huruf
 from berkas import sementara
-from dasar import bentuk_kitab
+from dasar import ANGKA_LATIN, bentuk_kitab
 from norma import norm, padat
 
 ARAB = re.compile(r"[\u0600-\u06ff\ufb50-\ufdff\ufe70-\ufeff]")
@@ -136,7 +136,6 @@ def _gambar(hal):
 
 
 TEPI = 65  # pt dari tepi atas/bawah: nomor halaman (1,25 cm) ada di sini, matan dan catatan kaki (tepi 2,5 cm) tidak
-ANGKA = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
 
 
 def _ada(kata, teks):
@@ -156,14 +155,17 @@ def periksa(pdf, bahan):
     berakhir «:». Teks PDF buatan Word
     tidak tersalin persis (huruf sambung, angka ٠-٩), jadi pencocokannya longgar: yang diperingatkan hanya yang jelas."""
     import pypdf
-    meta, fmt = bahan["meta"], bahan["format"]
+    meta, rencana = bahan["meta"], bahan.get("cetak") or {}
+    fmt = rencana.get("format") or bahan["format"]
     halaman = pypdf.PdfReader(pdf).pages
     pesan = []
-    awal = 0 if bentuk_kitab(meta) or meta.get("tanpa_sampul") else 1  # halaman 1 = sampul (bukan potongan --fasl)
+    # halaman 1 = sampul (bukan bentuk kitab dan bukan potongan --fasl tanpa sampul)
+    tanpa_sampul = rencana["kitab"] or rencana["buang_sampul"] if "kitab" in rencana else (bentuk_kitab(meta) or meta.get("tanpa_sampul"))
+    awal = 0 if tanpa_sampul else 1
     if awal and halaman:
         sampul = halaman[0].extract_text() or ""
-        polos = re.sub(r"\s+", "", sampul.replace("…", "...")).translate(ANGKA)
-        nim = str(meta.get("nim") or "").translate(ANGKA)
+        polos = re.sub(r"\s+", "", sampul.replace("…", "...")).translate(ANGKA_LATIN)
+        nim = str(meta.get("nim") or "").translate(ANGKA_LATIN)
         for n in {nim, nim[::-1]} - {""}:                # nomor mahasiswa contoh «000000000» bukan isian kosong
             polos = polos.replace(n, "")
         if re.search(r"\.{4,}|0{4,}", polos):
@@ -195,7 +197,7 @@ def periksa(pdf, bahan):
         salah = [i for i, latin in nomor.items() if latin]
     else:   # @nomor abjad: halaman sebelum nomor 1 bernomor huruf, bukan angka
         pertama = min((i for i, latin in nomor.items() if latin), default=None)
-        abjad = meta.get("nomor") in ("abjad", "mukadimah")
+        abjad = rencana["abjad"] if "abjad" in rencana else meta.get("nomor") in ("abjad", "mukadimah")
         salah = [i for i, latin in nomor.items() if not latin and not (abjad and (pertama is None or i < pertama))]
     if salah:
         jenis, lawan = ("0123", "٠١٢٣ (bawaan)") if hindi else ("bukan 0123", "0123 (@angka: latin)")

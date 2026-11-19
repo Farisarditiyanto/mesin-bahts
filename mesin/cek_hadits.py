@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Hadits: kepala hadits bernomor di kitab, nomor takhrij «رقم الحديث (n)», derajat hadits dan penghukumnya,
 serta طرف/rawi {H:} yang harus terbaca di halaman bukti."""
-import functools, re
+import re
 
 import cocok
 import norma
+import shamela
 from dasar import ANGKA_LATIN, ELIPSIS, POTONGAN_MIN, TAKHRIJ_AWAL, ekor
 from kitab_lokal import bagian_kitab, bersih_hadits, kepala_hadits, rekaman
 
@@ -26,7 +27,7 @@ DERAJAT_TIDAK_ADA = re.compile(r"لم (?:اقف|اجد) علي (?:من )?(?:حك
 MUNDUR_KEPALA = 3  # halaman ke belakang tempat kepala hadits yang dinukil masih dicari
 
 
-@functools.cache
+@shamela.cache_kitab()
 def hadits_bernomor(sid, juz, p1, p2, nomor):
     """(rr, ruas): rekaman di sekitar juz/p1-p2 (hadits bisa mulai beberapa halaman sebelum lafaz yang dinukil) dan
     [(matan, حاشية)] tiap kepala `nomor`: matan dari kepala itu sampai kepala hadits berikutnya, حاشية = catatan rekaman

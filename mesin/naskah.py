@@ -85,6 +85,7 @@ class Pemeriksaan:
     penunjuk: list = dataclasses.field(default_factory=list)
     jangkar: set = dataclasses.field(default_factory=set)  # kunci {A:} naskah ini
     khulasah: int = 0  # jumlah paragraf {X} (خلاصة): rakit menstabilonya di «<berkas> - الخلاصات.pdf»
+    ayat_matan: set = dataclasses.field(default_factory=set)  # baris yang catatan kaki ayatnya dipindah ke matan (@rujukan_ayat: matan)
     rujuk_silang: list = dataclasses.field(default_factory=list)  # {P:k} yang belum menunjuk {H:}: harus menunjuk {A:k}
     standar: list = dataclasses.field(default_factory=list)  # catatan standar_sumber yang belum dinilai (per bagian)
     dirujuk: set = dataclasses.field(default_factory=set)  # kitab yang sudah dirujuk (rujukan pertama: cek_tautsiq.data_cetak)
