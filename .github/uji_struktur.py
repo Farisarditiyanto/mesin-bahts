@@ -554,6 +554,8 @@ def utama():
             True, "@malahiq: akhir memerlukan #R")
         (f / "isi_ff.jpg").write_bytes(b"\xff\xd8\xff\xff\xc0\x00\x0b\x08\x00\x0a\x00\x14\x03\x01\x11\x00\xff\xd9")
         cek("JPEG dengan byte pengisi 0xFF", sisip("#G isi_ff.jpg | شكل"))
+        (f / "sof_pendek.jpg").write_bytes(b"\xff\xd8\xff\xc0\x00\x05\x08\x00\x0a\xff\xd9")
+        cek("JPEG SOF0 panjang < 7 ditolak", sisip("#G sof_pendek.jpg | شكل"), True, "rusak")
         spasi = akar / "naskah uji"
         spasi.mkdir()
         (spasi / "naskah.txt").write_text(

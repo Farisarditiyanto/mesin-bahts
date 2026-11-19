@@ -276,8 +276,8 @@ class Bendera:
     ganda: str = ""  # pesan kalau disebut dua kali; kosong = sebutan kedua dibaca sebagai argumen biasa
 
 
-POTONGAN = Bendera("--potongan")  # frasa boleh cocok di tengah kata
-JEJAK = Bendera("--jejak")
+POTONGAN = Bendera("--potongan", ganda="--potongan disebut lebih dari sekali")  # frasa boleh cocok di tengah kata
+JEJAK = Bendera("--jejak", ganda="--jejak disebut lebih dari sekali")
 FASL = Bendera("--fasl", "--fasl perlu nomor #F, mis. --fasl 2")
 KE = Bendera("--ke", "--ke perlu nama folder", lambda x: x.startswith("--"))
 SARING = tuple(Bendera(n, f"{n} butuh nilai, mis. {n} {contoh}", lambda x: not x.strip(" ,،"),
@@ -295,6 +295,8 @@ def urai(a, sah):
         if b is None or (x in tersebut and not b.ganda):
             yield None, x
         elif not b.kurang:
+            if x in tersebut:
+                raise ValueError(b.ganda)
             tersebut.add(x)
             yield x[2:], True
         else:

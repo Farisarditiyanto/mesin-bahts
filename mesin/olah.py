@@ -459,8 +459,8 @@ def ukuran_gambar(p):
             panjang = int.from_bytes(data[i + 1:i + 3], "big")
             if panjang < 2 or i + 1 + panjang > len(data):
                 break
-            if 0xC0 <= tanda <= 0xCF and tanda not in (0xC4, 0xC8, 0xCC):  # SOFn: tinggi lalu lebar
-                if i + 8 <= len(data) and data.rfind(b"\xff\xd9") > i:
+            if 0xC0 <= tanda <= 0xCF and tanda not in (0xC4, 0xC8, 0xCC):  # SOFn: panjang(2) + presisi(1) + tinggi(2) + lebar(2)
+                if panjang >= 7 and data.rfind(b"\xff\xd9") >= i + 1 + panjang:
                     ukuran = int.from_bytes(data[i + 6:i + 8], "big"), int.from_bytes(data[i + 4:i + 6], "big")
                 break
             i += 1 + panjang
