@@ -40,15 +40,16 @@ class FihrisNama:
     tanda: str  # huruf tandanya («N» untuk {N:nama})
     kunci: str  # nama daftarnya di bahan rakit, dan butir @tanpa yang membuangnya
     judul: str  # judul فهرس-nya
+    kolom: str  # judul kolom namanya di tabel فهرس itu
     apa: str  # yang ditulis di dalam tandanya, untuk pesan
     contoh: str
     pengarang: bool  # diurutkan seperti nama pengarang: «ابن/أبو» di depan tidak dihitung («ابن القيم» di ق)
     garis: bool  # nama yang memuat «|» punya pesannya sendiri
 
 
-FIHRIS_NAMA = (FihrisNama("N", "alam", "فهرس الأعلام", "nama orangnya", "ابن رجب", pengarang=True, garis=True),
-               FihrisNama("M", "firaq", "فهرس الفرق والمذاهب", "nama firqah atau mazhabnya", "المعتزلة", pengarang=False,
-                          garis=False))
+FIHRIS_NAMA = (FihrisNama("N", "alam", "فهرس الأعلام", "العلم", "nama orangnya", "ابن رجب", pengarang=True, garis=True),
+               FihrisNama("M", "firaq", "فهرس الفرق والمذاهب", "الفرقة أو المذهب", "nama firqah atau mazhabnya", "المعتزلة",
+                          pengarang=False, garis=False))
 
 
 @dataclasses.dataclass
