@@ -20,7 +20,7 @@ README ini peta untuk agent. Pemakai cukup menempel tautan repo ini ke [coding a
 | Aturan kerja | [`AGENTS.md`](AGENTS.md) |
 | Pintu perintah | `python mesin/bahts.py <perintah>` |
 | Alur | `baru` → cari bahan → `ambil` → tulis `naskah.txt` → `cek` → `rakit` → pemeriksa → `cek` dan `rakit` ulang |
-| Connector MCP | `shamela` (wajib), `turath`, `hadithunlocked`, `tafsir`, `quran` |
+| Connector MCP | `shamela` (wajib), `qurangallery`, `turath`, `hadithunlocked`, `tafsir`, `quran` |
 | Kebutuhan | disebut `python mesin/bahts.py periksa`; `rakit` butuh Windows + Microsoft Word |
 | Versi | [rilis](https://github.com/Farisarditiyanto/mesin-bahts/releases), [`CHANGELOG.md`](CHANGELOG.md) |
 | Lisensi | AGPLv3 atau sesudahnya ([`LICENSE`](LICENSE)) |
@@ -54,7 +54,7 @@ Kebutuhan komputer dan cara membereskannya ada di satu tempat: `python mesin/bah
 
 - Perintah mendaftarkan dan masuk `shamela` per agent: `AGENTS.md` «Pemakai baru» langkah 4 (satu-satunya tempat).
 - Model gratis lebih sering salah langkah, jadi pemeriksa langkah 5 makin penting.
-- Connector: `shamela` wajib; `turath`, `hadithunlocked`, `tafsir`, `quran` tanpa akun. Gunanya dan urutan cadangannya: `AGENTS.md` langkah 4-5 dan Alur kerja langkah 2. Angka uji tiap connector, termasuk MCP resmi shamela.ws yang sengaja tidak dipasang: [`dok/uji-riset.md`](dok/uji-riset.md).
+- Connector: `shamela` wajib; `qurangallery`, `turath`, `hadithunlocked`, `tafsir`, `quran` tanpa akun. Gunanya dan urutan cadangannya: `AGENTS.md` langkah 4-5 dan Alur kerja langkah 2. Angka uji tiap connector, termasuk MCP resmi shamela.ws yang sengaja tidak dipasang: [`dok/uji-riset.md`](dok/uji-riset.md).
 - Semua connector hanya penunjuk jalan: kitabnya tetap di-`ambil`, kutipannya tetap harus lolos `cek`.
 
 ### Sampaikan ke pemakai

@@ -20,7 +20,7 @@ This README is a map for agents. The user only pastes this repository's link int
 | Working rules | [`AGENTS.md`](AGENTS.md) (in Indonesian) |
 | Command entry point | `python mesin/bahts.py <perintah>` |
 | Flow | `baru` → gather sources → `ambil` → write `naskah.txt` → `cek` → `rakit` → reviewer → `cek` and `rakit` again |
-| MCP connectors | `shamela` (required), `turath`, `hadithunlocked`, `tafsir`, `quran` |
+| MCP connectors | `shamela` (required), `qurangallery`, `turath`, `hadithunlocked`, `tafsir`, `quran` |
 | Requirements | listed by `python mesin/bahts.py periksa`; `rakit` needs Windows + Microsoft Word |
 | Version | [releases](https://github.com/Farisarditiyanto/mesin-bahts/releases), [`CHANGELOG.md`](CHANGELOG.md) |
 | License | AGPLv3 or later ([`LICENSE`](LICENSE)) |
@@ -56,7 +56,7 @@ Computer requirements and how to fix them are in one place: `python mesin/bahts.
 
 - Commands to register `shamela` and sign in, per agent: `AGENTS.md` «Pemakai baru» step 4 (the only place).
 - Free models take wrong steps more often, so the step 5 reviewer matters even more.
-- Connectors: `shamela` is required; `turath`, `hadithunlocked`, `tafsir`, `quran` need no account. What each is for and the fallback order: `AGENTS.md` steps 4-5 and «Alur kerja» (workflow) step 2. Test figures for each connector, including the official shamela.ws MCP that is deliberately not installed: [`dok/uji-riset.md`](dok/uji-riset.md).
+- Connectors: `shamela` is required; `qurangallery`, `turath`, `hadithunlocked`, `tafsir`, `quran` need no account. What each is for and the fallback order: `AGENTS.md` steps 4-5 and «Alur kerja» (workflow) step 2. Test figures for each connector, including the official shamela.ws MCP that is deliberately not installed: [`dok/uji-riset.md`](dok/uji-riset.md).
 - Every connector is only a signpost: the book is still downloaded with `ambil`, and the quotation must still pass `cek`.
 
 ### Tell the user
