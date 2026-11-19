@@ -50,6 +50,9 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       menggantikan «قسم الشريعة»/«قسم الشريعة بجاكرتا»; « // » = pindah baris, mis.
                       «معهد العلوم الإسلامية والعربية في إندونيسيا // قسم اللغة العربية»)
                       rujukan_ayat (catatan | matan = [^سورة …، آية: n.] dicetak «[السورة: n]» tepat sesudah ayatnya)
+                      logo (- | berwarna = logo جامعة الإمام berwarna seperti sampul jakarta di sampul qism; kop, data,
+                      dan tata letak sampul qism tetap. Hanya untuk sampul qism: bersama @sampul jakarta/mahad, @templat, atau
+                      @bentuk: kitab = GAGAL)
                       malahiq (akhir = bagian «#K الملاحق» (atau «#K ملحق…») sampai #R dicetak sesudah المصادر والمراجع,
                       sebelum فهرس; di naskah tetap ditulis sebelum #R. Halaman الملاحق tidak masuk HALAMAN_ISI.
                       Tidak bisa bersama @pustaka: akhir)
@@ -232,7 +235,8 @@ GAYA = {"kepala": ("-", "kotak"),            # kotak = judul kanan, nomor halama
         "pustaka_gaya": ("judul", "muallif"),  # muallif = القرآن الكريم ikut bernomor; **…** tebal dan __…__ miring di #R
         "judul_kanan": ("-", "B", "M", "B, M"),  # judul #B/#M rata kanan (bawaan: di tengah)
         "fihris": ("baru", "sambung"),  # sambung = المصادر/فهرس sesudah yang pertama menyambung di halaman yang sama
-        "rujukan_ayat": ("catatan", "matan")}  # matan = [^سورة …، آية: n.] dicetak «[السورة: n]» tepat sesudah ayatnya
+        "rujukan_ayat": ("catatan", "matan"),  # matan = [^سورة …، آية: n.] dicetak «[السورة: n]» tepat sesudah ayatnya
+        "logo": ("-", "berwarna")}  # berwarna = sampul qism dengan logo berwarna dari sampul_jakarta.docx, sisanya tetap
 # @model: satu nama untuk sekumpulan pilihan di atas (dan @sampul, @format, @pustaka, @catatan_kaki); kunci yang ditulis
 # sendiri di naskah tetap menang, jadi model bisa dicampur, mis. «@model: jakarta» + «@sampul: qism»
 MODEL = {"jakarta": {"sampul": "jakarta", "format": "jakarta", "kepala": "kotak", "fihris_ayat": "surah",
@@ -681,6 +685,11 @@ def _cek_bentuk(ctx):
     if bentuk not in WAJIB:
         galat.append(di("@bentuk") + f"@bentuk: «{bentuk}» tidak dikenal (yang ada: {'، '.join(WAJIB)})")
         bentuk = next(iter(WAJIB))
+    sampul = meta.get("sampul") or next(iter(SAMPUL))
+    if meta["logo"] == "berwarna" and (meta.get("templat") or bentuk == "kitab" or sampul != "qism"):
+        alasan = ("@templat membawa sampulnya sendiri" if meta.get("templat") else "@bentuk: kitab tanpa sampul"
+                  if bentuk == "kitab" else f"@sampul: {sampul} memakai logonya sendiri")
+        galat.append(di("@logo") + f"@logo: berwarna hanya untuk sampul qism (bawaan): {alasan}")
     if "pustaka" in tanpa:  # sumber cukup di catatan kaki (rujukan pertama tiap kitab berdata lengkap)
         if "#R" in di_baris:
             galat.append(di("#R") + "@tanpa: pustaka, tetapi ada #R: hapus #R beserta daftarnya, atau hapus «pustaka» dari @tanpa")
