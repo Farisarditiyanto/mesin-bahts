@@ -7,19 +7,18 @@
 - `cari`/`teks`/`bab` mencocokkan kata utuh; yang menyeberang batas kata hanya disebut jumlahnya;
 - `hadits` menandai riwayat yang kitabnya sudah diunduh dengan juz/halaman edisi lokal (layanan alminasa ditiru).
 Kitabnya kitab CI (baris `ambil` di tes.yml)."""
-import atexit, contextlib, io, json, runpy, shutil, subprocess, sys, tempfile
+import atexit, contextlib, io, json, os, re, runpy, subprocess, sys, tempfile
 from pathlib import Path
 from unittest.mock import patch
 
 sys.stdout.reconfigure(encoding="utf-8")
 from uji_semua import kitab_ci
+from bantu import salin_mesin
 REPO = Path(__file__).resolve().parent.parent
 SEMENTARA = tempfile.TemporaryDirectory(prefix="bahts-perintah-")
 atexit.register(SEMENTARA.cleanup)
 AKAR = Path(SEMENTARA.name)
-shutil.copytree(REPO / "mesin", AKAR / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__"))
-for sid in ("_meta", *map(str, kitab_ci())):
-    shutil.copytree(REPO / "kitab" / sid, AKAR / "kitab" / sid)
+salin_mesin(AKAR, ("_meta", *map(str, kitab_ci())))
 
 
 def jalankan(*a):
@@ -68,16 +67,54 @@ for sid, harus, jangan in (("2348", "تعليق وتحقيق: ماهر ياسي�
     kode, out, err = jalankan("kartu", sid)
     if kode or harus not in out or (jangan and jangan in out):
         gagal.append(f"kartu {sid}: harus memuat «{harus}»" + (f" tanpa «{jangan}»" if jangan else "") + f"; keluaran {out[:300]!r}")
+# `kartu`: bukti siap pakai di baris terakhirnya memakai juz yang diterima `cek` (kitab berjilid tidak ditulis «-»,
+# juga yang halamannya bersambung) dan halaman yang terbaca
+(AKAR / "uji-kartu").mkdir()
+
+
+def cek_bukti(bukti):
+    (AKAR / "uji-kartu" / "naskah.txt").write_text(
+        f"@judul: اختبار\n@bentuk: kitab\n@tanpa: pustaka\n#K مقدمة\nهذا معنى[^انظر: كتاب، ص5. {bukti}].\n", encoding="utf8")
+    return jalankan("cek", "uji-kartu")[1]
+
+
+if "kitab 1082 berjilid: tulis juz-nya" not in cek_bukti("<<1082|-|5>>"):
+    gagal.append("cek: juz «-» di kitab berjilid (1082) tidak ditolak")
+for sid in kitab_ci():
+    bukti = jalankan("kartu", str(sid))[1].strip().splitlines()[-1]
+    m = (re.search(rf"<<{sid}\|([^|<>]+)\|(\d+)>>", bukti)
+         or re.search(rf"<<{sid}\|(-)\|<hal>>> \(kitab satu jilid: juz \"-\"; halaman (\d+)-", bukti))
+    if not m:
+        gagal.append(f"kartu {sid}: baris terakhir bukan bukti siap pakai: {bukti!r}")
+        continue
+    juz, hal = m.groups()
+    if jalankan("halaman", str(sid), juz, hal)[0]:
+        gagal.append(f"kartu {sid}: halaman {juz}/{hal} dari baris bukti tidak terbaca")
+    if "berjilid" in cek_bukti(f"<<{sid}|{juz}|{hal}>>"):
+        gagal.append(f"kartu {sid}: juz «{juz}» dari baris bukti ditolak `cek`: {bukti!r}")
 kode, out, err = jalankan("kartu", "11223", "--potongan")
 if kode != 1 or "berlebih" not in err:
     gagal.append(f"kartu 11223 --potongan: harus ditolak (bendera hanya untuk cari/teks/bab); kode {kode}, galat {err[:80]!r}")
+for a in (["cari", "1082", "العربان", "--potongan", "--potongan"],
+          ["teks", "1082", "العربان", "--potongan", "--potongan"]):
+    kode, out, err = jalankan(*a)
+    if kode != 1 or "disebut lebih dari sekali" not in err:
+        gagal.append(f"{' '.join(a)}: bendera kembar harus ditolak dengan pesan ganda; kode {kode}, galat {err[:120]!r}")
+kode, out, err = jalankan("cari", "w0123abcd", "الحمد", "--potongan")
+if kode != 1 or "Traceback" in err or "--potongan" not in err:
+    gagal.append(f"cari w… --potongan: harus ditolak dengan pesan jelas; kode {kode}, galat {err[:120]!r}")
+if os.name == "nt":
+    kode, out, err = jalankan("periksa")
+    baris_sm = [b for b in out.splitlines() if "Sakkal Majalla" in b]
+    if not baris_sm or "jakarta" not in baris_sm[0]:
+        gagal.append(f"periksa: Sakkal Majalla harus menyebut profil jakarta (huruf_judul); dapat {baris_sm!r}")
 
 # `hadits`: juz/halaman layanan bisa dari edisi lain (uji pakai: Ibn Majah 2192 «3/311» edisi Risalah, padahal edisi lokal
 # 1198 = 2/738; takhrij yang memercayainya tidak lolos `cek`). Riwayat yang kitabnya sudah diunduh diberi juz/halaman kepala
 # hadits «n -» di edisi lokal: Bukhari 1 = 1681 1/6, Muslim 1907 = 1727 3/1515, Bukhari 856 = 1/171 (rekamannya mulai
 # ص170: halaman penanda, bukan halaman rekaman). Kitab yang belum diunduh tidak ditandai.
 sys.path.insert(0, str(AKAR / "mesin"))
-import hadits
+import jaringan
 
 riwayat = [("صحيح البخاري", 1), ("صحيح البخاري", 856), ("صحيح مسلم", 1907), ("مسند أحمد", 1), ("صحيح البخاري", 999999)]
 jawaban = {"hits": {"total": {"value": len(riwayat)}, "hits": [
@@ -86,7 +123,7 @@ jawaban = {"hits": {"total": {"value": len(riwayat)}, "hits": [
 keluar = io.StringIO()
 keluar.reconfigure = lambda **kw: None
 with patch.object(sys, "argv", [str(AKAR / "mesin" / "bahts.py"), "hadits", "إنما الأعمال بالنيات"]), \
-        patch.object(hadits, "buka", side_effect=lambda *a, **kw: io.BytesIO(json.dumps(jawaban).encode("utf8"))), \
+        patch.object(jaringan, "buka", side_effect=lambda *a, **kw: io.BytesIO(json.dumps(jawaban).encode("utf8"))), \
         contextlib.redirect_stdout(keluar):
     try:
         runpy.run_path(str(AKAR / "mesin" / "bahts.py"), run_name="__main__")

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Pemeriksaan PDF sesudah rakit (`teks_pdf.periksa`, dipanggil `rakit` sesudah Word menyimpan PDF) pada PDF Word asli
-`contoh/jebakan/sumber_word.pdf` (= `rakit contoh`: sampul qism, nomor halaman ٠١٢٣, nim «000000000»). Yang pernah
-terjadi: PDF tercetak 0123 tanpa @angka, sampul templat «بيع العربون» padahal @judul «حكم بيع العربون», sampul
+`contoh/jebakan/sumber_word.pdf` (= `rakit contoh`: sampul qism, nomor halaman ٠١٢٣, nim «000000000»). Yang
+ditangkap: PDF tercetak 0123 tanpa @angka, sampul templat «بيع العربون» padahal @judul «حكم بيع العربون», sampul
 templat mencetak «المجموعة (......)», dan pengantar «أدلة القول الأول:» sendirian di dasar halaman. Teks PDF Word tidak
 tersalin persis, jadi yang diuji juga bahwa PDF yang benar tidak diperingatkan."""
 import json, sys, tempfile
@@ -59,10 +59,11 @@ def tulis(tujuan, tambahan={}, latin=False, gambar={}):
 
 
 def utama():
-    gagal = []
+    gagal, diuji = [], []
 
     def uji(nama, pdf, meta, harus):
         """harus: potongan pesan yang wajib ada, satu per peringatan (kosong = tidak boleh ada peringatan)."""
+        diuji.append(nama)
         pesan = teks_pdf.periksa(pdf, {"meta": {**META, **meta}, "format": FORMAT})
         if len(pesan) != len(harus) or not all(any(h in p for p in pesan) for h in harus):
             gagal.append(nama)
@@ -101,7 +102,7 @@ def utama():
         uji("sampul Letter di depan isi A4: ukuran kertas bercampur", tmp / "letter.pdf", {}, ["ukuran kertas"])
     if gagal:
         sys.exit(f"{len(gagal)} uji PDF gagal: " + "; ".join(gagal))
-    print("uji pdf: 11 skenario sesuai")
+    print(f"uji pdf: {len(diuji)} skenario sesuai")
 
 
 if __name__ == "__main__":

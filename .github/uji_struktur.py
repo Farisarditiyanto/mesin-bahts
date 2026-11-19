@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Regresi struktur lewat CLI asli di salinan TEMP, memakai contoh dan kitab asli.
-Tidak menjalankan Word: naskah yang kehilangan isi harus ditolak sebelum perakit dipanggil.
+"""Putusan `cek` atas @data, susunan judul, riset.txt, dan الدراسات السابقة, serta `baru` dan `tahap`, lewat CLI asli
+di salinan TEMP dengan contoh dan kitab asli. Tidak menjalankan Word: naskah yang kehilangan isi harus ditolak
+sebelum perakit dipanggil.
 """
 import json, os, random, re, shutil, struct, subprocess, sys, tempfile, zipfile
 from pathlib import Path
+from bantu import salin_mesin
 
 AKAR = Path(__file__).resolve().parent.parent
 sys.stdout.reconfigure(encoding="utf8")
@@ -12,9 +14,7 @@ sys.stdout.reconfigure(encoding="utf8")
 def utama():
     with tempfile.TemporaryDirectory(prefix="bahts-struktur-") as t:
         akar = Path(t)
-        shutil.copytree(AKAR / "mesin", akar / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__", "*.ttf"))
-        for sid in ("_meta", "11223", "1681", "2348", "1726", "1082"):
-            shutil.copytree(AKAR / "kitab" / sid, akar / "kitab" / sid)
+        salin_mesin(akar, ("_meta", "11223", "1681", "2348", "1726", "1082"), huruf=False)
         f = akar / "uji"
         f.mkdir()
         dasar = (AKAR / "contoh" / "naskah.txt").read_text(encoding="utf8")
@@ -33,8 +33,8 @@ def utama():
             return out
 
         perkiraan = re.compile(r"perkiraan halaman isi [^±]*±(\d+)")  # ± pertama = isi; sesudahnya «seluruh PDF: ±N»
-        out = cek("contoh asli", dasar)
-        isi_asli = perkiraan.search(out).group(1)
+        asli = cek("contoh asli", dasar)
+        isi_asli = perkiraan.search(asli).group(1)
         for nama in ("NUL", "con", "COM1", "LPT9.txt", "COM¹", "AUX .data", "hasil\x01baru"):
             cek("nama hasil terlarang Windows", "@berkas: " + nama + "\n" + dasar, True, "@berkas:")
         for nama in ("CON sesuai", "NUL catatan.txt", "COM10", "بحث علمي"):
@@ -53,7 +53,7 @@ def utama():
             else:
                 cek("PNG utuh berbyte tambahan sesudah IEND", teks)
         # @minimal_halaman: bawaan 25 halaman seluruh PDF (perkiraan); contoh menulis 0 karena ±8 halaman
-        assert "kurang dari" not in out and "@minimal_halaman: 0\n" in dasar, out
+        assert "kurang dari" not in asli and "@minimal_halaman: 0\n" in dasar, asli
         # @logo: berwarna = rakit.ps1 menukar word/media/image2.png sampul_qism.docx dengan milik sampul_jakarta.docx
         cek("logo berwarna di sampul qism", "@logo: berwarna\n" + dasar)
         cek("logo tidak dikenal", "@logo: biru\n" + dasar, True, "@logo: «biru» tidak dikenal")
@@ -76,8 +76,7 @@ def utama():
             "bukan bilangan bulat")
         out = cek("@bentuk: kitab tidak dinilai halamannya", tanpa_batas.replace("@format:", "@bentuk: kitab\n@format:", 1))
         assert "halaman, kurang dari" not in out, out
-        # @minimal_kitab: bawaan tidak dinilai; hanya kalau dosen menulis batasnya
-        assert "baru 1 kitab" not in out, out
+        # @minimal_kitab: bawaan tidak dinilai (contoh asli di atas: tanpa «kurang dari»); hanya kalau dosen menulis batasnya
         dua = dasar.replace("@minimal_halaman: 0", "@minimal_halaman: 0\n@minimal_kitab: 2")
         cek("kitab kurang dari batas dosen", dua, pesan="baru 1 kitab (selain القرآن الكريم), kurang dari 2 («@minimal_kitab: 2»)")
         cek("batas kitab angka hindi", dua.replace("@minimal_kitab: 2", "@minimal_kitab: ٢"),
@@ -203,7 +202,7 @@ def utama():
         out = cek("bagian kosong di kitab", "@bentuk: kitab\n" + kosong)
         assert "masih kosong" not in out, out
         out = cek("riset {Q:} di bawah #R", dasar + "مرجع {Q:1:1}.\n")
-        assert "{Q:1:1}" not in out, out
+        assert "tafsir belum tercatat di riset.txt untuk 1 ayat: 1:2 →" in out, out
         for tanda in ("#K", "#F", "#B", "#M", "#S", "#T", "#R", "#H"):
             akhir = tanda + ("" if tanda == "#H" else " نص إضافي")
             cek("isi sesudah pustaka " + tanda, dasar + "\n" + akhir + "\n", True, "sesudah #R")
@@ -219,14 +218,14 @@ def utama():
             cek("salah ketik " + salah, f"@{salah}: latin\n" + dasar, True, "maksudnya @" + benar)
         cek("@pustaka nilai salah", "@pustaka: awal\n" + dasar, True, "@pustaka: «awal» tidak dikenal")
         cek("@pustaka: akhir diterima", "@pustaka: akhir\n" + dasar)
-        # «000000000» dulu ada di contoh/naskah.txt, tersalin ke bahts nyata, lalu tercetak di sampul sebagai nomor mahasiswa
+        # nomor mahasiswa isian nol tercetak di sampul apa adanya
         for nol in ("000000000", "٠٠٠٠٠٠٠٠٠"):
             cek("@nim nol " + nol, dasar.replace("@nim: -", "@nim: " + nol), True, "tercetak di sampul sebagai nomor mahasiswa")
         cek("@nim asli diterima", dasar.replace("@nim: -", "@nim: 123456789"))
 
         # @catatan_kaki/@spasi menimpa satu nilai profil @format di bahan yang dibaca rakit.ps1; profil lain tetap
         sys.path.insert(0, str(akar / "mesin"))
-        from berkas import bahan
+        from olah import alamat_bahan as bahan
         profil = json.loads((akar / "mesin" / "format.json").read_text(encoding="utf8"))
         format_bahan = lambda: json.loads(bahan(f).read_text(encoding="utf8"))["format"]
         dengan = lambda baris: dasar.replace("@format: imam_ayat16\n", baris)
@@ -286,6 +285,9 @@ def utama():
         assert "catatan kaki=4002" in out and "| GAGAL: 0" in out
         out = cek("500 data salah ketik", "@fromat: imam_ayat16\n" * 500 + dasar, True)
         assert "| GAGAL: 500" in out
+
+        def sidik_naskah(keluaran_cek):
+            return re.search(r"^NASKAH_SHA256=(\w+)$", keluaran_cek, re.M)[1]
 
         def bahts(*argumen):
             return subprocess.run([sys.executable, str(akar / "mesin" / "bahts.py"), *argumen], cwd=akar, capture_output=True,
@@ -388,23 +390,9 @@ def utama():
             "**ابن كثير، إسماعيل بن عمر**. __تفسير القرآن العظيم__.\n**أبو داود، سليمان بن الأشعث**. __السنن__.\n"
             "**الترمذي، محمد بن عيسى**. __السنن__.\n**العثيمين، محمد بن صالح**. __رسالة في القضاء والقدر__. دار الوطن، 1423هـ.")
         cek("urutan pustaka muallif", gaya)
-        sys.path.insert(0, str(akar / "mesin"))
-        import berkas as berkas_
-        urut = [p.split("،")[0].strip("*") for p in json.loads(berkas_.bahan(f).read_text(encoding="utf8"))["pustaka"]]
+        urut = [p.split("،")[0].strip("*") for p in json.loads(bahan(f).read_text(encoding="utf8"))["pustaka"]]
         assert urut == ["القرآن الكريم.", "الترمذي", "أبو داود", "العثيمين", "ابن كثير"], urut
         hasil.append("standar أبو سليمان: الخاتمة, المقدمة رسالة, urutan pustaka muallif")
-
-        # Salinan PDF: tanpa keluaran_saya.txt tidak ada apa-apa; dengan berkas itu tersalin per orang.
-        salin = ("import sys; sys.argv=['bahts']; import bahts\n"
-                 "f = bahts.AKAR / 'bahts' / 'ahmad' / 'ikhlas'\n"
-                 "(f / 'hasil.pdf').write_bytes(b'PDF')\n"
-                 "bahts.salin_keluaran(f, 'hasil')")
-        jalan = lambda: subprocess.run([sys.executable, "-c", salin], cwd=akar / "mesin", capture_output=True, encoding="utf8", timeout=60)
-        assert jalan().returncode == 0
-        (akar / "keluaran_saya.txt").write_text(str(akar / "keluar") + "\n", encoding="utf8")
-        r = jalan()
-        assert (akar / "keluar" / "ahmad" / "hasil.pdf").read_bytes() == b"PDF", r.stdout + r.stderr
-        hasil.append("salinan PDF per orang")
 
         # `tahap`: keadaan dibaca ulang dari barang aslinya. Yang diam-diam menyesatkan: PDF lama dilaporkan TERKINI sesudah
         # naskah diubah, folder .rakit-* tanpa penanda disuruh/dibiarkan dibuang, atau rakit yang jalan tidak terlihat.
@@ -418,7 +406,7 @@ def utama():
 
         out = tahap()
         assert "NASKAH=LOLOS" in out and "HASIL=BELUM" in out and 'rakit "bahts/ahmad/ikhlas"' in out, out
-        sidik = __import__("hashlib").sha256((ikhlas / "naskah.txt").read_bytes()).hexdigest()
+        sidik = sidik_naskah(bahts("cek", "bahts/ahmad/ikhlas").stdout)
         (ikhlas / "ikhlas.pdf").write_bytes(b"%PDF")
         (ikhlas / "laporan.txt").write_text(f"NASKAH_SHA256={sidik}\nHALAMAN=1\n", encoding="utf8")
         out = tahap()
@@ -471,8 +459,8 @@ def utama():
 
         def pegang_rakit(apa, naskah_):  # rakit yang sedang jalan = proses yang memegang kunci rakit
             (ikhlas / "naskah.txt").write_text(naskah_, encoding="utf8")
-            p = subprocess.Popen([sys.executable, "-c", "import sys, time; from pathlib import Path; import berkas\n"
-                                  f"with berkas.kunci(Path('_tmp/rakit.pekerjaan'), apa='{apa}'):\n"
+            p = subprocess.Popen([sys.executable, "-c", "import sys, time; from pathlib import Path; import rakit\n"
+                                  f"with rakit.kunci(Path('_tmp/rakit.pekerjaan'), apa='{apa}'):\n"
                                   "    print('pegang', flush=True); time.sleep(60)"],
                                  cwd=akar / "mesin", stdout=subprocess.PIPE, encoding="utf8")
             try:
@@ -493,11 +481,11 @@ def utama():
         luar = 'قال الباحث: "القدر من أعظم أبواب الاعتقاد"[^بحث وهمي، ص5. <<luar>>].\n'  # satu perhatian, bisa diterima
 
         def naskah_(teks, riset_):
-            (ikhlas / "naskah.txt").write_bytes(teks.encode("utf8"))  # sidik di laporan = byte persis berkasnya
+            (ikhlas / "naskah.txt").write_text(teks, encoding="utf8")
             (ikhlas / "riset.txt").write_text(riset_, encoding="utf8")
-            sidik_ = __import__("hashlib").sha256(teks.encode("utf8")).hexdigest()
-            (ikhlas / "laporan.txt").write_text(f"NASKAH_SHA256={sidik_}\n", encoding="utf8")
-            return bahts("cek", "bahts/ahmad/ikhlas").stdout
+            out = bahts("cek", "bahts/ahmad/ikhlas").stdout
+            (ikhlas / "laporan.txt").write_text(f"NASKAH_SHA256={sidik_naskah(out)}\n", encoding="utf8")
+            return out
 
         def kode_(out):
             return re.findall(r"^  ! ([0-9a-f]{6}) ", out, re.M)
@@ -557,22 +545,25 @@ def utama():
         assert "HASIL fasl1=USANG" in out and "HASIL fasl2=TERKINI" in out and "HASIL fasl10=TIDAK_DIKETAHUI" in out, out
         assert out.index("fasl2=") < out.index("fasl10="), out
         assert 'bukti "bahts/ahmad/ikhlas"' in out, out
-        # folder kerja yang gagal dibuang sebagian tetap SEMENTARA (dicoba lagi), tidak jadi ASING
-        sys.path.insert(0, str(akar / "mesin"))
-        import berkas as berkas_
-        sisa = ikhlas / ".rakit-sebagian"
-        (sisa / "word").mkdir(parents=True)
-        (sisa / "rakit.sementara").write_text("")
-        (sisa / "buka.txt").write_text("")
-        with open(sisa / "buka.txt") as _terbuka:  # Windows: berkas yang terbuka tidak bisa dihapus
-            hilang = berkas_.FolderKerja(sisa).buang()
-            assert not hilang or os.name != "nt", "berkas terbuka ikut terhapus"
-            if not hilang:
-                assert berkas_.FolderKerja(sisa).keadaan() is berkas_.FolderKerja.Keadaan.SEMENTARA, list(sisa.iterdir())
-        if sisa.exists():
-            assert berkas_.FolderKerja(sisa).buang() and not sisa.exists()
         hasil.append("tahap: naskah, hasil (juga --fasl dan laporan lama), perhatian menahan, folder .rakit-*, "
-                     "_arsip, rakit bahts ini dan bahts lain; folder kerja setengah terbuang tetap SEMENTARA")
+                     "_arsip, rakit bahts ini dan bahts lain")
+
+        # @sampul kapital + @logo: berwarna, @malahiq: akhir tanpa #R, JPEG dengan byte isi 0xFF, saran `ambil` berspasi
+        cek("@sampul QISM + @logo berwarna", "@sampul: QISM\n@logo: berwarna\n" + dasar)
+        cek("@malahiq akhir tanpa pustaka", "@tanpa: pustaka\n@malahiq: akhir\n" + dasar.split("#R ")[0] + "#K الملاحق\nملحق.\n",
+            True, "@malahiq: akhir memerlukan #R")
+        (f / "isi_ff.jpg").write_bytes(b"\xff\xd8\xff\xff\xc0\x00\x0b\x08\x00\x0a\x00\x14\x03\x01\x11\x00\xff\xd9")
+        cek("JPEG dengan byte pengisi 0xFF", sisip("#G isi_ff.jpg | شكل"))
+        (f / "sof_pendek.jpg").write_bytes(b"\xff\xd8\xff\xc0\x00\x05\x08\x00\x0a\xff\xd9")
+        cek("JPEG SOF0 panjang < 7 ditolak", sisip("#G sof_pendek.jpg | شكل"), True, "rusak")
+        spasi = akar / "naskah uji"
+        spasi.mkdir()
+        (spasi / "naskah.txt").write_text(
+            "@judul: فحص\n@nama: فلان\n@tanpa: pustaka\n@minimal_halaman: 0\n"
+            "#K المقدمة\nنص[^كتاب، ص5. <<999999|-|5>>].\n#K الخاتمة\nنتائج.\n", encoding="utf8")
+        r = bahts("cek", "naskah uji")
+        assert r.returncode != 0 and 'ambil "naskah uji"' in r.stdout, r.stdout + r.stderr
+        hasil.append("sampul kapital + logo berwarna, malahiq akhir tanpa #R, JPEG 0xFF, saran ambil berspasi")
         print(f"uji struktur: {len(hasil)} skenario sesuai, termasuk beban 2000 nukilan/4000 catatan kaki dan 500 data salah ketik")
 
 

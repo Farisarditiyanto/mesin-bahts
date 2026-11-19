@@ -2,9 +2,10 @@
 """Regresi berkas melalui cek/cari/halaman/rakit asli, pada salinan TEMP.
 Word/COM dan kegagalan filesystem disimulasikan; rakit Word sungguhan tetap diuji lokal.
 """
-import gzip, hashlib, json, os, random, shutil, subprocess, sys, tempfile, zipfile
+import gzip, hashlib, json, os, random, subprocess, sys, tempfile, zipfile
 from pathlib import Path
 from unittest.mock import patch
+from bantu import salin_mesin
 
 AKAR = Path(__file__).resolve().parent.parent
 sys.stdout.reconfigure(encoding="utf8")
@@ -36,10 +37,10 @@ akar, nama, mode, lain = map(str, sys.argv[1:])
 akar = str(Path(akar).resolve())  # runner Windows GitHub: TEMP bernama pendek (RUNNER~1), mesin memakai jalur panjang
 sys.stdout.reconfigure(encoding="utf8"); sys.stderr.reconfigure(encoding="utf8")
 sys.path.insert(0, str(Path(akar) / "mesin"))
-import bahts, teks_pdf
+import bahts, huruf, rakit, teks_pdf
 bahts.os = types.SimpleNamespace(**dict(vars(os), name="nt"))
-bahts.font_terpasang = lambda: True
-bahts.huruf_ada = lambda nama: True
+huruf.font_terpasang = lambda: True
+huruf.huruf_ada = lambda nama: True
 run = subprocess.run
 if mode == "pdf-fail":
     def gagal(*a): raise RuntimeError("injeksi pembetulan PDF gagal")
@@ -47,7 +48,7 @@ if mode == "pdf-fail":
 if mode == "simpan-unlink-gagal":  # penanda bahan sementara tidak bisa dicabut (mis. terkunci antivirus)
     unlink = Path.unlink
     def cabut(self, *a, **k):
-        if self.name == bahts.RAKIT_SEMENTARA and ditolak:  # hanya sesudah penggantian hasil gagal
+        if self.name == "rakit.sementara" and ditolak:  # hanya sesudah penggantian hasil gagal
             raise PermissionError("injeksi penanda tidak bisa dicabut")
         return unlink(self, *a, **k)
     Path.unlink = cabut
@@ -66,15 +67,15 @@ if mode in ("publish-fail", "rollback-blocked", "simpan-unlink-gagal"):
     Path.replace = ganti
 def word(args, **kwargs):
     if args[0] != "powershell": return run(args, **kwargs)
-    folder = Path(args[args.index("-Folder") + 1])
+    folder = Path(akar) / nama
     build = Path(args[args.index("-Build") + 1])
-    out = Path(args[args.index("-Hasil") + 1]) if "-Hasil" in args else folder
+    out = Path(args[args.index("-Hasil") + 1])
     if mode == "snapshot":
         r = run([sys.executable, str(Path(akar)/"mesin"/"bahts.py"), "cek", lain], capture_output=True)
         assert r.returncode == 0
     if mode == "lock":
         r = run([sys.executable, __file__, akar, nama, "ok", lain], capture_output=True, encoding="utf8")
-        # rakit kedua antre dulu (kabar «menunggu giliran»), lalu berhenti sesudah RAKIT_ANTRE habis
+        # rakit kedua antre dulu (kabar «menunggu giliran»), lalu berhenti sesudah rakit.ANTRE habis
         assert r.returncode != 0 and "Rakit lain" in r.stderr and "menunggu giliran" in r.stdout, r.stdout + r.stderr
         # yang antre menyebut pemegang kunci (folder, proses, jam mulai), supaya rakit yang bekerja tidak dimatikan
         assert f"{nama}, proses {os.getpid()}, mulai " in r.stdout and f"({nama}, proses {os.getpid()}" in r.stderr, r.stdout + r.stderr
@@ -97,37 +98,34 @@ def word(args, **kwargs):
     from pypdf import PdfWriter
     w = PdfWriter(); w.add_blank_page(width=100, height=100)
     with open(out / f"{hasil}.pdf", "wb") as h: w.write(h)
-    with open(out / "laporan.txt", "a", encoding="utf8") as h:
+    with open(args[args.index("-Laporan") + 1], "a", encoding="utf8") as h:
         h.write("HALAMAN=99\n" if mode == "pages-fail" else "HALAMAN=1\n")
     if mode == "changed":
         with open(folder / "naskah.txt", "a", encoding="utf8") as h: h.write("نص جديد.\n")
     return types.SimpleNamespace(returncode=0)
-bahts.subprocess.run = word
-bahts.RAKIT_ANTRE = 3  # antrean asli 30 menit; rakit di dalam rakit (mode lock) tidak boleh menunggu selama itu
-fasl = mode[5:] if mode.startswith("fasl:") else None
+subprocess.run = word
+rakit.ANTRE = 3  # antrean asli 30 menit; rakit di dalam rakit (mode lock) tidak boleh menunggu selama itu
+argumen = [nama, "--fasl", mode[5:]] if mode.startswith("fasl:") else [nama]
 if mode == "ps-yatim":  # rakit.ps1 yang Python-nya dimatikan masih hidup dan memegang kuncinya, seperti di rakit.ps1
-    bahts.RAKIT_PS_KUNCI.parent.mkdir(parents=True, exist_ok=True)
-    yatim = subprocess.Popen(["powershell", "-NoProfile", "-Command", f"$k = [IO.File]::Open('{bahts.RAKIT_PS_KUNCI}', "
+    rakit.PS_KUNCI.parent.mkdir(parents=True, exist_ok=True)
+    yatim = subprocess.Popen(["powershell", "-NoProfile", "-Command", f"$k = [IO.File]::Open('{rakit.PS_KUNCI}', "
                               "'OpenOrCreate', 'ReadWrite', 'None'); 'pegang'; Start-Sleep 60"],
                              stdout=subprocess.PIPE, text=True)
     assert yatim.stdout.readline().strip() == "pegang"
     try:
-        bahts.rakit(nama, fasl)
+        bahts.perintah_rakit(argumen)
     finally:
         yatim.kill()
 else:
-    bahts.rakit(nama, fasl)
+    bahts.perintah_rakit(argumen)
 '''
 
 
 def utama():
     with tempfile.TemporaryDirectory(prefix="bahts-integritas-") as t:
         akar = Path(t)
-        shutil.copytree(AKAR / "mesin", akar / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__", "*.ttf"))
-        shutil.copytree(AKAR / "kitab" / "11223", akar / "kitab" / "11223")
-        shutil.copytree(AKAR / "kitab" / "_meta", akar / "kitab" / "_meta")
+        salin_mesin(akar, ("_meta", "11223"), huruf=False)
         sys.path.insert(0, str(akar / "mesin"))
-        import bahts, norma
         kitab = akar / "kitab" / "11223"
         pages = kitab / "pages.jsonl.gz"
         runner = akar / "word_fixture.py"
@@ -142,15 +140,6 @@ def utama():
             except Exception as e:
                 gagal.append(nama)
                 print("GAGAL:", nama, type(e).__name__, str(e)[-1000:])
-
-        def terpisah():
-            a, b = akar / "a" / "sama", akar / "b" / "sama"
-            naskah(a); naskah(b, "عنوان آخر", "lain")
-            for f in (a, b):
-                r = jalan(akar, "cek", f)
-                assert r.returncode == 0, r.stdout + r.stderr
-            assert bahts.bahan(a) != bahts.bahan(b), "Dua jalur memakai satu bahan"
-            assert json.loads(bahts.bahan(a).read_text(encoding="utf8"))["meta"]["judul"] == "المطلوب"
 
         def cache_usang():
             sumber(pages)
@@ -180,8 +169,8 @@ def utama():
 
         def cache_rusak():
             sumber(pages, True)
-            f = kitab / f"padat-{norma.VERSI}.bin"
             assert jalan(akar, "cari", "11223", "كلمات جديدة للبحث").returncode == 0
+            f, = kitab.glob("padat-*.bin")
             utuh = f.read_bytes()
             kepala, _, isi = utuh.partition(b"\n")
             # kepala bukan JSON / bentuk salah / sidik lain / tanpa kunci crc32, isi terpotong / berlebih / satu byte berubah (crc32)
@@ -428,18 +417,15 @@ def utama():
                 dirasat.pdf("W123", f)
             assert tujuan.read_bytes() == isi, "PDF terpotong sesudah revisi lama dianggap utuh"
 
-        def katalog_ringan():
-            # Proses baru: pembacaan katalog tidak boleh diam-diam mengimpor pandas.
-            r = subprocess.run([sys.executable, "-c",
-                "import sys; sys.path.insert(0, 'mesin'); import shamela; "
-                "assert shamela._meta(); assert 'pandas' not in sys.modules; "
-                "assert shamela.nomor_judul('رسالة في القضاء والقدر')[0]; "
-                "assert shamela.katalog('(رياض') > 0; shamela.katalog('a{99999999999}')"],
-                cwd=akar, capture_output=True, encoding="utf8", env=dict(os.environ, PYTHONIOENCODING="utf8"))
-            assert r.returncode == 0, r.stdout + r.stderr
+        def katalog_pola():
+            # pola bertanda regex yang bukan regex sah (kurung tak berpasangan, pengulangan raksasa) dicocokkan sebagai teks
+            r = jalan(akar, "katalog", "(رياض")
+            assert r.returncode == 0 and "\tرياض الصالحين" in r.stdout, r.stdout + r.stderr
+            r = jalan(akar, "katalog", "a{99999999999}")
+            assert "TIDAK KETEMU di katalog" in r.stdout and "Traceback" not in r.stderr, r.stdout + r.stderr
 
         def konsumen_katalog():
-            import contextlib, io, shamela
+            import contextlib, io, jaringan, shamela, turath
             rows = [{"shamela_id": 99001, "book_id": 777, "category_id": 7, "title_ar": "كتاب تجريبي",
                      "main_author_name_ar": "مؤلف", "category_name_ar": "قسم", "has_multi_part": False},
                     {"shamela_id": 99002, "has_multi_part": True}]
@@ -453,16 +439,16 @@ def utama():
                 "meta": json.dumps({"vol": 1, "page": 9, "book_name": "كتاب", "author_name": "مؤلف"})}
                 for sid in (99001, 99002)]}
             out = io.StringIO()
-            with patch.object(shamela, "_meta", return_value=rows), contextlib.redirect_stdout(out):
-                with patch.object(shamela, "_ls", side_effect=ls), patch.object(shamela, "unduh", side_effect=ambil), patch.object(shamela, "_cache"):
-                    shamela._ambil(99001)
-                with patch.object(shamela, "buka", side_effect=lambda *a: io.StringIO(json.dumps(jawaban))):
-                    assert shamela.temukan("نص البحث") == 2
+            with patch.object(shamela, "isi_katalog", return_value=rows), contextlib.redirect_stdout(out):
+                with patch.object(shamela, "_ls", side_effect=ls), patch.object(shamela, "unduh", side_effect=ambil), patch.object(shamela, "padat_kitab"):
+                    shamela.ambil_satu(99001)
+                with patch.object(jaringan, "buka", side_effect=lambda *a: io.StringIO(json.dumps(jawaban))):
+                    assert turath.temukan("نص البحث") == 2
             assert len(unduh) == 3 and all("/07__" in u and "/777__" in u for u in unduh), unduh
             assert "ج- ص9" in out.getvalue() and "ج1 ص9" in out.getvalue(), out.getvalue()
 
         def temukan_saring():
-            import contextlib, io, shamela, urllib.parse
+            import contextlib, io, jaringan, shamela, turath, urllib.parse
             rows = [{"shamela_id": 99001, "has_multi_part": False}, {"shamela_id": 8370, "has_multi_part": True}]
             jawaban = {"count": 45, "data": [{"book_id": 99001, "snip": "نص", "meta": json.dumps(
                 {"vol": 1, "page": 9, "book_name": "كتاب", "author_name": "مؤلف"})}] * 20}
@@ -471,10 +457,10 @@ def utama():
                 alamat.append(urllib.parse.parse_qs(urllib.parse.urlsplit(url).query))
                 return io.StringIO(json.dumps(jawaban))
             out = io.StringIO()
-            with patch.object(shamela, "_meta", return_value=rows), patch.object(shamela, "buka", side_effect=buka), contextlib.redirect_stdout(out):
-                assert shamela.temukan("نص البحث", 20, ["hanafi", "hanbali"], [], 2) == 45
-                assert shamela.temukan("نص البحث", 5, [], ["8370"]) == 45
-                shamela.temukan("نص البحث")
+            with patch.object(shamela, "isi_katalog", return_value=rows), patch.object(jaringan, "buka", side_effect=buka), contextlib.redirect_stdout(out):
+                assert turath.temukan("نص البحث", 20, ["hanafi", "hanbali"], [], 2) == 45
+                assert turath.temukan("نص البحث", 5, [], ["8370"]) == 45
+                turath.temukan("نص البحث")
             assert alamat[0]["cat"] == ["14,17"] and alamat[0]["page"] == ["2"], alamat
             assert alamat[1]["book"] == ["8370"] and "cat" not in alamat[1], alamat
             assert "cat" not in alamat[2] and "book" not in alamat[2], alamat
@@ -484,21 +470,20 @@ def utama():
             assert "hasil berikutnya: naikkan maks" in keluar, "maks kecil + --halaman melompati hasil"
             jawaban["data"] = []
             out = io.StringIO()
-            with patch.object(shamela, "_meta", return_value=rows), patch.object(shamela, "buka", side_effect=buka), contextlib.redirect_stdout(out):
-                assert shamela.temukan("نص البحث", 20, [], [], 9) == 0
+            with patch.object(shamela, "isi_katalog", return_value=rows), patch.object(jaringan, "buka", side_effect=buka), contextlib.redirect_stdout(out):
+                assert turath.temukan("نص البحث", 20, [], [], 9) == 0
             assert "Halaman 9 melewati akhir hasil: 45" in out.getvalue(), out.getvalue()
-            with patch.object(shamela, "_meta", return_value=rows), patch.object(
-                    shamela, "buka", side_effect=AssertionError("saringan salah tidak boleh sampai ke turath")):
+            with patch.object(shamela, "isi_katalog", return_value=rows), patch.object(
+                    jaringan, "buka", side_effect=AssertionError("saringan salah tidak boleh sampai ke turath")):
                 for salah, kata in ((dict(mazhab=["zahiri"]), "zahiri"), (dict(mazhab=["hanafi"], kitab=["8370"]), "salah satu"),
                                     (dict(kitab=["5"]), "katalog")):
                     try:
-                        shamela.temukan("نص البحث", **salah)
+                        turath.temukan("نص البحث", **salah)
                     except ValueError as e:
                         assert kata in str(e), e
                     else:
                         raise AssertionError(f"harus ditolak: {salah}")
 
-        uji("bahan dua folder bernama sama terpisah", terpisah)
         uji("cache mengikuti perubahan isi meski ukuran dan mtime sama", cache_usang)
         uji("indeks mengikuti isi/offset baru meski ukuran dan mtime sama", indeks_usang)
         uji("berkas padat rusak/terpotong/bentuk salah dihitung ulang", cache_rusak)
@@ -507,7 +492,7 @@ def utama():
         uji("nomor takhrij dipasangkan ke kitabnya walau halaman sama", takhrij_per_kitab)
         uji("templat/PDF sumber tidak ditimpa hasil rakit", bahan_terlindungi)
         uji("PDF rusak dan penulisan putus tidak meninggalkan hasil", pdf_utuh)
-        uji("katalog tanpa pandas dan regex salah tidak crash", katalog_ringan)
+        uji("katalog: pola bertanda regex yang tidak sah dicari sebagai teks", katalog_pola)
         uji("temukan: saringan mazhab, kitab, dan halaman sampai ke turath", temukan_saring)
         uji("ambil/temukan memakai metadata judul dan jilid yang benar", konsumen_katalog)
 
@@ -538,9 +523,27 @@ def utama():
             assert r.returncode != 0 and "  ✗ " in r.stdout and "  ! " in r.stdout and "cek: GAGAL" not in r.stdout, r.stdout + r.stderr
         uji("rakit: cek lolos dicetak satu baris, cek GAGAL dicetak lengkap", rakit_ringkas)
 
+        def salinan_pdf():
+            folder = akar / "bahts" / "ahmad" / "salin"
+            naskah(folder)
+            rakit_ok = lambda: subprocess.run([sys.executable, str(runner), str(akar), "bahts/ahmad/salin", "ok", "-"],
+                                              cwd=akar, capture_output=True, encoding="utf8")
+            r = rakit_ok()
+            assert r.returncode == 0 and "Salinan:" not in r.stdout, r.stdout + r.stderr
+            (akar / "keluaran_saya.txt").write_text(str(akar / "keluar") + "\n", encoding="utf8")
+            try:
+                r = rakit_ok()
+            finally:
+                (akar / "keluaran_saya.txt").unlink()
+            assert r.returncode == 0, r.stdout + r.stderr
+            assert [p.relative_to(akar / "keluar").as_posix() for p in (akar / "keluar").rglob("*.pdf")] == ["ahmad/hasil.pdf"]
+            assert (akar / "keluar" / "ahmad" / "hasil.pdf").read_bytes() == (folder / "hasil.pdf").read_bytes()
+        uji("rakit: salinan PDF per orang hanya dengan keluaran_saya.txt", salinan_pdf)
+
         def rakit(mode):
             folder = akar / "a" / "sama"
             naskah(folder)
+            naskah(akar / "b" / "sama", "عنوان آخر", "lain")  # bahts lain bernama folder sama (mode snapshot dan lock)
             sebelum = {"hasil.docx": b"DOCX-LAMA", "hasil.pdf": b"PDF-LAMA", "laporan.txt": b"LAPORAN-LAMA"}
             for n, isi in sebelum.items(): (folder / n).write_bytes(isi)
             arsip_awal = set((folder / "_arsip").iterdir()) if (folder / "_arsip").exists() else set()
@@ -548,7 +551,7 @@ def utama():
             lama = folder / ".rakit-lama"  # disimpan versi lama («Bahan percobaan disimpan») tanpa penanda apa pun
             if mode in ("sisa", "ps-yatim"):
                 yatim.mkdir(exist_ok=True); (yatim / "bahan.json").write_text("{}")
-                (yatim / bahts.RAKIT_SEMENTARA).write_text("")
+                (yatim / "rakit.sementara").write_text("")
                 lama.mkdir(exist_ok=True); (lama / "hasil.pdf").write_bytes(b"%PDF-HASIL-BARU")
             kerja_awal = set(folder.glob(".rakit-*"))
             r = subprocess.run([sys.executable, str(runner), str(akar), "a/sama", mode, "b/sama"],
@@ -559,7 +562,7 @@ def utama():
                 assert "Sisa rakit yang terhenti dibuang: .rakit-yatim" in r.stdout, r.stdout + r.stderr
                 assert (lama / "hasil.pdf").read_bytes() == b"%PDF-HASIL-BARU", "Folder versi lama tanpa penanda dibuang"
                 assert "Folder .rakit-lama dibiarkan" in r.stdout, r.stdout + r.stderr
-                assert any((k / bahts.RAKIT_SIMPAN).is_file() for k in kerja_awal), "Hasil baru rollback-blocked tidak bertanda"
+                assert any((k / "JANGAN_DIHAPUS.txt").is_file() for k in kerja_awal), "Hasil baru rollback-blocked tidak bertanda"
             elif mode not in ("rollback-blocked", "simpan-unlink-gagal"):
                 assert set(folder.glob(".rakit-*")) == kerja_awal, "Rakit meninggalkan atau membuang folder .rakit-* di folder bahts"
             if mode in ("snapshot", "lock", "ok", "pdf-fail", "sisa"):
@@ -570,6 +573,7 @@ def utama():
                 with zipfile.ZipFile(folder / "hasil.docx") as z:
                     inti = z.read("docProps/core.xml").decode("utf8")
                 assert "Nama Orang" not in inti and "<dc:title>Judul</dc:title>" in inti, "Nama pengguna Word tertinggal di .docx"
+                # satu-satunya tempat yang mengikat arti nama barisnya: SHA-256 byte naskah.txt (bisa dicek pemakai sendiri)
                 sidik = hashlib.sha256((folder / "naskah.txt").read_bytes()).hexdigest()
                 assert "NASKAH_SHA256=" + sidik in (folder / "laporan.txt").read_text(encoding="utf8")
                 arsip_akhir = set((folder / "_arsip").iterdir()) if (folder / "_arsip").exists() else set()
@@ -579,7 +583,12 @@ def utama():
                 if mode in ("rollback-blocked", "simpan-unlink-gagal"):
                     assert "Pemulihan hasil belum lengkap" in r.stderr, r.stdout + r.stderr
                     simpanan = set(folder.glob(".rakit-*")) - kerja_awal  # hasil baru yang belum terpasang
-                    assert simpanan and all((k / bahts.RAKIT_SIMPAN).is_file() for k in simpanan), "Hasil baru tidak disimpan bertanda"
+                    assert simpanan and all((k / "JANGAN_DIHAPUS.txt").is_file() for k in simpanan), "Hasil baru tidak disimpan bertanda"
+                    # penanda sementara dicabut dari simpanan; yang tidak bisa dicabut tetap terbaca sebagai simpanan
+                    tercabut = mode == "rollback-blocked"
+                    assert all((k / "rakit.sementara").exists() != tercabut for k in simpanan), "Penanda sementara simpanan"
+                    t = jalan(akar, "tahap", "a/sama")
+                    assert all(f"FOLDER_KERJA {k.name}=SIMPAN" in t.stdout for k in simpanan), t.stdout + t.stderr
                     assert (folder / "hasil.docx").read_bytes().startswith(b"PK")
                     assert not (folder / "hasil.pdf").exists(), "DOCX baru dipasangkan dengan PDF lama"
                     assert not (folder / "laporan.txt").exists(), "DOCX baru dipasangkan dengan laporan lama"
@@ -669,6 +678,64 @@ def utama():
             assert pdf.read_bytes() == sebelum, "rakit --fasl mengganti PDF sumber"
             assert not (akar / "bahan-fasl.json").exists(), "Word dipanggil sebelum melindungi PDF sumber potongan"
         uji("rakit --fasl: satu naskah, potongan per فصل", per_fasl)
+
+        def keluaran_kosong():
+            import rakit as m_rakit
+            (akar / "keluaran_saya.txt").write_text("  \n", encoding="utf8")
+            cwd_uji = akar / "cwd-kosong"
+            cwd_uji.mkdir()
+            sumber_pdf = akar / "sumber-kosong.pdf"
+            sumber_pdf.write_bytes(b"%PDF")
+            asal = os.getcwd()
+            try:
+                os.chdir(cwd_uji)
+                assert m_rakit.salin_keluaran(akar / "uji-k", sumber_pdf) is None
+                assert not list(cwd_uji.iterdir()), "keluaran_saya.txt kosong menyalin ke CWD"
+            finally:
+                os.chdir(asal)
+                (akar / "keluaran_saya.txt").unlink(missing_ok=True)
+        uji("keluaran_saya.txt kosong tidak menyalin ke CWD", keluaran_kosong)
+
+        def terbitkan_khulasah_terkunci():
+            import rakit as m_rakit
+            kerja, tujuan = akar / "kerja-kh", akar / "tujuan-kh"
+            kerja.mkdir()
+            tujuan.mkdir()
+            kh = "uji - الخلاصات.pdf"
+            for n, isi in (("uji.docx", b"LAMA-DOCX"), ("uji.pdf", b"LAMA-PDF"), (kh, b"LAMA-KH")):
+                (tujuan / n).write_bytes(isi)
+            for n, isi in (("uji.docx", b"BARU-DOCX"), ("uji.pdf", b"BARU-PDF")):
+                (kerja / n).write_bytes(isi)
+            ganti_asli = Path.replace
+
+            def ganti(self, target):
+                if self == tujuan / kh:
+                    raise PermissionError("khulasah usang terkunci")
+                return ganti_asli(self, target)
+            with patch.object(Path, "replace", ganti):
+                try:
+                    m_rakit.terbitkan(kerja, tujuan, ["uji.docx", "uji.pdf"], buang=(kh,))
+                    raise AssertionError("terbitkan harus gagal saat khulasah usang terkunci")
+                except PermissionError:
+                    pass
+            assert (tujuan / "uji.docx").read_bytes() == b"LAMA-DOCX"
+            assert (tujuan / "uji.pdf").read_bytes() == b"LAMA-PDF"
+            assert (tujuan / kh).read_bytes() == b"LAMA-KH"
+            assert not (tujuan / "_arsip").exists(), "_arsip tersisa sesudah pemulihan lengkap"
+        uji("terbitkan: khulasah usang terkunci memulihkan hasil lama", terbitkan_khulasah_terkunci)
+
+        def lepas_semua_cache():
+            import cek_hadits, cek_naql, cek_tautsiq, shamela
+            cek_hadits.hadits_bernomor("11223", "-", 5, 5, "1")
+            cek_naql._gram_halaman("11223", "-", 5, 5)
+            cek_tautsiq.jejak_kartu("11223")
+            assert all(f.cache_info().currsize > 0 for f in (
+                cek_hadits.hadits_bernomor, cek_naql._gram_halaman, cek_tautsiq.jejak_kartu))
+            shamela.lepas()
+            assert all(f.cache_info().currsize == 0 for f in (
+                cek_hadits.hadits_bernomor, cek_naql._gram_halaman, cek_tautsiq.jejak_kartu))
+        uji("shamela.lepas() mengosongkan cache cek_hadits/cek_naql/cek_tautsiq", lepas_semua_cache)
+
         for mode in ("save-fail", "export-fail", "ps-mati", "pdf-fail", "pages-fail", "publish-fail", "rollback-blocked", "simpan-unlink-gagal",
                      "changed", "snapshot", "lock", "sisa", *(("ps-asli", "ps-yatim") if os.name == "nt" else ())):
             uji("rakit " + mode, lambda mode=mode: rakit(mode))
@@ -677,40 +744,5 @@ def utama():
         print(f"uji integritas: {len(diuji)} skenario sesuai; Word disimulasikan")
 
 
-def word_asli():
-    """Opsional lokal: python .github/uji_integritas.py --word (Windows + Word, tidak disimulasikan).
-    Isi catatan tetap sama saat nomor diulang per halaman, juga di potongan dan sesudah bukti tanpa catatan tercetak."""
-    from xml.etree import ElementTree as ET
-    from pypdf import PdfReader
-    with tempfile.TemporaryDirectory(prefix="bahts-word-") as t:
-        akar = Path(t)
-        shutil.copytree(AKAR / "mesin", akar / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__"))
-        for sid in ("_meta", "11223"):
-            shutil.copytree(AKAR / "kitab" / sid, akar / "kitab" / sid)
-        f = akar / "uji"
-        f.mkdir()
-        teks = ("@judul: فحص الحواشي\n@bentuk: kitab\n@berkas: hasil\n"
-                "@tanpa: pustaka, ayat, hadits, maudhuat\n@halaman_baru: B\n@rumuz: 11223=-\n"
-                "#K المقدمة\nهذا تمهيد للفحص.\n#F الفصل الأول\nهذا فصل سابق[^OLD-FIRST-NOTE].\n"
-                "#F الفصل الثاني\nهذا تمهيد للفصل الثاني.\n#B المبحث الأول\n"
-                "توحيد الربوبية وهو إفراد الله تعالى بالخلق والملك والتدبير[^<<11223|-|5>>]\n"
-                "هذا نص المبحث الأول[^EXPECTED-SECOND-NOTE].\n"
-                "#B المبحث الثاني\nهذا نص المبحث الثاني[^EXPECTED-THIRD-NOTE].\n#K الخاتمة\nانتهى الفحص.\n")
-        (f / "naskah.txt").write_text(teks, encoding="utf8")
-        ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
-        for args, nama, harus in (((), "hasil", ["OLD-FIRST-NOTE", "EXPECTED-SECOND-NOTE", "EXPECTED-THIRD-NOTE"]),
-                                  (("--fasl", "2"), "hasil - الفصل الثاني والخاتمة", ["EXPECTED-SECOND-NOTE", "EXPECTED-THIRD-NOTE"])):
-            r = jalan(akar, "rakit", "uji", *args)
-            assert r.returncode == 0, r.stdout + r.stderr
-            with zipfile.ZipFile(f / f"{nama}.docx") as z:
-                tree = ET.fromstring(z.read("word/footnotes.xml"))
-            catatan = ["".join(n.itertext()) for n in tree.findall("w:footnote", ns)
-                       if int(n.attrib.get("{" + ns["w"] + "}id", "0")) > 0]
-            assert len(catatan) == len(harus) and all(h in c for h, c in zip(harus, catatan)), catatan
-            pdf = "\n".join(p.extract_text() or "" for p in PdfReader(f / f"{nama}.pdf").pages)
-            assert all(h in pdf for h in harus), pdf
-            print(f"Word asli {args or 'utuh'}: {len(catatan)} isi catatan DOCX dan PDF tetap benar")
-
-
 if __name__ == "__main__":
-    word_asli() if sys.argv[1:] == ["--word"] else utama()
+    utama()

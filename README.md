@@ -122,14 +122,15 @@ Every command = `python mesin/bahts.py <perintah>`. Full list with arguments: `p
 | `mesin/bahts.py` | the only command entry point |
 | `mesin/olah.py`, `naskah.py`, `cek_*.py`, and their helper modules | `cek`; what each file does: `AGENTS.md` «Letak kode `cek`» |
 | `mesin/quran_hafs_v22.json`, `nama_surah.json` | mushaf text and surah names |
-| `mesin/shamela.py` | book download, catalogue, `temukan`, `scan` |
+| `mesin/shamela.py` | book download, catalogue, `cari`, `teks`, `bab`, `halaman` |
+| `mesin/turath.py` | turath.io client: `temukan`, `scan` |
 | `mesin/jaringan.py` | transport for outside services, safe redirects, rate limits, and complete downloads |
 | `mesin/hadits.py`, `dirasat.py` | takhrij pointers, previous studies |
 | `mesin/waqfeya.py` | Waqfeya books: catalogue, `ambil w…`, OCR, scan cut-outs (PDF/PNG) |
 | `mesin/layanan.py` | `tafsir`, `takhrij`, `rawi`, and `akar` without internet (Shamela service tables in `kitab/_meta`) |
 | `mesin/diagram.py` | Mermaid diagrams to PNG (`diagram`) |
 | `mesin/ekspor.py` | a whole downloaded book (Shamela or Waqfeya) as a right-to-left .docx to read in Word (`ekspor`) |
-| `mesin/tahap.py`, `berkas.py` | state of a bahts and of the `.rakit-*` folders |
+| `mesin/tahap.py`, `rakit.py`, `produk.py` | state of a bahts; the Python side of `rakit` (lock, `.rakit-*` folders, installing the results); result file names and report lines |
 | `mesin/rakit.ps1`, `word.ps1`, `teks_pdf.py` | Word/PDF builder, the identity of its own Word process, and PDF text |
 | `mesin/format.json` | page layout profiles (`@format`) |
 | `mesin/sampul_qism.docx`, `sampul.doc`, `sampul_jakarta.docx`, `kepala_kotak.docx` | cover and page header templates |

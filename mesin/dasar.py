@@ -1,11 +1,27 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Konstanta dan alat kecil yang dipakai lebih dari satu bagian `cek`: letak mesin, nama surat, pola angka, pola
 kutipan, pesan GAGAL bersama, dan TandaRusak (salah tulis naskah, bukan galat mesin)."""
-import json, os, re, shutil, sys
+import functools, json, os, re, shutil, sys
 from pathlib import Path
 
 HERE = Path(__file__).parent
 SURAH = json.loads((HERE / "nama_surah.json").read_text(encoding="utf8"))
+
+
+@functools.cache
+def mushaf():
+    """{«surat:ayat»: teks ayat} (riwayat Hafs), urut mushaf; dibaca saat pertama dipakai (±1 MB)."""
+    return json.loads((HERE / "quran_hafs_v22.json").read_text(encoding="utf8"))
+
+
+@functools.cache
+def profil_format():
+    """Profil bentuk halaman dari format.json (dipilih @format di naskah); dibaca sekali saat pertama dipakai."""
+    return json.loads((HERE / "format.json").read_text(encoding="utf8"))
+
+
+# Pemisah judul utama dan sub-judul sampul «… - …» (dipakai `baru` dan `olah.rencana_cetak`)
+SUBJUDUL = re.compile(r"^(.+?)\s+[-–—]\s*(.+)$")
 # Ligatur hormat Unicode 14 (﵀-﵏ ﷾ ﷿) tidak ada di huruf cetak (Traditional Arabic, Sakkal Majalla, Arial): kotak kosong di
 # Word/PDF. Teks yang dicetak (`rakit`, `ekspor`) memakai kalimatnya; `cek` membuangnya (norma.LIGATUR_HORMAT, HORMAT)
 HORMAT_CETAK = str.maketrans({
@@ -65,7 +81,11 @@ MERUJUK_KATA = "[أا]نظر|ينظر|ي?راجع"  # tanda nukilan makna di cat
 TAKHRIJ_AWAL = re.compile(r"\s*و?(?:أخرج|رواه)")  # catatan kaki takhrij: «أخرجه …», «رواه …»
 BUKAN_RUJUKAN = ("سورة", "سبق تخريجه")
 TINGKAT_JUDUL = {"K": 0, "F": 0, "R": 0, "B": 1, "M": 2, "S": 3}
-ANGKA_LATIN = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "0123456789" * 2)  # angka Arab dan Persia -> 0-9
+JUDUL_BAB = ("K", "F")  # judul tingkat teratas isi (مقدمة/خاتمة, فصل): selalu mulai halaman baru
+JUDUL_FIHRIS = (*JUDUL_BAB, "B", "M")  # judul tengah, masuk فهرس الموضوعات; #S (sub-judul kanan) tidak
+JUDUL_ISI = (*JUDUL_FIHRIS, "S")  # tiap judul bagian isi; #R (المصادر) bukan isi
+BATAS_BAB = (*JUDUL_BAB, "R")  # yang menutup isi satu bab: bab berikutnya atau المصادر
+ANGKA_LATIN = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "0123456789" * 2)
 KUTIPAN_MIN = 6  # huruf (bentuk `padat`) paling sedikit tiap bagian kutipan yang dicek
 POTONGAN_MIN = 7  # huruf paling sedikit potongan sendiri <<sid|juz|hal|potongan>> (potongan sah terpendek di bahts nyata: 7)
 # pengganti {Q:s:a} di tengah kutipan («﴿s:a﴾», «﴿s:a:i-j﴾»: penanda_ayat; ﴿﴾ yang diketik = ayat tanpa nomor): kutipannya
@@ -78,12 +98,36 @@ RUJUKAN_AYAT = re.compile(r"\[[^\]\n]*[ء-ي][^\]\n]*[0-9٠-٩][^\]\n]*\]")  # �
 LUAR = "luar"  # <<luar>>: sumbernya bukan kitab Shamela (jurnal, PDF penelitian, kamus); tidak bisa dicek mesin
 WAQFEYA = re.compile(r"[wW][0-9a-zA-Z]*\|")  # bukti kitab Waqfeya <<w…|…>> (bentuknya diperiksa WAQFEYA_BUKTI)
 WAQFEYA_BUKTI = re.compile(r"(w[0-9a-f]{8})\|(\d+)\|(\d+(?:-\d+)?)")  # <<w…|berkas|hal PDF>>
-BELUM_DIUNDUH = "kitab {} belum diunduh"  # pesan GAGAL per bukti; ringkasan laporan `cek` (olah._laporan) mengumpulkan nomornya dari pesan ini
-# kutipan yang tidak ada di kitab buktinya; pesan yang sama dikenali `urai` untuk Pemeriksaan.tertolak (`cek --jejak`)
 TIDAK_KETEMU = "teks TIDAK KETEMU di kitab {}"
 RENTANG_MAKS = 50  # halaman paling banyak satu bukti (dan satu rentang tercetak)
+HALAMAN_MAKS = 20  # halaman paling banyak sekali panggil `halaman` dan `takhrij`
 HURUF_LATIN = "A-Za-zÀ-ɏḀ-ỿ"  # huruf Latin, juga transliterasi (ā ī ū ḥ)
 QAUL = re.compile(r"(?:^|\s)[وف]?(?:قال|قالت|يقول|تقول)(?:\s+[^\s:]+){0,4}\s*:?\s*$")  # pengantar nukilan «قال الشيخ:»
+
+
+def ekor(isi, *, rapat=False, lebar=45, apa="fn"):
+    """Ekor pesan `cek`: catatan kaki (apa="fn") atau tempat lain mana yang dimaksud, yaitu awal teksnya.
+    Spasi di depan «||» (rapat = satu, selain itu dua) dan lebar potongannya berbeda-beda antarpesan dan sengaja
+    dibiarkan begitu: kode «terima» di riset.txt pemakai = sidik kalimat pesan, jadi menyeragamkannya membasikan semuanya."""
+    return f"{' ' if rapat else '  '}|| {apa}: {isi[:lebar]}"
+
+
+KITAB = "kitab"  # @bentuk selain bahts: mis. muqarrar gabungan dua syarah
+
+
+def bentuk_kitab(meta):
+    """Naskah ber-«@bentuk: kitab» (meta = @data naskah atau "meta" bahan rakit), bukan bahts."""
+    return meta.get("bentuk") == KITAB
+
+
+def judul_baris(baris, tanda):
+    """Baris naskah mentah itu judul bertanda salah satu `tanda` («#F الفصل…» untuk "F")."""
+    return bool(re.match(rf"#[{''.join(tanda)}]\s", baris))
+
+
+def angka(x):
+    """Juz atau halaman yang diketik pemakai: «05» dan «٥» = 5 (int() membaca angka Arab ٠-٩ juga); bukan angka = apa adanya."""
+    return int(x) if str(x).isdigit() else x
 
 
 def perintah(argumen):

@@ -5,8 +5,8 @@ import difflib, zlib
 
 import norma
 import shamela
-from dasar import ELIPSIS
-from kitab_lokal import halaman_di, lepas, rangkaian_kitab, tempat_kitab
+from cek_kutipan import bagian_kutipan
+from kitab_lokal import halaman_di, rangkaian_kitab, tempat_kitab
 
 # `cek --jejak`, kutipan yang lafaznya sedikit berbeda dengan kitab; satuannya huruf `padat`
 MIRIP_BENIH = 14  # panjang potongan kutipan yang harus ada persis di kitab
@@ -15,12 +15,13 @@ MIRIP_PANJANG = 300  # kutipan lebih panjang dari ini tidak dicari: waktu memban
 MIRIP_MIN = 0.9  # bagian huruf yang harus sama (lihat `_mirip_kitab`)
 MIRIP_CALON = 20  # tempat paling banyak tiap benih (benih umum, mis. basmalah, ada ribuan kali)
 MIRIP_LONGGAR = 12  # tempat yang berjarak kurang dari ini dibandingkan sekali
+MAKS = 3  # kitab paling banyak yang ditunjuk untuk satu kutipan
 
 
 def _bagian_cari(teks):
     """Semua bagian berhuruf Arab (`padat`), urut seperti di naskah, termasuk bagian pendek di samping ayat.
     Tidak boleh membuang satu bagian lalu menunjuk kitab yang hanya memuat sisanya."""
-    return [p for b in ELIPSIS.split(teks) if (p := norma.padat(b))]
+    return [norma.padat(b) for b in bagian_kutipan(teks)]
 
 
 def _mirip_kitab(rangkaian, q):
@@ -63,7 +64,7 @@ def _rapid(rangkaian, q):
     return terbaik
 
 
-def jejak(tertolak, maks=3):
+def jejak(tertolak):
     """Cari kutipan yang ditolak «teks TIDAK KETEMU di kitab» pada kitab lain yang sudah diunduh.
     Kembalikan baris laporan: hanya petunjuk, bukan bukti; putusan tetap milik `cek` (tidak ada yang diloloskan).
     Tiap kitab dibaca sekali (cache `padat`), dicari dengan lafaz yang sama seperti `cari`, lalu cache-nya dilepas.
@@ -84,7 +85,7 @@ def jejak(tertolak, maks=3):
     semua = shamela.punya()
     rusak = []
     for sid in semua:
-        aktif = [e for e in cari.values() if len(e["dapat"]) < maks and str(sid) not in e["tertuju"]]
+        aktif = [e for e in cari.values() if len(e["dapat"]) < MAKS and str(sid) not in e["tertuju"]]
         # kutipan ber-... tidak: satu bagian yang mirip tidak berkata apa-apa tentang bagian lain (bisa karangan)
         # kutipan panjang juga tidak: membandingkan seluruhnya terlalu lama, menilai sebagiannya menyesatkan
         longgar = [e for e in cari.values() if not e["dapat"] and len(e["bagian"]) == 1
@@ -106,8 +107,8 @@ def jejak(tertolak, maks=3):
             # Pencarian hanya petunjuk: sumber lain yang rusak tidak boleh menutup hasil kitab yang sehat.
             rusak.append(f"kitab {sid} ({type(e).__name__})")
         finally:
-            lepas()
-        if all(len(e["dapat"]) >= maks for e in cari.values()):
+            shamela.lepas()
+        if all(len(e["dapat"]) >= MAKS for e in cari.values()):
             break
     for e in cari.values():  # tiap potongan benih kena salah ketik: cari tanpa benih, hanya di kitab yang dirujuk
         if e["dapat"] or e["mirip"] or len(e["bagian"]) != 1 or not MIRIP_KUTIPAN <= len(e["bagian"][0]) <= MIRIP_PANJANG:
@@ -119,21 +120,20 @@ def jejak(tertolak, maks=3):
             except (OSError, EOFError, ValueError, TypeError, AttributeError, KeyError, IndexError, zlib.error) as x:
                 rusak.append(f"kitab {sid} ({type(x).__name__})")
             finally:
-                lepas()
+                shamela.lepas()
     baris = []
     for entri in cari.values():
         t, asli = entri["dapat"], entri["teks"]
         if not t:
-            # kitab yang dirujuk dulu, lalu yang paling mirip, matan sebelum حاشية
             mirip = "، ".join(f"{sid} {shamela.letak(juz, h)}{tanda} (±{int(nilai * 100)}% huruf sama)" for nilai, sid, juz, h, tanda
-                              in sorted(entri["mirip"], key=lambda x: (str(x[1]) not in entri["tertuju"], -x[0], bool(x[4])))[:maks])
+                              in sorted(entri["mirip"], key=lambda x: (str(x[1]) not in entri["tertuju"], -x[0], bool(x[4])))[:MAKS])
             baris.append(f"  «{asli}» tidak ditemukan di {entri['dibaca']} kitab lain yang berhasil dibaca: "
                          "periksa ejaan dan sumber aslinya."
                          + (f" Paling mirip: kitab {mirip}. Lafaznya BERBEDA dan maknanya bisa terbalik: baca halamannya; "
                             "maknanya sama: salin lafaz kitabnya; berbeda: buang kutipannya, jangan disesuaikan." if mirip else ""))
             continue
-        rinci = "، ".join(f"{sid} {shamela.letak(juz, h)}{tanda}" for sid, juz, h, tanda in t[:maks])
-        baris.append(f"  «{asli}» ketemu di kitab {rinci} (maksimal {maks} kitab per teks)")
+        rinci = "، ".join(f"{sid} {shamela.letak(juz, h)}{tanda}" for sid, juz, h, tanda in t[:MAKS])
+        baris.append(f"  «{asli}» ketemu di kitab {rinci} (maksimal {MAKS} kitab per teks)")
     if rusak:
         baris.append("  jejak belum lengkap: " + ", ".join(rusak) + "; hasil hanya dari kitab yang berhasil dibaca.")
     return baris

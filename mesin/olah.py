@@ -1,8 +1,24 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Olah <bahts>/naskah.txt -> bahan JSON terpisah menurut jalur bahts/pekerjaan (untuk perakit Word)
-+ verifikasi setiap rujukan ke kitab Shamela lokal. Dipanggil lewat bahts.py.
++ verifikasi setiap rujukan ke kitab Shamela lokal. Dipanggil lewat bahts.py."""
+import dataclasses, difflib, hashlib, io, json, math, os, re
+from collections.abc import Callable
+from pathlib import Path
 
-Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
+import norma
+import produk
+from berkas import sementara
+from cek_seluruh import (KEPALA_PERHATIAN, RISET, periksa_dirasat, periksa_khatimah, periksa_muqaddimah, periksa_riset,
+                         porsi_kutipan)
+from cek_rujukan import rujukan_halaman
+from cek_sumber import standar_baris
+from cek_tautsiq import gelar
+from dasar import (AD, ANGKA_LATIN, BUKAN_RUJUKAN, HERE, HORMAT_CETAK, HURUF_LATIN, JUDUL_BAB, JUDUL_FIHRIS, JUDUL_ISI, KITAB,
+                   LUAR, SUBJUDUL, SURAH, TINGKAT_JUDUL, TandaRusak, bentuk_kitab, perintah, profil_format)
+from laporan import gabung_kembar
+from naskah import FIHRIS_NAMA, Pemeriksaan, urai
+
+TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   @kunci: nilai       data sampul, di awal naskah; kunci tidak dikenal = GAGAL (salah ketik tidak diabaikan). Wajib: judul dan nama; @sampul: mahad juga jenis ("-" = tidak tercetak), nim, fasl.
                       Opsional: musyrif, jabatan (kosong atau "-" = tidak tercetak), thalibah (ya = sampul mencetak «اسم الطالبة»),
                       basmalah (ya = satu halaman ﷽ huruf Arabic Typesetting sesudah sampul; bawaan: tidak ada),
@@ -164,17 +180,15 @@ Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
                       (…) tepat sebelum catatan kaki berbukti yang diantar «قال …:»، «ﷺ:», atau tepat sesudah {H:} = kutipan,
                       dicek seperti "…". Kutipan pendek (≤3 kata) yang diantar «قال …:» juga dicek; tanpa pengantar = istilah
   Judul (#K/#F/#B/#M/#S/#R) tidak boleh memuat [^, <<, {Q:/{H:/{A:/{N: atau ** ({A:} ditaruh di awal paragraf sesudahnya)
-  Contoh: قال ابن القيم: "…"[^مدارج السالكين، ابن القيم، 2/15. <<8370|2|15>>].
-
-Bahts dikumpulkan bertahap per فصل: tetap SATU naskah; tiap potongan dirakit dengan «rakit <folder> --fasl n» (#F ke-n;
+  Contoh: قال ابن القيم: "…"[^مدارج السالكين، ابن القيم، 2/15. <<8370|2|15>>]."""
+TANDA_BERTAHAP = """Bahts dikumpulkan bertahap per فصل: tetap SATU naskah; tiap potongan dirakit dengan «rakit <folder> --fasl n» (#F ke-n;
                       rentang 1-2 = #F ke-1 dan ke-2). Yang sebelum #F pertama (المقدمة) ikut potongan pertama, yang
                       sesudah #F terakhir (الخاتمة) ikut potongan terakhir. Sampul hanya di potongan pertama; المصادر
                       dan الفهارس hanya di potongan terakhir (فهرس berisi isi potongan itu saja); nomor halaman tiap
                       potongan mulai ١. Hasil: «<@berkas> - المقدمة والفصل الأول.pdf» dst. dan laporan-fasl<n>.txt;
                       `cek` tetap memeriksa seluruh naskah. {P:kunci} yang menunjuk hadits atau {A:} di potongan lain =
-                      berhenti sebelum Word: tulis takhrij lengkap, atau sebut bagiannya dengan kata, di catatan kaki itu
-
-riset.txt (di folder bahts, di samping naskah.txt): jejak langkah riset yang tidak meninggalkan bukti di kitab lokal.
+                      berhenti sebelum Word: tulis takhrij lengkap, atau sebut bagiannya dengan kata, di catatan kaki itu"""
+TANDA_RISET = """riset.txt (di folder bahts, di samping naskah.txt): jejak langkah riset yang tidak meninggalkan bukti di kitab lokal.
   takhrij8 <kunci>    `shamela_search_phrase` kategori 8 (التخريج والأطراف) sudah dijalankan untuk {H:…|kunci}
   tafsir <s:a>        tafsir ayat sudah dibaca lewat connector `tafsir` (boleh rentang s:a-b)
   khilaf <istilah>    `shamela_research_scope` sudah dijalankan untuk satu masalah khilaf; satu baris per masalah
@@ -194,32 +208,23 @@ riset.txt (di folder bahts, di samping naskah.txt): jejak langkah riset yang tid
                       diterima. «terima» yang basi, kembar, beralasan pendek, atau berkode rusak = perhatian
   Baris berawalan # = catatan. Tiap {H:}, ayat {Q:} (selain di bukti <<…>> dan di bawah #R), masalah khilaf, dan مبحث yang
                       belum tercatat = perhatian, juga baris riset.txt yang rusak atau kunci takhrij8 yang tidak ada di naskah.
-                      Tidak pernah GAGAL: isinya ditulis agen sendiri, jadi mesin hanya menunjuk yang belum dicatat
-"""
-import difflib, hashlib, io, json, math, os, re
-from pathlib import Path
+                      Tidak pernah GAGAL: isinya ditulis agen sendiri, jadi mesin hanya menunjuk yang belum dicatat"""
+TANDA = "\n\n".join((TANDA_NASKAH, TANDA_BERTAHAP, TANDA_RISET))
 
-import norma
-from berkas import bahan, sementara
-from cek_seluruh import (KEPALA_PERHATIAN, RISET, periksa_dirasat, periksa_khatimah, periksa_muqaddimah, periksa_riset,
-                         porsi_kutipan)
-from cek_rujukan import rujukan_halaman
-from cek_sumber import standar_baris
-from cek_tautsiq import gelar
-from dasar import AD, ANGKA_LATIN, BELUM_DIUNDUH, BUKAN_RUJUKAN, HERE, HORMAT_CETAK, HURUF_LATIN, LUAR, SURAH, TINGKAT_JUDUL, TandaRusak, perintah
-from laporan import gabung_kembar
-from naskah import Pemeriksaan, urai
-
-FORMAT = json.loads((HERE / "format.json").read_text(encoding="utf8"))  # huruf & ukuran tiap pedoman; dipilih dengan @format
-WAJIB = {"bahts": ("judul", "jenis", "nama", "nim", "fasl"), "kitab": ("judul",)}  # @bentuk: yang pertama = bawaan
-# @sampul: model sampul bahts -> data yang wajib. Yang pertama = bawaan. mahad = mesin/sampul.doc (معهد، كلية الشريعة);
+FORMAT = profil_format()  # huruf & ukuran tiap pedoman; dipilih dengan @format
+# Kunci profil yang boleh tidak ditulis di format.json: nilai bawaannya, atau (IKUT_FORMAT) kunci lain yang nilainya dipakai.
+# rakit.ps1 tidak punya bawaan sendiri: ia membaca profil yang sudah lengkap (format_cetak)
+BAWAAN_FORMAT = {"latin": 12, "spasi": 1, "mulakhas_berjarak": False, "jarak_paragraf": 0, "tepi_kanan": 3.5, "jarak_kepala": 1.25}
+IKUT_FORMAT = {"judul_sub": "judul", "ayat": "matan", "huruf_judul": "huruf", "spasi_mulakhas": "spasi", "ukuran_pustaka": "matan"}
+# @sampul: model sampul bahts -> data yang wajib. mahad = mesin/sampul.doc (معهد، كلية الشريعة);
 # qism = mesin/sampul_qism.docx (قسم الشريعة: logo, judul besar, sub-judul dalam kurung kalau ada, العام الجامعي; jenis dan nim tercetak kalau diisi, fasl tidak)
 # jakarta = mesin/sampul_jakarta.docx: model qism dengan «قسم الشريعة بجاكرتا», logo berwarna, baris @sifat di bawah nama,
 # nomor mahasiswa tanpa «الرقم الجامعي:»
-SAMPUL = {"qism": ("judul", "nama"), "mahad": WAJIB["bahts"], "jakarta": ("judul", "nama")}
+SAMPUL = {"qism": ("judul", "nama"), "mahad": ("judul", "jenis", "nama", "nim", "fasl"), "jakarta": ("judul", "nama")}
 HALAMAN_BARU = ("B", "M")  # judul yang bisa dibuat mulai halaman baru lewat @halaman_baru; K dan F selalu
-TANPA = ("ayat", "hadits", "alam", "firaq", "maudhuat", "pustaka")  # فهرس dan المصادر yang boleh dibuang lewat @tanpa; perakitnya di rakit.ps1
-# @angka: yang pertama = bawaan. Pedoman Jāmiʿat al-Imām tidak menyebut jenis angka; contoh resminya (pedoman 1443هـ,
+TANPA = ("ayat", "hadits", *(f.kunci for f in FIHRIS_NAMA), "maudhuat", "pustaka")  # فهرس dan المصادر yang boleh dibuang lewat @tanpa (bagian_akhir)
+MUQADDIMAH = "المقدمة"  # judul persis awal halaman isi: HALAMAN_ISI dihitung dari sini, dan @nomor: mukadimah mulai ١ di sini
+# @angka: bawaannya hindi. Pedoman Jāmiʿat al-Imām tidak menyebut jenis angka; contoh resminya (pedoman 1443هـ,
 # مجلة العلوم الشرعية) memakai hindi di nomor halaman, catatan kaki, rujukan, tahun, ayat, dan فهرس
 ANGKA = ("hindi", "latin")
 # Kunci naskah yang menimpa satu nilai profil @format (kombinasi permintaan dosen tanpa profil baru):
@@ -227,7 +232,7 @@ ANGKA = ("hindi", "latin")
 TIMPA = {"catatan_kaki": ("catatan_ulang_tiap_halaman", {"bersambung": False, "ulang": True}),
          "spasi": ("spasi", {"1": 1, "1.5": 1.5})}
 # Bagian tata letak yang bisa dicampur: tiap kunci memilih bentuk satu bagian, nilai pertama = bawaan.
-# Dibaca rakit.ps1. kepala_judul = judul pendek di kepala halaman (bawaan @judul); sifat = baris di bawah nama di sampul
+# kepala_judul = judul pendek di kepala halaman (bawaan @judul); sifat = baris di bawah nama di sampul
 GAYA = {"kepala": ("-", "kotak"),            # kotak = judul kanan, nomor halaman berbingkai kiri, garis di bawahnya
         "fihris_ayat": ("tabel", "surah"),   # surah = kolom السورة (digabung per surat) | الآية «… الآية n» | الصفحة
         "fihris_hadits": ("tabel", "ringkas"),  # ringkas = الأحاديث | الصفحة, tanpa kolom الراوي
@@ -245,11 +250,8 @@ MODEL = {"jakarta": {"sampul": "jakarta", "format": "jakarta", "kepala": "kotak"
 # Batas bawaan @minimal_*: 0 = tidak dinilai. Halaman = seluruh PDF (sampul s.d. فهرس), aturan pemakai; jumlah kitab
 # hanya dinilai kalau dosen menulis batasnya (mis. «@minimal_kitab: 20»)
 MINIMAL = {"halaman": 25, "kitab": 0}
-# @data yang hanya dibaca `cek` (tidak dibaca rakit.ps1): mengubahnya tidak membuat PDF usang (sidik_cetak)
-HANYA_CEK = frozenset(f"minimal_{k}" for k in MINIMAL)
 # perkiraan kasar kata per halaman isi pada huruf matan 18; angka pasti hanya dari Word
 KATA_PER_HALAMAN_18 = 260
-META = frozenset("judul jenis nama nim fasl musyrif jabatan thalibah basmalah sampul tahun berkas format angka angka_ayat tanpa pustaka malahiq templat halaman_baru nomor bentuk rumuz warna model kepala_judul sifat qism".split()) | {f"minimal_{k}" for k in MINIMAL} | TIMPA.keys() | GAYA.keys()
 # @warna: nama -> RGB. Biru tua: tetap nyaman dibaca untuk paragraf panjang dan jelas beda dari hitam serta merah lafaz matn
 WARNA = {"biru": (20, 60, 150)}
 KUAT = re.compile(r"[^\W\d_]|[،؛؟]")  # huruf, atau tanda baca Arab (tanda teks Arab)
@@ -261,15 +263,15 @@ HURUF_TAUTAN = r"[^\s؀-ۿ«»()\[\]]"
 TAUTAN = re.compile(rf"(?:https?://|www\.|doi\.org/|(?<![\w.])10\.[0-9]{{4,}}/)(?:{HURUF_TAUTAN}|\({HURUF_TAUTAN}*\))+(?<![.,:])")
 
 
-def galat_mesin(n, e):
-    return f"baris {n}: GALAT MESIN ({type(e).__name__}: {e}) — bukan salah naskah; laporkan barisnya ke pengurus mesin bahts"
+def galat_mesin(e):
+    return f"GALAT MESIN ({type(e).__name__}: {e}) — bukan salah naskah; laporkan barisnya ke pengurus mesin bahts"
 
 
 def hindi(s):
     """Angka 0-9 -> ٠-٩, kecuali angka yang huruf atau tanda baca Arab terdekat sebelumnya (atau sesudahnya, kalau tidak
     ada) huruf Latin: judul berbahasa Latin tetap 0-9; «مجلة X، 2020» tetap ٢٠٢٠. Angka di dalam tautan/DOI (TAUTAN) selalu
     0-9, juga DOI tanpa huruf di depannya («انظر: 10.1016/…»). Satu lintasan linear."""
-    keluar, pos, terakhir = [], 0, ""  # terakhir = huruf/tanda baca Arab terdekat sebelum posisi `pos`
+    keluar, pos, terakhir = [], 0, ""
     tautan = iter([t.span() for t in TAUTAN.finditer(s)] + [(len(s) + 1, len(s) + 1)])
     t = next(tautan)
     for m in re.finditer(r"[0-9]+", s):
@@ -278,7 +280,7 @@ def hindi(s):
         keluar.append(s[pos:m.start()])
         for k in KUAT.finditer(s, pos, m.start()):
             terakhir = k.group()
-        k = next(KUAT.finditer(s, m.end()), None)  # sesudah angka, kalau sebelumnya tidak ada
+        k = next(KUAT.finditer(s, m.end()), None)
         c = terakhir or (k.group() if k else "")
         latin = t[0] <= m.start() or re.match(f"[{HURUF_LATIN}]", c)
         keluar.append(m.group() if latin else m.group().translate(AD))
@@ -288,8 +290,7 @@ def hindi(s):
 
 
 GABUNG_PARUH = re.compile(r"\s*\.\.\.~\s*")  # «...~» di #V: dua paruh bait berbagi satu kata, disambung sebelum dicek dan dicetak
-BELUM_DIUNDUH_RE = re.compile(re.escape(BELUM_DIUNDUH).replace(r"\{\}", r"(\d+)"))
-BUKTI_SID = re.compile(r"<<(\d+)\|")  # nomor kitab di bukti <<sid|juz|hal>>
+BUKTI_SID = re.compile(r"<<(\d+)\|")
 BUKTI_WAQFEYA = re.compile(r"<<(w[0-9a-f]{8})\|")
 
 
@@ -300,7 +301,7 @@ def kitab_dirujuk(folder):
     return tuple(list(dict.fromkeys(pola.findall(teks))) for pola in (BUKTI_SID, BUKTI_WAQFEYA))
 
 
-AWAL_BAGIAN = re.compile(r"^(?:\*\*)?(?:#[KFBMSR](?![^\s])|القول|الرأي|المذهب)")  # judul, atau awal pendapat baru
+AWAL_BAGIAN = re.compile(rf"^(?:\*\*)?(?:#[{''.join(TINGKAT_JUDUL)}](?![^\s])|القول|الرأي|المذهب)")
 
 
 def kata(runs):
@@ -308,26 +309,12 @@ def kata(runs):
     return sum(len(re.findall(r"[؀-ۿ]+", r.get("t") or "")) for r in runs)
 
 
-def sumber_tertimpa(folder, berkas, sumber, laporan="laporan.txt"):
+def sumber_tertimpa(folder, berkas, sumber, laporan=produk.LAPORAN):
     """Nama bahan pemakai yang bertabrakan dengan nama hasil akhir, juga sesudah `potong` mengganti @berkas."""
     tujuan = {(folder / nama).resolve().as_posix().casefold()
-              for nama in (f"{berkas}.docx", f"{berkas}.pdf", laporan)}
+              for nama in (produk.docx(berkas), produk.pdf(berkas), laporan)}
     return [nama for nama in dict.fromkeys(sumber)
             if (folder / nama.strip()).resolve().as_posix().casefold() in tujuan]
-
-
-def nama_potongan(berkas, label, fasl):
-    """Nama berkas hasil `rakit --fasl`: «<@berkas> - <label potongan>» (dipakai `potong` dan `tahap`)."""
-    nama = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "-", label).strip(" .")
-    return f"{berkas} - {nama or 'fasl' + fasl}"
-
-
-def rentang_fasl(fasl):
-    """Nomor/rentang sah untuk hasil per فصل; dipakai perakit dan pembaca laporan tahap."""
-    m = re.fullmatch(r"([1-9][0-9]*)(?:-([1-9][0-9]*))?", fasl)
-    if not m or (m[2] and int(m[2]) < int(m[1])):
-        raise TandaRusak(f"--fasl «{fasl}»: tulis nomor #F, mis. «--fasl 2», atau rentang dari kecil ke besar, mis. «--fasl 1-2»")
-    return int(m[1]), int(m[2] or m[1])
 
 
 def potong(d, fasl):
@@ -337,7 +324,7 @@ def potong(d, fasl):
     sebelumnya, mis. المقدمة); المصادر dan الفهارس hanya di potongan yang memuat #F terakhir (bersama yang sesudahnya,
     mis. الخاتمة), dan فهرسnya hanya berisi isi potongan itu; nomor halaman tiap potongan mulai ١.
     Kembalikan label potongan (mis. «المقدمة والفصل الأول»), yang juga ditambahkan ke nama berkas hasil."""
-    dari, sampai = rentang_fasl(fasl)
+    dari, sampai = produk.rentang_fasl(fasl)
     blok = d["blok"]
     awal_f = [i for i, b in enumerate(blok) if b["k"] == "F"]
     if sampai > len(awal_f):
@@ -346,13 +333,13 @@ def potong(d, fasl):
     akhir = len(blok) if sampai == len(awal_f) else awal_f[sampai]
     d["blok"] = blok = blok[mulai:akhir]
     meta = d["meta"]
-    label = [b["judul"].split(":")[0].strip() for b in blok if b["k"] in ("K", "F")]
+    label = [b["judul"].split(":")[0].strip() for b in blok if b["k"] in JUDUL_BAB]
     label = label[0] + "".join(" و" + x for x in label[1:])
-    meta["berkas"] = nama_potongan(meta["berkas"], label, fasl)
+    meta["berkas"] = produk.nama_potongan(meta["berkas"], label, fasl)
     if dari > 1:  # sampul dan halaman bernomor huruf (@nomor) hanya di potongan pertama
         meta["tanpa_sampul"] = True
         meta.pop("nomor", None)
-    if sampai < len(awal_f):  # المصادر dan الفهارس hanya di potongan terakhir
+    if sampai < len(awal_f):
         meta["tanpa"] = ", ".join(TANPA)
 
     def runs(rr):
@@ -376,29 +363,26 @@ def potong(d, fasl):
         if ks:  # {H:} di potongan lain, {H2:} di sini: halaman di فهرس hanya yang di sini
             hadits.append({**h, "k": ks[0], "lagi": ks[1:]})
     d["hadits"] = hadits
-    alam = []
-    for a in d.get("alam", []):  # nama yang juga disebut di potongan lain: halaman di فهرس hanya yang di sini
-        ks = [k for k in a["k"] if k in bm]
-        if ks:
-            alam.append({**a, "k": ks})
-    d["alam"] = alam
-    firaq = []
-    for a in d.get("firaq", []):  # sama dengan alam: halaman di فهرس hanya yang di potongan ini
-        ks = [k for k in a["k"] if k in bm]
-        if ks:
-            firaq.append({**a, "k": ks})
-    d["firaq"] = firaq
+    for f in FIHRIS_NAMA:  # nama yang juga disebut di potongan lain: halaman di فهرس hanya yang di sini
+        d[f.kunci] = [{**a, "k": ks} for a in d[f.kunci] if (ks := [k for k in a["k"] if k in bm])]
+    d["cetak"] = rencana_cetak(d)
     return label
 
 
-def utama(folder, keluar=None):
-    """Olah naskah di `folder`. Kembalikan (jumlah galat, baris laporan, [(sid, kutipan)] yang «teks TIDAK KETEMU di kitab»)."""
-    ctx, lap = periksa(folder, keluar)
-    return len(ctx.galat), lap, list(ctx.tertolak)
+@dataclasses.dataclass
+class HasilCek:
+    """Hasil `periksa` atas satu naskah. Tidak ada yang ditulis ke berkas: bahan ditulis `tulis_bahan`, laporan dicetak
+    `cetak` atau ditulis `rakit`."""
+    ctx: Pemeriksaan  # putusan (galat, perhatian, diterima, tertolak) dan isi naskah yang terurai
+    bahan: dict  # bahan rakit (_bahan)
+    laporan: list  # baris laporan `cek`
+    sidik_naskah: str  # SHA-256 naskah.txt
+    sidik_cetak: str  # SHA-256 bagian bahan yang tercetak (sidik_cetak)
+    tanpa_bukti: list  # awal teks tiap catatan kaki tanpa bukti (_tanpa_bukti)
 
 
-def periksa(folder, keluar=None):
-    """Urai dan periksa naskah di `folder`, tulis bahan rakit ke `keluar`. Kembalikan (Pemeriksaan, baris laporan).
+def periksa(folder):
+    """Urai dan periksa naskah di `folder`. Kembalikan HasilCek.
     Tahapannya urut; urutan itu juga urutan galat dan perhatian di laporan."""
     folder = Path(folder)
     naskah, baris = _baca_naskah(folder)
@@ -415,16 +399,17 @@ def periksa(folder, keluar=None):
     sumber = _cek_bahan_sumber(ctx, naskah)
     _cek_tata_letak(ctx)
     _malahiq(ctx)
-    profil = _format_dan_angka(ctx)
-    _bait_syair(ctx)
+    profil = _profil(ctx)
+    _angka_cetak(ctx)
     sidik_naskah = hashlib.sha256(naskah).hexdigest()
-    d = _bahan(ctx, profil, quran, sumber, sidik_naskah)
-    if ctx.bentuk != "kitab":  # muqarrar gabungan syarah (@bentuk: kitab) bukan riset baru
-        _cek_jumlah_halaman(ctx, d)
+    d = _bahan(ctx, _bait_syair(ctx.blok), profil, quran, sumber, sidik_naskah)
+    _cek_jumlah_halaman(ctx, d)
     # jumlah di ringkasan = baris yang dicetak; yang diterima di riset.txt tidak dihitung (laporannya terpisah)
-    ctx.perhatian, ctx.diterima, ctx.kode = periksa_riset(folder, baris, gabung_kembar(ctx.perhatian), wajib=ctx.bentuk != "kitab")
-    _tulis_bahan(ctx, keluar, d)
-    return ctx, _laporan(ctx, n_matan, n_fn, sidik_naskah, sidik_cetak(d))
+    ctx.perhatian, ctx.diterima, ctx.kode = periksa_riset(folder, baris, gabung_kembar(ctx.perhatian), wajib=not bentuk_kitab(ctx.meta))
+    sidik_isi = sidik_cetak(d)
+    tanpa_bukti = _tanpa_bukti(ctx)
+    return HasilCek(ctx, d, _laporan(ctx, n_matan, n_fn, tanpa_bukti, sidik_naskah, sidik_isi), sidik_naskah, sidik_isi,
+                    tanpa_bukti)
 
 
 def _baca_naskah(folder):
@@ -458,17 +443,31 @@ def ukuran_gambar(p):
         ukuran = int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
     elif data[:2] == b"\xff\xd8":
         i = 2
-        while i + 9 < len(data) and data[i] == 0xFF:
-            tanda, panjang = data[i + 1], int.from_bytes(data[i + 2:i + 4], "big")
-            if 0xC0 <= tanda <= 0xCF and tanda not in (0xC4, 0xC8, 0xCC):  # SOFn: tinggi lalu lebar
-                if data.rfind(b"\xff\xd9") > i:
-                    ukuran = int.from_bytes(data[i + 7:i + 9], "big"), int.from_bytes(data[i + 5:i + 7], "big")
+        while i < len(data) and data[i] == 0xFF:
+            while i < len(data) and data[i] == 0xFF:  # ITU-T T.81: byte pengisi 0xFF boleh berderet sebelum penanda
+                i += 1
+            if i >= len(data):
                 break
-            i += 2 + panjang
+            tanda = data[i]
+            if tanda in (0x00, 0xD9):
+                break
+            if tanda == 0x01 or 0xD0 <= tanda <= 0xD8:  # penanda berdiri sendiri tanpa panjang
+                i += 1
+                continue
+            if i + 3 > len(data):
+                break
+            panjang = int.from_bytes(data[i + 1:i + 3], "big")
+            if panjang < 2 or i + 1 + panjang > len(data):
+                break
+            if 0xC0 <= tanda <= 0xCF and tanda not in (0xC4, 0xC8, 0xCC):  # SOFn: panjang(2) + presisi(1) + tinggi(2) + lebar(2)
+                if panjang >= 7 and data.rfind(b"\xff\xd9") >= i + 1 + panjang:
+                    ukuran = int.from_bytes(data[i + 6:i + 8], "big"), int.from_bytes(data[i + 4:i + 6], "big")
+                break
+            i += 1 + panjang
     return ukuran if ukuran and all(ukuran) else None
 
 
-def _baris_gambar(ctx, n, t):
+def _baris_gambar(ctx, n, k, t):
     """«#G berkas | keterangan»: gambar dari folder bahts. Isi berkasnya ikut sidik cetak (PNG baru = PDF usang)."""
     berkas, _, ket = t.partition("|")
     berkas, ket = berkas.strip(), ket.strip()
@@ -488,7 +487,7 @@ def _baris_gambar(ctx, n, t):
     elif re.search(r"\[\^|<<|\{", ket):
         salah = "keterangan gambar tidak boleh memuat catatan kaki, bukti, atau tanda {Q:/{H: — tulis rujukannya di paragraf sesudahnya"
     if salah:  # barisnya tetap isi bagian itu (bukan «bagian kosong»); GAGAL menghentikan rakit
-        ctx.galat.append(f"baris {n}: #G {salah}")
+        ctx.galat.append(f"#G {salah}")
         ctx.blok.append({"k": "P", "runs": [], "n": n})
         return
     w, h = ukuran
@@ -496,112 +495,131 @@ def _baris_gambar(ctx, n, t):
                      "runs": [{"t": ket}] if ket else [], "n": n})
 
 
-def _baris_tabel(ctx, n, t):
+def _baris_tabel(ctx, n, k, t):
     """«#J sel | sel»: tiap sel diurai seperti paragraf (catatan kaki dan kutipannya dicek per sel). Baris #J sesudah
     baris #J (tanpa judul atau paragraf di antaranya) = tabel yang sama, jadi jumlah selnya harus sama."""
     sel = [s.strip() for s in t.split(" | ")]
     if len(sel) < 2 or not all(sel):
-        ctx.galat.append(f"baris {n}: #J butuh paling sedikit dua sel berisi, dipisah « | » :: #J {t[:40]}")
+        ctx.galat.append(f"#J butuh paling sedikit dua sel berisi, dipisah « | » :: #J {t[:40]}")
         return
     sebelum = ctx.blok[-1] if ctx.blok else None
     if sebelum and sebelum["k"] == "J" and len(sebelum["sel"]) != len(sel):
-        ctx.galat.append(f"baris {n}: tabel ini {len(sebelum['sel'])} kolom (baris {sebelum['n']}), "
+        ctx.galat.append(f"tabel ini {len(sebelum['sel'])} kolom (baris {sebelum['n']}), "
                          f"baris ini {len(sel)} sel :: #J {t[:40]}")
         return
-    try:
-        isi = [urai(s, ctx) for s in sel]
-    except TandaRusak as e:
-        ctx.galat.append(f"baris {n}: tanda rusak — {e}"); return
-    except (KeyError, IndexError, ValueError) as e:  # bukan salah tulis naskah: mesinnya yang keliru di baris ini
-        ctx.galat.append(galat_mesin(n, e)); return
+    isi = []
+    for s in sel:
+        runs = _urai_aman(ctx, s)
+        if runs is None:
+            return
+        isi.append(runs)
     # runs = gabungan semua sel (untuk perkiraan halaman dan penghitung lain); rakit.ps1 memakai sel
     ctx.blok.append({"k": "J", "sel": isi, "runs": [r for s in isi for r in (*s, {"t": " "})], "n": n})
 
 
+def _baris_latin(ctx, n, k, t):
+    """«#L teks»: tercetak apa adanya, kiri ke kanan; tanda naskah tidak diurai."""
+    blok, galat, b = ctx.blok, ctx.galat, f"#{k} {t}"
+    if re.search(r"\[\^|<<|\{", t):
+        galat.append(f"#L tidak boleh memuat catatan kaki, bukti, atau tanda {{Q:/{{H: :: {b[:40]}")
+    m = re.fullmatch(r"\*\*([^*]+)\*\*", t.strip())  # «#L **Abstract**»: judul Latin tebal di tengah
+    if m and not m[1].strip():
+        galat.append(f"judul #L **…** kosong :: {b[:40]}")
+    if m and blok and blok[-1]["k"] not in (*JUDUL_FIHRIS, "H"):  # judul Latin sesudah isi: halaman sendiri
+        blok.append({"k": "H", "runs": [], "n": n})
+    blok.append({"k": "L", "runs": [{"t": m[1].strip() if m else t}], "n": n, **({"tengah": True} if m else {})})
+
+
+def _baris_kotak(ctx, n, k, t):
+    """«#T teks» (kotak matn): paragraf biasa (boleh bercatatan kaki), dicetak rakit.ps1 menurut k."""
+    runs = _urai_aman(ctx, t)
+    if runs is not None:
+        ctx.blok.append({"k": k, "runs": runs})
+
+
+def _baris_bait(ctx, n, k, t):
+    """«#V teks» (bait syair): seperti #T; kata yang dipecah «...~» dicek dan dicetak utuh, bukan sebagai dua bagian
+    kutipan."""
+    _baris_kotak(ctx, n, k, GABUNG_PARUH.sub("", t))
+
+
+def _baris_judul(ctx, n, k, t):
+    """«#K/#F/#B/#M/#S/#R teks»: judul, tercetak apa adanya (juga di فهرس الموضوعات), jadi tanda naskah ikut tercetak."""
+    if re.search(r"\[\^|<<|\{|\*\*", t):
+        ctx.galat.append(f"judul tidak boleh memuat catatan kaki [^, bukti <<, tanda {{Q:/{{H:/{{A:/{{N: atau **: "
+                         f"pindahkan ke paragraf sesudahnya :: {f'#{k} {t}'[:40]}")
+        return
+    if k == "R":
+        ctx.di_baris["#R"] = n
+    ctx.blok.append({"k": k, "runs": [{"t": t, "b": True}], "judul": t, "n": n})
+
+
+# Tanda baris «#X teks» -> penangannya (ctx, nomor baris, X, teks). Tanda baris baru = penangan baru di sini
+TANDA_BARIS = {**dict.fromkeys((*JUDUL_ISI, "R"), _baris_judul), "T": _baris_kotak, "V": _baris_bait, "L": _baris_latin,
+               "J": _baris_tabel, "G": _baris_gambar}
+
+
+def _urai_aman(ctx, teks):
+    """Runs `teks` (naskah.urai), atau None kalau barisnya tidak terurai: galatnya dicatat di sini."""
+    try:
+        return urai(teks, ctx)
+    except TandaRusak as e:
+        ctx.galat.append(f"tanda rusak — {e}")
+    except (KeyError, IndexError, ValueError) as e:  # bukan salah tulis naskah: mesinnya yang keliru di baris ini
+        ctx.galat.append(galat_mesin(e))
+    return None
+
+
 def _urai_baris(ctx, baris):
-    """Tiap baris naskah: @data, judul #…, rujukan sesudah #R, atau paragraf (diurai `urai`).
-    Tiap galat dan perhatian diberi nomor barisnya."""
-    di_baris, blok, pustaka, galat, perhatian = ctx.di_baris, ctx.blok, ctx.pustaka, ctx.galat, ctx.perhatian
+    """Tiap baris naskah diurai (`_satu_baris`); tiap galat dan perhatiannya menyebut nomor barisnya
+    (Pemeriksaan.selama_baris): pemakai langsung tahu tempatnya, tes jebakan mencocokkan per baris."""
     for n, b in baris:
-        if AWAL_BAGIAN.match(b) and ctx.standar:  # bagian baru: nilai standar sumber bagian sebelumnya
-            perhatian += standar_baris(ctx.standar); ctx.standar.clear()
-        g0, p0, u0, s0, r0 = len(galat), len(perhatian), len(ctx.penunjuk), len(ctx.standar), len(ctx.rujuk_silang)
-        if b.startswith("@"):
-            _baca_data(ctx, n, b)
-        elif "#R" in di_baris and b.startswith("#"):
-            galat.append(f"baris {n}: {b.split()[0]} sesudah #R di baris {di_baris['#R']} tidak dirakit: "
-                         "pindahkan bagian isi sebelum #R; sesudah #R hanya satu rujukan per baris")
-        elif b.strip() == "#H":  # pindah halaman: blok sesudahnya mulai halaman baru (dibaca rakit.ps1 dan perkiraan_halaman)
-            blok.append({"k": "H", "runs": [], "n": n})
-        elif b.startswith("#"):
-            k, _, t = b[1:].partition(" ")
-            if k not in ("K", "F", "B", "M", "S", "R", "T", "V", "L", "J", "G") or not t.strip():
-                galat.append(f"baris {n}: judul harus «#K/#F/#B/#M/#S/#R/#T/#V/#L/#J/#G teks» :: {b[:40]}"); continue
-            if k == "G":  # gambar: berkas di folder bahts + keterangan, dicetak rakit.ps1
-                _baris_gambar(ctx, n, t)
-            elif k == "J":  # baris tabel: sel dipisah « | »; baris #J berturut-turut = satu tabel, dicetak rakit.ps1
-                _baris_tabel(ctx, n, t)
-            elif k == "L":  # tercetak apa adanya, kiri ke kanan; tanda naskah tidak diurai
-                if re.search(r"\[\^|<<|\{", t):
-                    galat.append(f"baris {n}: #L tidak boleh memuat catatan kaki, bukti, atau tanda {{Q:/{{H: :: {b[:40]}")
-                m = re.fullmatch(r"\*\*([^*]+)\*\*", t.strip())  # «#L **Abstract**»: judul Latin tebal di tengah
-                if m and not m[1].strip():
-                    galat.append(f"baris {n}: judul #L **…** kosong :: {b[:40]}")
-                if m and blok and blok[-1]["k"] not in ("K", "F", "B", "M", "H"):  # judul Latin sesudah isi: halaman sendiri
-                    blok.append({"k": "H", "runs": [], "n": n})
-                blok.append({"k": "L", "runs": [{"t": m[1].strip() if m else t}], "n": n, **({"tengah": True} if m else {})})
-            elif k in ("T", "V"):  # kotak matn atau bait syair: paragraf biasa (boleh bercatatan kaki), dicetak rakit.ps1 menurut k
-                if k == "V":  # kata yang dipecah «...~» dicek dan dicetak utuh, bukan sebagai dua bagian kutipan
-                    t = GABUNG_PARUH.sub("", t)
-                try:
-                    blok.append({"k": k, "runs": urai(t, ctx)})
-                except TandaRusak as e:
-                    galat.append(f"baris {n}: tanda rusak — {e}")
-                except (KeyError, IndexError, ValueError) as e:  # bukan salah tulis naskah: mesinnya yang keliru di baris ini
-                    galat.append(galat_mesin(n, e))
-            elif re.search(r"\[\^|<<|\{|\*\*", t):  # judul tercetak apa adanya (juga di فهرس الموضوعات): tanda ini ikut tercetak
-                galat.append(f"baris {n}: judul tidak boleh memuat catatan kaki [^, bukti <<, tanda {{Q:/{{H:/{{A:/{{N: atau **: "
-                             f"pindahkan ke paragraf sesudahnya :: {b[:40]}")
-            else:
-                if k == "R":
-                    di_baris["#R"] = n
-                blok.append({"k": k, "runs": [{"t": t, "b": True}], "judul": t, "n": n})
-        elif "#R" in di_baris:
-            pustaka.append(b.strip())
-            g = gelar(b, "pustaka")
-            if g:
-                perhatian.append(g)
+        if AWAL_BAGIAN.match(b) and ctx.standar:
+            ctx.perhatian += standar_baris(ctx.standar); ctx.standar.clear()
+        with ctx.selama_baris(n):
+            _satu_baris(ctx, n, b)
+
+
+def _satu_baris(ctx, n, b):
+    """Satu baris naskah: @data, tanda baris #… (TANDA_BARIS), rujukan sesudah #R, atau paragraf."""
+    di_baris, blok, pustaka, galat, perhatian = ctx.di_baris, ctx.blok, ctx.pustaka, ctx.galat, ctx.perhatian
+    if b.startswith("@"):
+        _baca_data(ctx, n, b)
+    elif "#R" in di_baris and b.startswith("#"):
+        galat.append(f"{b.split()[0]} sesudah #R di baris {di_baris['#R']} tidak dirakit: "
+                     "pindahkan bagian isi sebelum #R; sesudah #R hanya satu rujukan per baris")
+    elif b.strip() == "#H":  # pindah halaman: blok sesudahnya mulai halaman baru (awal_halaman)
+        blok.append({"k": "H", "runs": [], "n": n})
+    elif b.startswith("#"):
+        k, _, t = b[1:].partition(" ")
+        if k not in TANDA_BARIS or not t.strip():
+            galat.append(f"judul harus «{'/'.join('#' + x for x in TANDA_BARIS)} teks» :: {b[:40]}")
         else:
-            try:
-                blok.append({"k": "P", "runs": urai(b, ctx), "n": n})
-            except TandaRusak as e:
-                galat.append(f"baris {n}: tanda rusak — {e}")
-            except (KeyError, IndexError, ValueError) as e:  # bukan salah tulis naskah: mesinnya yang keliru di baris ini
-                galat.append(galat_mesin(n, e))
-        # tiap galat dan perhatian menyebut barisnya: pemakai langsung tahu tempatnya, tes jebakan mencocokkan per baris
-        galat[g0:] = [g if g.startswith("baris ") else f"baris {n}: {g}" for g in galat[g0:]]
-        perhatian[p0:] = [p if p.startswith("baris ") else f"baris {n}: {p}" for p in perhatian[p0:]]
-        for u in ctx.penunjuk[u0:]:
-            u["n"] = n
-        for c in ctx.standar[s0:]:
-            c["n"] = n
-        for r in ctx.rujuk_silang[r0:]:
-            r["n"] = n
+            TANDA_BARIS[k](ctx, n, k, t)
+    elif "#R" in di_baris:
+        pustaka.append(b.strip())
+        g = gelar(b, "pustaka")
+        if g:
+            perhatian.append(g)
+    else:
+        runs = _urai_aman(ctx, b)
+        if runs is not None:
+            blok.append({"k": "P", "runs": runs, "n": n})
 
 
 def _baca_data(ctx, n, b):
-    """Baris «@kunci: nilai» (baris ke-n): simpan di meta; kunci yang punya pembaca di PEMBACA_DATA diurai sekarang,
+    """Baris «@kunci: nilai» (baris ke-n): simpan di meta; kunci yang punya pembaca `segera` di DATA diurai sekarang,
     karena dipakai `urai` untuk baris-baris sesudahnya. Nilai kunci lain dicek sesudah seluruh naskah dibaca."""
     k, _, v = b[1:].partition(":")
     k = k.strip()
-    if k not in META:
-        mirip = difflib.get_close_matches(k, sorted(META), n=1)
-        ctx.galat.append(f"baris {n}: @{k}: data tidak dikenal" +
+    if k not in DATA:
+        mirip = difflib.get_close_matches(k, sorted(DATA), n=1)
+        ctx.galat.append(f"@{k}: data tidak dikenal" +
                          (f"; maksudnya @{mirip[0]}?" if mirip else "; lihat `tanda` untuk daftar data naskah"))
     ctx.meta[k] = v.strip()
     ctx.di_baris["@" + k] = n
-    if k in PEMBACA_DATA:
-        PEMBACA_DATA[k](ctx, v)
+    if k in DATA and DATA[k].segera:
+        DATA[k].segera(ctx, v)
 
 
 def _baca_rumuz(ctx, v):
@@ -625,7 +643,65 @@ def _baca_warna(ctx, v):
         ctx.warna[sid.strip()] = rr + gg * 256 + bb * 65536
 
 
-PEMBACA_DATA = {"rumuz": _baca_rumuz, "warna": _baca_warna}  # @data yang langsung dipakai `urai`
+@dataclasses.dataclass(frozen=True)
+class Data:
+    """Sifat satu @kunci naskah (tabel DATA)."""
+    sah: tuple = ()  # nilai yang dikenal (`_pilih`); kosong = teks bebas, atau bentuknya dinilai tahapan `periksa` sendiri
+    bawaan: str | None = None  # nilai kalau barisnya tidak ditulis
+    pisah: str = ", "  # pemisah nilai sah di kalimat GAGAL
+    pesan: str = "«{nilai}» tidak dikenal (yang ada: {ada})"  # kalimat GAGAL nilai di luar `sah`
+    baca: Callable = str  # nilai seperti ditulis -> bentuk yang dicocokkan dengan `sah`
+    segera: Callable | None = None  # pembaca (ctx, nilai) begitu barisnya dibaca: dipakai `urai` baris-baris sesudahnya
+    teks: bool = False  # teks yang tercetak apa adanya: angkanya mengikuti @angka
+    hanya_cek: bool = False  # tidak dibaca rakit.ps1: mengubahnya tidak membuat PDF usang (sidik_cetak)
+
+
+TEKS = Data(teks=True)
+YA_TIDAK = Data(sah=("ya",), pesan="«{nilai}» tidak dikenal: tulis «ya», atau hapus barisnya")  # tanpa barisnya = tidak
+# Tiap @kunci yang dikenal naskah. Kunci berpilihan dinilai `_pilih` di tahapan `periksa` yang memakainya: urutan
+# tahapan itu = urutan GAGAL di laporan
+DATA = {
+    "judul": TEKS, "jenis": TEKS, "nama": TEKS, "nim": TEKS, "fasl": TEKS, "musyrif": TEKS, "jabatan": TEKS,
+    "thalibah": YA_TIDAK, "basmalah": YA_TIDAK,
+    "sampul": Data(sah=tuple(SAMPUL), bawaan="qism", pisah="، ", baca=str.lower),
+    "tahun": TEKS, "berkas": Data(),
+    "format": Data(sah=tuple(FORMAT), bawaan="imam", pisah="، ",
+                   pesan="«{nilai}» tidak ada di mesin/format.json (yang ada: {ada})"),
+    "angka": Data(sah=ANGKA, bawaan="hindi", pisah="، "), "angka_ayat": Data(sah=ANGKA, pisah="، "),  # bawaan = @angka
+    "tanpa": Data(sah=TANPA), "pustaka": Data(sah=("akhir",)), "malahiq": Data(sah=("akhir",)), "templat": Data(),
+    "halaman_baru": Data(sah=HALAMAN_BARU), "nomor": Data(sah=("abjad", "mukadimah")),
+    "bentuk": Data(sah=("bahts", KITAB), bawaan="bahts", pisah="، "),
+    "rumuz": Data(segera=_baca_rumuz), "warna": Data(segera=_baca_warna),
+    "model": Data(sah=tuple(MODEL), pisah="، "), "kepala_judul": TEKS, "sifat": TEKS, "qism": TEKS,
+    **{f"minimal_{k}": Data(hanya_cek=True) for k in MINIMAL},
+    **{k: Data(sah=tuple(nilai)) for k, (_, nilai) in TIMPA.items()},
+    **{k: Data(sah=nilai, bawaan=nilai[0]) for k, nilai in GAYA.items()},
+}
+HANYA_CEK = frozenset(k for k, sifat in DATA.items() if sifat.hanya_cek)
+
+
+def _tak_dikenal(ctx, kunci, nilai):
+    """GAGAL: `nilai` @kunci bukan salah satu nilai sahnya (DATA)."""
+    sifat = DATA[kunci]
+    ctx.galat.append(ctx.di("@" + kunci) + f"@{kunci}: " + sifat.pesan.format(nilai=nilai, ada=sifat.pisah.join(sifat.sah)))
+
+
+def _pilih(ctx, kunci):
+    """Nilai @kunci berpilihan: yang ditulis di naskah kalau dikenal, bawaannya kalau barisnya tidak ada.
+    None = tidak dikenal (sudah dicatat GAGAL), atau tidak ditulis dan tanpa bawaan."""
+    sifat = DATA[kunci]
+    if kunci not in ctx.meta:
+        return sifat.bawaan
+    nilai = sifat.baca(ctx.meta[kunci])
+    if nilai in sifat.sah:
+        return nilai
+    _tak_dikenal(ctx, kunci, nilai)
+    return None
+
+
+def daftar(meta, kunci):
+    """Butir @kunci yang nilainya daftar («ayat, hadits»: dipisah koma atau spasi)."""
+    return [t for t in re.split(r"[,، ]+", meta.get(kunci, "")) if t]
 
 
 def _cek_sesudah_naskah(ctx):
@@ -636,7 +712,7 @@ def _cek_sesudah_naskah(ctx):
     perhatian += standar_baris(ctx.standar); ctx.standar.clear()
     perhatian += porsi_kutipan(blok, catatan)
     perhatian += periksa_dirasat(blok, catatan)
-    if ctx.meta.get("bentuk") != "kitab":  # muqarrar (@bentuk: kitab; ctx.bentuk baru diisi _cek_bentuk) tanpa المقدمة/الخاتمة bahts
+    if not bentuk_kitab(ctx.meta):  # muqarrar tanpa المقدمة/الخاتمة bahts
         perhatian += periksa_muqaddimah(blok, ctx.meta.get("jenis", ""))
         perhatian += periksa_khatimah(blok)
     for r in ctx.rujuk_silang:
@@ -649,29 +725,31 @@ def _cek_sesudah_naskah(ctx):
 
 def _terapkan_model_gaya(ctx):
     """@model mengisi pilihan tata letak yang tidak ditulis sendiri; tiap pilihan @GAYA dicek."""
-    meta, blok, catatan, galat = ctx.meta, ctx.blok, ctx.catatan, ctx.galat
-    di = ctx.di
-    if meta.get("model"):
-        if meta["model"] not in MODEL:
-            galat.append(di("@model") + f"@model: «{meta['model']}» tidak dikenal (yang ada: {'، '.join(MODEL)})")
-        else:
-            for k, v in MODEL[meta["model"]].items():
-                if k == "sampul" and meta.get("templat"):  # @templat membawa sampulnya sendiri
-                    continue
-                meta.setdefault(k, v)
-    for k, nilai in GAYA.items():
-        meta.setdefault(k, nilai[0])
-        if meta[k] not in nilai:
-            galat.append(di("@" + k) + f"@{k}: «{meta[k]}» tidak dikenal (yang ada: {', '.join(nilai)})")
-            meta[k] = nilai[0]
+    meta, blok, catatan = ctx.meta, ctx.blok, ctx.catatan
+    if meta.get("model") and (model := _pilih(ctx, "model")):
+        for k, v in MODEL[model].items():
+            if k == "sampul" and meta.get("templat"):  # @templat membawa sampulnya sendiri
+                continue
+            meta.setdefault(k, v)
+    for k in GAYA:  # yang tidak dikenal dirakit dengan bawaannya
+        meta[k] = _pilih(ctx, k) or DATA[k].bawaan
     if meta["rujukan_ayat"] == "matan":  # [^سورة …، آية: n.] jadi «[السورة: n]» di matan, catatan kakinya tidak dicetak
         for b in blok:
-            for j, r in enumerate(b.get("runs", [])):
-                if "fn" in r:
-                    t = "".join(x.get("t", "") for x in catatan[r["fn"]]["runs"]).strip()
-                    m = re.fullmatch(r"سورة\s+(.+?)،\s*آية:?\s*([\d٠-٩]+(?:\s*[-–]\s*[\d٠-٩]+)?)\.?", t)
-                    if m:
-                        b["runs"][j] = {"t": f" [{m.group(1)}: {m.group(2)}]", "b": False}
+            deret = b["sel"] if b["k"] == "J" else [b.get("runs", [])]
+            ubah = False
+            for runs in deret:
+                for j, r in enumerate(runs):
+                    if "fn" in r:
+                        t = "".join(x.get("t", "") for x in catatan[r["fn"]]["runs"]).strip()
+                        m = re.fullmatch(r"سورة\s+(.+?)،\s*آية:?\s*([\d٠-٩]+(?:\s*[-–]\s*[\d٠-٩]+)?)\.?", t)
+                        if m:
+                            runs[j] = {"t": f" [{m.group(1)}: {m.group(2)}]", "b": False}
+                            ubah = True
+            if ubah:
+                if b["k"] == "J":
+                    b["runs"] = [r for s in b["sel"] for r in (*s, {"t": " "})]
+                if "n" in b:
+                    ctx.ayat_matan.add(b["n"])
 
 
 def _cek_bentuk(ctx):
@@ -680,20 +758,12 @@ def _cek_bentuk(ctx):
     folder, di = ctx.folder, ctx.di
     if meta["kepala"] == "kotak" and meta.get("templat"):
         galat.append(di("@kepala") + "@kepala: kotak dan @templat tidak bisa dipakai bersama: @templat sudah membawa kepala halamannya")
-    tanpa =[t for t in re.split(r"[,، ]+", meta.get("tanpa", "")) if t]
-    bentuk = meta.setdefault("bentuk", next(iter(WAJIB)))
-    if bentuk not in WAJIB:
-        galat.append(di("@bentuk") + f"@bentuk: «{bentuk}» tidak dikenal (yang ada: {'، '.join(WAJIB)})")
-        bentuk = next(iter(WAJIB))
-    sampul = meta.get("sampul") or next(iter(SAMPUL))
-    if meta["logo"] == "berwarna" and (meta.get("templat") or bentuk == "kitab" or sampul != "qism"):
-        alasan = ("@templat membawa sampulnya sendiri" if meta.get("templat") else "@bentuk: kitab tanpa sampul"
-                  if bentuk == "kitab" else f"@sampul: {sampul} memakai logonya sendiri")
-        galat.append(di("@logo") + f"@logo: berwarna hanya untuk sampul qism (bawaan): {alasan}")
-    if "pustaka" in tanpa:  # sumber cukup di catatan kaki (rujukan pertama tiap kitab berdata lengkap)
+    meta.setdefault("bentuk", DATA["bentuk"].bawaan)
+    _pilih(ctx, "bentuk")
+    if "pustaka" in daftar(meta, "tanpa"):  # sumber cukup di catatan kaki (rujukan pertama tiap kitab berdata lengkap)
         if "#R" in di_baris:
             galat.append(di("#R") + "@tanpa: pustaka, tetapi ada #R: hapus #R beserta daftarnya, atau hapus «pustaka» dari @tanpa")
-    elif "#R" not in di_baris and bentuk != "kitab":
+    elif "#R" not in di_baris and not bentuk_kitab(meta):
         galat.append("tidak ada #R (المصادر والمراجع) di akhir naskah: salin baris #R dari mesin/naskah_baru.txt, "
                      "lalu tulis satu kitab per baris di bawahnya")
     elif "#R" in di_baris and not pustaka:
@@ -704,7 +774,6 @@ def _cek_bentuk(ctx):
         galat.append(di("@berkas") + f"@berkas: «{meta['berkas']}»: nama berkas tidak boleh memuat : / \\ ? * < > | \" atau karakter kontrol")
     elif re.fullmatch(r"(?i:CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|COM[1-9¹²³]|LPT[1-9¹²³]) *(?:\..*)?", meta["berkas"]):
         galat.append(di("@berkas") + f"@berkas: «{meta['berkas']}»: nama perangkat Windows tidak bisa dipakai sebagai nama hasil")
-    ctx.tanpa, ctx.bentuk = tanpa, bentuk
 
 
 def _urutkan_fihris(ctx):
@@ -724,18 +793,14 @@ def _urutkan_fihris(ctx):
     for a in ayat_idx:
         a["surah"] = SURAH[a["s"] - 1]
     hadits_idx.sort(key=lambda h: kunci_urut(h["t"]))
-    # فهرس الأعلام: satu baris per nama (semua penandanya), urut tanpa «ال/ابن/أبو» seperti pengarang di المصادر
+    # فهرس nama: satu baris per nama (semua penandanya); فهرس الأعلام urut tanpa «ال/ابن/أبو» seperti pengarang di المصادر
     # nama yang hanya beda harakat atau hamzah («ابنُ عثيمين»، «احمد») = orang yang sama: satu baris, bentuk pertamanya
-    gabung = {}
-    for a in ctx.alam_idx:
-        kunci = re.sub("[إأآ]", "ا", norma.HARAKAT.sub("", a["t"]))
-        gabung.setdefault(kunci, {"t": a["t"], "k": []})["k"].append(a["k"])
-    ctx.alam = sorted(gabung.values(), key=lambda a: kunci_urut(a["t"], True))
-    gabung = {}  # فهرس الفرق والمذاهب ({M:}): digabung dan diurutkan sama dengan فهرس الأعلام
-    for a in ctx.firaq_idx:
-        kunci = re.sub("[إأآ]", "ا", norma.HARAKAT.sub("", a["t"]))
-        gabung.setdefault(kunci, {"t": a["t"], "k": []})["k"].append(a["k"])
-    ctx.firaq = sorted(gabung.values(), key=lambda a: kunci_urut(a["t"]))
+    for f in FIHRIS_NAMA:
+        gabung = {}
+        for a in ctx.nama_idx[f.kunci]:
+            kunci = re.sub("[إأآ]", "ا", norma.HARAKAT.sub("", a["t"]))
+            gabung.setdefault(kunci, {"t": a["t"], "k": []})["k"].append(a["k"])
+        ctx.fihris_nama[f.kunci] = sorted(gabung.values(), key=lambda a: kunci_urut(a["t"], f.pengarang))
     ctx.pustaka = pustaka
     return quran
 
@@ -779,7 +844,7 @@ def _cek_jumlah_kitab(ctx, quran):
     di = ctx.di
     batas, asal = batas_minimal(ctx.meta, "kitab")
     # @bentuk: kitab, @tanpa: pustaka, dan #R yang kosong (sudah GAGAL di _cek_bentuk) tidak punya daftar untuk dihitung
-    if batas is None or ctx.bentuk == "kitab" or "pustaka" in ctx.tanpa or not ctx.pustaka:
+    if batas is None or bentuk_kitab(ctx.meta) or "pustaka" in daftar(ctx.meta, "tanpa") or not ctx.pustaka:
         return
     unik, kembar = set(), []
     for p in ctx.pustaka:
@@ -800,12 +865,20 @@ def _cek_jumlah_kitab(ctx, quran):
             "tulis jumlah dari dosen di «@minimal_kitab: n»")
 
 
+def kurang_halaman(meta, halaman):
+    """(batas, asal) kalau `halaman` seluruh PDF kurang dari @minimal_halaman (bawaan MINIMAL); None = cukup, atau
+    tidak dinilai: batas 0, dan muqarrar gabungan syarah (@bentuk: kitab) bukan riset baru."""
+    batas, asal = batas_minimal(meta, "halaman")
+    return (batas, asal) if batas and not bentuk_kitab(meta) and halaman < batas else None
+
+
 def _cek_jumlah_halaman(ctx, d):
-    """@minimal_halaman: perkiraan halaman seluruh PDF (sampul s.d. فهرس) tidak boleh kurang dari batasnya (bawaan
-    MINIMAL). Perkiraan dari jumlah kata, jadi kurang = perhatian; angka pasti `HALAMAN` dinilai lagi sesudah `rakit`."""
-    batas, asal = batas_minimal(ctx.meta, "halaman")
-    n = perkiraan_halaman(d) if batas else None
-    if n and n[1] < batas:
+    """@minimal_halaman: perkiraan halaman seluruh PDF (sampul s.d. فهرس) tidak boleh kurang dari batasnya.
+    Perkiraan dari jumlah kata, jadi kurang = perhatian; angka pasti `HALAMAN` dinilai lagi sesudah `rakit`."""
+    n = perkiraan_halaman(d)
+    kurang = n and kurang_halaman(ctx.meta, n[1])
+    if kurang:
+        batas, asal = kurang
         ctx.perhatian.append(
             (ctx.di("@minimal_halaman") or "") + f"perkiraan seluruh PDF ±{n[1]} halaman, kurang dari {batas} ({asal}): "
             "tambah pembahasan dari bahan yang benar-benar dibaca (bukan mengulang atau memperbesar huruf); kalau dosen "
@@ -815,13 +888,15 @@ def _cek_jumlah_halaman(ctx, d):
 def perkiraan_halaman(d):
     """Perkiraan kasar (isi, seluruh PDF, rincian) dari jumlah kata, untuk yang belum bisa `rakit`; None tanpa profil.
     isi = المقدمة s.d. الخاتمة: tiap #K/#F (dan judul di @halaman_baru) mulai halaman baru; kata catatan kaki dihitung
-    menurut perbandingan luas hurufnya. Seluruh PDF = sampul + halaman sebelum المقدمة (@nomor) + isi + المصادر + فهرس,
-    yang dicetak sama dengan yang dicetak rakit.ps1 (@tanpa, @bentuk: kitab, فهرس kosong tidak dicetak)."""
-    fmt = d.get("format")
+    menurut perbandingan luas hurufnya. Seluruh PDF = sampul + halaman sebelum المقدمة (@nomor) + isi + المصادر + فهرس:
+    bagian yang dicetak dibaca dari rencana cetak. Pembagian halaman isi di sini kasar dan milik perkiraan ini sendiri
+    (tiap #K/#F/#H dihitung mulai halaman, juga #F bentuk kitab): angkanya ditera ke PDF nyata dengan pembagian itu."""
+    rencana = d["cetak"]
+    fmt = rencana["format"]
     if not fmt:
         return None
     # huruf lebih kecil = lebih banyak kata, tetapi tidak sebanyak luasnya (pangkat 1,1, bukan 2: 3 PDF @format tatbiqi)
-    per_hal = KATA_PER_HALAMAN_18 * (18 / fmt["matan"]) ** 1.1 / fmt.get("spasi", 1)  # 1,5 spasi = baris lebih sedikit
+    per_hal = KATA_PER_HALAMAN_18 * (18 / fmt["matan"]) ** 1.1 / fmt["spasi"]  # 1,5 spasi = baris lebih sedikit
     meta = d["meta"]
 
     def halaman(blok):
@@ -838,26 +913,24 @@ def perkiraan_halaman(d):
 
     i_r = next((i for i, b in enumerate(d["blok"]) if b["k"] == "R"), len(d["blok"]))
     blok, malahiq = d["blok"][:i_r], d["blok"][i_r + 1:]  # @malahiq: akhir = sesudah #R
-    # الإهداء dst. sebelum المقدمة bukan halaman isi, dengan atau tanpa @nomor (sama dengan HALAMAN_ISI di rakit.ps1)
-    mula = next((i for i, b in enumerate(blok) if b.get("judul") == "المقدمة"), 0)
+    # الإهداء dst. sebelum المقدمة bukan halaman isi, dengan atau tanpa @nomor (sama dengan HALAMAN_ISI)
+    mula = rencana["awal_isi"] or 0
     isi = halaman(blok[mula:])
-    tanpa = set(re.split(r"[,، ]+", meta.get("tanpa", "")))
-    kitab = meta.get("bentuk") == "kitab"
-    rinci = {"sampul": 0 if kitab else 1 + (meta.get("basmalah") == "ya"), "sebelum المقدمة": halaman(blok[:mula]) if mula else 0,
-             "الملاحق": halaman(malahiq) if malahiq else 0}
-    judul = sum(b["k"] in ("K", "F", "B", "M") for b in blok)  # baris فهرس الموضوعات
-    for nama, n, per in (("المصادر", len(d["pustaka"]) if "pustaka" not in tanpa and (not kitab or d["pustaka"]) else 0, 12),
-                         ("فهرس الآيات", 0 if "ayat" in tanpa else len(d["ayat"]), 26),
-                         ("فهرس الأحاديث", 0 if "hadits" in tanpa else len(d["hadits"]), 20),
-                         ("فهرس الأعلام", 0 if "alam" in tanpa else len(d.get("alam", [])), 20),
-                         ("فهرس الفرق والمذاهب", 0 if "firaq" in tanpa else len(d.get("firaq", [])), 20),
-                         ("فهرس الموضوعات", 0 if "maudhuat" in tanpa else max(judul, 1), 25)):
-        rinci[nama] = math.ceil(n / per)  # baris per halaman dari 30 PDF bahts nyata (selisih paling banyak 1 halaman)
+    rinci = {"sampul": 1 + rencana["basmalah"] if rencana["sampul"] and not rencana["buang_sampul"] else 0,
+             "sebelum المقدمة": halaman(blok[:mula]) if mula else 0, "الملاحق": halaman(malahiq) if malahiq else 0}
+    judul = sum(b["k"] in JUDUL_FIHRIS for b in blok)  # baris فهرس الموضوعات
+    dicetak = {b["jenis"] for b in rencana["bagian"]}
+    for nama, jenis, n, per in (("المصادر", "pustaka", len(d["pustaka"]), 12), ("فهرس الآيات", "ayat", len(d["ayat"]), 26),
+                                ("فهرس الأحاديث", "hadits", len(d["hadits"]), 20),
+                                *((f.judul, f.kunci, len(d[f.kunci]), 20) for f in FIHRIS_NAMA),
+                                ("فهرس الموضوعات", "maudhuat", max(judul, 1), 25)):
+        # baris per halaman dari 30 PDF bahts nyata (selisih paling banyak 1 halaman)
+        rinci[nama] = math.ceil(n / per) if jenis in dicetak else 0
     return isi, isi + sum(rinci.values()), {k: v for k, v in rinci.items() if v}
 
 
 def _hitung_kata(ctx):
-    """Jumlah kata matan dan catatan kaki (sebelum angka diubah)."""
+    """Jumlah kata matan dan catatan kaki naskah (sebelum `_angka_cetak`)."""
     blok, catatan = ctx.blok, ctx.catatan
     n_matan = sum(kata(b["runs"]) for b in blok)
     n_fn = sum(kata(c["runs"]) for c in catatan)
@@ -866,29 +939,29 @@ def _hitung_kata(ctx):
 
 def _cek_sampul(ctx):
     """@sampul, @tahun, data sampul wajib, @pustaka, @tanpa, dan @templat."""
-    meta, galat, folder, bentuk = ctx.meta, ctx.galat, ctx.folder, ctx.bentuk
-    tanpa, di = ctx.tanpa, ctx.di
-    # rakit.ps1 hanya memakai salah satu: jangan ada yang diabaikan diam-diam (@sampul yang tidak dikenal sudah GAGAL di bawah)
-    if meta.get("sampul", "").lower() in SAMPUL and meta.get("templat"):
+    meta, galat, folder, kitab = ctx.meta, ctx.galat, ctx.folder, bentuk_kitab(ctx.meta)
+    di = ctx.di
+    sampul = _pilih(ctx, "sampul")
+    # rakit.ps1 hanya memakai salah satu: jangan ada yang diabaikan diam-diam
+    if sampul and "sampul" in meta and meta.get("templat"):
         galat.append(di("@sampul") + "@sampul dan @templat tidak bisa dipakai bersama: @templat sudah membawa sampulnya sendiri; hapus salah satu")
-    sampul = meta["sampul"] = meta.get("sampul", next(iter(SAMPUL))).lower()
-    sampul_dikenal = sampul in SAMPUL
-    if not sampul_dikenal:
-        galat.append(di("@sampul") + f"@sampul: «{sampul}» tidak dikenal (yang ada: {'، '.join(SAMPUL)})")
-        sampul = meta["sampul"] = next(iter(SAMPUL))
+    meta["sampul"] = sampul or DATA["sampul"].bawaan  # yang tidak dikenal dirakit dengan bawaannya
+    if meta["logo"] == "berwarna" and (meta.get("templat") or kitab or meta["sampul"] != "qism"):
+        alasan = ("@templat membawa sampulnya sendiri" if meta.get("templat") else "@bentuk: kitab tanpa sampul"
+                  if kitab else f"@sampul: {meta['sampul']} memakai logonya sendiri")
+        galat.append(di("@logo") + f"@logo: berwarna hanya untuk sampul qism (bawaan): {alasan}")
     if meta.get("tahun") and not re.fullmatch(r"[1١][34٣٤][0-9٠-٩]{2}", meta["tahun"]):
         galat.append(di("@tahun") + f"@tahun: «{meta['tahun']}» bukan tahun hijriah 1300-1499 (mis. ١٤٤٨)")
     # @templat: sampul diambil apa adanya dari Word mahasiswa; @sampul salah ketik: data wajib model mana pun belum pasti
-    wajib = (("judul",) if meta.get("templat") or not sampul_dikenal else SAMPUL[sampul]) if bentuk == "bahts" else WAJIB[bentuk]
+    wajib = ("judul",) if kitab or meta.get("templat") or not sampul else SAMPUL[sampul]
     galat += [di("@" + k) + f"data sampul belum diisi: @{k}" for k in wajib if not meta.get(k)]
-    if meta.get("pustaka", "akhir") != "akhir":
-        galat.append(di("@pustaka") + f"@pustaka: «{meta['pustaka']}» tidak dikenal (yang ada: akhir)")
-    asing = [t for t in tanpa if t not in TANPA]
+    _pilih(ctx, "pustaka")
+    asing = [t for t in daftar(meta, "tanpa") if t not in TANPA]
     if asing:
-        galat.append(di("@tanpa") + f"@tanpa: «{'، '.join(asing)}» tidak dikenal (yang ada: {', '.join(TANPA)})")
+        _tak_dikenal(ctx, "tanpa", "، ".join(asing))
     if meta.get("templat"):  # Word mahasiswa: sampul dan kepala halaman diambil dari situ oleh rakit.ps1
         tpl = (folder / meta["templat"]).resolve()
-        if bentuk == "kitab":
+        if kitab:
             galat.append(di("@templat") + "@templat hanya untuk bahts, bukan @bentuk: kitab")
         elif tpl.suffix.lower() not in (".docx", ".doc"):
             galat.append(di("@templat") + f"@templat: «{meta['templat']}» bukan berkas Word (.docx atau .doc)")
@@ -916,27 +989,27 @@ def _cek_bahan_sumber(ctx, naskah):
 def _cek_tata_letak(ctx):
     """@halaman_baru, @nomor, bagian kosong dan judul bertumpuk, @nim, dan kunci ya/tidak."""
     meta, blok, galat, perhatian = ctx.meta, ctx.blok, ctx.galat, ctx.perhatian
-    bentuk, di = ctx.bentuk, ctx.di
-    baru = [t for t in re.split(r"[,، ]+", meta.get("halaman_baru", "")) if t]
+    kitab, di = bentuk_kitab(meta), ctx.di
+    baru = daftar(meta, "halaman_baru")
     if any(t not in HALAMAN_BARU for t in baru):
-        galat.append(di("@halaman_baru") + f"@halaman_baru: «{meta['halaman_baru']}» tidak dikenal (yang ada: {', '.join(HALAMAN_BARU)})")
-    meta["halaman_baru"] = [t for t in baru if t in HALAMAN_BARU]  # dibaca rakit.ps1 dan perkiraan_halaman
-    if meta.get("nomor", "abjad") not in ("abjad", "mukadimah"):
-        galat.append(di("@nomor") + f"@nomor: «{meta['nomor']}» tidak dikenal (yang ada: abjad, mukadimah)")
-    elif meta.get("nomor") == "abjad" and not any(b["k"] == "F" for b in blok):
+        _tak_dikenal(ctx, "halaman_baru", meta["halaman_baru"])
+    meta["halaman_baru"] = [t for t in baru if t in HALAMAN_BARU]
+    nomor = _pilih(ctx, "nomor")
+    if nomor == "abjad" and not any(b["k"] == "F" for b in blok):
         galat.append(di("@nomor") + "@nomor: abjad memerlukan #F: nomor ١ mulai dari #F pertama")
-    elif meta.get("nomor") == "mukadimah" and not any(b["k"] == "K" and b.get("judul") == "المقدمة" for b in blok):
+    elif nomor == "mukadimah" and not any(b["k"] == "K" and b.get("judul") == MUQADDIMAH for b in blok):
         galat.append(di("@nomor") + "@nomor: mukadimah memerlukan «#K المقدمة»: nomor ١ mulai dari judul itu")
     # bagian kosong: judul bahts yang disusul judul setingkat/lebih tinggi (atau akhir naskah) tanpa paragraf isi di antaranya
     # (#H bukan isi). Kitab tidak: di sana #K باب di atas #F فصل, dan #S الشرح boleh hanya membawahi #S lain.
     urut = [b for b in blok if b["k"] != "H"]
     kosong = {id(a) for a, b in zip(urut, urut[1:] + [{"k": "R"}])
-              if bentuk != "kitab" and a["k"] in "KFBMS" and TINGKAT_JUDUL.get(b["k"], 9) <= TINGKAT_JUDUL[a["k"]]}
-    for a, b in zip(blok, blok[1:] + [{"k": ""}]):  # judul yang langsung disusul judul halaman baru tercetak sendirian di halamannya
+              if not kitab and a["k"] in JUDUL_ISI and TINGKAT_JUDUL.get(b["k"], 9) <= TINGKAT_JUDUL[a["k"]]}
+    halaman_baru = set(awal_halaman(blok, meta)[0])
+    for i, (a, b) in enumerate(zip(blok, blok[1:] + [{"k": ""}])):
         if id(a) in kosong:  # sekaligus menggantikan «tercetak sendirian»: menulis isinya membereskan keduanya
             perhatian.append(f"baris {a['n']}: bagian «{a['judul'][:40]}» masih kosong: belum ada paragraf isi sebelum "
                              f"judul berikutnya yang setingkat atau lebih tinggi; tulis isinya, atau hapus judulnya")
-        elif a["k"] in ("K", "F", "B", "M") and b["k"] in ("K", "H", *("F",) * (bentuk != "kitab"), *meta["halaman_baru"]):
+        elif a["k"] in JUDUL_FIHRIS and (b["k"] == "H" or i + 1 in halaman_baru):
             perhatian.append(f"baris {a['n']}: judul «{a['judul'][:40]}» tercetak sendirian di halamannya, karena judul "
                              f"sesudahnya mulai halaman baru: tulis paragraf pengantar di bawahnya")
         elif (a["k"] in ("F", "B") and b["k"] in ("B", "M") and "FBM".index(b["k"]) > "FBM".index(a["k"])
@@ -948,114 +1021,212 @@ def _cek_tata_letak(ctx):
     if re.fullmatch(r"0+", re.sub(r"\s", "", meta.get("nim", "").translate(ANGKA_LATIN))):  # isian contoh, bukan nomor
         galat.append(di("@nim") + f"@nim: «{meta['nim']}» tercetak di sampul sebagai nomor mahasiswa: tulis nomor asli, "
                                   "atau «-» kalau tidak ada")
-    for kunci in ("thalibah", "basmalah"):  # kunci ya/tidak: tanpa barisnya = tidak
-        if meta.get(kunci, "ya") != "ya":
-            galat.append(di("@" + kunci) + f"@{kunci}: «{meta[kunci]}» tidak dikenal: tulis «ya», atau hapus barisnya")
+    for kunci in (k for k, sifat in DATA.items() if sifat is YA_TIDAK):
+        _pilih(ctx, kunci)
 
 
-def _format_dan_angka(ctx):
-    """Profil @format (ditimpa @catatan_kaki/@spasi) dan angka yang tercetak (@angka, @angka_ayat).
-    Kembalikan profilnya."""
-    meta, blok, pustaka, catatan = ctx.meta, ctx.blok, ctx.pustaka, ctx.catatan
-    hadits_idx, galat, di = ctx.hadits_idx, ctx.galat, ctx.di
-    fmt = meta.get("format", "imam")
-    if fmt not in FORMAT:
-        galat.append(di("@format") + f"@format: «{fmt}» tidak ada di mesin/format.json (yang ada: {'، '.join(FORMAT)})")
-    profil = FORMAT.get(fmt)
+def _profil(ctx):
+    """Profil @format, ditimpa @catatan_kaki/@spasi; None kalau @format tidak dikenal."""
+    profil = FORMAT.get(_pilih(ctx, "format"))
     for k, (kunci, nilai) in TIMPA.items():
-        if k not in meta:
-            continue
-        if meta[k] not in nilai:
-            galat.append(di("@" + k) + f"@{k}: «{meta[k]}» tidak dikenal (yang ada: {', '.join(nilai)})")
-        elif profil:
-            profil = {**profil, kunci: nilai[meta[k]]}  # salinan: profil di FORMAT tetap utuh
-    angka = meta.setdefault("angka", ANGKA[0])
-    angka_ayat = meta.get("angka_ayat", angka)
-    if angka not in ANGKA:
-        galat.append(di("@angka") + f"@angka: «{angka}» tidak dikenal (yang ada: {'، '.join(ANGKA)})")
-    elif angka_ayat not in ANGKA:
-        galat.append(di("@angka_ayat") + f"@angka_ayat: «{angka_ayat}» tidak dikenal (yang ada: {'، '.join(ANGKA)})")
-    else:  # yang dihitung Word (nomor halaman, catatan kaki, فهرس) diubah di rakit.ps1; ayat (q) tetap apa adanya
-        ubah = hindi if angka == "hindi" else (lambda s: s.translate(ANGKA_LATIN))
-        for k in ("judul", "jenis", "nama", "nim", "fasl", "musyrif", "jabatan", "tahun", "kepala_judul", "sifat", "qism"):
-            if k in meta:
-                meta[k] = ubah(meta[k])
-        for r in [r for b in blok + catatan if b.get("k") != "L" for r in b["runs"]] + hadits_idx:
-            if "t" in r and not r.get("q"):
-                r["t"] = ubah(r["t"]).translate(HORMAT_CETAK)
-        if angka_ayat != angka:  # rujukan ayat [^سورة …، آية: n.] saja; "al" = rakit.ps1 mencetak angkanya kiri-ke-kanan,
-            for c in catatan:      # karena Word (angka konteks) mencetak 0-9 di tengah teks Arab sebagai ٠-٩
-                if "".join(r.get("t", "") for r in c["runs"]).startswith("سورة"):
-                    c["al"] = angka_ayat == "latin"
-                    for r in c["runs"]:
-                        if "t" in r:
-                            r["t"] = hindi(r["t"]) if angka_ayat == "hindi" else r["t"].translate(ANGKA_LATIN)
-        for b in blok:
-            if "judul" in b:
-                b["judul"] = ubah(b["judul"])
-        for h in hadits_idx:
-            h["r"] = ubah(h["r"])
-        pustaka = [ubah(p) for p in pustaka]
-    ctx.pustaka = pustaka
+        pilihan = _pilih(ctx, k)
+        if pilihan and profil:
+            profil = {**profil, kunci: nilai[pilihan]}
     return profil
 
 
-MALAHIQ = re.compile(r"(ال)?ملاحق|ملحق")  # awal judul #K bagian lampiran
+def _angka_cetak(ctx):
+    """Angka yang tercetak (@angka, @angka_ayat) dan kalimat hormat: @data berteks, runs, judul, فهرس الأحاديث, dan
+    المصادر diubah di tempat, jadi `bukti` mencetak matan seperti tercetak. Yang menghitung kata naskah (`_hitung_kata`)
+    harus jalan sebelum ini: ٠-٩ terhitung huruf Arab."""
+    meta, blok, catatan, hadits_idx = ctx.meta, ctx.blok, ctx.catatan, ctx.hadits_idx
+    angka = _pilih(ctx, "angka")
+    meta.setdefault("angka", angka)
+    angka_ayat = angka and (_pilih(ctx, "angka_ayat") if "angka_ayat" in meta else angka)
+    if not angka_ayat:
+        return
+    # yang dihitung Word (nomor halaman, catatan kaki, فهرس) diubah di rakit.ps1; ayat (q) tetap apa adanya
+    ubah = hindi if angka == "hindi" else (lambda s: s.translate(ANGKA_LATIN))
+    for k, sifat in DATA.items():
+        if sifat.teks and k in meta:
+            meta[k] = ubah(meta[k])
+    for r in [r for b in blok + catatan if b.get("k") != "L" for r in b["runs"]] + hadits_idx:
+        if "t" in r and not r.get("q"):
+            r["t"] = ubah(r["t"]).translate(HORMAT_CETAK)
+    if angka_ayat != angka:  # rujukan ayat [^سورة …، آية: n.] saja; "al" = rakit.ps1 mencetak angkanya kiri-ke-kanan,
+        for c in catatan:      # karena Word (angka konteks) mencetak 0-9 di tengah teks Arab sebagai ٠-٩
+            if "".join(r.get("t", "") for r in c["runs"]).startswith("سورة"):
+                c["al"] = angka_ayat == "latin"
+                for r in c["runs"]:
+                    if "t" in r:
+                        r["t"] = hindi(r["t"]) if angka_ayat == "hindi" else r["t"].translate(ANGKA_LATIN)
+    for b in blok:
+        if "judul" in b:
+            b["judul"] = ubah(b["judul"])
+    for h in hadits_idx:
+        h["r"] = ubah(h["r"])
+    ctx.pustaka = [ubah(p) for p in ctx.pustaka]
+
+
+MALAHIQ = re.compile(r"(ال)?ملاحق|ملحق")
 
 
 def _malahiq(ctx):
-    """@malahiq: akhir = blok dari «#K الملاحق» sampai #R dipindah ke sesudah blok #R: rakit.ps1 mencetaknya sesudah
-    المصادر والمراجع dan sebelum فهرس (urutan خطة yang menaruh الملاحق sesudah قائمة المصادر)."""
+    """@malahiq: akhir = blok dari «#K الملاحق» sampai #R dipindah ke sesudah blok #R: blok sesudah #R dicetak sesudah
+    المصادر والمراجع dan sebelum فهرس (bagian_akhir; urutan خطة yang menaruh الملاحق sesudah قائمة المصادر)."""
     meta, blok, galat, di = ctx.meta, ctx.blok, ctx.galat, ctx.di
     if "malahiq" not in meta:
         return
-    if meta["malahiq"] != "akhir":
-        galat.append(di("@malahiq") + f"@malahiq: «{meta['malahiq']}» tidak dikenal (yang ada: akhir)"); return
+    if not _pilih(ctx, "malahiq"):
+        return
     if meta.get("pustaka") == "akhir":
         galat.append(di("@malahiq") + "@malahiq: akhir tidak bisa bersama @pustaka: akhir (المصادر sesudah فهرس): pilih salah satu"); return
     awal = next((i for i, b in enumerate(blok) if b["k"] == "K" and MALAHIQ.match(b["judul"])), None)
     i_r = next((i for i, b in enumerate(blok) if b["k"] == "R"), None)
     if awal is None:
         galat.append(di("@malahiq") + "@malahiq: akhir memerlukan «#K الملاحق» (atau «#K ملحق…») sebelum #R"); return
-    if i_r is not None:
-        blok[:] = blok[:awal] + [blok[i_r]] + blok[awal:i_r] + blok[i_r + 1:]
+    if i_r is None:
+        if "pustaka" in daftar(meta, "tanpa") or bentuk_kitab(meta):
+            galat.append(di("@malahiq") + "@malahiq: akhir memerlukan #R (المصادر والمراجع): الملاحق dicetak sesudah المصادر")
+        return
+    blok[:] = blok[:awal] + [blok[i_r]] + blok[awal:i_r] + blok[i_r + 1:]
 
 
-def _bait_syair(ctx):
-    """Bait syair #V: tanda tulis jadi jarak antarparuh dan pindah baris."""
-    blok = ctx.blok
-    for b in blok:  # bait syair: tanda tulis jadi jarak antarparuh dan pindah baris (\v = pindah baris dalam paragraf Word)
-        if b["k"] == "V":
-            for r in b["runs"]:
-                if "t" in r:
-                    r["t"] = re.sub(r"\s*//\s*", "\v", re.sub(r"\s*\.\.\.\s*", "\u2003\u2003\u2003", r["t"]))
+def _bait_syair(blok):
+    """Blok seperti dicetak: di bait syair #V, « ... » jadi jarak antarparuh dan « // » pindah baris dalam paragraf
+    Word (\\v). Blok dan runs naskah tidak diubah."""
+    def cetak(r):
+        return {**r, "t": re.sub(r"\s*//\s*", "\v", re.sub(r"\s*\.\.\.\s*", "\u2003\u2003\u2003", r["t"]))} if "t" in r else r
+    return [{**b, "runs": [cetak(r) for r in b["runs"]]} if b["k"] == "V" else b for b in blok]
 
 
-def _bahan(ctx, profil, quran, sumber, sidik_naskah):
-    """Bahan rakit (dibaca rakit.ps1 dan perkiraan_halaman)."""
-    return {"meta": ctx.meta, "format": profil, "blok": ctx.blok, "catatan": ctx.catatan,
-            "ayat": ctx.ayat_idx, "hadits": ctx.hadits_idx, "alam": ctx.alam, "firaq": ctx.firaq, "pustaka": ctx.pustaka,
-            "quran": bool(quran), "tautan": TAUTAN.pattern, "sumber": sumber, "naskah_sha256": sidik_naskah}
+def awal_halaman(blok, meta):
+    """(indeks blok yang diawali pindah halaman, indeks judul tempat nomor halaman kembali ١ atau None).
+    Pindah halaman: #K dan #F (bentuk kitab: #K saja) serta judul di @halaman_baru, kecuali judul pertama naskah, dan
+    blok apa pun sesudah #H (sesudah judul pertama). Nomor kembali ١ (@nomor) di #F pertama, atau di «#K المقدمة» untuk
+    mukadimah: judul itu mulai bagian Word baru, dengan atau tanpa pindah halaman."""
+    kitab, nomor, pilihan = bentuk_kitab(meta), meta.get("nomor"), meta.get("halaman_baru", [])
+    baru, nomor_satu, pertama, sesudah_h = [], None, True, False
+    for i, b in enumerate(blok):
+        k = b["k"]
+        if k == "R":  # blok sesudahnya (@malahiq: akhir) dicetak sesudah المصادر: bukan lagi judul pertama
+            pertama = False
+        elif k == "H":
+            sesudah_h = not pertama
+        else:
+            pb = sesudah_h
+            if k in JUDUL_FIHRIS:
+                pb = pb or (not pertama and (k in pilihan or (k in JUDUL_BAB and not (kitab and k == "F"))))
+                awal_nomor = k == "K" and b["judul"] == MUQADDIMAH if nomor == "mukadimah" else k == "F"
+                if nomor in ("abjad", "mukadimah") and awal_nomor and nomor_satu is None:
+                    nomor_satu = i
+                pertama = False
+            sesudah_h = False
+            if pb:
+                baru.append(i)
+    return baru, nomor_satu
+
+
+def format_cetak(profil):
+    """Profil @format dengan tiap kunci terisi (BAWAAN_FORMAT, IKUT_FORMAT); None tanpa profil."""
+    if not profil:
+        return None
+    lengkap = {**BAWAAN_FORMAT, **profil}
+    return {**{k: lengkap[asal] for k, asal in IKUT_FORMAT.items()}, **lengkap}
+
+
+def bagian_akhir(d):
+    """Bagian yang dicetak sesudah isi, urut: المصادر, الملاحق (blok sesudah #R), tiap فهرس. Tiap butir {jenis, judul};
+    فهرس nama (jenis = kunci daftarnya di bahan) juga {kolom}. فهرس kosong atau disebut di @tanpa tidak dicetak; bentuk
+    kitab tanpa #R tanpa المصادر; @pustaka: akhir menaruh المصادر sesudah فهرس nama."""
+    meta, tanpa = d["meta"], daftar(d["meta"], "tanpa")
+    pustaka = "pustaka" not in tanpa and (not bentuk_kitab(meta) or d["pustaka"])
+    akhir = meta.get("pustaka") == "akhir"
+    i_r = next((i for i, b in enumerate(d["blok"]) if b["k"] == "R"), None)
+    return [
+        *([{"jenis": "pustaka", "judul": "المصادر والمراجع"}] if pustaka and not akhir else []),
+        *([{"jenis": "malahiq"}] if i_r is not None and i_r + 1 < len(d["blok"]) else []),
+        *([{"jenis": "ayat", "judul": "فهرس الآيات الكريمة" if meta.get("fihris_ayat") == "surah" else "فهرس الآيات القرآنية"}]
+          if d["ayat"] and "ayat" not in tanpa else []),
+        *([{"jenis": "hadits",
+            "judul": "فهرس الأحاديث الشريفة" if meta.get("fihris_hadits") == "ringkas" else "فهرس الأحاديث والآثار"}]
+          if d["hadits"] and "hadits" not in tanpa else []),
+        *({"jenis": f.kunci, "judul": f.judul, "kolom": f.kolom} for f in FIHRIS_NAMA if d[f.kunci] and f.kunci not in tanpa),
+        *([{"jenis": "pustaka", "judul": "فهرس المصادر والمراجع"}] if pustaka and akhir else []),
+        *([{"jenis": "maudhuat", "judul": "فهرس الموضوعات"}] if "maudhuat" not in tanpa else []),
+    ]
+
+
+def rencana_cetak(d):
+    """Rencana cetak bahan `d`: tiap keputusan «apa yang dicetak dan di mana» sebagai nilai jadi. rakit.ps1 hanya
+    membacanya (di sana tidak ada aturan, bawaan, atau pengurai @data sendiri); perkiraan_halaman juga. Seluruhnya
+    turunan isi bahan yang lain, jadi tidak ikut sidik_cetak, dan `potong` menyusunnya lagi untuk potongannya.
+    sampul = model sampulnya (None = dokumen kosong, bentuk kitab); buang_sampul = potongan --fasl tanpa sampul: dokumen
+    tetap berangkat dari model itu, lalu halaman sampulnya dibuang."""
+    meta, blok = d["meta"], d["blok"]
+    kitab = bentuk_kitab(meta)
+    buang_sampul = bool(meta.get("tanpa_sampul")) and not kitab
+    sampul = None if kitab else "templat" if meta.get("templat") else meta.get("sampul")
+    judul = meta.get("judul", "")
+    sub = SUBJUDUL.match(judul)
+    halaman_baru, nomor_satu = awal_halaman(blok, meta)
+    return {"format": format_cetak(d["format"]), "kitab": kitab, "sampul": sampul,
+            "logo_berwarna": sampul == "qism" and not buang_sampul and meta.get("logo") == "berwarna",
+            "judul_sampul": [sub.group(1).strip(), sub.group(2).strip()] if sub else [judul, ""],
+            "buang_sampul": buang_sampul, "basmalah": meta.get("basmalah") == "ya" and not kitab and not buang_sampul,
+            "abjad": meta.get("nomor") in ("abjad", "mukadimah"), "nomor_satu": nomor_satu, "halaman_baru": halaman_baru,
+            "awal_isi": next((i for i, b in enumerate(blok) if b["k"] in JUDUL_FIHRIS and b["judul"] == MUQADDIMAH), None),
+            "judul_kanan": [t for t in daftar(meta, "judul_kanan") if t != GAYA["judul_kanan"][0]],
+            "bagian": bagian_akhir(d)}
+
+
+def _bahan(ctx, blok, profil, quran, sumber, sidik_naskah):
+    """Bahan rakit; blok = blok seperti dicetak."""
+    d = {"meta": ctx.meta, "format": profil, "blok": blok, "catatan": ctx.catatan,
+         "ayat": ctx.ayat_idx, "hadits": ctx.hadits_idx, **ctx.fihris_nama, "pustaka": ctx.pustaka,
+         "quran": bool(quran), "tautan": TAUTAN.pattern, "sumber": sumber, "naskah_sha256": sidik_naskah}
+    d["cetak"] = rencana_cetak(d)
+    return d
 
 
 def sidik_cetak(d):
     """SHA-256 bahan rakit tanpa yang tidak mengubah PDF (sidik naskah, kunci yang hanya dibaca `cek`, nomor baris
-    naskah tiap blok): naskah yang hanya berubah di situ tetap punya hasil rakit TERKINI (tahap.hasil), jadi tidak
-    perlu dirakit ulang. Nomor baris (`n`) hanya untuk pesan `cek`; rakit.ps1 tidak membacanya."""
-    isi = {k: v for k, v in d.items() if k != "naskah_sha256"}
+    naskah tiap blok) dan tanpa rencana cetak (turunan isi yang lain): naskah yang hanya berubah di situ tetap punya
+    hasil rakit TERKINI (tahap.hasil), jadi tidak perlu dirakit ulang. Nomor baris (`n`) hanya untuk pesan `cek`;
+    rakit.ps1 tidak membacanya."""
+    isi = {k: v for k, v in d.items() if k not in ("naskah_sha256", "cetak")}
     isi["meta"] = {k: v for k, v in d["meta"].items() if k not in HANYA_CEK}
     # gambar #G: yang dicetak isi berkasnya (sha256), bukan letak foldernya di komputer ini
     isi["blok"] = [{k: v for k, v in b.items() if k not in ("n", "berkas")} for b in d["blok"]]
     return hashlib.sha256(json.dumps(isi, ensure_ascii=False, sort_keys=True).encode("utf8")).hexdigest()
 
 
-def _tulis_bahan(ctx, keluar, d):
+def alamat_bahan(folder):
+    """Alamat bahan yang ditulis `cek`: satu per jalur bahts lengkap, termasuk dua folder bernama akhir sama."""
+    kunci = os.path.normcase(str(Path(folder).resolve()))
+    sidik = hashlib.sha256(kunci.encode("utf8")).hexdigest()
+    return Path(__file__).parent / "_tmp" / (sidik + ".json")
+
+
+def tulis_bahan(d, keluar):
     """Bahan rakit JSON."""
-    with sementara(keluar or bahan(ctx.folder)) as part:
+    with sementara(keluar) as part:
         part.write_text(json.dumps(d, ensure_ascii=False), encoding="utf8")
 
 
-def _laporan(ctx, n_matan, n_fn, sidik_naskah, sidik_isi):
+def _tanpa_bukti(ctx):
+    """Awal teks tiap catatan kaki tanpa bukti. Rujukan kitab tanpa bukti sudah jadi GAGAL atau perhatian: daftar ini
+    sisanya (catatan penjelasan, <<luar>>)."""
+    fn_teks = [(c, "".join(r.get("t", "") for r in c["runs"])) for c in ctx.catatan]
+    return [norma.HARAKAT.sub("", t)[:60] for c, t in fn_teks if c["bukti"] == 0 and not c["pdf"] and not c.get("wq")
+            and not t.startswith(BUKAN_RUJUKAN) and (c["luar"] or not rujukan_halaman(t))]
+
+
+def kepala_tanpa_bukti(n):
+    return f"catatan kaki tanpa bukti (selain rujukan ayat dan rujukan kitab di atas): {n}"
+
+
+def _laporan(ctx, n_matan, n_fn, fn_tanpa, sidik_naskah, sidik_isi):
     """Baris laporan `cek`: ringkasan, GAGAL, perhatian, catatan kaki tanpa bukti."""
     blok, pustaka, catatan, ayat_idx = ctx.blok, ctx.pustaka, ctx.catatan, ctx.ayat_idx
     hadits_idx, galat, perhatian, folder = ctx.hadits_idx, ctx.galat, ctx.perhatian, ctx.folder
@@ -1063,27 +1234,48 @@ def _laporan(ctx, n_matan, n_fn, sidik_naskah, sidik_isi):
     n_luar = sum(c["luar"] for c in catatan)  # disebut di ringkasan: tanda yang bisa menyembunyikan kutipan karangan
     n_pdf = sum(c["pdf"] for c in catatan)
     n_wq = sum(c.get("wq", 0) for c in catatan)
-    # rujukan kitab tanpa bukti sudah jadi GAGAL atau perhatian di atas: daftar ini sisanya (catatan penjelasan, <<luar>>)
-    fn_teks = [(c, "".join(r.get("t", "") for r in c["runs"])) for c in catatan]
-    fn_tanpa = [norma.HARAKAT.sub("", t)[:60] for c, t in fn_teks if c["bukti"] == 0 and not c["pdf"] and not c.get("wq")
-                and not t.startswith(BUKAN_RUJUKAN) and (c["luar"] or not rujukan_halaman(t))]
     lap = [f"blok={len(blok)} | kata matan={n_matan} | catatan kaki={len(catatan)} ({n_fn} kata) | ayat={len(ayat_idx)} | hadits={len(hadits_idx)} | pustaka={len(pustaka)}",
            f"bukti dicek ke Shamela lokal: {n_bukti}{f' | ditunjuk di PDF (bukan bukti): {n_pdf}' if n_pdf else ''}"
            f"{f' | <<{LUAR}>> (tidak dicek mesin): {n_luar}' if n_luar else ''}"
            f"{f' | Waqfeya <<w…>> (lafaz dinilai pemeriksa dari scan): {n_wq}' if n_wq else ''} | GAGAL: {len(galat)}"]
     # kitab yang belum diunduh membuat tiap buktinya GAGAL: satu perintah untuk semuanya, sebelum daftar panjangnya
-    belum = list(dict.fromkeys(m.group(1) for g in galat for m in BELUM_DIUNDUH_RE.finditer(g)))
+    belum = list(dict.fromkeys(ctx.belum_diunduh))
     if belum:
+        rel = folder.resolve().relative_to(HERE.parent.resolve()).as_posix()
         lap.append(f"  → {len(belum)} kitab belum diunduh; unduh semuanya sekaligus: "
-                   + perintah("ambil " + folder.resolve().relative_to(HERE.parent.resolve()).as_posix()))
+                   + perintah("ambil " + (f'"{rel}"' if " " in rel else rel)))
     lap += [f"  ✗ {g}" for g in galat]
     lap.append(f"{KEPALA_PERHATIAN}: {len(perhatian)}")
     lap += [f"  ! {ctx.kode[p]} {p}" for p in perhatian]
     if ctx.diterima:
         lap.append(f"perhatian diterima (alasan di {RISET}, dinilai pemeriksa): {len(ctx.diterima)}")
         lap += [f"  ✓ {k} {p}\n      alasan: {alasan}" for k, p, alasan in ctx.diterima]
-    lap.append(f"catatan kaki tanpa bukti (selain rujukan ayat dan rujukan kitab di atas): {len(fn_tanpa)}")
+    lap.append(kepala_tanpa_bukti(len(fn_tanpa)))
     lap += [f"  - {f}" for f in fn_tanpa]
-    lap.append(f"CETAK_SHA256={sidik_isi}")
-    lap.append(f"NASKAH_SHA256={sidik_naskah}")
+    lap.append(produk.baris(produk.CETAK, sidik_isi))
+    lap.append(produk.baris(produk.NASKAH, sidik_naskah))
     return lap
+
+
+def cetak(hasil, jalur, jejak=False):
+    """Laporan `cek` ke layar: baris laporan, petunjuk untuk teks yang tidak ketemu (jejak: dicari di kitab lain yang
+    sudah diunduh), lalu perkiraan halaman. jalur = bahts seperti diketik pemakai, untuk perintah yang disarankan."""
+    print("\n".join(hasil.laporan))
+    tertolak = hasil.ctx.tertolak
+    if tertolak:
+        if jejak:
+            print("petunjuk dari kitab lain (hanya petunjuk, bukan bukti; putusan tetap milik `cek`):")
+            import jejak as cari_jejak  # bendera `jejak` menutupi nama modulnya
+            print("\n".join(cari_jejak.jejak(tertolak)))
+        else:
+            n = len({norma.padat(t) for _, t in tertolak})
+            print(f"{n} teks tidak ditemukan di kitab yang dirujuk; cari di kitab lain yang sudah diunduh: "
+                  + perintah(f'cek "{jalur}" --jejak'))
+    elif jejak:
+        print("jejak: tidak ada bukti yang gagal «teks TIDAK KETEMU di kitab».")
+    n = perkiraan_halaman(hasil.bahan)
+    if n:
+        isi, total, rinci = n
+        print(f"perkiraan halaman isi (المقدمة s.d. الخاتمة): ±{isi}; seluruh PDF: ±{total} ("
+              + ", ".join(f"{k} {v}" for k, v in rinci.items()) + f", isi {isi}) "
+              "(kasar, dari jumlah kata; angka pasti = HALAMAN_ISI dan HALAMAN sesudah `rakit`)")

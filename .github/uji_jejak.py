@@ -3,7 +3,7 @@
 yang sudah diunduh. Kitab yang dipakai sama dengan `tes.yml` (11223 dan 2348).
 
 Yang diuji:
-- tanpa `--jejak`, putusan `cek` dan pesan GAGAL-nya tetap seperti sekarang («TIDAK KETEMU di kitab 2348», ditambah
+- tanpa `--jejak`, putusan `cek` dan pesan GAGAL-nya tidak berubah («TIDAK KETEMU di kitab 2348», ditambah
   GAGAL «catatan kaki menyebut» karena judul di catatan kakinya kitab 11223);
   yang bertambah hanya satu baris perintah untuk mencari di kitab lain;
 - dengan `--jejak`, teks yang sebenarnya ada di kitab 11223 halaman 5 ditunjuk di sana (juz "-" kitab satu jilid);
@@ -16,21 +16,20 @@ Yang diuji:
 - `cek --jejak` tanpa folder = kurang argumen, bukan nama folder.
 - kutipan yang satu hurufnya meleset ditunjuk ke tempat yang paling mirip, juga di kitab yang dirujuk;
 - kutipan yang tiap potongan 14 hurufnya kena salah ketik tetap ditunjuk di kitab yang dirujuk (rapidfuzz, tanpa benih);
-- regresi audit: bagian pendek di samping ayat, perintah saran pada folder berspasi, argumen salah,
+- bagian pendek di samping ayat, perintah saran pada folder berspasi, argumen salah,
   bendera di depan folder, jumlah kitab yang dicari, kutipan berawalan sama, sumber kitab lain yang rusak,
   kutipan lintas halaman, batas sambungan halaman, dan folder bergaris miring.
 """
 import gzip, json, os, re, shlex, shutil, subprocess, sys, tempfile
 from pathlib import Path
+from bantu import salin_mesin
 
 sys.stdout.reconfigure(encoding="utf-8")  # konsol Windows (cp1252) tidak bisa mencetak ✗ dan huruf Arab
 
 REPO = Path(__file__).resolve().parent.parent
 # Perpustakaan dan naskah percobaan terpisah dari data pemakai, tetap di TEMP sebagai arsip uji.
 AKAR = Path(tempfile.mkdtemp(prefix="bahts-uji-jejak-"))
-shutil.copytree(REPO / "mesin", AKAR / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__"))
-for sid in ("_meta", "11223", "2348"):
-    shutil.copytree(REPO / "kitab" / sid, AKAR / "kitab" / sid)
+salin_mesin(AKAR, ("_meta", "11223", "2348"))
 shutil.copytree(REPO / "contoh", AKAR / "contoh", ignore=shutil.ignore_patterns("*.docx", "*.pdf", "laporan.txt"))
 BAHTS = AKAR / "mesin" / "bahts.py"
 ASLI = AKAR / "contoh" / "naskah.txt"
@@ -138,7 +137,7 @@ try:
     pesan = (r.stdout or "") + (r.stderr or "")
     assert r.returncode != 0 and "kurang argumen" in pesan, pesan
 
-    # Regresi audit: lanjutkan semua kasus agar setiap celah terlihat merah sendiri.
+    # lanjutkan semua kasus agar setiap celah terlihat merah sendiri
     gagal = []
     def uji(nama, fn):
         try:

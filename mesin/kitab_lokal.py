@@ -2,16 +2,18 @@
 """Akses kitab Shamela yang sudah diunduh: rekaman per juz/halaman, juz dan halaman yang tidak ada, teks
 beberapa halaman yang disambung, bagian kitab (المقدمة، الكتاب…) tempat sebuah kutipan, dan letak bagian-bagian
 kutipan di teks sebuah kitab (dipakai `cek` dan `cek --jejak`)."""
-import bisect, functools, re
+import bisect, dataclasses, re
 
+import cocok
 import norma
 import shamela
-from dasar import AD, ANGKA_LATIN, BELUM_DIUNDUH, RENTANG_MAKS, perintah
+from dasar import AD, ANGKA_LATIN, RENTANG_MAKS, perintah
 
 KEPALA_HADITS = re.compile(r"^[ \t\u200e\u200f]*(?:(\d+)[ \t]*[-–][ \t]*\((\d+)\)|\((\d+)\)[ \t]*[-–][ \t]*(?=[^\d\s])"
                            r"|(\d+(?:[ \t]*[،,و–-][ \t]*\d+)*)[ \t]*[-–][ \t]*(?=[^\d\s]))", re.M)
 BUKAN_KEPALA = frozenset(map(norma.padat, ("باب", "كتاب", "فصل", "مسألة")))  # judul bernomor, bukan hadits…
 SANAD = re.compile("حدث|اخبر|انبا|ثنا$")  # …kecuali diikuti sanad: «3403 - باب حدثني» di Bukhari
+BELUM_DIUNDUH = "kitab {} belum diunduh"  # pesan GAGAL per bukti
 
 
 def bersih_hadits(body):
@@ -41,7 +43,7 @@ def nomor_hadits(body, nomor):
     return any(n == int(nomor) for _, n in kepala_hadits(body)[1])
 
 
-@functools.cache
+@shamela.cache_kitab()
 def kitab(sid):
     """Nomor rekaman kitab per juz ({part: [i]}, urut berkas; juz urut kemunculan pertamanya), dari shamela.indeks."""
     juz = {}
@@ -67,9 +69,13 @@ def urut_juz(j):
     return (not str(j).isdigit(), str(j).zfill(4))
 
 
+def diunduh(sid):
+    return (shamela.ROOT / str(sid) / "pages.jsonl.gz").exists()
+
+
 def salah_juz(sid, juz, hal):
     """'' kalau kitab sid sudah diunduh dan punya juz itu; selain itu pesan kesalahannya."""
-    if not (shamela.ROOT / str(sid) / "pages.jsonl.gz").exists():
+    if not diunduh(sid):
         return f"{BELUM_DIUNDUH.format(sid)} ({perintah(f'ambil {sid}')})"
     juz_ada = set(kitab(sid))
     # kitab satu jilid = satu nilai juz saja, atau bagiannya hanya bernama (mis. المقدمة + الكتاب) tanpa juz berangka
@@ -106,7 +112,45 @@ def salah_halaman(hal):
     return ""
 
 
-@functools.cache
+@dataclasses.dataclass(frozen=True)
+class Bukti:
+    """Satu bukti Shamela <<sid|juz|hal>> atau <<sid|juz|hal|potongan>> yang sudah diurai. Semua pemeriksa menerima
+    objek ini, bukan teksnya."""
+    sid: int
+    juz: str
+    hal: str  # seperti ditulis («5», «5-7»): bentuk ini yang dicetak di pesan
+    p1: int
+    p2: int
+    potongan: str | None = None
+
+    @classmethod
+    def urai(cls, teks):
+        """Dari teks di antara << dan >>; ValueError kalau bentuknya bukan bukti Shamela."""
+        f = teks.split("|")
+        if len(f) not in (3, 4) or not re.fullmatch(r"\d+", f[0]) or not re.fullmatch(r"\d+(-\d+)?", f[2]):
+            raise ValueError(teks)
+        return cls(int(f[0]), f[1], f[2], *rentang_halaman(f[2]), f[3] if len(f) == 4 else None)
+
+    @property
+    def tempat(self):
+        """(sid, juz, p1, p2): dua bukti di tempat yang sama (potongannya beda) = satu tempat."""
+        return self.sid, self.juz, self.p1, self.p2
+
+    @property
+    def letak(self):
+        """«sid|juz|hal» seperti ditulis, tanpa potongannya."""
+        return f"{self.sid}|{self.juz}|{self.hal}"
+
+    def salah(self):
+        """'' kalau juz dan halamannya ada di kitab itu; selain itu pesan kesalahannya."""
+        return salah_juz(self.sid, self.juz, self.hal) or salah_halaman(self.hal)
+
+    def serentang(self):
+        """Bukti yang sama dengan halaman ditulis «p1-p2» (bentuk pesan pemeriksaan ulang sebuah kutipan ke bukti ini)."""
+        return dataclasses.replace(self, hal=f"{self.p1}-{self.p2}")
+
+
+@shamela.cache_kitab()
 def halaman_janggal(sid, juz):
     """{halaman: (sebelum, sesudah)}: nomor halaman rekaman yang menyendiri jauh dari halaman lain juz itu (lebih dari
     RENTANG_MAKS di bawahnya dan di atasnya), biasanya salah ketik Shamela (ص3110 di antara ص310 dan ص312 di jilid
@@ -130,8 +174,8 @@ def rekaman_dulu(sid, juz, p1, p2):
     return None
 
 
-# tempat kutipan dicari, berurutan: (bagian rekaman, `catatan` shamela.tempat). Matan = body selain حاشية yang tertulis di
-# body sesudah garis pemisah ___ (`shamela.catatan_body`); حاشية = ruas itu dan footnotes
+# tempat kutipan dicari, berurutan: (bagian rekaman, `catatan` cocok.tempat). Matan = body selain حاشية yang tertulis di
+# body sesudah garis pemisah ___ (`cocok.catatan_body`); حاشية = ruas itu dan footnotes
 SISI = (("body", False), ("body", True), ("footnotes", None))
 
 
@@ -142,7 +186,7 @@ def cari_di(sid, juz, p1, p2, q, utuh, kata=()):
     lain, hasyiah = None, None
     for r in rekaman(sid, juz, p1, p2):
         for bagian, catatan in SISI:
-            h = shamela.tempat(r, q, bagian, utuh, kata, (p1, p2), catatan)  # q yang muncul dua kali: yang di p1..p2 didahulukan
+            h = cocok.tempat(r, q, bagian, utuh, kata, (p1, p2), catatan)  # q yang muncul dua kali: yang di p1..p2 didahulukan
             if not h:
                 continue
             a, z = h[0] or 0, h[1] or 0
@@ -158,7 +202,7 @@ def cari_di(sid, juz, p1, p2, q, utuh, kata=()):
     if not hasyiah and len(rekaman(sid, juz, p1, p2)) > 1:  # kutipan yang menyambung dari satu rekaman ke berikutnya
         for bagian, catatan in SISI:  # حاشية yang bersambung («… =» lalu «= …» di halaman berikutnya)
             for g in gabung(sid, juz, p1, p2):
-                h = shamela.tempat(g, q, bagian, utuh, kata, (p1, p2), catatan)
+                h = cocok.tempat(g, q, bagian, utuh, kata, (p1, p2), catatan)
                 if h and p1 <= (h[0] or 0) and (h[1] or 0) <= p2:
                     return ("matan" if catatan is False else "hasyiah"), None
     return (hasyiah, None) if hasyiah else (None, lain)
@@ -169,7 +213,7 @@ def akhir_rekaman(r):
     return max([r.get("page_num") or 0] + [int(n) for n in norma.PENANDA.findall(r.get("body") or "")])
 
 
-@functools.lru_cache(maxsize=4096)
+@shamela.cache_kitab(4096)
 def gabung(sid, juz, p1, p2):
     """Rekaman-rekaman yang menyentuh halaman p1..p2 sebagai rangkaian rekaman: awal tiap rekaman diberi penanda
     halaman ⦗n⦘, jadi kutipan yang menyambung lintas rekaman tetap dicek per kata dan halamannya tetap tercatat.
@@ -193,11 +237,11 @@ def gabung(sid, juz, p1, p2):
 def bagian_kitab(isi, bukti):
     """Catatan kaki berbukti beberapa kitab: [(teks, bukti kitab itu)] dipotong di judul tiap kitab, supaya halaman yang
     tercetak dicocokkan dengan bukti kitabnya sendiri. Judul yang tidak ketemu (disingkat lain) = tidak dipotong."""
-    sids = list(dict.fromkeys(b[0] for b in bukti))
+    sids = list(dict.fromkeys(b.sid for b in bukti))
     if len(sids) < 2:
         return [(isi, bukti)]
     letak, terpakai = {}, {}
-    data = {sid: shamela.info(int(sid)) for sid in sids}
+    data = {sid: shamela.info(sid) for sid in sids}
     # pengarang di dalam judul katalog bukan bagian judul: «المغني لابن قدامة» ditulis «المغني، ابن قدامة»
     judul = {sid: shamela.kata_judul(data[sid]["title_ar"].split(" - ")[0]) for sid in sids}
     cari = lambda teks, luar: next((m for m in re.finditer(rf"(?<!\w)و?{re.escape(teks)}(?!\w)", isi)  # «ورياض الصالحين»
@@ -224,10 +268,10 @@ def bagian_kitab(isi, bukti):
     if len(set(letak.values())) < len(sids):
         return [(isi, bukti)]
     batas = [0] + [letak[s] for s in urut[1:]] + [len(isi)]
-    return [(isi[batas[i]:batas[i + 1]], [b for b in bukti if b[0] == s]) for i, s in enumerate(urut)]
+    return [(isi[batas[i]:batas[i + 1]], [b for b in bukti if b.sid == s]) for i, s in enumerate(urut)]
 
 
-@functools.cache
+@shamela.cache_kitab()
 def kitab_meta(sid):
     try:
         m = shamela.info(sid)
@@ -240,15 +284,15 @@ def kitab_meta(sid):
     return {"wafat": wafat, "kategori": int(m.get("category_id") or 0), "judul": m.get("title_ar") or str(sid)}
 
 
-def _rangkaian(padat_, ix):
-    """Rangkaian rekaman kitab dari teks `padat`-nya (`norma.Padat`): [(juz, tanda, teks, ruas)], teks dalam `bait`.
+@shamela.cache_kitab(4)  # banyak GAGAL di kitab yang sama tidak membaca ulang; memori tetap kecil
+def rangkaian_kitab(sid):
+    """Rangkaian rekaman kitab sid dari teks `padat`-nya (`norma.Padat`): [(juz, tanda, teks, ruas)], teks dalam `bait`.
     Aturannya sama dengan `gabung`: urut halaman, dan hanya rekaman yang halamannya bersambung (sama atau +1) di juz
-    yang sama yang dirangkai. ruas = (padat_, bagian, awal tiap rekaman di teks, nomor rekamannya), dibaca `halaman_di`."""
+    yang sama yang dirangkai. ruas = (padat_, bagian, awal tiap rekaman di teks, nomor rekamannya), dibaca `halaman_di`.
+    `jejak` melepasnya tiap kitab."""
+    padat_, ix = shamela.padat_kitab(sid), shamela.indeks(sid)
     hasil = []
-    juz = {}
-    for i, x in enumerate(ix):
-        juz.setdefault(x[0], []).append(i)
-    for j, ii in juz.items():
+    for j, ii in kitab(sid).items():
         urut = sorted(ii, key=lambda i: ix[i][1] or 0)
         for s, (_, tanda) in enumerate(norma.BAGIAN):
             t, mulai = padat_.teks[s], padat_.deret[s]["mulai"]
@@ -266,21 +310,8 @@ def _rangkaian(padat_, ix):
     return hasil
 
 
-@functools.lru_cache(maxsize=4)  # banyak GAGAL di kitab yang sama tidak membaca ulang; memori tetap kecil
-def rangkaian_kitab(sid):
-    """`_rangkaian` kitab sid; `jejak` melepasnya tiap kitab."""
-    return _rangkaian(shamela._cache(sid), shamela.indeks(sid))
-
-
-def lepas():
-    """Lepas bacaan kitab beserta bentuk turunannya sebelum pindah ke kitab berikutnya."""
-    kitab.cache_clear(); halaman_janggal.cache_clear(); gabung.cache_clear(); kitab_meta.cache_clear()
-    rangkaian_kitab.cache_clear()
-    shamela.lepas()
-
-
 def halaman_di(ruas, a, z):
-    """Rentang halaman cetak (kecil-besar) potongan teks[a:z] rangkaian yang ruasnya `ruas` (lihat `_rangkaian`):
+    """Rentang halaman cetak (kecil-besar) potongan teks[a:z] rangkaian yang ruasnya `ruas` (lihat `rangkaian_kitab`):
     halaman awal ruas pertama yang berakhir sesudah a, halaman akhir ruas pertama yang berakhir di z atau sesudahnya."""
     padat_, s, awal, rek = ruas
     d = padat_.deret[s]
@@ -301,26 +332,26 @@ def tempat_kitab(rangkaian, bagian):
     Yang ditunjuk rentang tersempit: kutipan ber-... tidak boleh ditunjuk di tempat bagian umumnya kebetulan berjauhan."""
     terbaik = None
     for juz, tanda, teks, ruas in rangkaian:
-        for letak in susunan_bagian(teks, bagian, len(teks)):
+        for letak in susunan_bagian(teks, bagian):
             h1, h2 = halaman_di(ruas, letak[0][0], letak[-1][1])
             lebar = (h2 or 0) - (h1 or 0)
             if lebar <= RENTANG_MAKS and (terbaik is None or lebar < terbaik[0]):
-                terbaik = lebar, ("-" if juz is None else juz), (h1, h2), tanda
+                terbaik = lebar, shamela.nama_juz(juz), (h1, h2), tanda
             if lebar == 0:
                 return terbaik[1:]
     return terbaik[1:] if terbaik else None
 
 
-def susunan_bagian(pd, q, maks=50, cocok=None):
-    """Tiap susunan letak [(awal, akhir)] bagian-bagian q di pd: bagian berikutnya yang terdekat dan lolos `cocok`,
+def susunan_bagian(pd, q, lolos=None):
+    """Tiap susunan letak [(awal, akhir)] bagian-bagian q di pd: bagian berikutnya yang terdekat dan lolos `lolos`,
     kalau diberikan (halaman/batas kata); calon yang ditolak tidak menutupi kemunculan sah sesudahnya."""
     def berikut(i, awal):
         j = pd.find(q[i], awal)
-        while j >= 0 and cocok is not None and not cocok(i, j, j + len(q[i])):
+        while j >= 0 and lolos is not None and not lolos(i, j, j + len(q[i])):
             j = pd.find(q[i], j + 1)
         return j
     j = berikut(0, 0)
-    while j >= 0 and maks:
+    while j >= 0:
         letak, k = [(j, j + len(q[0]))], j + len(q[0])
         for i, b in enumerate(q[1:], 1):
             n = berikut(i, k)
@@ -328,5 +359,4 @@ def susunan_bagian(pd, q, maks=50, cocok=None):
                 return
             letak.append((n, n + len(b))); k = n + len(b)
         yield letak
-        maks -= 1
         j = berikut(0, j + 1)

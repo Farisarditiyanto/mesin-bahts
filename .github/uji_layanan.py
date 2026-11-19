@@ -20,17 +20,16 @@
   ditandai («بعد» untuk وعد);
 - `tafsir 2:219` menunjuk الطبري (7798) sebelum زاد المسير (23619) sebelum ابن كثير (1503); ayat yang tidak ada ditolak.
 Kitabnya 1681, 1726, 654, 1727, 711, 2170, 1278, 10649 dari baris `ambil` tes.yml; tabel layanan dari `siapkan`."""
-import atexit, json, shutil, subprocess, sys, tempfile
+import atexit, json, subprocess, sys, tempfile
 from pathlib import Path
+from bantu import salin_mesin
 
 sys.stdout.reconfigure(encoding="utf-8")
 REPO = Path(__file__).resolve().parent.parent
 SEMENTARA = tempfile.TemporaryDirectory(prefix="bahts-layanan-")
 atexit.register(SEMENTARA.cleanup)
 AKAR = Path(SEMENTARA.name)
-shutil.copytree(REPO / "mesin", AKAR / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__"))
-for sid in ("_meta", "1681", "1726", "654", "1727", "711", "2170", "1278", "10649"):
-    shutil.copytree(REPO / "kitab" / sid, AKAR / "kitab" / sid)
+salin_mesin(AKAR, ("_meta", "1681", "1726", "654", "1727", "711", "2170", "1278", "10649"))
 
 
 def jalankan(*a):
@@ -106,7 +105,7 @@ if kode or "[2170]" not in "".join(blok) or "ج2 ص98" not in "".join(blok):
     gagal.append(f"rawi 46: ucapan umum tidak ditunjuk di tarjamah إبراهيم بن دينار (2170 ج2 ص98): {blok}")
 kode, out, err = jalankan("rawi", "3281")
 blok = out.split("«وقال العجلي: كوفي ثقة»", 1)[-1].splitlines()[:2]
-if kode or "ج13 ص637" in "".join(blok):
+if kode or "«وقال العجلي: كوفي ثقة»" not in out or "ج13 ص637" in "".join(blok):
     gagal.append(f"rawi 3281: ucapan ditunjuk di tarjamah rawi lain (1278 ج13 ص637): {blok}")
 kode, out, err = jalankan("rawi", "إبراهيم بن دينار")
 if kode or "#46 " not in out:

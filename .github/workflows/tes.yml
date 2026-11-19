@@ -39,25 +39,27 @@ jobs:
       - run: python .github/uji_jejak.py
       # bukti: teks kitab yang dicetak dari halaman yang dirujuk (bukan halaman lain), ayat persis, hanya baris yang diminta
       - run: python .github/uji_bukti.py
-      # tanpa @angka, angka di teks Arab bahan rakit ٠-٩ (dulu PDF mencetak «آية: ٢» di samping «ص5»)
+      # tanpa @angka, semua angka di teks Arab bahan rakit ٠-٩ (bukan «آية: ٢» di samping «ص5»)
       - run: python .github/uji_angka.py
       # Pengalihan HTTP harus menjaga kunci di asal yang sama, tanpa membocorkannya ke asal lain (peladen lokal).
       - run: python .github/uji_jaringan.py
-      # Bahan terpisah, cache rusak pulih, sumber tidak tertimpa, katalog ringan, PDF utuh; kegagalan Word disimulasikan.
+      # Cache dan indeks rusak pulih, sumber tidak tertimpa, PDF unduhan utuh, hasil lama utuh saat rakit gagal; Word disimulasikan.
       - run: python .github/uji_integritas.py
       # Pemeriksaan PDF sesudah rakit: isian «....» dan @judul di sampul, nomor halaman 0123/٠١٢٣, pengantar «:» di dasar halaman
       - run: python .github/uji_pdf.py
-      # Struktur yang diterima cek harus seluruhnya dapat dirakit; stress catatan kaki dan data salah ketik.
+      # Putusan `cek` atas @data, judul, riset.txt, dan الدراسات السابقة; `baru` dan `tahap`; beban 2000 nukilan.
       - run: python .github/uji_struktur.py
-      # Regresi audit #154/#155: tahap tanpa tulisan, laporan rusak, pembersihan tautan, dan judul bagian.
+      # `tahap` tidak menulis apa pun, laporan rusak, pembersihan folder .rakit-* (tautan, terkunci), judul bagian, gelar.
       - run: python .github/uji_audit.py
       # Regresi nomor {P:} pada PDF Word asli; runner tanpa Word melaporkan lewati, PC ber-Word menjalankannya.
       - run: python .github/uji_rujukan_word.py
-      # Tabel #J 2-6 kolom terakit lewat Word asli (lebar kolom pecahan dulu ditolak Word); tanpa Word = lewati.
+      # Tabel #J 2-6 kolom terakit lewat Word asli (lebar kolom pecahan); tanpa Word = lewati.
       - run: python .github/uji_tabel_word.py
       # #G masuk DOCX dan dikecilkan ke halaman; @malahiq: akhir mencetak الملاحق sesudah المصادر; tanpa Word = lewati.
       - run: python .github/uji_gambar_word.py
-      # `halaman` lewat indeks = hasil membaca seluruh kitab; berkas tulisan mesin mengikuti umask (bukan 0600)
+      # Isi tiap catatan kaki tetap miliknya saat nomor diulang per halaman, juga di potongan --fasl; tanpa Word = lewati.
+      - run: python .github/uji_catatan_word.py
+      # `halaman` dan `cari` mencetak isi halaman yang diminta (kitab buatan + kitab CI); berkas tulisan mesin mengikuti umask (bukan 0600)
       - run: python .github/uji_halaman.py
       # `takhrij`/`tafsir` tanpa internet: nomor halaman Shamela dari indeks (bukan urutan rekaman), indeks lama dibangun ulang
       - run: python .github/uji_layanan.py

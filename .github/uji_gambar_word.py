@@ -4,13 +4,13 @@
 Gambar #G harus masuk DOCX dengan keterangannya, dan bagian «#K الملاحق» harus tercetak sesudah المصادر والمراجع
 (halaman penanda PUSTAKAMARK < LAMPIRANMARK). Runner tanpa Word melaporkan lewati. Semua bahan tinggal di TEMP.
 """
-import os, shutil, struct, subprocess, sys, tempfile, zipfile, zlib
+import struct, subprocess, sys, tempfile, zipfile, zlib
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
 from pypdf import PdfReader
 
-AKAR = Path(__file__).resolve().parent.parent
+from bantu import salin_mesin, tanpa_word
 
 
 def png(lebar, tinggi):
@@ -25,19 +25,12 @@ def png(lebar, tinggi):
 
 def utama():
     sys.stdout.reconfigure(encoding="utf8")
-    if os.name != "nt":
-        print("lewati uji gambar Word: perlu Windows + Word asli")
-        return
-    import winreg
-    try:
-        with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"Word.Application\CLSID"):
-            pass
-    except FileNotFoundError:
-        print("lewati uji gambar Word: Microsoft Word tidak terpasang")
+    if alasan := tanpa_word():
+        print("lewati uji gambar Word: " + alasan)
         return
     with tempfile.TemporaryDirectory(prefix="bahts-gambar-word-") as t:
         akar = Path(t)
-        shutil.copytree(AKAR / "mesin", akar / "mesin", ignore=shutil.ignore_patterns("_tmp", "__pycache__"))
+        salin_mesin(akar)
         folder = akar / "uji"
         folder.mkdir()
         (folder / "lebar.png").write_bytes(png(3000, 600))   # lebih lebar dari halaman: harus dikecilkan

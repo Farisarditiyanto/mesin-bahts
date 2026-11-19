@@ -2,10 +2,12 @@
 """Yang tercetak di catatan kaki dibandingkan dengan buktinya: juz/halaman dan nomor hadits, judul kitab dan
 pengarang (kitab lain = GAGAL), dan judul kitab Shamela yang ditulis sebagai <<luar>>."""
 import re
+import typing
 
 import norma
 import shamela
-from dasar import ANGKA_LATIN, RENTANG_MAKS
+import waqfeya
+from dasar import ANGKA_LATIN, RENTANG_MAKS, ekor
 from kitab_lokal import bagian_kitab, kitab_meta, rekaman
 from laporan import ringkas_rentang
 
@@ -47,7 +49,7 @@ def kitab_lain(isi, sid_bukti):
     Tidak ditandai: rujukan ringkas tanpa judul («المرجع السابق»), judul yang termuat di judul kitab bukti (disingkat,
     atau matan di dalam syarahnya: «زاد المستقنع، الحجاوي» untuk bukti الشرح الممتع على زاد المستقنع), dan perantara yang
     disebut («رواه البخاري، انظر: رياض الصالحين»)."""
-    data = [shamela.info(int(s)) for s in dict.fromkeys(sid_bukti)]
+    data = [shamela.info(s) for s in dict.fromkeys(sid_bukti)]
     if not data:
         return None, None
     pi = norma.padat(isi)
@@ -90,7 +92,7 @@ def kitab_lain(isi, sid_bukti):
             # Grup yang sama = edisi atau ringkasan kitab bukti.
             asal = [shamela.asal(x) for x in nomor]
             grup_bukti = {shamela.asal(x)[1] for x in sid_bukti} - {None}
-            if (not matan and not set(nomor) & {int(s) for s in sid_bukti} and norma.padat(judul) not in milik_judul
+            if (not matan and not set(nomor) & set(sid_bukti) and norma.padat(judul) not in milik_judul
                     and not any(g in grup_bukti for _, g in asal)
                     and (not pengarang_disebut or any(p in bukti_pengarang for p, _ in asal))):
                 lain.append(f"«{judul}»")
@@ -177,33 +179,39 @@ MADDA = re.compile(r"(?<![ء-ي])مادة\s*:?\s*[(«\"]?\s*([ء-يً-ْ]+)|\(\s
 def madda(teks, bb):
     """Kamus yang dirujuk lewat materinya: (materi, ada di halaman bukti?) untuk materi pertama yang tertulis, atau None
     kalau bukan rujukan kamus. Materinya harus berdiri sebagai kata (boleh berawalan ال) di halaman tiap bukti."""
-    if not bb or not all((kitab_meta(int(b[0])) or {}).get("kategori") == MUJAM for b in bb):
+    if not bb or not all((kitab_meta(b.sid) or {}).get("kategori") == MUJAM for b in bb):
         return None
     m = MADDA.search(teks)
     if not m:
         return None
     kata = norma.norm(m[1] or m[2]).strip()
     ada = all(any(re.search(rf"(?<![ء-ي])(?:ال)?{re.escape(kata)}(?![ء-ي])", norma.norm(r.get("body") or ""))
-                  for r in rekaman(int(s), z, p1, p2)) for s, z, p1, p2 in bb)
+                  for r in rekaman(*b.tempat)) for b in bb)
     return kata, ada
 
 
-def cocok_halaman(isi, bukti, perhatian=None):
-    """Bandingkan juz/halaman yang tercetak dengan bukti [(sid, juz, p1, p2)]; kembalikan daftar galat.
+class SalahHalaman(typing.NamedTuple):
+    """Hasil cocok_halaman yang tidak cocok: satu galat untuk satu catatan kaki."""
+    pesan: str
+    tanpa_bukti: bool  # ada halaman tercetak yang tidak punya bukti sama sekali
+
+
+def cocok_halaman(isi, bukti, perhatian):
+    """Bandingkan juz/halaman yang tercetak dengan bukti [Bukti]; kembalikan SalahHalaman, atau None kalau cocok.
     Tiap halaman tercetak harus di dalam rentang bukti kitabnya, dan tiap bukti harus tercetak (kecuali kamus yang
     dirujuk lewat «مادة …»).
     «سبق تخريجه» mencetak halaman bahts ({P:}), bukan halaman kitab: yang dicek hanya halaman kitab yang tercetak."""
     if not bukti:
-        return []
-    galat = []
+        return None
+    galat, tanpa_bukti = [], False
     bagian = bagian_kitab(isi, bukti)
-    if len(bagian) == 1 and len({b[0] for b in bukti}) > 1 and perhatian is not None and "سبق تخريجه" not in isi:
-        perhatian.append(f"catatan kaki merujuk {len({b[0] for b in bukti})} kitab, tetapi judul kitabnya tidak dikenali, jadi "
+    if len(bagian) == 1 and len({b.sid for b in bukti}) > 1 and "سبق تخريجه" not in isi:
+        perhatian.append(f"catatan kaki merujuk {len({b.sid for b in bukti})} kitab, tetapi judul kitabnya tidak dikenali, jadi "
                          f"halaman tiap kitab tidak bisa dicocokkan dengan buktinya sendiri: tulis judul kitab seperti di "
-                         f"katalog (`kartu`), atau pastikan sendiri halaman tiap kitab  || fn: {isi[:45]}")
+                         f"katalog (`kartu`), atau pastikan sendiri halaman tiap kitab{ekor(isi)}")
     for teks, bb in bagian:
-        kitabnya = f" (kitab {bb[0][0]})" if len(bagian) > 1 else ""
-        juz_bukti = {b[1] for b in bb}
+        kitabnya = f" (kitab {bb[0].sid})" if len(bagian) > 1 else ""
+        juz_bukti = {b.juz for b in bb}
         # juz yang tidak punya bukti sama sekali («3/77» di kitab satu jilid, «ص900» di kitab berjilid)
         utuh = teks.translate(ANGKA_LATIN)  # «عند شرحه للحديث (1/ 222)»: bukti yang tercetak di sini tetap terbaca
         if juz_bukti - {"-"}:  # kitab satu jilid (juz «-»): «ج1، ص55» tetap dibaca «ص55» seperti dulu
@@ -216,18 +224,19 @@ def cocok_halaman(isi, bukti, perhatian=None):
         teks = NOMOR_HADITS.sub(" ", utuh)
         lain = {j for j in JUZ_TERCETAK.findall(teks)} | {"-"}
         for juz in juz_bukti | (lain - juz_bukti):
-            ada = {n for _, z, p1, p2 in bb if z == juz for n in range(p1, p2 + 1)}
+            ada = {n for x in bb if x.juz == juz for n in range(x.p1, x.p2 + 1)}
             for a, b in tercetak(teks, juz):
                 if a < 1 or b < a or b - a > RENTANG_MAKS:
-                    galat.append(f"halaman tercetak {juz}/{a}-{b} tidak punya bukti{kitabnya}")
+                    galat.append(f"halaman tercetak {juz}/{a}-{b} tidak punya bukti{kitabnya}"); tanpa_bukti = True
                     continue  # tolak sebelum range dibuat: salah ketik jangan menghabiskan memori
                 kurang = sorted(set(range(a, b + 1)) - ada)
                 if not kurang:
                     continue
                 if len(kurang) == b - a + 1:
                     galat.append(f"halaman tercetak {juz}/{a}{'-' + str(b) if b != a else ''} tidak punya bukti{kitabnya}")
+                    tanpa_bukti = True
                 else:  # «1/36-37» dengan bukti 36 saja
-                    sid = next(s for s, z, _, _ in bb if z == juz)
+                    sid = next(x.sid for x in bb if x.juz == juz)
                     galat.append(f"halaman tercetak {juz}/{a}-{b}: bukti belum mencakup {ringkas_rentang(kurang)}{kitabnya}: "
                                  f"lebarkan buktinya (<<{sid}|{juz}|{a}-{b}>>) atau cetak halaman buktinya saja "
                                  f"({juz}/{ringkas_rentang(sorted(set(range(a, b + 1)) & ada))})")
@@ -236,7 +245,7 @@ def cocok_halaman(isi, bukti, perhatian=None):
         # yang tetap tercetak dicek seperti biasa
         # Materi hanya dinilai kalau halamannya memang tidak tercetak: «(بيروت)» di data cetak bukan materi.
         tak_tercetak = []
-        for s, z, p1, p2 in dict.fromkeys(bb) if "سبق تخريجه" not in isi else ():
+        for s, z, p1, p2 in dict.fromkeys(x.tempat for x in bb) if "سبق تخريجه" not in isi else ():
             # gabungan halaman yang tercetak: «1/102، 103» untuk bukti 102-103
             if not any(set(range(p1, p2 + 1)) <= {n for a, b in t if b - a <= RENTANG_MAKS for n in range(a, b + 1)}
                        for t in (tercetak(teks, z), tercetak(utuh, z))):
@@ -247,7 +256,8 @@ def cocok_halaman(isi, bukti, perhatian=None):
                          f"halaman itu, atau betulkan buktinya")
         elif not materi:
             galat += tak_tercetak
-    return [f"{'; '.join(dict.fromkeys(galat))} || fn: {isi[:60]}"] if galat else []  # satu catatan kaki = satu galat
+    # satu catatan kaki = satu galat
+    return SalahHalaman('; '.join(dict.fromkeys(galat)) + ekor(isi, rapat=True, lebar=60), tanpa_bukti) if galat else None
 
 
 AWALAN_RUJUKAN = re.compile(r"^(?:انظر|ينظر|راجع|كتاب)\s*:?\s*")
@@ -278,7 +288,7 @@ def judul_shamela(isi):
     return mirip_awal
 
 
-def judul_kitab(k, sid_bukti=()):
+def judul_kitab(k, sid_bukti):
     """Kutipan di catatan kaki yang berupa judul kitab Shamela (boleh disusul pengarang: «"شرح … لابن عثيمين"»): judul
     itu persis di awal kutipan, dan sisa sesudah tanda bacanya pendek (bukan teks lain yang diselipi judul). Judul cetak
     lengkap kitab buktinya sendiri («رياض الصالحين من كلام سيد المرسلين») juga judul."""
@@ -293,3 +303,19 @@ def judul_kitab(k, sid_bukti=()):
         if len(judul.split()) < 2 or kata and not PENGARANG_SESUDAH.match(kata[0]) and not (len(kata) <= 4 and set(mirip) & {int(x) for x in sid_bukti if x.isdigit()}):
             return False
     return len(sisa) < 2 or len(sisa[1].split()) < 4
+
+
+def kitab_waqfeya(isi, kitab):
+    """Perhatian catatan kaki yang buktinya hanya kitab Waqfeya (kitab = nomor «w…»-nya): judul kitab bukti yang tidak
+    disebut (seperti kitab_lain untuk bukti Shamela), dan judul yang ternyata ada di Shamela."""
+    hasil = []
+    for w in kitab:
+        if waqfeya.ada(w) and not waqfeya.judul_disebut(w, isi):
+            hasil.append(f"catatan kaki tidak menyebut judul kitab buktinya «{waqfeya.data(w)['judul']}» "
+                         f"(<<{w}|…>>): tulis judulnya, atau betulkan nomor kitab di bukti{ekor(isi)}")
+    judul, persis, _ = judul_shamela(isi)
+    if persis:  # Waqfeya hanya untuk kitab yang tidak ada di Shamela: teks Shamela dicek `cek`, OCR tidak
+        hasil.append(f"«{judul}» ada di Shamela (nomor {'، '.join(map(str, persis))}): kalau edisinya sama, "
+                     f"ambil kitab Shamela itu lalu tulis <<sid|juz|hal>> (dicek `cek`); edisi Waqfeya sengaja "
+                     f"dipakai (mis. edisi yang diminta dosen) → «terima <kode> <alasan>»{ekor(isi)}")
+    return hasil

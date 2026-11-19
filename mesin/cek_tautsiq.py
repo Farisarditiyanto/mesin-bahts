@@ -2,12 +2,14 @@
 """Bentuk rujukan (التوثيق) menurut عبد الوهاب أبو سليمان، كتابة البحث العلمي (Shamela 8350): data cetak lengkap di
 rujukan pertama tiap kitab (ص170), beberapa sumber dipisah «؛» (ص176 no. 15), dan nama tanpa gelar (ص175-176 no. 11).
 Semuanya perhatian, tidak pernah GAGAL: bentuk, bukan kebenaran isi."""
-import functools, re
+import re
 
 import norma
 import shamela
-from dasar import BUKAN_RUJUKAN, TAKHRIJ_AWAL
+from dasar import ANGKA_LATIN, BUKAN_RUJUKAN, ekor
+from gelar import GELAR, KUNCI_NAMA, nama_bergelar
 from kitab_lokal import bagian_kitab
+from cek_hadits import takhrij
 from cek_sumber import PERANTARA
 from petik import luar_petik, seragam
 
@@ -25,7 +27,7 @@ KITAB_HADITS = 6  # kategori Shamela كتب السنة: data cetaknya di الم�
 
 def _kata(teks):
     """Kata Arab tanpa harakat dan gelar, huruf yang sering ditulis beda disamakan (أإآ->ا، ة->ه، ى->ي)."""
-    teks = norma.GELAR.sub(" ", norma.HARAKAT.sub("", teks))
+    teks = GELAR.sub(" ", norma.HARAKAT.sub("", teks))
     return re.findall(r"[ء-ي]+", re.sub("[أإآ]", "ا", teks).replace("ة", "ه").replace("ى", "ي"))
 
 
@@ -36,19 +38,19 @@ def _jejak(kata):
                   if n in NASAB and x not in KATA_UMUM and y not in KATA_UMUM}
 
 
-@functools.cache
+@shamela.cache_kitab()
 def jejak_kartu(sid):
     """(pasangan dua kata berurutan dari nilai data cetak `kartu`, tahun cetakan) kitab ini; kosong = kartunya tanpa
     data cetak, atau kitab hadits (data cetaknya di المصادر), atau kitab tidak terbaca."""
     try:
-        m = shamela.info(int(sid))
+        m = shamela.info(sid)
     except (LookupError, OSError, ValueError):
         return frozenset(), frozenset()
     if m.get("category_id") == KITAB_HADITS:
         return frozenset(), frozenset()
     pasangan, tahun, judul = set(), set(), set()
     for baris in (m.get("betaka_text") or "").replace("\r", "\n").split("\n"):
-        k = norma.KUNCI_NAMA.match(norma.HARAKAT.sub("", baris))
+        k = KUNCI_NAMA.match(norma.HARAKAT.sub("", baris))
         nilai = norma.HARAKAT.sub("", baris)[k.end():] if k else baris
         kata = _kata(nilai)
         dua = _jejak(kata)
@@ -56,7 +58,7 @@ def jejak_kartu(sid):
             judul |= dua  # judul/pengarang: ada di rujukan mana pun, jadi bukan tanda data cetak
             continue
         pasangan |= dua
-        tahun |= set(re.findall(r"(?<!\d)\d{3,4}(?!\d)", nilai.translate(str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789"))))
+        tahun |= set(re.findall(r"(?<!\d)\d{3,4}(?!\d)", nilai.translate(ANGKA_LATIN)))
     # judul katalog juga: deskripsi tanpa kunci bisa mengulang judul («الشرح الكبير … «حاشية الدسوقي» عليه», kartu 21604)
     kata = _kata(m.get("title_ar", "").split(" - ")[0].replace("=", " "))
     judul |= {f"{x} {y}" for x, y in zip(kata, kata[1:])} | _jejak(kata)
@@ -70,7 +72,7 @@ def _berdata(bagian, sid):
     kata = _kata(bagian)
     if _jejak(kata) & pasangan:
         return True
-    angka = bagian.translate(str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789"))
+    angka = bagian.translate(ANGKA_LATIN)
     return any(t in tahun for t in re.findall(r"(?<!\d)(\d{3,4})\s*[هـم]", angka))
 
 
@@ -78,33 +80,31 @@ def data_cetak(isi, terbukti, sudah):
     """Perhatian tiap kitab yang dirujuk pertama kali tanpa data cetak. `sudah` = nomor kitab yang sudah pernah
     dirujuk (diisi di sini). Takhrij dan kitab hadits (data cetaknya di المصادر) tidak dinilai, tetapi takhrij yang
     memuat data cetak dihitung sebagai rujukan pertama kitab-kitabnya."""
-    teks = norma.HARAKAT.sub("", isi)
-    takhrij = TAKHRIJ_AWAL.match(teks) or teks.lstrip().startswith(BUKAN_RUJUKAN)
+    nash = takhrij(isi) or norma.HARAKAT.sub("", isi).lstrip().startswith(BUKAN_RUJUKAN)
     hasil = []
     for bagian, bb in bagian_kitab(isi, terbukti):
-        for sid in dict.fromkeys(str(int(b[0])) for b in bb):
+        for sid in dict.fromkeys(b.sid for b in bb):
             if sid in sudah:
                 continue
             berdata = _berdata(bagian, sid)
-            if takhrij and not berdata:
+            if nash and not berdata:
                 continue  # rujukan pertamanya nanti, di luar takhrij
             sudah.add(sid)
             if not berdata and any(jejak_kartu(sid)):
-                judul = shamela.info(int(sid))["title_ar"].split(" - ")[0]
+                judul = shamela.info(sid)["title_ar"].split(" - ")[0]
                 hasil.append(f"rujukan pertama «{judul}» tanpa data cetak: tulis data lengkapnya dari `kartu {sid}` "
                              f"(pengarang, muhaqqiq, penerbit-kota, cetakan-tahun, lalu juz/hal); rujukan berikutnya cukup "
-                             f"ringkas, tanpa data cetak (أبو سليمان، كتابة البحث العلمي، ص170)  || fn: {isi[:45]}")
+                             f"ringkas, tanpa data cetak (أبو سليمان، كتابة البحث العلمي، ص170){ekor(isi)}")
     return hasil
 
 
 def pemisah_sumber(isi, terbukti):
     """Perhatian kalau beberapa sumber di satu catatan kaki (bukan takhrij) dipisah «،», bukan «؛» (ص176 no. 15), atau
     None. Sumber «نقلا عن/مقتبس من» (satu sumber lewat perantara) dan sumber berlabel («وفي الأثر: …») tidak dinilai."""
-    teks = norma.HARAKAT.sub("", isi)
-    if TAKHRIJ_AWAL.match(teks):
+    if takhrij(isi):
         return None
     bagian = bagian_kitab(isi, terbukti)
-    for (a, _), (b, _) in zip(bagian, bagian[1:]):
+    for (a, _), (_, _) in zip(bagian, bagian[1:]):
         # Hanya hubungan di batas dua kitab ini yang dinilai. Perantara/label di tempat lain dalam catatan kaki
         # tidak membebaskan sumber ketiga, dan «؛» di data muhaqqiq tidak menggantikan pemisah antarsumber.
         a = norma.HARAKAT.sub("", a).rstrip()
@@ -118,15 +118,15 @@ def pemisah_sumber(isi, terbukti):
             continue
         if ujung.endswith(("،", ",")):
             return (f"beberapa sumber dipisah «،»: pisahkan dengan «؛» («…، 7/43؛ الإنصاف، …») "
-                    f"(أبو سليمان، كتابة البحث العلمي، ص176)  || fn: {isi[:45]}")
+                    f"(أبو سليمان، كتابة البحث العلمي، ص176){ekor(isi)}")
     return None
 
 
-def gelar(teks, ekor):
+def gelar(teks, apa):
     """Perhatian kalau sebuah nama di luar kutipan bertanda petik diawali gelar («تحقيق: د. …»، «، الشيخ …»), atau
-    None. `ekor` = penunjuk tempatnya."""
-    g = norma.nama_bergelar(luar_petik(seragam(teks)), awal_nama=teks.lstrip().startswith("**"), catatan_kaki=ekor == "fn")
+    None. `apa` = tempatnya: "fn" (catatan kaki) atau "pustaka"."""
+    g = nama_bergelar(luar_petik(seragam(teks)), awal_nama=teks.lstrip().startswith("**"), catatan_kaki=apa == "fn")
     if not g:
         return None
     return (f"gelar «{g}» di depan nama: buang gelarnya («تحقيق: عبد الله التركي»; `kartu` sudah tanpa gelar) "
-            f"(أبو سليمان، كتابة البحث العلمي، ص175-176)  || {ekor}: {teks[:45]}")
+            f"(أبو سليمان، كتابة البحث العلمي، ص175-176){ekor(teks, apa=apa)}")

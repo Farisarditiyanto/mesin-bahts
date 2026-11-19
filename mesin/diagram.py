@@ -19,6 +19,14 @@ KONFIG = {"theme": "neutral", "themeVariables": {"fontFamily": "Traditional Arab
           "flowchart": {"htmlLabels": True, "curve": "basis", "nodeSpacing": 22, "rankSpacing": 28, "padding": 6},
           "state": {"nodeSpacing": 22, "rankSpacing": 28}, "er": {"entityPadding": 8}}
 SKALA = 3  # PNG tajam di PDF (Word tidak mengecilkan resolusi saat ekspor untuk cetak)
+# yang dipasang kalau `npx()` atau `browser()` kosong; dibaca juga oleh `periksa`
+PASANG_NODE = "Node.js LTS (Windows: winget install OpenJS.NodeJS.LTS)"
+PASANG_BROWSER = "Google Chrome atau Microsoft Edge"
+
+
+def npx():
+    """Jalur npx (Node.js) untuk menjalankan mermaid-cli, atau None."""
+    return shutil.which("npx")
 
 
 def browser():
@@ -41,13 +49,13 @@ def render(folder):
     if not mmd:
         print(f"Tidak ada berkas .mmd di {folder}. Tulis diagram Mermaid sebagai <nama>.mmd di folder bahts itu.")
         return 0
-    npx = shutil.which("npx")
-    if not npx:
-        print("BELUM  Node.js (npx) tidak ditemukan: pasang Node.js LTS (Windows: winget install OpenJS.NodeJS.LTS), lalu ulangi.")
+    node = npx()
+    if not node:
+        print(f"BELUM  Node.js (npx) tidak ditemukan: pasang {PASANG_NODE}, lalu ulangi.")
         return len(mmd)
     chrome = browser()
     if not chrome:
-        print("BELUM  browser Chromium tidak ditemukan: pasang Google Chrome atau Microsoft Edge, atau tulis jalur chrome.exe "
+        print(f"BELUM  browser Chromium tidak ditemukan: pasang {PASANG_BROWSER}, atau tulis jalur chrome.exe "
               "di variabel lingkungan BAHTS_CHROME, lalu ulangi.")
         return len(mmd)
     gagal = 0
@@ -63,7 +71,7 @@ def render(folder):
             try:
                 with sementara(png) as part:
                     hasil = Path(t) / png.name
-                    r = subprocess.run([npx, "-y", MERMAID_CLI, "-i", str(m), "-o", str(hasil), "-b", "white",
+                    r = subprocess.run([node, "-y", MERMAID_CLI, "-i", str(m), "-o", str(hasil), "-b", "white",
                                         "-s", str(SKALA), "-c", str(konfig), "-p", str(pup), "-q"],
                                        capture_output=True, text=True, encoding="utf8", errors="replace", timeout=600)
                     if r.returncode or not hasil.exists() or not hasil.stat().st_size:

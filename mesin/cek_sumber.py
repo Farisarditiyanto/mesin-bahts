@@ -4,7 +4,7 @@ urutan sumber di catatan kaki «انظر:» dari pengarang yang lebih dulu wafat
 import functools, re
 
 import norma
-from dasar import HERE, MERUJUK_KATA
+from dasar import HERE, MERUJUK_KATA, ekor
 from kitab_lokal import bagian_kitab, kitab_meta
 from petik import luar_petik, seragam
 
@@ -46,7 +46,7 @@ def mutamad():
 
 def _kitab_mazhab(mz, sid, v):
     """Bukti dari kitab mazhab mz: kitab daftar mu'tamad, atau kitab lama (wafat < MODERN) di kategori mazhab itu."""
-    return int(sid) in mutamad().get(mz, ()) or (v["kategori"] == MAZHAB[mz][0] and v["wafat"] < MODERN)
+    return sid in mutamad().get(mz, ()) or (v["kategori"] == MAZHAB[mz][0] and v["wafat"] < MODERN)
 
 
 def standar_sumber(penggal, isi, sid_bukti):
@@ -55,7 +55,7 @@ def standar_sumber(penggal, isi, sid_bukti):
     bukti kitab mazhabnya tetap dihitung untuk bagian itu."""
     if not sid_bukti:
         return None
-    meta = {sid: kitab_meta(int(sid)) for sid in sid_bukti}
+    meta = {sid: kitab_meta(sid) for sid in sid_bukti}
     if any(v is None for v in meta.values()):
         return None
     ada = {mz for mz in MAZHAB for sid, v in meta.items() if _kitab_mazhab(mz, sid, v)}
@@ -63,7 +63,7 @@ def standar_sumber(penggal, isi, sid_bukti):
     perantara = any(not BUKAN_PERANTARA.match(isi[m.end():]) for m in PERANTARA.finditer(isi))
     if perantara or isi.startswith(("أخرجه", "رواه", "سورة")) or KONTEMPORER.search(teks):
         # tidak dinilai (takhrij: nama imam = mukharrij), tetapi bukti kitab mazhabnya tetap dihitung untuk bagian itu
-        return {"isi": isi, "disebut": set(), "ada": ada, "ijmak": False, "judul": "", "n": None}
+        return {"isi": isi, "disebut": set(), "ada": ada, "ijmak": False, "judul": ""}
     judul = "، ".join(dict.fromkeys(v["judul"] for v in meta.values()))
     # kategori usul, akhlak, tafsir… tidak dibagi per mazhab di Shamela: di sana mesin tidak bisa menilai kitab mazhabnya
     fikih = any(v["kategori"] in FIKIH for v in meta.values())
@@ -76,7 +76,7 @@ def standar_sumber(penggal, isi, sid_bukti):
     # ijmak tidak dibebaskan SEBUT: «نقلت الموسوعة عن ابن رجب … بالاتفاق» tetap diminta dari kitab penukil tertuanya
     ijmak = (IJMAK.search(teks) and any(v["kategori"] in FIKIH | USUL for v in meta.values())
              and all(v["wafat"] >= MODERN for v in meta.values()))
-    return {"isi": isi, "disebut": disebut, "ada": ada, "ijmak": bool(ijmak), "judul": judul, "n": None}
+    return {"isi": isi, "disebut": disebut, "ada": ada, "ijmak": bool(ijmak), "judul": judul}
 
 
 MERUJUK = re.compile(rf"^(?:{MERUJUK_KATA})(?![ء-ي])")  # nukilan makna: beberapa sumber untuk satu hal
@@ -89,19 +89,19 @@ def urutan_sumber(isi, bukti):
     wafat pengarangnya tidak tercatat tidak dinilai. Kutipan lafaz tidak dinilai: kitab yang lafaznya dikutip boleh di depan."""
     # label «في …:» = sumber dibagi per hal («انظر في الحديث: …، وفي الأثر: …»), bukan beberapa sumber untuk satu hal;
     # «تحقيق:» dan «انظر:» bukan label
-    if (not MERUJUK.match(isi) or PERANTARA.search(isi) or len({b[0] for b in bukti}) < 2
+    if (not MERUJUK.match(isi) or PERANTARA.search(isi) or len({b.sid for b in bukti}) < 2
             or re.search(r"(?<![ء-ي])و?في\s+[^:،؛.]{1,40}:", isi)):
         return None
-    urut = [bb[0][0] for _, bb in bagian_kitab(isi, bukti)]
+    urut = [bb[0].sid for _, bb in bagian_kitab(isi, bukti)]
     if len(urut) < 2:
         return None
-    meta = [(sid, kitab_meta(int(sid))) for sid in urut]
+    meta = [(sid, kitab_meta(sid)) for sid in urut]
     meta = [(sid, v) for sid, v in meta if v and v["wafat"] < 99999]
-    for (a, va), (b, vb) in zip(meta, meta[1:]):
+    for (_, va), (_, vb) in zip(meta, meta[1:]):
         if va["wafat"] > vb["wafat"]:
             return (f"urutan sumber: «{va['judul']}» (pengarangnya wafat {va['wafat']}هـ) disebut sebelum «{vb['judul']}» "
                     f"(wafat {vb['wafat']}هـ); beberapa sumber untuk satu hal diurutkan dari pengarang yang lebih dulu wafat "
-                    f"(أبو سليمان، كتابة البحث العلمي، ص73)  || fn: {isi[:45]}")
+                    f"(أبو سليمان، كتابة البحث العلمي، ص73){ekor(isi)}")
     return None
 
 
@@ -124,5 +124,5 @@ def standar_baris(catat):
                           f"dari kitab ulama yang menukilnya")
         if alasan:
             hasil.append(f"baris {c['n']}: standar sumber: " + "; ".join(alasan) + "; asalnya memang tidak bisa didapat → tulis «مقتبس من …» "
-                         f"atau «نقلا عن …» di catatan kaki  || fn: {c['isi'][:45]}")
+                         f"atau «نقلا عن …» di catatan kaki{ekor(c['isi'])}")
     return hasil

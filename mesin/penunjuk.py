@@ -1,13 +1,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """`bukti <folder>`: untuk pemeriksa, tiap catatan kaki berbukti dicetak bersama teks kitab di sekitar letak
 kutipannya, tiap {Q:} dengan teks ayatnya, dan tiap paragraf isi tanpa catatan kaki."""
-import re, tempfile
-from pathlib import Path
+import re
 
+import cocok
 import norma
 import shamela
-from dasar import ELIPSIS, KUTIPAN_MIN, WAQFEYA_BUKTI, perintah
-from kitab_lokal import akhir_rekaman, rekaman, rentang_halaman, salah_halaman, salah_juz
+import waqfeya
+from cek_kutipan import bagian_kutipan
+from dasar import ELIPSIS, JUDUL_BAB, KUTIPAN_MIN, WAQFEYA_BUKTI, perintah
+from kitab_lokal import Bukti, akhir_rekaman, rekaman
 from olah import periksa
 
 SEKITAR = 300  # huruf teks kitab yang dicetak `bukti` sebelum dan sesudah letak kutipan
@@ -39,32 +41,31 @@ def _teks_halaman(sid, juz, p1, p2, bagian):
 def _penunjuk_waqfeya(w, n, hal, kutipan):
     """Baris `bukti` untuk <<w…|berkas|hal>>: judul kitab Waqfeya, teks OCR di sekitar kutipan, dan scan yang harus
     dibaca pemeriksa (OCR bukan bukti)."""
-    import waqfeya
     if not waqfeya.ada(w):
         return f"kitab Waqfeya belum diunduh: {perintah('ambil ' + w)}"
     try:
         teks = waqfeya.cuplikan(w, int(n), hal, kutipan, SEKITAR)
-        bagian = [b for b in ELIPSIS.split(kutipan or "") if norma.padat(b)]
+        bagian = bagian_kutipan(kutipan)
         keadaan, rinci = waqfeya.periksa_kutipan(w, int(n), hal, bagian) if bagian else ("makna", None)
     except (ValueError, IndexError, SystemExit) as e:
         return f"bentuk/letak bukti rusak (lihat `cek`): {e}"
     ocr = {"persis": "kutipan terbaca persis di OCR", "mirip": f"kutipan mirip {rinci}% di OCR",
            "tidak": "kutipan TIDAK terbaca di OCR (salah huruf OCR, atau lafaz/halaman salah)",
            "lain": "kutipan terbaca di halaman lain (lihat `cek`)", "makna": "nukilan makna"}.get(keadaan, keadaan)
-    nc = waqfeya.nomor_cetak(w, int(n), waqfeya._rentang(hal)[0])
+    nc = waqfeya.nomor_cetak(w, int(n), waqfeya.rentang(hal)[0])
     ocr += f"; nomor cetak terbaca di OCR: {nc}" if nc is not None else "; nomor cetak tidak terbaca di OCR"
     return (f"{waqfeya.data(w)['judul']} [Waqfeya, OCR; {ocr}]: {_ringkas(teks, 2 * SEKITAR)} || scan: "
             f"{perintah(f'halaman {w} {n} {hal}')} (lafaz dan nomor halaman cetak dinilai dari scan)")
 
 
-def _penunjuk_bukti(sid, juz, hal, kutipan):
-    """Baris `bukti` untuk satu <<sid|juz|hal>>: nama kitab, rantai judul, dan teks halaman itu di sekitar kutipan."""
-    e = salah_juz(sid, juz, hal) or salah_halaman(hal)
+def _penunjuk_bukti(b, kutipan):
+    """Baris `bukti` untuk satu bukti Shamela b: nama kitab, rantai judul, dan teks halaman itu di sekitar kutipan."""
+    e = b.salah()
     if e:
         return [e]
+    sid, juz, hal, p1, p2 = b.sid, b.juz, b.hal, b.p1, b.p2
     m = shamela.info(sid)
     hasil = [f"kitab: {m['title_ar']} — {m.get('main_author_name_ar') or '?'}"]
-    p1, p2 = rentang_halaman(hal)
     bagian_q = [x for x in ELIPSIS.split(kutipan or "") if len(norma.padat(x)) >= KUTIPAN_MIN]
     q = norma.padat(bagian_q[0]) if bagian_q else ""
     rr = sorted(rekaman(sid, juz, p1, p2), key=lambda r: r.get("page_num") or 0)
@@ -72,7 +73,7 @@ def _penunjuk_bukti(sid, juz, hal, kutipan):
     letak_judul = None
     for r in rr if q else ():
         for bagian, _ in norma.BAGIAN:
-            c, h = shamela._cocok(r, q, bagian), shamela.tempat(r, q, bagian, dalam=(p1, p2))
+            c, h = cocok.letak_pertama(r, q, bagian), cocok.tempat(r, q, bagian, dalam=(p1, p2))
             if c and h and p1 <= (h[0] or 0) and (h[1] or 0) <= p2:
                 letak_judul = letak_judul or (r, c, h, bagian)
     if not letak_judul and rr:
@@ -93,7 +94,7 @@ def _penunjuk_bukti(sid, juz, hal, kutipan):
             raw = teks[bagian]
             if qk not in padat_[bagian]:
                 continue
-            i = shamela._letak_asli(raw, qk)
+            i = cocok.letak_asli(raw, qk)
             h = ([x[1] for x in re.finditer(r"⦗([\d-]+)⦘", raw[:i + 1])] or [hal])[-1]
             a, z = max(0, i - SEKITAR), i + len(kutipan) + SEKITAR
             sebagian = f" (hanya awal kutipan yang ada: «{' '.join(kata_awal[:k])}»)" if k < len(kata_awal) else ""
@@ -106,7 +107,7 @@ def _penunjuk_bukti(sid, juz, hal, kutipan):
     return hasil + [f"{shamela.letak(juz, (p1, p2))}: {sebab}; awal halaman: {raw[:2 * SEKITAR]}{'…' * (len(raw) > 2 * SEKITAR)}"]
 
 
-def _tanpa_catatan(blok):
+def _tanpa_catatan(blok, dikecualikan=()):
     """(baris, teks) tiap paragraf isi tanpa satu pun catatan kaki. Isi = bab #F (bukan yang bernama مقدمة/خاتمة) dan
     #B/#M di bawahnya, atau #B/#M langsung sesudah #K المقدمة; #K dan المصادر (#R) bukan isi. `cek` tidak bisa
     menilai kalimat tanpa catatan kaki, jadi pemeriksa langkah 5 yang menilai apakah ada penisbatan atau fakta di
@@ -115,12 +116,12 @@ def _tanpa_catatan(blok):
     for b in blok:
         if b["k"] == "R":
             return
-        if b["k"] in ("K", "F"):
+        if b["k"] in JUDUL_BAB:
             bab_luar = b["k"] == "F" and bool(re.search(r"مقدم[ةه]|خاتم[ةه]", norma.HARAKAT.sub("", b.get("judul", ""))))
             di_isi = b["k"] == "F" and not bab_luar
         elif b["k"] in ("B", "M"):
             di_isi = not bab_luar
-        elif di_isi and b["k"] == "P" and not any("fn" in r for r in b["runs"]):
+        elif di_isi and b["k"] == "P" and b["n"] not in dikecualikan and not any("fn" in r for r in b["runs"]):
             teks = "".join(r.get("t", "") for r in b["runs"]).strip()
             if teks:
                 yield b["n"], teks
@@ -132,11 +133,10 @@ def bukti(folder, dari=None, sampai=None):
     kutipan; juga tiap paragraf isi tanpa catatan kaki (_tanpa_catatan), di urutan barisnya. Naskahnya diurai
     `olah.periksa` (sama dengan `cek`), tetapi laporan dan putusannya tidak dicetak.
     Tiap baris keluaran diawali «baris n», supaya bisa disaring. Kembalikan jumlah yang dicetak."""
-    with tempfile.TemporaryDirectory() as d:
-        ctx, _ = periksa(folder, Path(d) / "bahan.json")
+    ctx = periksa(folder).ctx
     dalam = lambda n: (dari is None or dari <= n) and (sampai is None or n <= sampai)
-    polos = [{"n": n, "polos": t} for n, t in _tanpa_catatan(ctx.blok) if dalam(n)]
-    pilih = sorted([u for u in ctx.penunjuk if dalam(u["n"])] + polos, key=lambda u: u["n"])  # sorted stabil
+    polos = [{"n": n, "polos": t} for n, t in _tanpa_catatan(ctx.blok, ctx.ayat_matan) if dalam(n)]
+    pilih = sorted([u for u in ctx.penunjuk if dalam(u["n"])] + polos, key=lambda u: u["n"])
     ke, tercetak = {}, None
     for u in pilih:
         if "polos" in u:
@@ -149,21 +149,20 @@ def bukti(folder, dari=None, sampai=None):
         kepala = f"baris {u['n']} #{ke[u['n']]}"
         if u["runs"] is not tercetak:  # beberapa catatan kaki di satu paragraf: matannya dicetak sekali
             tercetak = u["runs"]
-            matan = "".join(r.get("t", "") for r in u["runs"]).strip()
-            # bait #V: olah._bait_syair sudah mengubah « // » jadi \v dan « ... » jadi tiga em space di runs; dicetak
-            # balik ke bentuk naskah supaya satu baris keluaran tetap satu «baris n»
-            print(f"{kepala} matan: {matan.replace(chr(11), ' // ').replace(chr(0x2003) * 3, ' ... ')}")
+            print(f"{kepala} matan: {''.join(r.get('t', '') for r in u['runs']).strip()}")
         print(f"{kepala} kutipan: " + (f"«{_ringkas(u['kutipan'])}»" if u["kutipan"] else "(tanpa kutipan bertanda petik)"))
         print(f"{kepala} catatan: {u['catatan']}")
         for b in u["bukti"]:
             if m := WAQFEYA_BUKTI.fullmatch(b):
                 print(f"{kepala} <<{b}>> {_penunjuk_waqfeya(*m.groups(), u['kutipan'])}")
                 continue
-            f = b.split("|")
-            if len(f) not in (3, 4) or not f[0].isdigit() or not re.fullmatch(r"\d+(-\d+)?", f[2]):
+            try:
+                bukti_ = Bukti.urai(b)
+            except ValueError:
                 print(f"{kepala} <<{_ringkas(b, 80)}>>: bentuk bukti rusak (lihat `cek`)"); continue
-            pot = re.sub(r"\{Q:[^}]*\}", " ﴿﴾ ", f[3]) if len(f) == 4 and not f[3].startswith("#") else None
-            for x in _penunjuk_bukti(int(f[0]), f[1], f[2], pot or u["kutipan"]):
+            pot = bukti_.potongan
+            pot = re.sub(r"\{Q:[^}]*\}", " ﴿﴾ ", pot) if pot is not None and not pot.startswith("#") else None
+            for x in _penunjuk_bukti(bukti_, pot or u["kutipan"]):
                 print(f"{kepala} <<{_ringkas(b, 80)}>> {x}")
     if not pilih:
         print("Tidak ada catatan kaki berbukti <<sid|juz|hal>> atau ayat {Q:} di " + (

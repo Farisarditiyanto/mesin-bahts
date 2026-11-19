@@ -13,7 +13,7 @@ tidak jalan. Dengan kunci: sekitar 300 kali `dirasat` atau 100 PDF sehari; jatah
 import json, os, re, time, urllib.error, urllib.parse
 from pathlib import Path
 
-from jaringan import buka
+from jaringan import JAWABAN_ASING, SEBAB_ASING, buka
 from dasar import perintah
 from berkas import sementara
 
@@ -25,6 +25,7 @@ PDF = "https://content.openalex.org/works/{}.pdf"  # salinan PDF yang disimpan O
 KOLOM = ("id,title,publication_year,type,language,cited_by_count,authorships,primary_location,best_oa_location,"
          "doi,has_content,abstract_inverted_index")
 MAKNA_MAKS = 50  # OpenAlex menjawab pencarian makna paling banyak sebanyak ini
+RINGKASAN_MAKS = 400  # huruf ringkasan yang dicetak tiap penelitian
 DOAJ = "https://doaj.org/api/search/articles/"
 WAKTU_CARI, WAKTU_PDF = 45, 120  # detik menunggu jawaban; pencarian yang macet tidak boleh membuat pemakai menunggu lama
 ARAH = re.compile("[\u200e\u200f\u202a-\u202e\u2066-\u2069]")  # tanda arah tulisan yang ikut tersalin dari PDF
@@ -148,7 +149,7 @@ MAKNA_SAJA = ("hanya MIRIP MAKNANYA, karena kata kuncinya tidak ditemukan menuru
 JAWABAN_RUSAK = (ValueError, KeyError, TypeError, AttributeError)
 
 
-def cari(kata, maks=10, saringan="", lebar=400):
+def cari(kata, maks=10, saringan=""):
     """Judul, peneliti, tahun, jenis, jurnal/kampus, tautan, dan ringkasan tiap penelitian yang cocok, dari tiap sumber.
     saringan = saringan OpenAlex apa adanya, mis. «language:ar», «type:dissertation», «publication_year:>2014»
     (beberapa dipisah koma)."""
@@ -169,8 +170,7 @@ def cari(kata, maks=10, saringan="", lebar=400):
                                  "Contoh yang sah: language:ar, type:dissertation, publication_year:>2014")
             continue
         except JAWABAN_RUSAK as e:
-            print(f"GAGAL — jawabannya bukan data yang dikenal mesin (layanannya mungkin sedang perawatan atau berubah, "
-                  f"atau wifi minta masuk dulu lewat peramban): {type(e).__name__} {e}")
+            print(f"GAGAL — jawabannya {JAWABAN_ASING} ({SEBAB_ASING}): {type(e).__name__} {e}")
             gagal += 1
             rusak += 1
             continue
@@ -196,7 +196,7 @@ def cari(kata, maks=10, saringan="", lebar=400):
                 unduh = (": " + perintah(f"dirasat-pdf {w['nomor']} <folder>") if _kunci() else
                          " (mengunduhnya butuh kunci OpenAlex, caranya di bawah)")
                 print(f"    OpenAlex {w['nomor']}" + (f" | PDF tersimpan{unduh}" if w["tersimpan"] else ""))
-            if ringkas := ARAH.sub("", re.sub(r"\s+", " ", w["ringkasan"]))[:lebar]:
+            if ringkas := ARAH.sub("", re.sub(r"\s+", " ", w["ringkasan"]))[:RINGKASAN_MAKS]:
                 print(f"    ملخص: {ringkas}")
     if gagal == len(SUMBER):  # internet putus → bahts.py menyuruh cek internet; layanan rusak → cukup alasan di atas
         raise (SystemExit if rusak else ConnectionError)("semua sumber penelitian gagal (alasannya di atas)")

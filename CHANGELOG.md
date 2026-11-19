@@ -6,6 +6,16 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+## 12.0.0 — 2026-11-20
+
+- `@malahiq: akhir` tanpa `#R` (`@tanpa: pustaka` atau `@bentuk: kitab`) kini GAGAL di `cek`: الملاحق dicetak sesudah المصادر, jadi tanpa المصادر barisnya tidak berefek. Hapus `@malahiq: akhir` atau tulis `#R`.
+- Catatan kaki di dalam tabel `#J` tidak lagi menjatuhkan Word saat `rakit`.
+- `rakit --fasl n` untuk potongan sesudah yang pertama kini ikut menghasilkan `<@berkas> - الخلاصات.pdf` kalau potongannya memuat `{X}`.
+- `@rujukan_ayat: matan` (juga lewat `@model: jakarta`) kini berlaku di dalam tabel `#J`, dan `bukti` tidak lagi menyebut paragraf ayatnya «tanpa catatan kaki».
+- `@logo: berwarna` dengan `@sampul: QISM` (huruf besar) tidak lagi GAGAL.
+- `keluaran_saya.txt` yang kosong tidak lagi menyalin PDF ke folder kerja; PDF الخلاصات lama yang sedang terbuka tidak lagi membuat hasil rakit tercampur dengan versi sebelumnya.
+- Bendera yang ditulis dua kali (`--jejak --jejak`) dan `cari w… --potongan` kini ditolak dengan pesan yang jelas; `periksa` menyebut huruf judul tiap profil `@format`; gambar JPEG berbyte pengisi terbaca ukurannya.
+- Susunan kode mesin dirapikan (keputusan cetak ditulis sekali di Python, satu tabel perintah, bukti dan catatan kaki bertipe); keluaran `cek` untuk naskah yang ada tidak berubah. Letak kode yang baru: AGENTS.md «Untuk yang mengubah mesin».
 - Kunci baru `@logo: berwarna`: sampul bawaan (قسم الشريعة) tetap seperti biasa, hanya logonya diganti logo جامعة الإمام berwarna seperti di sampul jakarta.
 - Connector baru `qurangallery` (tanpa akun) di `.mcp.json` dan `opencode.json`: seluruh Shamela dengan nomor kitab yang sama, dipakai saat kuota `shamela` habis, layanannya mati, atau `shamela_verify_quote` tidak menemukan kutipan. AGENTS.md kini memuat tabel «butuh apa → alat mana».
 - Perintah baru `ekspor <id|w…> [--ke <folder>]`: satu kitab Shamela atau Waqfeya jadi satu .docx yang rapi dibuka di Word (kanan-ke-kiri, judul bab di Navigation Pane, penanda juz/halaman, حاشية sesudah halamannya, lambang ﵁ dan sejenisnya ditulis kalimatnya); bawaan ke folder Downloads. Judul beberapa baris tetap utuh, tanda perbandingan tetap terbaca, dan angka serta aksara lain dalam OCR dipertahankan.

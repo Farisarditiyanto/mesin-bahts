@@ -26,24 +26,27 @@ class _AlihAman(urllib.request.HTTPRedirectHandler):
         return baru
 
 
-def buka(url, data=None, kepala=UA, waktu=60, coba=3):
+def buka(url, data=None, kepala=UA, waktu=60):
     """Satu pintu permintaan ke layanan luar (temukan, hadits, dirasat, font). Galat sementara (koneksi putus/direset,
-    SSL terputus, waktu habis, HTTP 500/502/503) dicoba lagi sampai `coba` kali dengan jeda 1, 2, 4 detik.
+    SSL terputus, waktu habis, HTTP 500/502/503) dicoba lagi sampai COBA kali dengan jeda 1, 2, 4 detik.
     Penolakan lain (4xx, 429 jatah habis, 504) langsung dilempar: artinya beda per layanan, pemanggil yang menjelaskan."""
     pembuka = urllib.request.build_opener(_AlihAman)
-    for i in range(coba):
+    for i in range(COBA):
         try:
             return pembuka.open(urllib.request.Request(url, data, kepala), timeout=waktu)
         except urllib.error.HTTPError as e:
-            if e.code not in SEMENTARA or i == coba - 1:
+            if e.code not in SEMENTARA or i == COBA - 1:
                 raise
         except GAGAL_JARINGAN:
-            if i == coba - 1:
+            if i == COBA - 1:
                 raise
         time.sleep(2 ** i)
 
 
-SABAR_JATAH = 30  # detik; layanan minta menunggu lebih lama dari ini = jatah pencarian habis, bukan sekadar terlalu cepat
+# jawaban yang bukan JSON atau berbentuk lain: kalimat untuk pemakai, dipakai tiap layanan pencarian
+JAWABAN_ASING = "bukan data yang dikenal mesin"
+SEBAB_ASING = "layanannya mungkin sedang perawatan atau berubah, atau wifi minta masuk dulu lewat peramban"
+SABAR_JATAH = 30 # detik; layanan minta menunggu lebih lama dari ini = jatah pencarian habis, bukan sekadar terlalu cepat
 
 
 def tunggu_jatah(e, ulang, habis):
@@ -59,11 +62,26 @@ def tunggu_jatah(e, ulang, habis):
     time.sleep(tunggu + 1)
 
 
-def unduh(url, tujuan, buka):
-    """Unduh ke nama sementara unik, lalu ganti tujuan kalau utuh; dua unduhan tidak berbagi penulisan."""
+def buka_berjatah(habis, url, data=None, kepala=UA):
+    """`buka` untuk layanan berjatah: HTTP 429 ditunggu lalu diulang sekali (`tunggu_jatah`, pesan `habis`)."""
+    for ulang in (True, False):
+        try:
+            return buka(url, data, kepala)
+        except urllib.error.HTTPError as e:
+            tunggu_jatah(e, ulang, habis)
+
+
+def tulis_biner(jalur):
+    """Penulis unduhan yang disimpan apa adanya (tanpa kompresi), untuk `unduh`."""
+    return open(jalur, "wb")
+
+
+def unduh(url, tujuan, tulis):
+    """Unduh ke nama sementara unik, lalu ganti tujuan kalau utuh; dua unduhan tidak berbagi penulisan.
+    tulis(jalur) = penulis berkasnya (`tulis_biner`, atau yang mengompres)."""
     with sementara(tujuan) as part:
         n = 0
-        with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=120) as resp, buka(part) as o:
+        with buka(url, waktu=120) as resp, tulis(part) as o:
             while chunk := resp.read(1 << 20):
                 o.write(chunk); n += len(chunk)
             janji = resp.headers.get("Content-Length")

@@ -7,37 +7,14 @@ sehingga ikut terbalik: «الله» tersalin «هللا», «المقدمة» �
 lain (syaddah jadi «ن»). Yang diubah hanya peta glyph -> huruf (ToUnicode); tampilan halaman tidak berubah.
 """
 import os, re, unicodedata
-from pathlib import Path
 
+import huruf
 from berkas import sementara
+from dasar import ANGKA_LATIN, bentuk_kitab
 from norma import norm, padat
 
 ARAB = re.compile(r"[\u0600-\u06ff\ufb50-\ufdff\ufe70-\ufeff]")
 HARAKAT = re.compile(r"[\u064b-\u065f\u0670]")
-
-
-def huruf_terdaftar():
-    """(nama, berkas) tiap huruf di daftar huruf Windows (registry), semua akun dulu, lalu akun ini. nama = nama
-    terdaftar tanpa keterangan jenis, mis. «Traditional Arabic» atau «Cambria & Cambria Math» (dari «… (TrueType)»).
-    Daftar yang tidak terbaca dilewati."""
-    import winreg
-    for akar, folder in ((winreg.HKEY_LOCAL_MACHINE, Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts"),
-                         (winreg.HKEY_CURRENT_USER, Path(os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Windows\Fonts")))):
-        try:
-            with winreg.OpenKey(akar, r"Software\Microsoft\Windows NT\CurrentVersion\Fonts") as k:
-                daftar = [winreg.EnumValue(k, i)[:2] for i in range(winreg.QueryInfoKey(k)[1])]
-        except OSError:
-            continue
-        for nama, nilai in daftar:
-            yield re.sub(r"\s*\(.*\)$", "", nama), Path(nilai) if os.path.isabs(nilai) else folder / nilai
-
-
-def _berkas_huruf():
-    """{nama huruf tanpa spasi: berkas} dari daftar huruf Windows (semua akun, lalu akun ini)."""
-    hasil = {}
-    for nama, berkas in huruf_terdaftar():
-        hasil.setdefault(nama.replace(" ", ""), berkas)
-    return hasil
 
 
 def _isi_glyph(basefont, daftar):
@@ -159,7 +136,6 @@ def _gambar(hal):
 
 
 TEPI = 65  # pt dari tepi atas/bawah: nomor halaman (1,25 cm) ada di sini, matan dan catatan kaki (tepi 2,5 cm) tidak
-ANGKA = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
 
 
 def _ada(kata, teks):
@@ -179,14 +155,17 @@ def periksa(pdf, bahan):
     berakhir «:». Teks PDF buatan Word
     tidak tersalin persis (huruf sambung, angka ٠-٩), jadi pencocokannya longgar: yang diperingatkan hanya yang jelas."""
     import pypdf
-    meta, fmt = bahan["meta"], bahan["format"]
+    meta, rencana = bahan["meta"], bahan.get("cetak") or {}
+    fmt = rencana.get("format") or bahan["format"]
     halaman = pypdf.PdfReader(pdf).pages
     pesan = []
-    awal = 0 if meta.get("bentuk") == "kitab" or meta.get("tanpa_sampul") else 1  # halaman 1 = sampul (bukan potongan --fasl)
+    # halaman 1 = sampul (bukan bentuk kitab dan bukan potongan --fasl tanpa sampul)
+    tanpa_sampul = rencana["kitab"] or rencana["buang_sampul"] if "kitab" in rencana else (bentuk_kitab(meta) or meta.get("tanpa_sampul"))
+    awal = 0 if tanpa_sampul else 1
     if awal and halaman:
         sampul = halaman[0].extract_text() or ""
-        polos = re.sub(r"\s+", "", sampul.replace("…", "...")).translate(ANGKA)
-        nim = str(meta.get("nim") or "").translate(ANGKA)
+        polos = re.sub(r"\s+", "", sampul.replace("…", "...")).translate(ANGKA_LATIN)
+        nim = str(meta.get("nim") or "").translate(ANGKA_LATIN)
         for n in {nim, nim[::-1]} - {""}:                # nomor mahasiswa contoh «000000000» bukan isian kosong
             polos = polos.replace(n, "")
         if re.search(r"\.{4,}|0{4,}", polos):
@@ -201,7 +180,7 @@ def periksa(pdf, bahan):
     batas = (float(fmt["matan"]) + float(fmt["catatan"])) / 2   # matan dan judul; catatan kaki lebih kecil
     for i, hal in enumerate(halaman[awal:], awal + 1):
         tinggi = float(hal.mediabox.height)
-        potong = sorted(_baris(hal), key=lambda p: -p[1])   # kanan ke kiri
+        potong = sorted(_baris(hal), key=lambda p: -p[1])
         # kaki halaman = nomor halaman saja (@templat yang nomornya di kepala halaman: tidak diperiksa)
         kaki = re.sub(r"[\s\u200c\u200e\u200f]", "", "".join(t for y, x, u, t in potong if y < TEPI))
         if kaki:
@@ -218,7 +197,7 @@ def periksa(pdf, bahan):
         salah = [i for i, latin in nomor.items() if latin]
     else:   # @nomor abjad: halaman sebelum nomor 1 bernomor huruf, bukan angka
         pertama = min((i for i, latin in nomor.items() if latin), default=None)
-        abjad = meta.get("nomor") in ("abjad", "mukadimah")
+        abjad = rencana["abjad"] if "abjad" in rencana else meta.get("nomor") in ("abjad", "mukadimah")
         salah = [i for i, latin in nomor.items() if not latin and not (abjad and (pertama is None or i < pertama))]
     if salah:
         jenis, lawan = ("0123", "٠١٢٣ (bawaan)") if hindi else ("bukan 0123", "0123 (@angka: latin)")
@@ -237,7 +216,7 @@ def periksa(pdf, bahan):
 def betulkan(pdf):
     """Tulis ulang peta glyph -> huruf tiap huruf Word (Type0) di `pdf`. Hasil: jumlah glyph yang petanya diubah."""
     import pypdf
-    daftar = _berkas_huruf() if os.name == "nt" else {}
+    daftar = huruf.berkas() if os.name == "nt" else {}
     w = pypdf.PdfWriter(clone_from=pypdf.PdfReader(pdf))
     sudah, ubah = set(), 0
     for hal in w.pages:
