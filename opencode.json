@@ -8,6 +8,10 @@
         "clientId": "nQdugxEIvOoIvVpBDTmTDKyFOAjjUKCn"
       }
     },
+    "qurangallery": {
+      "type": "remote",
+      "url": "https://qurangallery.com/mcp/shamela"
+    },
     "turath": {
       "type": "remote",
       "url": "https://mcp.turath.io/mcp/"

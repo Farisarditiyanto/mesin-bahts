@@ -119,6 +119,30 @@ Diuji 11 November 2026: `mcp.shamela.ws` (server `shamela` 8.1.0, milik shamela.
 
 Pencarian `mcp.shamela.ws` mengurutkan kecocokan kata, bukan frasa persis, dan hampir tidak pernah kosong. Balasan kosong muncul di tengah paging walau `next_cursor` masih ada. `limit` dan `book_ids` paling banyak 20. Alat `silent`, `verify_quote`, wildcard, judul bab, tafsir per ayat, dan data kitab tidak ada. Tidak ada kasus yang hanya bisa di `mcp.shamela.ws` selain tanpa akun; bab pendek dan sedang terbaca dengan panggilan lebih sedikit, bab panjang tidak.
 
+## Connector `qurangallery` (dipasang sebagai cadangan pertama `shamela`)
+
+Diuji 19 November 2026: `qurangallery.com/mcp/shamela` (server `qurangallery-shamela` 0.3.0, peladen pustaka 1.4.0, 15 alat) langsung dari PC dengan kunci gratis, dan `shamela.link` (34 alat) lewat Toolport. Waktu kedua sisi tidak diukur dari tempat yang sama. Angka `shamela` yang tidak diuji ulang hari itu diambil dari tabel 11 November di atas.
+
+| Uji | `qurangallery` | `shamela` (shamela.link) |
+|---|---|---|
+| Akun | tanpa akun (10 panggilan per menit, 200 per hari); kunci gratis 60 per menit | akun + masuk OAuth |
+| Waktu per panggilan | 0,34–2,3 detik, tengah 1,2 (32 panggilan) | 0,3–0,9 detik (4 pencarian) |
+| 60 panggilan berurutan dalam 24 detik | 34 dijawab, 26 ditolak (HTTP 429) | 117 berurutan, 0 gagal (11 November) |
+| Nomor kitab | sama: 11223, 2186, 6910, 21609 | — |
+| Frasa `بيع العربان`, 9 kitab Hanbali `dok/mutamad.md` | 2 halaman: 6910:2941, 776:2035 | 2 halaman yang sama |
+| Frasa `بيع العربون`, 34 kitab `dok/mutamad.md` | 17 halaman, 1 panggilan | 17 halaman, 1 panggilan |
+| Kata tunggal `العربون`, 34 kitab yang sama | 23 halaman, 16 kitab | 23 halaman |
+| Takhrij `البينة على المدعي`, kategori 8 | 85 halaman, 4 panggilan (`limit` 25) | `total_count` 85 halaman |
+| Takhrij `كل مسكر حرام`, kategori 8 | 189 halaman, 8 panggilan; `candidate_cap_hit` true | `total_count` 189 halaman |
+| `إنما الأعمال بالنيات`, kategori 6 | 228 halaman, 10 panggilan; `candidate_cap_hit` true | 231 halaman |
+| Frasa `خيار المجلس`, kategori 16, `limit` 100 | 34 baris dari 100 (sisanya di `rows_dropped`), `total_verified` 200, `candidate_cap_hit` true | 100 baris, `total_count` 895 |
+| Frasa karangan `خيار العربون` | 0 | 0 |
+| Kalimat karangan `قطار كهربائي فائق السرعة في الصحراء` | `match: "phrase"` 0; `match: "words"` 148 halaman dengan `relaxed_min_match` 3; dengan `relax_when_empty: false` 0 | 0 |
+| `shamela_verify_quote` «فالحاصل أن هذا الحديث ضعيف» tanpa kitab | `found`: 2186 ج9 ص335 (`body`) dan حاشية تفسير ابن كثير 1509 | `not_found` (catatan: calon terlalu banyak, hanya sebagian diperiksa) |
+| Nomor cetak الإنصاف 21609, `page_id` 1981 | 4/ 357; `shamela_cite` `printed_page` (ج4 ص357) → `page_id` 1981 | 4/ 357 |
+
+Yang hanya ada di `shamela`: `shamela_research_scope` (status `silent`), `shamela_scan_consensus`, dan paging tanpa batas huruf. Yang hanya ada di `qurangallery`: juz/halaman cetak → `page_id` (`shamela_cite`), daftar rawi dan sanad (`shamela_lookup_rijal`; mutunya belum diuji), dan tanpa akun. `shamela_search` mode `batch` (satu panggilan, satu `scope` per soal) memberi jumlah halaman per kategori mazhab, tetapi mencocokkan kata sehalaman (bukan frasa) dan tidak memberi status `silent`.
+
 ## Jebakan alat
 
 - `shamela_resolve` hasil pertama salah kitab pada empat judul: `مواهب الجليل`, `تحفة المحتاج`, `أسنى المطالب`, `حاشية الدسوقي`.
