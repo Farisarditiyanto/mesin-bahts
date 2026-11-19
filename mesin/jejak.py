@@ -125,7 +125,6 @@ def jejak(tertolak):
     for entri in cari.values():
         t, asli = entri["dapat"], entri["teks"]
         if not t:
-            # kitab yang dirujuk dulu, lalu yang paling mirip, matan sebelum حاشية
             mirip = "، ".join(f"{sid} {shamela.letak(juz, h)}{tanda} (±{int(nilai * 100)}% huruf sama)" for nilai, sid, juz, h, tanda
                               in sorted(entri["mirip"], key=lambda x: (str(x[1]) not in entri["tertuju"], -x[0], bool(x[4])))[:MAKS])
             baris.append(f"  «{asli}» tidak ditemukan di {entri['dibaca']} kitab lain yang berhasil dibaca: "

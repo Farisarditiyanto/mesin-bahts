@@ -403,7 +403,7 @@ def _cek(b, pot, perhatian, kutipan, rinci, pengantar, bersisipan=False):
         # الزركشي, «فقال فيما نقله القرطبي:» ke yang disebut sebelumnya
         nama = norma.padat(shamela.info(sid).get("main_author_name_ar") or "")
         qaul = QAUL.search(pengantar)
-        sesudah = (qaul.group().split(maxsplit=1) + [""])[1] if qaul else ""  # kata sesudah «قال»
+        sesudah = (qaul.group().split(maxsplit=1) + [""])[1] if qaul else ""
         pengarang = nama if nama and norma.padat(GELAR.sub("", sesudah)).startswith(nama) else None
         perhatian += [Temuan(f"{p} {tempat}", pot[:40])
                       for p in ragu_kutipan(rr, bagian[0], pot, angka and not diperiksa, lambda: rekaman_dulu(sid, juz, p1, p2),

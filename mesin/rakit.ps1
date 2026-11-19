@@ -88,7 +88,6 @@ try {
     # 2 = angka di teks Arab dicetak ٠-٩, di teks Latin 0-9; 0 = selalu 0-9
     $numeralLama = $word.Options.ArabicNumeral
     $NUMERAL = if ($HINDI) { 2 } else { 0 }; $word.Options.ArabicNumeral = $NUMERAL
-    # Alamat kerja Word berupa string biasa untuk COM.
     # huruf profil yang tidak terpasang diganti Word diam-diam: berhenti di sini saja
     if (@($word.FontNames) -notcontains $TA) { throw "Huruf [$TA] belum terpasang di Windows. Jalankan: python mesin/bahts.py periksa" }
     if (@($word.FontNames) -notcontains $TJ) { Write-Output "PERINGATAN: huruf judul $TJ belum terpasang di Windows: judul dicetak $TA."; $TJ = $TA }
@@ -604,7 +603,7 @@ try {
     }
     function Menempel($j) {
         $nx = $DATA.blok[$j + 1]
-        if (-not $nx -or $nx.k -in 'K', 'F', 'B', 'M', 'H', 'R') { return $false }   # sesudahnya halaman/judul baru atau akhir isi
+        if (-not $nx -or $nx.k -in 'K', 'F', 'B', 'M', 'H', 'R') { return $false }
         return -not ((Pengantar $nx) -and (Pengantar $DATA.blok[$j + 2]))
     }
     # Blok isi ditulis lewat satu scriptblock yang di-dot-source (lingkup yang sama): sekali dari awal sampai #R, dan
@@ -815,7 +814,6 @@ try {
     if (-not $titik) { [void]$toc.Add(@{ t = $bg.judul; bm = "t_$nT"; lvl = 0 }) }
     if ($bg.jenis -eq 'pustaka') { Tulis-Pustaka }
     elseif ($bg.jenis -eq 'ayat') {
-    # gabung ayat yang sama, urut mushaf
     $ay = @{}; $urut = New-Object System.Collections.ArrayList
     foreach ($a in $DATA.ayat) {
         $key = '{0:D3}:{1}' -f [int]$a.s, $a.a

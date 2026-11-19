@@ -136,7 +136,7 @@ def bukti(folder, dari=None, sampai=None):
     ctx = periksa(folder).ctx
     dalam = lambda n: (dari is None or dari <= n) and (sampai is None or n <= sampai)
     polos = [{"n": n, "polos": t} for n, t in _tanpa_catatan(ctx.blok) if dalam(n)]
-    pilih = sorted([u for u in ctx.penunjuk if dalam(u["n"])] + polos, key=lambda u: u["n"])  # sorted stabil
+    pilih = sorted([u for u in ctx.penunjuk if dalam(u["n"])] + polos, key=lambda u: u["n"])
     ke, tercetak = {}, None
     for u in pilih:
         if "polos" in u:

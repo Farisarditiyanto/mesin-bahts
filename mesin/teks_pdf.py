@@ -178,7 +178,7 @@ def periksa(pdf, bahan):
     batas = (float(fmt["matan"]) + float(fmt["catatan"])) / 2   # matan dan judul; catatan kaki lebih kecil
     for i, hal in enumerate(halaman[awal:], awal + 1):
         tinggi = float(hal.mediabox.height)
-        potong = sorted(_baris(hal), key=lambda p: -p[1])   # kanan ke kiri
+        potong = sorted(_baris(hal), key=lambda p: -p[1])
         # kaki halaman = nomor halaman saja (@templat yang nomornya di kepala halaman: tidak diperiksa)
         kaki = re.sub(r"[\s\u200c\u200e\u200f]", "", "".join(t for y, x, u, t in potong if y < TEPI))
         if kaki:

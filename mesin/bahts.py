@@ -18,7 +18,7 @@ BUTUH_WORD = "`rakit` butuh Windows + Microsoft Word."
 SAMPUL_SAYA = AKAR / "sampul_saya.txt"  # data sampul pemakai (@kunci: nilai); mengisi @kunci yang kosong di naskah baru
 DATA_DIRI = ("nama", "nim", "jenis", "fasl", "thalibah", "sampul")  # milik satu orang (sampul = kampusnya): tidak disalin dari SAMPUL_SAYA ke bahts/<orang>/…
 NAMA_FOLDER = r"[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+){0,2}"  # nama folder bahts yang diterima `baru`: «ikhlas» atau «bahts/<orang>/<topik>»
-BUKAN_BAHTS = {"mesin", "kitab"}  # folder akar yang bukan tempat bahts
+BUKAN_BAHTS = {"mesin", "kitab"}
 FORMAT = json.loads((MESIN / "format.json").read_text(encoding="utf8"))  # profil bentuk halaman; dipilih @format di naskah
 PUSTAKA = ("pyarrow", "pypdf", "fontTools", "rapidfuzz")  # nama modul; nama pemasangannya di requirements.txt
 
@@ -173,7 +173,7 @@ def baru(nama, judul):
     orang_lain = len(bagian) == 3 and bagian[0].lower() == "bahts"  # bahts/<orang>/<topik>: data diri pemilik repo bukan miliknya
     if orang_lain:
         data = [(k, v) for k, v in data if k not in DATA_DIRI]
-        lama = sorted(f.parent.glob("*/naskah.txt"), key=lambda x: x.stat().st_mtime)  # bahts terakhir orang yang sama
+        lama = sorted(f.parent.glob("*/naskah.txt"), key=lambda x: x.stat().st_mtime)
         if lama:
             asal = lama[-1]
             data += [(k, v) for k, v in re.findall(r"^@(\w+):[ \t]*(\S.*)$", asal.read_text(encoding="utf-8-sig"), re.M)

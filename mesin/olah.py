@@ -18,7 +18,6 @@ from dasar import (AD, ANGKA_LATIN, BUKAN_RUJUKAN, HERE, HORMAT_CETAK, HURUF_LAT
 from laporan import gabung_kembar
 from naskah import FIHRIS_NAMA, Pemeriksaan, urai
 
-# Teks perintah `tanda`: tanda di naskah.txt, bahts yang dikumpulkan bertahap, dan riset.txt
 TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   @kunci: nilai       data sampul, di awal naskah; kunci tidak dikenal = GAGAL (salah ketik tidak diabaikan). Wajib: judul dan nama; @sampul: mahad juga jenis ("-" = tidak tercetak), nim, fasl.
                       Opsional: musyrif, jabatan (kosong atau "-" = tidak tercetak), thalibah (ya = sampul mencetak «اسم الطالبة»),
@@ -272,7 +271,7 @@ def hindi(s):
     """Angka 0-9 -> ٠-٩, kecuali angka yang huruf atau tanda baca Arab terdekat sebelumnya (atau sesudahnya, kalau tidak
     ada) huruf Latin: judul berbahasa Latin tetap 0-9; «مجلة X، 2020» tetap ٢٠٢٠. Angka di dalam tautan/DOI (TAUTAN) selalu
     0-9, juga DOI tanpa huruf di depannya («انظر: 10.1016/…»). Satu lintasan linear."""
-    keluar, pos, terakhir = [], 0, ""  # terakhir = huruf/tanda baca Arab terdekat sebelum posisi `pos`
+    keluar, pos, terakhir = [], 0, ""
     tautan = iter([t.span() for t in TAUTAN.finditer(s)] + [(len(s) + 1, len(s) + 1)])
     t = next(tautan)
     for m in re.finditer(r"[0-9]+", s):
@@ -281,7 +280,7 @@ def hindi(s):
         keluar.append(s[pos:m.start()])
         for k in KUAT.finditer(s, pos, m.start()):
             terakhir = k.group()
-        k = next(KUAT.finditer(s, m.end()), None)  # sesudah angka, kalau sebelumnya tidak ada
+        k = next(KUAT.finditer(s, m.end()), None)
         c = terakhir or (k.group() if k else "")
         latin = t[0] <= m.start() or re.match(f"[{HURUF_LATIN}]", c)
         keluar.append(m.group() if latin else m.group().translate(AD))
@@ -291,7 +290,7 @@ def hindi(s):
 
 
 GABUNG_PARUH = re.compile(r"\s*\.\.\.~\s*")  # «...~» di #V: dua paruh bait berbagi satu kata, disambung sebelum dicek dan dicetak
-BUKTI_SID = re.compile(r"<<(\d+)\|")  # nomor kitab di bukti <<sid|juz|hal>>
+BUKTI_SID = re.compile(r"<<(\d+)\|")
 BUKTI_WAQFEYA = re.compile(r"<<(w[0-9a-f]{8})\|")
 
 
@@ -302,7 +301,7 @@ def kitab_dirujuk(folder):
     return tuple(list(dict.fromkeys(pola.findall(teks))) for pola in (BUKTI_SID, BUKTI_WAQFEYA))
 
 
-AWAL_BAGIAN = re.compile(rf"^(?:\*\*)?(?:#[{''.join(TINGKAT_JUDUL)}](?![^\s])|القول|الرأي|المذهب)")  # judul, atau awal pendapat baru
+AWAL_BAGIAN = re.compile(rf"^(?:\*\*)?(?:#[{''.join(TINGKAT_JUDUL)}](?![^\s])|القول|الرأي|المذهب)")
 
 
 def kata(runs):
@@ -340,7 +339,7 @@ def potong(d, fasl):
     if dari > 1:  # sampul dan halaman bernomor huruf (@nomor) hanya di potongan pertama
         meta["tanpa_sampul"] = True
         meta.pop("nomor", None)
-    if sampai < len(awal_f):  # المصادر dan الفهارس hanya di potongan terakhir
+    if sampai < len(awal_f):
         meta["tanpa"] = ", ".join(TANPA)
 
     def runs(rr):
@@ -561,7 +560,7 @@ def _urai_baris(ctx, baris):
     """Tiap baris naskah diurai (`_satu_baris`); tiap galat dan perhatiannya menyebut nomor barisnya
     (Pemeriksaan.selama_baris): pemakai langsung tahu tempatnya, tes jebakan mencocokkan per baris."""
     for n, b in baris:
-        if AWAL_BAGIAN.match(b) and ctx.standar:  # bagian baru: nilai standar sumber bagian sebelumnya
+        if AWAL_BAGIAN.match(b) and ctx.standar:
             ctx.perhatian += standar_baris(ctx.standar); ctx.standar.clear()
         with ctx.selama_baris(n):
             _satu_baris(ctx, n, b)
@@ -984,7 +983,7 @@ def _cek_tata_letak(ctx):
     kosong = {id(a) for a, b in zip(urut, urut[1:] + [{"k": "R"}])
               if not kitab and a["k"] in JUDUL_ISI and TINGKAT_JUDUL.get(b["k"], 9) <= TINGKAT_JUDUL[a["k"]]}
     halaman_baru = set(awal_halaman(blok, meta)[0])
-    for i, (a, b) in enumerate(zip(blok, blok[1:] + [{"k": ""}])):  # judul yang langsung disusul judul halaman baru tercetak sendirian di halamannya
+    for i, (a, b) in enumerate(zip(blok, blok[1:] + [{"k": ""}])):
         if id(a) in kosong:  # sekaligus menggantikan «tercetak sendirian»: menulis isinya membereskan keduanya
             perhatian.append(f"baris {a['n']}: bagian «{a['judul'][:40]}» masih kosong: belum ada paragraf isi sebelum "
                              f"judul berikutnya yang setingkat atau lebih tinggi; tulis isinya, atau hapus judulnya")
@@ -1010,7 +1009,7 @@ def _profil(ctx):
     for k, (kunci, nilai) in TIMPA.items():
         pilihan = _pilih(ctx, k)
         if pilihan and profil:
-            profil = {**profil, kunci: nilai[pilihan]}  # salinan: profil di FORMAT tetap utuh
+            profil = {**profil, kunci: nilai[pilihan]}
     return profil
 
 
@@ -1047,7 +1046,7 @@ def _angka_cetak(ctx):
     ctx.pustaka = [ubah(p) for p in ctx.pustaka]
 
 
-MALAHIQ = re.compile(r"(ال)?ملاحق|ملحق")  # awal judul #K bagian lampiran
+MALAHIQ = re.compile(r"(ال)?ملاحق|ملحق")
 
 
 def _malahiq(ctx):

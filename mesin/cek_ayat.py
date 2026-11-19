@@ -125,11 +125,11 @@ def _dalam(p, k):
         for r in range(BEDA_AYAT + 1):
             atas, isi = jarak[r], baru[r]
             for j in range(len(k) + 1):
-                n = atas[j - 1] + (k[j - 1] != x) if j else tak  # dipasangkan dengan k[j-1] (sama atau diganti)
+                n = atas[j - 1] + (k[j - 1] != x) if j else tak
                 if r:
-                    n = min(n, jarak[r - 1][j] + 1)  # dibuang
+                    n = min(n, jarak[r - 1][j] + 1)
                 if j:
-                    n = min(n, isi[j - 1] + 1)  # huruf k yang tidak ada di p
+                    n = min(n, isi[j - 1] + 1)
                 isi[j] = n
         jarak = baru
     beda = min(min(b) for b in jarak)  # dan berakhir di mana saja

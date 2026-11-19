@@ -200,7 +200,7 @@ def _periksa_langkah(isi, baris, perhatian):
                 belum["khilaf"].append((n, f"ke-{khilaf}"))
     # satu baris per langkah, bukan per objek: ratusan ayat/hadits tidak menenggelamkan perhatian lain.
     # Semua objeknya tetap disebut (itulah yang harus dicatat); barisnya di awal, untuk pemakai dan tes jebakan
-    for langkah, objek in sorted(((k, v) for k, v in belum.items() if v), key=lambda kv: kv[1][0][0]):  # urut naskah
+    for langkah, objek in sorted(((k, v) for k, v in belum.items() if v), key=lambda kv: kv[1][0][0]):
         sifat = LANGKAH[langkah]
         perhatian.append(f"baris {daftar_baris(n for n, _ in objek)}: {langkah} belum tercatat di {RISET} untuk "
                          f"{len(objek)} {sifat.jenis}: {', '.join(o for _, o in objek)} → "

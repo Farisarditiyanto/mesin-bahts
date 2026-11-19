@@ -126,7 +126,7 @@ class CatatanKaki:
 
     def __init__(self, isi, bukti):
         self.isi = isi
-        self.berbukti = bool(bukti)  # ada <<…>> jenis apa pun
+        self.berbukti = bool(bukti)
         self.wq = [b for b in bukti if WAQFEYA.match(b)]  # <<w…|berkas|hal>> (kitab Waqfeya)
         self.pdf = [b.split("|")[1:] for b in bukti if b.startswith(LUAR + "|")]  # <<luar|berkas|hal>>
         self.luar = LUAR in bukti  # <<luar>> polos
@@ -294,7 +294,7 @@ class Pengurai:
         kurawal = [t for t in self.PENANGAN if t.startswith("{")]
         if any(t in polos for t in kurawal):
             raise TandaRusak(f"tanda {'/'.join(kurawal)} tidak ditutup dengan }}")
-        ketik = None if self.di_catatan else ayat_ketik(polos[self.seg:])  # sesudah catatan kaki terakhir (atau baris tanpa catatan kaki)
+        ketik = None if self.di_catatan else ayat_ketik(polos[self.seg:])
         if ketik:
             self.perhatian.append(f"ayat diketik langsung «{ketik[:40]}»: tidak dicek ke mushaf; tulis lewat {{Q:surah:ayat}}")
         return [r for r in self.runs if r.get("t", "x") != ""]
@@ -412,7 +412,7 @@ class Pengurai:
         c.lain = kutipan_semua(polos[seg:])[:-1 if c.mk is not None else None]
         if c.mk is None and c.berbukti and not c.diam:  # «قال ﷺ: (…)», «{H:…}(…)»: kurung itu kutipan, dicek seperti "…"
             c.mk = kurung_akhir(polos, seg, self.matn, self.h_pos)
-        sisa = luar_petik(polos[seg:])  # teks sejak catatan kaki sebelumnya, kutipan-kutipannya dibuang
+        sisa = luar_petik(polos[seg:])
         if c.mk is None and c.berbukti and not c.diam and SISA_PETIK.search(sisa):  # nukilan utuh: tanda petiknya tidak menentukan apa pun
             self.perhatian.append(f"tanda petik tanpa pasangan sebelum catatan kaki: kutipannya tidak dikenali dan tidak dicek; "
                                   f"pakai \"…\" atau «…»{ekor(c.isi)}")
@@ -494,7 +494,6 @@ class Pengurai:
                     p = Catat()
                     kutipan_4.append((b, cek(b, mk, p, kutipan=True, pengantar=pengantar), p))
             if e:
-                # yang dicek: kutipan sebelum catatan kaki, paragraf salinan (diam), atau potongan bukti itu sendiri
                 galat.append(f"{e}{ekor(isi)}")
                 self._tertolak(e, b, nukilan)
         # Tiap bukti tanpa potongan harus memuat kutipannya, bukan cukup salah satunya: <<sid|juz|hal>> menyatakan
