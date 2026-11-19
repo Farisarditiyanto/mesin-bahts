@@ -109,6 +109,12 @@ try:
     assert tanpa == [f"baris {B_KUTIP + 1} tanpa catatan kaki: «وذهب الجمهور إلى ذلك.»"], keluar
     print("lolos: paragraf isi tanpa catatan kaki dicetak; المقدمة dan الخاتمة tidak")
 
+    # @rujukan_ayat: matan mengubah catatan kaki ayat menjadi [السورة: الآية] di matan: paragraf ayat tetap dianggap bersumber
+    naskah.write_text("@rujukan_ayat: matan\n" + asli, encoding="utf-8")
+    kode, keluar = jalan("bukti", "contoh")
+    assert kode == 0 and " tanpa catatan kaki: " not in keluar, keluar
+    print("lolos: paragraf ayat di bawah @rujukan_ayat: matan tidak ditandai tanpa catatan kaki")
+
     naskah.write_text(asli.replace("<<11223|-|5>>", "<<11223|-|6>>"), encoding="utf-8")
     kode, keluar = jalan("bukti", "contoh", str(B_KUTIP))
     print(keluar)

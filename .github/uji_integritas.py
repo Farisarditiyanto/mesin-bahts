@@ -678,6 +678,64 @@ def utama():
             assert pdf.read_bytes() == sebelum, "rakit --fasl mengganti PDF sumber"
             assert not (akar / "bahan-fasl.json").exists(), "Word dipanggil sebelum melindungi PDF sumber potongan"
         uji("rakit --fasl: satu naskah, potongan per فصل", per_fasl)
+
+        def keluaran_kosong():
+            import rakit as m_rakit
+            (akar / "keluaran_saya.txt").write_text("  \n", encoding="utf8")
+            cwd_uji = akar / "cwd-kosong"
+            cwd_uji.mkdir()
+            sumber_pdf = akar / "sumber-kosong.pdf"
+            sumber_pdf.write_bytes(b"%PDF")
+            asal = os.getcwd()
+            try:
+                os.chdir(cwd_uji)
+                assert m_rakit.salin_keluaran(akar / "uji-k", sumber_pdf) is None
+                assert not list(cwd_uji.iterdir()), "keluaran_saya.txt kosong menyalin ke CWD"
+            finally:
+                os.chdir(asal)
+                (akar / "keluaran_saya.txt").unlink(missing_ok=True)
+        uji("keluaran_saya.txt kosong tidak menyalin ke CWD", keluaran_kosong)
+
+        def terbitkan_khulasah_terkunci():
+            import rakit as m_rakit
+            kerja, tujuan = akar / "kerja-kh", akar / "tujuan-kh"
+            kerja.mkdir()
+            tujuan.mkdir()
+            kh = "uji - الخلاصات.pdf"
+            for n, isi in (("uji.docx", b"LAMA-DOCX"), ("uji.pdf", b"LAMA-PDF"), (kh, b"LAMA-KH")):
+                (tujuan / n).write_bytes(isi)
+            for n, isi in (("uji.docx", b"BARU-DOCX"), ("uji.pdf", b"BARU-PDF")):
+                (kerja / n).write_bytes(isi)
+            ganti_asli = Path.replace
+
+            def ganti(self, target):
+                if self == tujuan / kh:
+                    raise PermissionError("khulasah usang terkunci")
+                return ganti_asli(self, target)
+            with patch.object(Path, "replace", ganti):
+                try:
+                    m_rakit.terbitkan(kerja, tujuan, ["uji.docx", "uji.pdf"], buang=(kh,))
+                    raise AssertionError("terbitkan harus gagal saat khulasah usang terkunci")
+                except PermissionError:
+                    pass
+            assert (tujuan / "uji.docx").read_bytes() == b"LAMA-DOCX"
+            assert (tujuan / "uji.pdf").read_bytes() == b"LAMA-PDF"
+            assert (tujuan / kh).read_bytes() == b"LAMA-KH"
+            assert not (tujuan / "_arsip").exists(), "_arsip tersisa sesudah pemulihan lengkap"
+        uji("terbitkan: khulasah usang terkunci memulihkan hasil lama", terbitkan_khulasah_terkunci)
+
+        def lepas_semua_cache():
+            import cek_hadits, cek_naql, cek_tautsiq, shamela
+            cek_hadits.hadits_bernomor("11223", "-", 5, 5, "1")
+            cek_naql._gram_halaman("11223", "-", 5, 5)
+            cek_tautsiq.jejak_kartu("11223")
+            assert all(f.cache_info().currsize > 0 for f in (
+                cek_hadits.hadits_bernomor, cek_naql._gram_halaman, cek_tautsiq.jejak_kartu))
+            shamela.lepas()
+            assert all(f.cache_info().currsize == 0 for f in (
+                cek_hadits.hadits_bernomor, cek_naql._gram_halaman, cek_tautsiq.jejak_kartu))
+        uji("shamela.lepas() mengosongkan cache cek_hadits/cek_naql/cek_tautsiq", lepas_semua_cache)
+
         for mode in ("save-fail", "export-fail", "ps-mati", "pdf-fail", "pages-fail", "publish-fail", "rollback-blocked", "simpan-unlink-gagal",
                      "changed", "snapshot", "lock", "sisa", *(("ps-asli", "ps-yatim") if os.name == "nt" else ())):
             uji("rakit " + mode, lambda mode=mode: rakit(mode))

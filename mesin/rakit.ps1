@@ -44,9 +44,8 @@ function Huruf($font, $nama, $ukuran, $tebal) {
     if ($null -ne $tebal) { $font.Bold = [int]$tebal; $font.BoldBi = [int]$tebal }
 }
 $JUDUL = $M.judul; $NAMA = $M.nama; $NIM = $M.nim
-# judul sampul «… - …» (sub-judul hanya kalau @judul memuatnya): bagian sesudah « - » jadi baris kedua yang lebih kecil (kepala halaman tetap judul utuh)
-$JUDUL1 = $JUDUL; $JUDUL2 = ''
-if ($JUDUL -match '^(.+?)\s+[-–—]\s*(.+)$') { $JUDUL1 = $Matches[1].Trim(); $JUDUL2 = $Matches[2].Trim() }
+# judul sampul «… - …» sudah dipecah olah.rencana_cetak: bagian sesudah « - » jadi baris kedua yang lebih kecil (kepala halaman tetap judul utuh)
+$JUDUL1 = [string]$RENCANA.judul_sampul[0]; $JUDUL2 = [string]$RENCANA.judul_sampul[1]
 $MUSYRIF = if ($M.musyrif -and $M.musyrif -ne '-') { [string]$M.musyrif } else { '' }
 $JABATAN = if ($MUSYRIF -and $M.jabatan -and $M.jabatan -ne '-') { [string]$M.jabatan } else { '' }
 $JENIS_BAGIAN = @($RENCANA.bagian | ForEach-Object { $_.jenis })   # المصادر dan فهرس yang dicetak (olah.bagian_akhir)
@@ -141,7 +140,7 @@ try {
     $SAMPUL = if ($JAKARTA) { "$dir\sampul_jakarta.docx" } else { "$dir\sampul_qism.docx" }
     # @logo: berwarna = salinan sampul_qism.docx yang gambar logonya (word/media/image2.png) diganti logo berwarna
     # sampul_jakarta.docx; kop, data, dan tata letak sampul qism tetap (.github/uji_struktur.py menjaga kedua gambarnya)
-    if (-not $JAKARTA -and $M.logo -eq 'berwarna') {
+    if ($RENCANA.logo_berwarna) {
         Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
         $LOGO = 'word/media/image2.png'
         $z = [IO.Compression.ZipFile]::OpenRead("$dir\sampul_jakarta.docx")
@@ -468,7 +467,10 @@ try {
         $m.Font.Superscript = 0; Huruf $m.Font $TA $uCatatan
         $m.InsertBefore('('); $m.InsertAfter(')')
         $m.Font.Superscript = 0
-        # nomor di matan: (1) superskrip; kurungnya ditulis Catatan
+        # nomor di matan: (1) superskrip; kurungnya ditulis Catatan.
+        # Di tampilan Draft, $fr.Select() membuka panel catatan kaki (Panes(2)); memindah seleksi balik ke sel tabel #J
+        # saat panel itu masih terbuka menjatuhkan WINWORD.EXE (0x800706BE), jadi panel ditutup dulu.
+        if ($doc.ActiveWindow.Panes.Count -gt 1) { $doc.ActiveWindow.Panes(2).Close() }
         $ref = $fn.Reference
         $ref.Font.Superscript = 1; Huruf $ref.Font $TA $uMatan
         $ref.Select(); $word.Selection.RtlRun()
@@ -1037,13 +1039,15 @@ try {
     $word.Options.ArabicNumeral = $NUMERAL               # pengaturan milik seluruh Word pemakai: dipastikan lagi tepat sebelum PDF
     $doc.ExportAsFixedFormat("$Out.pdf", 17)
     # paragraf khulasah {X} (bookmark x_n): distabilo kuning sesudah .docx dan .pdf utama tersimpan, lalu diekspor ke
-    # salinan -PdfKhulasah; `rakit` (rakit.py) memotong salinan itu menjadi halaman-halaman khulasah saja. .docx tetap tanpa stabilo
-    $khulasah = @(); $nx = 1
-    while ($doc.Bookmarks.Exists("x_$nx")) {
-        $par = $doc.Bookmarks.Item("x_$nx").Range.Paragraphs(1).Range
+    # salinan -PdfKhulasah; `rakit` (rakit.py) memotong salinan itu menjadi halaman-halaman khulasah saja. .docx tetap tanpa stabilo.
+    # Potongan --fasl bisa tidak mulai dari x_1 (penomoran x_n se-naskah), jadi semua bookmark x_* yang ada dibaca berurutan.
+    $khulasah = @()
+    $xBm = @($doc.Bookmarks | Where-Object { $_.Name -match '^x_(\d+)$' } | Sort-Object { [int]($_.Name.Substring(2)) })
+    foreach ($bm in $xBm) {
+        $par = $bm.Range.Paragraphs(1).Range
         $par.HighlightColorIndex = 7                        # 7 = wdYellow
         $hA = $doc.Range($par.Start, $par.Start).Information(3); $hB = $doc.Range($par.End - 1, $par.End - 1).Information(3)
-        $khulasah += "$hA-$hB"; $nx++
+        $khulasah += "$hA-$hB"
     }
     if ($khulasah.Count) {
         $doc.ExportAsFixedFormat($PdfKhulasah, 17)

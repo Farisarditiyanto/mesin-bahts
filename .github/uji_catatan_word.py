@@ -27,9 +27,11 @@ def utama():
         teks = ("@judul: فحص الحواشي\n@bentuk: kitab\n@berkas: hasil\n"
                 "@tanpa: pustaka, ayat, hadits, maudhuat\n@halaman_baru: B\n@rumuz: 11223=-\n"
                 "#K المقدمة\nهذا تمهيد للفحص.\n#F الفصل الأول\nهذا فصل سابق[^OLD-FIRST-NOTE].\n"
+                "{X}خلاصة الفصل الأول.\n"
                 "#F الفصل الثاني\nهذا تمهيد للفصل الثاني.\n#B المبحث الأول\n"
                 "توحيد الربوبية وهو إفراد الله تعالى بالخلق والملك والتدبير[^<<11223|-|5>>]\n"
                 "هذا نص المبحث الأول[^EXPECTED-SECOND-NOTE].\n"
+                "{X}KHULASAHFASL2 خلاصة الفصل الثاني.\n"
                 "#B المبحث الثاني\nهذا نص المبحث الثاني[^EXPECTED-THIRD-NOTE].\n#K الخاتمة\nانتهى الفحص.\n")
         (f / "naskah.txt").write_text(teks, encoding="utf8")
         for args, nama, harus in (((), "hasil", ["OLD-FIRST-NOTE", "EXPECTED-SECOND-NOTE", "EXPECTED-THIRD-NOTE"]),
@@ -43,7 +45,11 @@ def utama():
             assert len(catatan) == len(harus) and all(h in c for h, c in zip(harus, catatan)), catatan
             pdf = "\n".join(p.extract_text() or "" for p in PdfReader(f / f"{nama}.pdf").pages)
             assert all(h in pdf for h in harus), pdf
-            print(f"lolos catatan Word {' '.join(args) or 'utuh'}: {len(catatan)} isi catatan DOCX dan PDF benar", flush=True)
+            khulasah = f / f"{nama} - الخلاصات.pdf"
+            assert khulasah.is_file(), f"PDF khulasah tidak dibuat untuk {' '.join(args) or 'utuh'}: {r.stdout}"
+            pdf_k = "\n".join(p.extract_text() or "" for p in PdfReader(khulasah).pages)
+            assert "KHULASAHFASL2" in pdf_k, pdf_k
+            print(f"lolos catatan Word {' '.join(args) or 'utuh'}: {len(catatan)} isi catatan DOCX/PDF + khulasah benar", flush=True)
 
 
 if __name__ == "__main__":

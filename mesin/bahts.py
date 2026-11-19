@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Satu pintu mesin bahts: python mesin/bahts.py <perintah>. Tabel perintahnya (DAFTAR) = teks bantuan dan yang dijalankan."""
-import difflib, hashlib, json, os, re, sys, sysconfig, urllib.error
+import difflib, hashlib, os, re, sys, sysconfig, urllib.error
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 import diagram, dirasat, hadits, huruf, jaringan, layanan, shamela, turath, waqfeya  # ringan; olah (memuat teks Al-Qur'an) baru dimuat saat `cek`
-from dasar import HALAMAN_MAKS, perintah
+from dasar import HALAMAN_MAKS, SUBJUDUL, perintah, profil_format
 from huruf import FONT
 
 MESIN = Path(__file__).resolve().parent
@@ -19,7 +19,6 @@ SAMPUL_SAYA = AKAR / "sampul_saya.txt"  # data sampul pemakai (@kunci: nilai); m
 DATA_DIRI = ("nama", "nim", "jenis", "fasl", "thalibah", "sampul")  # milik satu orang (sampul = kampusnya): tidak disalin dari SAMPUL_SAYA ke bahts/<orang>/…
 NAMA_FOLDER = r"[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+){0,2}"  # nama folder bahts yang diterima `baru`: «ikhlas» atau «bahts/<orang>/<topik>»
 BUKAN_BAHTS = {"mesin", "kitab"}
-FORMAT = json.loads((MESIN / "format.json").read_text(encoding="utf8"))  # profil bentuk halaman; dipilih @format di naskah
 PUSTAKA = ("pyarrow", "pypdf", "fontTools", "rapidfuzz")  # nama modul; nama pemasangannya di requirements.txt
 
 
@@ -95,11 +94,13 @@ def periksa():
         baris(word, "Microsoft Word versi desktop", "pasang Microsoft Word (pemakai sendiri; butuh lisensinya). "
               "Tanpa Word naskah tetap bisa ditulis dan dicek, tetapi .docx dan .pdf tidak terbentuk", untuk_cek=False)
         baris(huruf.font_terpasang(), "font mushaf", perintah("siapkan"), untuk_cek=False)
-        # huruf tiap profil format.json; yang wajib hanya huruf profil bahts baru (@format di kerangka naskah)
+        # huruf tiap profil format.json (matan dan judul); yang wajib hanya huruf profil bahts baru (@format di kerangka naskah)
+        format_ = profil_format()
         m = re.search(r"^@format:[ \t]*(\S+)", (MESIN / "naskah_baru.txt").read_text(encoding="utf8"), re.M)
-        wajib = FORMAT[m.group(1) if m else "imam"]["huruf"]
-        for h in dict.fromkeys(p["huruf"] for p in FORMAT.values()):
-            profil = [k for k, p in FORMAT.items() if p["huruf"] == h]
+        wajib = format_[m.group(1) if m else "imam"]["huruf"]
+        semua_huruf = dict.fromkeys(h for p in format_.values() for h in (p["huruf"], p.get("huruf_judul")) if h)
+        for h in semua_huruf:
+            profil = [k for k, p in format_.items() if h in (p["huruf"], p.get("huruf_judul"))]
             baris(huruf.huruf_ada(h), f"huruf {h}" + ("" if h == wajib else f" (hanya untuk @format {', '.join(profil)})"),
                   huruf.HURUF_SARAN, untuk_cek=False, untuk_rakit=h == wajib)
     baris(bool(diagram.npx() and diagram.browser()), "Node.js + Chrome/Edge (hanya untuk `diagram`: Mermaid jadi PNG)",
@@ -193,7 +194,7 @@ def baru(nama, judul):
         print(f"Data diri ({', '.join('@' + k for k in DATA_DIRI)}) " + (
             f"disalin dari bahts «{bagian[1]}» sebelumnya: {asal.relative_to(AKAR).as_posix()}; pastikan masih benar."
             if asal else f"tidak diambil dari {SAMPUL_SAYA.name} (itu data pemilik repo): isi data «{bagian[1]}» di naskahnya."))
-    sub = re.match(r"^(.+?)\s+[-–—]\s*(.+)$", judul.strip())  # pemisah yang sama dengan rakit.ps1 ($JUDUL2)
+    sub = SUBJUDUL.match(judul.strip())  # pemisah yang sama dengan olah.rencana_cetak
     if sub:
         print(f"Sub-judul sampul «{sub.group(2)}» akan tercetak di sampul. Tulis hanya kalau dosen, خطة, "
               f"atau pemakai memang menulisnya; kalau tidak, hapus « - …» dari @judul (tanpa sub-judul sampul tetap rapi). "
@@ -275,8 +276,8 @@ class Bendera:
     ganda: str = ""  # pesan kalau disebut dua kali; kosong = sebutan kedua dibaca sebagai argumen biasa
 
 
-POTONGAN = Bendera("--potongan")  # frasa boleh cocok di tengah kata
-JEJAK = Bendera("--jejak")
+POTONGAN = Bendera("--potongan", ganda="--potongan disebut lebih dari sekali")  # frasa boleh cocok di tengah kata
+JEJAK = Bendera("--jejak", ganda="--jejak disebut lebih dari sekali")
 FASL = Bendera("--fasl", "--fasl perlu nomor #F, mis. --fasl 2")
 KE = Bendera("--ke", "--ke perlu nama folder", lambda x: x.startswith("--"))
 SARING = tuple(Bendera(n, f"{n} butuh nilai, mis. {n} {contoh}", lambda x: not x.strip(" ,،"),
@@ -294,6 +295,9 @@ def urai(a, sah):
         if b is None or (x in tersebut and not b.ganda):
             yield None, x
         elif not b.kurang:
+            if x in tersebut:
+                raise ValueError(b.ganda)
+            tersebut.add(x)
             yield x[2:], True
         else:
             if not a or b.bukan_nilai(a[0]):
@@ -337,6 +341,12 @@ def halaman(sid, juz, hal):
         print(f"===== [{sid}] {juz}/{h} =====")
         ada |= shamela.halaman(sid, juz, h)  # jangan berhenti di halaman bolong: kitab bisa melompati nomor di tengah
     return ada
+
+
+def _cari_waqfeya(a, k):
+    if k:
+        raise ValueError("perintah «cari w…» tidak memakai bendera --potongan")
+    return waqfeya.cari(a[0], a[1])
 
 
 def wq(x):
@@ -469,7 +479,7 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
              "diunduh; --halaman 2: hasil ke-21 dan seterusnya",
              lambda a: ketemu(turath.temukan(*bendera_temukan(a[0], a[1:]))), 1, None, SARING),
     Perintah("ambil <id|folder> [...]", "unduh kitab (sekali saja); nama folder bahts = semua kitab yang dirujuk naskahnya",
-             lambda a: ambil(a), 1, None),
+             ambil, 1, None),
     Perintah("kartu <id>", "data cetak kitab (untuk rujukan pertama & daftar pustaka) + bentuk bukti <<…>> kitab itu",
              lambda a: waqfeya.kartu(a[0]) if wq(a[0]) else shamela.kartu(a[0]), 1, 1),
     Perintah('cari <id|semua> "<frasa>" [--potongan]', "\n"
@@ -477,7 +487,7 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
              "Frasa dicocokkan sebagai kata utuh (huruf sambung و ف ب ل ك dan «ال» di depan kata pertama\n"
              "boleh): «العربان» tidak cocok dengan «العرب ان». Yang hanya cocok sebagai potongan kata\n"
              "disebut jumlahnya; --potongan: ikut ditampilkan (mis. mencari awal kata)",
-             lambda a, **k: ketemu(waqfeya.cari(a[0], a[1]) if wq(a[0]) else shamela.cari(a[0], a[1], **k)), 2, 2, (POTONGAN,)),
+             lambda a, **k: ketemu(_cari_waqfeya(a, k) if wq(a[0]) else shamela.cari(a[0], a[1], **k)), 2, 2, (POTONGAN,)),
     Perintah('teks <id> "<frasa>" [lebar] [maks] [--potongan]', "teks asli di sekitar frasa, untuk disalin persis",
              lambda a, **k: ketemu(shamela.teks(a[0], a[1], *(angka(x, apa) for x, apa in zip(a[2:], ("lebar", "maks"))), **k)), 2, 4, (POTONGAN,)),
     Perintah('bab <id> "<frasa>" [--potongan]', "rantai judul kitab/bab tempat frasa berada",
@@ -555,17 +565,17 @@ if __name__ == "__main__":
     p = PERINTAH[cmd]
     bentuk = p.bantuan()
     k = {}
-    if p.paling_banyak is not None:  # bendera boleh di mana saja; tidak dihitung sebagai argumen
-        a, k = pisah(a, p.bendera)
-    if len(a) < p.paling_sedikit:
-        sys.exit(f"Perintah «{cmd}» kurang argumen. Bentuknya:\n{bentuk}")
-    if p.paling_banyak is not None and len(a) > p.paling_banyak:
-        # argumen berlebih ditolak, bukan ditelan: `halaman 1679 - 8 9` jangan diam-diam mengabaikan 9
-        bendera = [x for x in a if x.startswith("--")]
-        sys.exit(f"Argumen perintah «{cmd}» tidak dikenal atau berlebih: {a[p.paling_banyak:]}"
-                 + (f" (perintah «{cmd}» tidak punya bendera {', '.join(bendera)})" if bendera else "")
-                 + f"\nBentuknya:\n{bentuk}")
     try:
+        if p.paling_banyak is not None:  # bendera boleh di mana saja; tidak dihitung sebagai argumen
+            a, k = pisah(a, p.bendera)
+        if len(a) < p.paling_sedikit:
+            sys.exit(f"Perintah «{cmd}» kurang argumen. Bentuknya:\n{bentuk}")
+        if p.paling_banyak is not None and len(a) > p.paling_banyak:
+            # argumen berlebih ditolak, bukan ditelan: `halaman 1679 - 8 9` jangan diam-diam mengabaikan 9
+            bendera = [x for x in a if x.startswith("--")]
+            sys.exit(f"Argumen perintah «{cmd}» tidak dikenal atau berlebih: {a[p.paling_banyak:]}"
+                     + (f" (perintah «{cmd}» tidak punya bendera {', '.join(bendera)})" if bendera else "")
+                     + f"\nBentuknya:\n{bentuk}")
         p.jalankan(a, **k)
     except urllib.error.HTTPError as e:
         if not 400 <= e.code < 500 or e.code == 429:

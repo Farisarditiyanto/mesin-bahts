@@ -97,7 +97,7 @@ def urutan_sumber(isi, bukti):
         return None
     meta = [(sid, kitab_meta(sid)) for sid in urut]
     meta = [(sid, v) for sid, v in meta if v and v["wafat"] < 99999]
-    for (a, va), (b, vb) in zip(meta, meta[1:]):
+    for (_, va), (_, vb) in zip(meta, meta[1:]):
         if va["wafat"] > vb["wafat"]:
             return (f"urutan sumber: «{va['judul']}» (pengarangnya wafat {va['wafat']}هـ) disebut sebelum «{vb['judul']}» "
                     f"(wafat {vb['wafat']}هـ); beberapa sumber untuk satu hal diurutkan dari pengarang yang lebih dulu wafat "

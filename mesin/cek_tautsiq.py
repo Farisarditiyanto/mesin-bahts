@@ -2,11 +2,11 @@
 """Bentuk rujukan (التوثيق) menurut عبد الوهاب أبو سليمان، كتابة البحث العلمي (Shamela 8350): data cetak lengkap di
 rujukan pertama tiap kitab (ص170), beberapa sumber dipisah «؛» (ص176 no. 15), dan nama tanpa gelar (ص175-176 no. 11).
 Semuanya perhatian, tidak pernah GAGAL: bentuk, bukan kebenaran isi."""
-import functools, re
+import re
 
 import norma
 import shamela
-from dasar import BUKAN_RUJUKAN, ekor
+from dasar import ANGKA_LATIN, BUKAN_RUJUKAN, ekor
 from gelar import GELAR, KUNCI_NAMA, nama_bergelar
 from kitab_lokal import bagian_kitab
 from cek_hadits import takhrij
@@ -38,7 +38,7 @@ def _jejak(kata):
                   if n in NASAB and x not in KATA_UMUM and y not in KATA_UMUM}
 
 
-@functools.cache
+@shamela.cache_kitab()
 def jejak_kartu(sid):
     """(pasangan dua kata berurutan dari nilai data cetak `kartu`, tahun cetakan) kitab ini; kosong = kartunya tanpa
     data cetak, atau kitab hadits (data cetaknya di المصادر), atau kitab tidak terbaca."""
@@ -58,7 +58,7 @@ def jejak_kartu(sid):
             judul |= dua  # judul/pengarang: ada di rujukan mana pun, jadi bukan tanda data cetak
             continue
         pasangan |= dua
-        tahun |= set(re.findall(r"(?<!\d)\d{3,4}(?!\d)", nilai.translate(str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789"))))
+        tahun |= set(re.findall(r"(?<!\d)\d{3,4}(?!\d)", nilai.translate(ANGKA_LATIN)))
     # judul katalog juga: deskripsi tanpa kunci bisa mengulang judul («الشرح الكبير … «حاشية الدسوقي» عليه», kartu 21604)
     kata = _kata(m.get("title_ar", "").split(" - ")[0].replace("=", " "))
     judul |= {f"{x} {y}" for x, y in zip(kata, kata[1:])} | _jejak(kata)
@@ -72,7 +72,7 @@ def _berdata(bagian, sid):
     kata = _kata(bagian)
     if _jejak(kata) & pasangan:
         return True
-    angka = bagian.translate(str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789"))
+    angka = bagian.translate(ANGKA_LATIN)
     return any(t in tahun for t in re.findall(r"(?<!\d)(\d{3,4})\s*[هـم]", angka))
 
 
@@ -104,7 +104,7 @@ def pemisah_sumber(isi, terbukti):
     if takhrij(isi):
         return None
     bagian = bagian_kitab(isi, terbukti)
-    for (a, _), (b, _) in zip(bagian, bagian[1:]):
+    for (a, _), (_, _) in zip(bagian, bagian[1:]):
         # Hanya hubungan di batas dua kitab ini yang dinilai. Perantara/label di tempat lain dalam catatan kaki
         # tidak membebaskan sumber ketiga, dan «؛» di data muhaqqiq tidak menggantikan pemisah antarsumber.
         a = norma.HARAKAT.sub("", a).rstrip()

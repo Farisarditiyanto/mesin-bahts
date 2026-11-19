@@ -364,9 +364,10 @@ def gambar(w, n, a, z):
 def halaman(w, n, hal):
     """`halaman w… <berkas> <hal>`: teks OCR tiap halaman PDF + nomor cetak yang terbaca + PDF scan halaman itu."""
     d = data(w)
+    asal = n
     n = int(str(n).translate(ANGKA_LATIN)) if str(n).translate(ANGKA_LATIN).isdigit() else 0
     if not 1 <= n <= len(d["berkas"]):
-        raise SystemExit(f"Kitab {w}: berkas = nomor urut 1..{len(d['berkas'])} ({_daftar_berkas(w)}), bukan «{n}».")
+        raise SystemExit(f"Kitab {w}: berkas = nomor urut 1..{len(d['berkas'])} ({_daftar_berkas(w)}), bukan «{asal}».")
     a, z = rentang(hal)
     hh = ocr(w, n)
     if a > len(hh):

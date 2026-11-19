@@ -58,8 +58,6 @@ def siapkan():
     print(f"katalog kitab: {len(isi_katalog())} judul")
 
 
-
-
 @functools.cache
 def isi_katalog():
     if not (ROOT / KATALOG).exists():

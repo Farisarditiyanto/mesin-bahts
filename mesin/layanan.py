@@ -18,9 +18,8 @@ import bisect, functools, json, re
 
 import jaringan, norma, shamela
 from shamela import ROOT, RAW, TAGS
-from dasar import HALAMAN_MAKS, angka, perintah
+from dasar import HALAMAN_MAKS, angka, mushaf, perintah
 from kitab_lokal import halaman_di, kepala_hadits, rangkaian_kitab
-from quran import mushaf
 
 TABEL = {"tafsir": "_meta/tafsir_xrefs.parquet", "hadits": "_meta/hadith_xrefs.parquet", "rawi": "_meta/narrators.parquet",
          "akar": "_meta/root_dictionary.parquet"}
@@ -277,7 +276,7 @@ def takhrij(sid, juz, hal):
         nomor_ke = shamela.rekaman_shamela(sumber)
         sp_dari = {i: s for s, i in nomor_ke.items()}
         print(f"[{sid}] dijembatani lewat nomor hadits ke edisi [{sumber}] {_katalog()[sumber]['title_ar']}:")
-        for s, p in rekaman.items():
+        for s in rekaman:
             i = shamela.rekaman_shamela(sid).get(s)
             for n, j, cocok in _seberang(sid, i, sumber):
                 if (n, cocok) in sudah:

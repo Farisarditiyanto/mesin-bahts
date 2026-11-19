@@ -489,7 +489,7 @@ def susunan_kitab(rr, bagian, celah, ujung, dalam):
         def lolos(i, j, k):
             return (len(q[i]) < KUTIPAN_MIN or cocok.potongan_utuh(rek, "body", j, k, kata[i])) and di_halaman(mulai(j), akhir(k))
 
-        for letak in susunan_bagian(pd, q, maks=float("inf"), lolos=lolos):
+        for letak in susunan_bagian(pd, q, lolos=lolos):
             hasil = _nilai_susunan(raw, angka, letak, bagian, celah, ujung, mulai, akhir, di_halaman)
             kunci = (bool(hasil[0]), len(hasil[1]))
             jenis = ("footnotes?" if any(a <= mulai(j) < z for a, z in tak_pasti for j, _ in letak) else
@@ -651,9 +651,8 @@ def berurutan(rr, sisi, bagian):
     (huruf `padat`), dengan susunan yang paling rapat. None kalau tidak berurutan."""
     teks = "".join(norma.ruas_halaman(r, sisi)[0] for r in rr)
     bagian = [norma.padat(b) for b in bagian]
-    # Semua kemunculan tetap dicoba; batas 50 milik pemeriksaan angka/ayat tidak berlaku di sini.
     terbaik = None
-    for letak in susunan_bagian(teks, bagian, maks=float("inf")):
+    for letak in susunan_bagian(teks, bagian):
         jarak = max((b[0] - a[1] for a, b in zip(letak, letak[1:])), default=0)
         terbaik = jarak if terbaik is None else min(terbaik, jarak)
     return terbaik
