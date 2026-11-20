@@ -93,7 +93,9 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
   #V teks             bait syair di tengah halaman (boleh memuat catatan kaki): « ... » = jarak antara dua paruh bait, « ...~ » = dua paruh yang berbagi satu kata digabung,
                       « // » = bait berikutnya pada baris baru; kutipan bertanda petik boleh memuat keduanya
   #L teks             paragraf bahasa Latin, kiri ke kanan (mis. الملخص bahasa Inggris); tanpa catatan kaki; Times New Roman
-                      12 (judulnya 14), profil bisa mengubahnya lewat kunci "latin" di mesin/format.json
+                      12 (judulnya 14), profil bisa mengubahnya lewat kunci "latin" di mesin/format.json. Kata Latin
+                      di tengah teks Arab (paragraf, tabel, catatan kaki, المصادر) dicetak Times New Roman juga, dengan
+                      ukuran sebanding: "latin" terhadap matan (matan 18 -> 12, catatan kaki 14 -> 10)
                       «#L **Abstract**» (satu baris penuh diapit **) = judul Latin tebal di tengah; paragraf #L
                       sesudahnya diberi jarak antar paragraf (6 pt) sampai blok bukan #L. Judul itu mulai halaman baru
                       kalau sebelumnya ada isi (mis. الملخص Arab), jadi الملخص dan Abstract tidak sehalaman;
@@ -272,6 +274,14 @@ KUAT = re.compile(r"[^\W\d_]|[،؛؟]")  # huruf, atau tanda baca Arab (tanda te
 # tautan. Pola ini juga dipakai .NET (rakit.ps1): jangan pakai sintaks khusus Python
 HURUF_TAUTAN = r"[^\s؀-ۿ«»()\[\]]"
 TAUTAN = re.compile(rf"(?:https?://|www\.|doi\.org/|(?<![\w.])10\.[0-9]{{4,}}/)(?:{HURUF_TAUTAN}|\({HURUF_TAUTAN}*\))+(?<![.,:])")
+# rentang berhuruf Latin di teks Arab (bahan "latin"): rakit.ps1 mencetaknya Times New Roman dengan ukuran sebanding.
+# Tautan/DOI utuh; selain itu mulai di huruf Latin (atau angka yang menempel di depannya: «3G») dan berakhir di huruf
+# Latin, angka, «%», atau kurung yang dibuka di dalam rentang itu («Islamic Banking (IB)»). Spasi dan tanda baca di
+# antaranya ikut; yang di ujungnya («(», «.», «،») milik kalimat Arabnya. Dipakai .NET juga: jangan pakai sintaks
+# khusus Python
+_L = HURUF_LATIN + "ʾʿʼ"  # ʿayn dan hamzah transliterasi
+_TENGAH = r" ,.;:&'’‘“”\"/%–—_=?#~@+-"
+LATIN = re.compile(rf"{TAUTAN.pattern}|(?:(?<![0-9])[0-9]+(?=[{_L}]))?[{_L}](?:[{_TENGAH}]*(?:[{_L}0-9%]|\([{_L}0-9{_TENGAH}]*\)))*")
 
 
 def galat_mesin(e):
@@ -1282,7 +1292,7 @@ def _bahan(ctx, blok, profil, quran, sumber, sidik_naskah):
     """Bahan rakit; blok = blok seperti dicetak."""
     d = {"meta": ctx.meta, "format": profil, "blok": blok, "catatan": ctx.catatan,
          "ayat": ctx.ayat_idx, "hadits": ctx.hadits_idx, **ctx.fihris_nama, "pustaka": ctx.pustaka,
-         "quran": bool(quran), "tautan": TAUTAN.pattern, "sumber": sumber, "naskah_sha256": sidik_naskah}
+         "quran": bool(quran), "tautan": TAUTAN.pattern, "latin": LATIN.pattern, "sumber": sumber, "naskah_sha256": sidik_naskah}
     d["cetak"] = rencana_cetak(d)
     return d
 

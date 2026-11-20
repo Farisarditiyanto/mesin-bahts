@@ -390,12 +390,25 @@ try {
         $pf.LeftIndent = 0; $pf.RightIndent = 0; $pf.FirstLineIndent = [single]$indent
         $pf.KeepWithNext = 0; $pf.PageBreakBefore = 0; $pf.WidowControl = -1
     }
+    # huruf Latin di teks Arab (pola olah.LATIN di bahan): Times New Roman, ukurannya sebanding $FMT.latin terhadap matan.
+    # Glyph Latin Traditional Arabic lebar dan, di ukuran yang sama, tampak jauh lebih besar daripada huruf Arabnya.
+    # Huruf mengisi Name/Size dan NameBi/SizeBi sekaligus: di run kanan-ke-kiri (catatan kaki) huruf Latin memakai yang Bi
+    $rasioLatin = $uLatin / $uMatan
+    function Latin($rg, $awal, $teks, $ukuran) {
+        if (-not $teks -or $teks -notmatch $DATA.latin) { return }
+        $u = [Math]::Ceiling($ukuran * $rasioLatin)       # matan 18 -> 12, catatan kaki 14 -> 10, sel tabel 16 -> 11
+        foreach ($a in [regex]::Matches($teks, $DATA.latin)) {
+            $l = $rg.Duplicate; $l.SetRange($awal + $a.Index, $awal + $a.Index + $a.Length); Huruf $l.Font 'Times New Roman' $u $null
+        }
+    }
     function Tulis($t, $font, $size, $bold, $sup, $warna = -16777216) {
         if (-not $t) { return }
+        $awal = $sel.Start
         $sel.InsertAfter($t)
         $f = $sel.Font
         Huruf $f $font $size $bold
         $f.Italic = 0; $f.ItalicBi = 0; $f.Superscript = [int]$sup; $f.Color = [int]$warna
+        if ($font -eq $TA -or $font -eq $TJ) { Latin $sel.Range $awal $t $size }
         $sel.Collapse(0)
     }
     # Halaman fisik sebuah posisi (seperti Information(3)) dari awal tiap halaman: GoTo sekali per halaman. Information per
@@ -469,6 +482,7 @@ try {
             }
         }
         Tautan $fn.Range ($fr.Start + 1) (TeksRuns $c.runs)
+        Latin $fn.Range ($fr.Start + 1) (TeksRuns $c.runs) $uCatatan
         $fr.ParagraphFormat.SpaceBefore = 0; $fr.ParagraphFormat.SpaceAfter = 0; $fr.ParagraphFormat.LineSpacingRule = 0
         $off = 1
         $fnOmml = New-Object System.Collections.ArrayList
@@ -842,6 +856,7 @@ try {
         Huruf $rg.Font $TA $uMatan $bold
         $rg.ParagraphFormat.Alignment = $align
         Tautan $rg $rg.Start $teks
+        Latin $rg $rg.Start $teks $uMatan
     }
 
     # sel berisi **tebal** dan __miring__ (@pustaka_gaya: muallif): teks ditulis tanpa tandanya, lalu tiap ruas diberi gayanya
@@ -872,6 +887,7 @@ try {
         if ($PUSTAKA_MUALLIF) { SelGaya $tb $r 2 $DATA.pustaka[$r - 1] } else { Sel $tb $r 2 $DATA.pustaka[$r - 1] 3 0 }
     }
     Huruf $tb.Range.Font $null $U_PUSTAKA
+    for ($r = 1; $r -le $n; $r++) { $rg = $tb.Cell($r, 2).Range; Latin $rg $rg.Start $(if ($PUSTAKA_MUALLIF) { $DATA.pustaka[$r - 1] -replace '\*\*|__', '' } else { $DATA.pustaka[$r - 1] }) $U_PUSTAKA }
     }
 
     # ---------- 3. Sesudah isi: المصادر والمراجع, الملاحق, الفهارس (yang dicetak, urutan, dan judulnya: $RENCANA.bagian) ----------
