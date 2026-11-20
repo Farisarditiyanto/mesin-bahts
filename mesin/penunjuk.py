@@ -2,13 +2,15 @@
 """`bukti <folder>`: untuk pemeriksa, tiap catatan kaki berbukti dicetak bersama teks kitab di sekitar letak
 kutipannya, tiap {Q:} dengan teks ayatnya, dan tiap paragraf isi tanpa catatan kaki."""
 import re
+from pathlib import Path
 
 import cocok
 import norma
 import shamela
+import sumber_pdf
 import waqfeya
 from cek_kutipan import bagian_kutipan
-from dasar import ELIPSIS, JUDUL_BAB, KUTIPAN_MIN, WAQFEYA_BUKTI, perintah
+from dasar import ELIPSIS, JUDUL_BAB, KUTIPAN_MIN, LUAR, WAQFEYA_BUKTI, perintah
 from kitab_lokal import Bukti, akhir_rekaman, rekaman
 from olah import periksa
 
@@ -36,6 +38,25 @@ def _teks_halaman(sid, juz, p1, p2, bagian):
             if b:
                 out.append(f"⦗{h}⦘ {b}")
     return " ".join(out)
+
+
+def _penunjuk_pdf(folder, berkas, hal, kutipan):
+    """Baris `bukti` untuk <<luar|berkas.pdf|hal>>: cuplikan teks halaman PDF di folder bahts untuk pemeriksa."""
+    folder = Path(folder).resolve()
+    p = (folder / berkas.strip()).resolve()
+    if not p.is_relative_to(folder):
+        return f"PDF «{berkas}» di luar folder bahts (lihat `cek`)"
+    if not p.is_file():
+        return f"PDF «{berkas}» tidak ada di folder bahts (lihat `cek`)"
+    try:
+        status, teks = sumber_pdf.cuplikan(p, hal, kutipan, SEKITAR)
+    except Exception as e:
+        return f"PDF «{berkas}» hal {hal} tidak terbaca ({type(e).__name__}: {e})"
+    if status == "scan":
+        return f"{berkas} [PDF hal {hal}; halaman gambar/scan tanpa teks terbaca: buka PDF-nya langsung]"
+    letak = ("sekitar kutipan" if status == "terbaca" else
+             "kutipan TIDAK ditemukan di teks PDF, awal halaman" if kutipan else "awal halaman")
+    return f"{berkas} [PDF hal {hal}; teks PDF, {letak}; cocokkan sendiri lafaz dan angkanya]: {teks}"
 
 
 def _penunjuk_waqfeya(w, n, hal, kutipan):
@@ -153,6 +174,13 @@ def bukti(folder, dari=None, sampai=None):
         print(f"{kepala} kutipan: " + (f"«{_ringkas(u['kutipan'])}»" if u["kutipan"] else "(tanpa kutipan bertanda petik)"))
         print(f"{kepala} catatan: {u['catatan']}")
         for b in u["bukti"]:
+            if b.startswith(LUAR + "|"):
+                bag = b.split("|", 2)
+                if len(bag) == 3:
+                    print(f"{kepala} <<{b}>> {_penunjuk_pdf(folder, bag[1], bag[2], u['kutipan'])}")
+                else:
+                    print(f"{kepala} <<{_ringkas(b, 80)}>>: bentuk bukti PDF rusak (lihat `cek`)")
+                continue
             if m := WAQFEYA_BUKTI.fullmatch(b):
                 print(f"{kepala} <<{b}>> {_penunjuk_waqfeya(*m.groups(), u['kutipan'])}")
                 continue

@@ -124,6 +124,49 @@ try:
     assert padat(KUTIPAN) not in padat(teks), "halaman lain tempat kutipan berada ikut dicetak"
     assert padat(teks.split("awal halaman: ", 1)[1])[:200] == padat(halaman6)[:200], "yang dicetak bukan awal halaman 6"
     print("lolos: halaman yang salah dikatakan, tidak diganti halaman lain")
+
+    # bukti PDF penelitian <<luar|berkas.pdf|hal>> ikut dicetak cuplikan teks halamannya untuk pemeriksa
+    shutil.copyfile(REPO / "contoh" / "jebakan" / "sumber_word.pdf", AKAR / "contoh" / "riset.pdf")
+    baris_pdf = "وذكر الباحث مسألة التوحيد[^انظر: دراسة اختبار، ص3. <<luar|riset.pdf|3>>]."
+    naskah.write_text(asli.replace(_BARIS[B_KUTIP - 1], baris_pdf), encoding="utf-8")
+    kode, keluar = jalan("bukti", "contoh", str(B_KUTIP))
+    assert kode == 0, keluar
+    assert all(x.startswith(f"baris {B_KUTIP} ") for x in keluar.splitlines()), keluar
+    assert "<<luar|riset.pdf|3>> riset.pdf [PDF hal 3;" in keluar, keluar
+    assert "⦗3⦘" in keluar, keluar
+    # halaman PDF kosong (tanpa lapisan teks) ditandai sebagai scan/tanpa teks
+    from pypdf import PdfWriter
+    w = PdfWriter()
+    w.add_blank_page(width=595, height=842)
+    with open(AKAR / "contoh" / "scan.pdf", "wb") as fh:
+        w.write(fh)
+    naskah.write_text(asli.replace(_BARIS[B_KUTIP - 1], "وذكر مسألة[^انظر: دراسة، ص1. <<luar|scan.pdf|1>>]."), encoding="utf-8")
+    kode, keluar = jalan("bukti", "contoh", str(B_KUTIP))
+    assert kode == 0 and "halaman gambar/scan" in keluar, keluar
+    # kutipan di tengah halaman PDF yang panjang (> 700 huruf) tidak boleh terpotong di tengah oleh `_ringkas`
+    from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
+    w_pj = PdfWriter()
+    p_pj = w_pj.add_blank_page(width=595, height=842)
+    hf = DictionaryObject({NameObject("/Type"): NameObject("/Font"), NameObject("/Subtype"): NameObject("/Type1"),
+                           NameObject("/BaseFont"): NameObject("/Helvetica")})
+    p_pj[NameObject("/Resources")] = DictionaryObject({NameObject("/Font"): DictionaryObject({NameObject("/F1"): w_pj._add_object(hf)})})
+    kata_pj = [f"awal{i:03d}" for i in range(70)] + ["KEYPHRASE_UNIQUE_IN_MIDDLE"] + [f"akhir{i:03d}" for i in range(70)]
+    baris_pj = [" ".join(kata_pj[i:i + 10]) for i in range(0, len(kata_pj), 10)]
+    st = DecodedStreamObject()
+    st.set_data("".join(f"BT /F1 10 Tf 1 0 0 1 40 {780 - 15 * idx} Tm ({b}) Tj ET\n"
+                        for idx, b in enumerate(baris_pj)).encode("latin1"))
+    p_pj[NameObject("/Contents")] = w_pj._add_object(st)
+    with open(AKAR / "contoh" / "panjang.pdf", "wb") as fh:
+        w_pj.write(fh)
+    naskah.write_text(asli.replace(_BARIS[B_KUTIP - 1], 'قال الباحث: "KEYPHRASE_UNIQUE_IN_MIDDLE"[^دراسة طويلة، ص1. <<luar|panjang.pdf|1>>].'), encoding="utf-8")
+    kode, keluar = jalan("bukti", "contoh", str(B_KUTIP))
+    assert kode == 0 and "KEYPHRASE_UNIQUE_IN_MIDDLE" in keluar.splitlines()[-1], keluar
+    assert "sekitar kutipan" in keluar.splitlines()[-1], keluar
+    # kutipan yang tidak ada di teks PDF: yang dicetak awal halaman, dan itu dikatakan
+    naskah.write_text(asli.replace(_BARIS[B_KUTIP - 1], 'قال الباحث: "ZZZ_TIDAK_ADA_DI_PDF"[^دراسة طويلة، ص1. <<luar|panjang.pdf|1>>].'), encoding="utf-8")
+    kode, keluar = jalan("bukti", "contoh", str(B_KUTIP))
+    assert kode == 0 and "kutipan TIDAK ditemukan di teks PDF, awal halaman" in keluar.splitlines()[-1], keluar
+    print("lolos: bukti PDF <<luar|berkas.pdf|hal>> mencetak cuplikan teks utuh (tanpa memotong kutipan) dan menandai halaman scan")
 finally:
     print("arsip uji:", AKAR)
 

@@ -100,6 +100,63 @@ def utama():
         with open(tmp / "letter.pdf", "wb") as h:
             w.write(h)
         uji("sampul Letter di depan isi A4: ukuran kertas bercampur", tmp / "letter.pdf", {}, ["ukuran kertas"])
+        # halaman kosong (tanpa isi teks maupun gambar): diperingatkan
+        w = PdfWriter(clone_from=str(PDF))
+        w.add_blank_page(width=w.pages[1].mediabox.width, height=w.pages[1].mediabox.height)
+        with open(tmp / "kosong.pdf", "wb") as h:
+            w.write(h)
+        uji("halaman kosong tanpa isi", tmp / "kosong.pdf", {}, ["halaman kosong (tanpa isi) di halaman PDF ke-8"])
+        # halaman berisi gambar #G saja (tanpa teks): tidak dianggap kosong
+        w = PdfWriter(clone_from=str(PDF))
+        w.add_blank_page(width=w.pages[1].mediabox.width, height=w.pages[1].mediabox.height)
+        with open(tmp / "kosong_base.pdf", "wb") as h:
+            w.write(h)
+        # tambah gambar di halaman 8 melalui tulis()
+        w2 = PdfWriter(clone_from=str(tmp / "kosong_base.pdf"))
+        hal8 = w2.pages[7]
+        im = DecodedStreamObject()
+        im.set_data(b"\x80")
+        im.update({NameObject("/Type"): NameObject("/XObject"), NameObject("/Subtype"): NameObject("/Image"),
+                   NameObject("/Width"): NumberObject(1), NameObject("/Height"): NumberObject(1),
+                   NameObject("/ColorSpace"): NameObject("/DeviceGray"), NameObject("/BitsPerComponent"): NumberObject(8)})
+        hal8[NameObject("/Resources")] = DictionaryObject({NameObject("/XObject"): DictionaryObject({NameObject("/Im8"): w2._add_object(im)})})
+        s8 = DecodedStreamObject()
+        s8.set_data(b"q 200 0 0 200 150 300 cm /Im8 Do Q\n")
+        hal8[NameObject("/Contents")] = w2._add_object(s8)
+        with open(tmp / "gambar_saja.pdf", "wb") as h:
+            w2.write(h)
+        uji("halaman hanya gambar #G tidak dianggap kosong", tmp / "gambar_saja.pdf", {}, [])
+        # halaman kosong yang punya logo di kepala halaman (y > tinggi - TEPI) tetap terdeteksi kosong
+        w3 = PdfWriter(clone_from=str(tmp / "kosong_base.pdf"))
+        hal8_hdr = w3.pages[7]
+        im_hdr = DecodedStreamObject()
+        im_hdr.set_data(b"\x80")
+        im_hdr.update({NameObject("/Type"): NameObject("/XObject"), NameObject("/Subtype"): NameObject("/Image"),
+                       NameObject("/Width"): NumberObject(1), NameObject("/Height"): NumberObject(1),
+                       NameObject("/ColorSpace"): NameObject("/DeviceGray"), NameObject("/BitsPerComponent"): NumberObject(8)})
+        hal8_hdr[NameObject("/Resources")] = DictionaryObject({NameObject("/XObject"): DictionaryObject({NameObject("/ImH"): w3._add_object(im_hdr)})})
+        s8_hdr = DecodedStreamObject()
+        s8_hdr.set_data(b"q 60 0 0 30 500 790 cm /ImH Do Q\n")
+        hal8_hdr[NameObject("/Contents")] = w3._add_object(s8_hdr)
+        with open(tmp / "kosong_logo_kepala.pdf", "wb") as h:
+            w3.write(h)
+        uji("halaman kosong dengan logo kepala tetap terdeteksi kosong", tmp / "kosong_logo_kepala.pdf", {},
+            ["halaman kosong (tanpa isi) di halaman PDF ke-8"])
+        # teks/rumus meluap mendekati tepi kiri/kanan kertas (< 18 pt dari tepi)
+        pdf_kiri = tulis(tmp / "luap_kiri.pdf", {3: [(4, 400, 14, "overflow_left")]})
+        uji("teks meluap ke tepi kiri kertas", pdf_kiri, {}, ["meluap ke tepi kertas di halaman PDF ke-3"])
+        pdf_kanan = tulis(tmp / "luap_kanan.pdf", {4: [(480, 400, 14, "very_long_formula_overflow_right")]})
+        uji("teks/rumus meluap ke tepi kanan kertas", pdf_kanan, {}, ["meluap ke tepi kertas di halaman PDF ke-4"])
+        # jalur cadangan tanpa pymupdf tetap aman (tanpa alarm palsu) dan menangkap asal teks di tepi kertas
+        pdf_asal_kanan = tulis(tmp / "luap_asal_kanan.pdf", {4: [(582, 400, 14, "X")]})
+        asli_meluap = teks_pdf._halaman_meluap
+        teks_pdf._halaman_meluap = lambda *a: None
+        try:
+            uji("tanpa pymupdf: PDF contoh bersih tanpa peringatan", PDF, {}, [])
+            uji("tanpa pymupdf: teks di tepi kiri tetap tertangkap", pdf_kiri, {}, ["meluap ke tepi kertas di halaman PDF ke-3"])
+            uji("tanpa pymupdf: teks di tepi kanan tetap tertangkap", pdf_asal_kanan, {}, ["meluap ke tepi kertas di halaman PDF ke-4"])
+        finally:
+            teks_pdf._halaman_meluap = asli_meluap
     if gagal:
         sys.exit(f"{len(gagal)} uji PDF gagal: " + "; ".join(gagal))
     print(f"uji pdf: {len(diuji)} skenario sesuai")
