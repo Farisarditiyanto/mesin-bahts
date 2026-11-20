@@ -126,17 +126,51 @@ def _baris(hal):
 
 
 def _gambar(hal):
-    """Puncak (y, dari bawah halaman) tiap gambar yang digambar di halaman: gambar #G sesudah pengantar «…الآتي:»
-    berarti pengantarnya tidak terpisah dari isinya."""
-    puncak = []
+    """(bawah, puncak) dalam pt dari bawah halaman untuk tiap gambar yang digambar di halaman: dipakai untuk
+    memastikan pengantar «…الآتي:» diikuti gambar #G, serta membedakan gambar isi dari logo di kepala/kaki halaman."""
+    kotak = []
     def lihat(op, args, cm, tm):
         if op == b"Do":
-            puncak.append(cm[5] + max(cm[3], 0))
+            bawah = min(cm[5], cm[5] + cm[3])
+            puncak = max(cm[5], cm[5] + cm[3])
+            kotak.append((bawah, puncak))
     hal.extract_text(visitor_operand_before=lihat)
-    return puncak
+    return kotak
 
 
 TEPI = 65  # pt dari tepi atas/bawah: nomor halaman (1,25 cm) ada di sini, matan dan catatan kaki (tepi 2,5 cm) tidak
+BATAS_TEPI = 18  # pt (±6 mm) dari tepi kiri/kanan kertas: teks/rumus/tabel yang melewati batas ini hampir terpotong
+
+
+def _halaman_meluap(pdf, mulai):
+    """Himpunan nomor halaman (mulai 1, sejak `mulai` berbasis 0) yang punya teks isi meluap mendekati tepi kiri/kanan
+    kertas (x0 < BATAS_TEPI atau x1 > lebar - BATAS_TEPI). Memakai pymupdf untuk kotak teks pasti; None bila pymupdf
+    belum terpasang (pemanggil memakai koordinat x dari pypdf)."""
+    try:
+        import pymupdf
+    except ImportError:
+        return None
+    kena = set()
+    with pymupdf.open(pdf) as doc:
+        for i in range(mulai, len(doc)):
+            p = doc[i]
+            lebar, tinggi = p.rect.width, p.rect.height
+            for b in p.get_text("dict").get("blocks", ()):
+                if b.get("type") != 0:
+                    continue
+                for ln in b.get("lines", ()):
+                    for s in ln.get("spans", ()):
+                        if not s.get("text", "").strip():
+                            continue
+                        x0, y0, x1, y1 = s["bbox"]
+                        if TEPI < y0 and y1 < tinggi - TEPI and (x0 < BATAS_TEPI or x1 > lebar - BATAS_TEPI):
+                            kena.add(i + 1)
+                            break
+                    if (i + 1) in kena:
+                        break
+                if (i + 1) in kena:
+                    break
+    return kena
 
 
 def _ada(kata, teks):
@@ -152,8 +186,8 @@ def _ada(kata, teks):
 
 def periksa(pdf, bahan):
     """Peringatan sesudah rakit (tidak menggagalkan): titik-titik isian di sampul, @judul yang tidak ada di sampul, jenis
-    angka nomor halaman yang tidak sesuai @angka, ukuran kertas yang bercampur, dan baris terakhir matan halaman yang
-    berakhir «:». Teks PDF buatan Word
+    angka nomor halaman yang tidak sesuai @angka, ukuran kertas yang bercampur, halaman kosong, teks/rumus yang meluap
+    ke tepi kertas, dan baris terakhir matan halaman yang berakhir «:». Teks PDF buatan Word
     tidak tersalin persis (huruf sambung, angka ٠-٩), jadi pencocokannya longgar: yang diperingatkan hanya yang jelas."""
     import pypdf
     meta, rencana = bahan["meta"], bahan.get("cetak") or {}
@@ -177,23 +211,34 @@ def periksa(pdf, bahan):
             pesan.append(f"sampul tidak memuat @judul persis (tidak terbaca: {' '.join(hilang)}): samakan judul di "
                          + ("sampul templat Word dengan @judul." if meta.get("templat") else "sampul dengan @judul."))
     hindi = meta.get("angka", "hindi") == "hindi"
-    nomor, ujung = {}, []
+    nomor, ujung, kosong, meluap = {}, [], [], []
+    luap_mupdf = _halaman_meluap(pdf, awal)
     batas = (float(fmt["matan"]) + float(fmt["catatan"])) / 2   # matan dan judul; catatan kaki lebih kecil
     for i, hal in enumerate(halaman[awal:], awal + 1):
-        tinggi = float(hal.mediabox.height)
+        lebar, tinggi = float(hal.mediabox.width), float(hal.mediabox.height)
         potong = sorted(_baris(hal), key=lambda p: -p[1])
+        gambar = _gambar(hal)
         # kaki halaman = nomor halaman saja (@templat yang nomornya di kepala halaman: tidak diperiksa)
         kaki = re.sub(r"[\s\u200c\u200e\u200f]", "", "".join(t for y, x, u, t, _ in potong if y < TEPI))
         if kaki:
             nomor[i] = kaki.isascii() and kaki.isdigit()   # ٠-٩ terbaca benar sesudah betulkan (_gid)
-        matan = [p for p in potong if TEPI < p[0] < tinggi - TEPI and p[2] >= batas]
+        isi = [p for p in potong if TEPI < p[0] < tinggi - TEPI]
+        gambar_isi = [g for g in gambar if g[1] > TEPI and g[0] < tinggi - TEPI]
+        if not isi and not gambar_isi:
+            kosong.append(i)
+        if luap_mupdf is not None:
+            if i in luap_mupdf:
+                meluap.append(i)
+        elif any(x < BATAS_TEPI or x > lebar - BATAS_TEPI for _, x, _, _, _ in isi):
+            meluap.append(i)
+        matan = [p for p in isi if p[2] >= batas]
         if matan:
             y0 = min(p[0] for p in matan)
             akhir = "".join(t for y, x, u, t, _ in matan if abs(y - y0) < 2).strip()
             while re.search(r"\([^()]{1,4}\)$", akhir):   # nomor catatan kaki «(١)» sesudah «:»
                 akhir = re.sub(r"\s*\([^()]{1,4}\)$", "", akhir)
             batas_rumus = float(fmt.get("latin", 12))  # #E baris sendiri = latin + 1; catatan kaki = latin - 2
-            disusul_isi = any(TEPI < g < y0 for g in _gambar(hal)) or any(
+            disusul_isi = any(TEPI < puncak < y0 for _, puncak in gambar) or any(
                 TEPI < y < y0 - 2 and u >= batas_rumus and math for y, x, u, t, math in potong)
             if akhir.endswith(":") and not disusul_isi:   # disusul gambar #G atau rumus #E = tidak terpisah
                 ujung.append(i)
@@ -211,6 +256,12 @@ def periksa(pdf, bahan):
     if len(ukuran) > 1:   # mis. sampul @templat Letter di depan isi A4: cetakan berlainan ukuran
         pesan.append("ukuran kertas di PDF ini bercampur (" + "، ".join(f"{w}×{h} pt" for w, h in ukuran)
                      + "): semua halaman semestinya A4; rakit lagi, masih begitu → sebut di laporan akhir.")
+    if kosong:
+        pesan.append(f"halaman kosong (tanpa isi) di halaman PDF ke-{', '.join(map(str, kosong))}: "
+                     "periksa tanda #H atau pindah halaman berlebih.")
+    if meluap:
+        pesan.append(f"teks atau rumus meluap ke tepi kertas di halaman PDF ke-{', '.join(map(str, meluap))}: "
+                     "periksa tata letak (tabel #J, rumus #E, atau tautan panjang) dengan `pratinjau`.")
     if ujung:
         pesan.append(f"baris terakhir matan berakhir «:» (pengantar terpisah dari isinya di halaman berikutnya) di halaman "
                      f"PDF ke-{', '.join(map(str, ujung))}: lihat halamannya; perlu → pendekkan/panjangkan paragraf sebelumnya.")

@@ -283,6 +283,11 @@ KE = Bendera("--ke", "--ke perlu nama folder", lambda x: x.startswith("--"))
 SARING = tuple(Bendera(n, f"{n} butuh nilai, mis. {n} {contoh}", lambda x: not x.strip(" ,،"),
                        f"{n} disebut dua kali; nilai ganda ditulis dengan koma, mis. {n} {contoh},…")
                for n, contoh in (("--mazhab", "hanbali"), ("--kitab", "8370"), ("--halaman", "2")))
+DIRASAT_BENDERA = tuple(
+    Bendera(n, f"{n} butuh nilai, mis. {n} {contoh}", lambda x: x.startswith("--"),
+            f"{n} disebut lebih dari sekali")
+    for n, contoh in (("--dari", "2020"), ("--sampai", "2025"), ("--bahasa", "ar"), ("--urut", "terbaru"))
+)
 
 
 def urai(a, sah):
@@ -418,6 +423,14 @@ def perintah_ekspor(a):
     ekspor.ekspor(a, Path(k["ke"]) if "ke" in k else Path.home() / "Downloads")
 
 
+def perintah_dirasat(a, **k):
+    """`dirasat "<kata kunci|W…|DOI>" [maks] [saringan] [--dari t] [--sampai t] [--bahasa b] [--urut u]`."""
+    for x in a:
+        if x.startswith("--"):
+            raise ValueError(f"bendera «{x}» tidak dikenal")
+    dirasat.cari(a[0], *(angka(x, "maks") for x in a[1:2]), *a[2:], **k)
+
+
 KOLOM = 29  # lebar kolom bentuk di teks bantuan
 
 
@@ -454,11 +467,11 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
     Perintah("cek <folder> [--jejak]", "periksa naskah: tanda, ayat, dan semua bukti <<...>> ke kitab lokal;\n"
              "--jejak: teks yang tidak ada di kitabnya dicari di kitab lain yang sudah diunduh",
              perintah_cek, 0, None, (JEJAK,)),
-    Perintah("bukti <folder> [baris|awal-akhir]", "untuk pemeriksa: tiap catatan kaki berbukti <<sid|juz|hal>> (kalimat yang\n"
-             "dibuktikan, isi catatan kaki, nama kitab, bab, dan teks halaman itu di sekitar kutipan)\n"
-             "dan teks tiap ayat {Q:} persis seperti tercetak, juga tiap paragraf isi tanpa catatan\n"
-             "kaki (untuk dinilai: penisbatan tanpa sumber); tiap baris keluaran diawali «baris n».\n"
-             "Penunjuk saja, putusan tetap `cek`",
+    Perintah("bukti <folder> [baris|awal-akhir]", "untuk pemeriksa: tiap catatan kaki berbukti <<sid|juz|hal>>, <<w…>>, atau\n"
+             "<<luar|berkas.pdf|hal>> (kalimat yang dibuktikan, isi catatan kaki, nama kitab/PDF, bab,\n"
+             "dan teks halaman itu di sekitar kutipan) dan teks tiap ayat {Q:} persis seperti tercetak,\n"
+             "juga tiap paragraf isi tanpa catatan kaki (untuk dinilai: penisbatan tanpa sumber); tiap\n"
+             "baris keluaran diawali «baris n». Penunjuk saja, putusan tetap `cek`",
              perintah_bukti, 1, 2),
     Perintah("rakit <folder> [--fasl n]", "cek, lalu rakit .docx + .pdf (Word) ke dalam folder itu; --fasl 2 (atau 1-2): hanya #F\n"
              "ke-2, untuk bahts yang dikumpulkan bertahap per فصل (lihat `tanda`); `cek` tetap\n"
@@ -540,10 +553,13 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
              "sudah diunduh: juz/halaman edisi lokal ikut dicetak (juz/halaman layanan bisa edisi lain)",
              lambda a: ketemu(hadits.cari(a[0], *(angka(x, "maks") for x in a[1:]))), 1, 2),
     "Penelitian terdahulu (الدراسات السابقة, katalog OpenAlex dan DOAJ, butuh internet):",
-    Perintah('dirasat "<kata kunci>" [maks] [saringan]', "judul, peneliti, tahun, jurnal, tautan, dan ringkasan; dicari menurut kata\n"
-             "dan menurut makna. Saringan OpenAlex, mis. language:ar,type:dissertation",
-             lambda a: dirasat.cari(a[0], *(angka(x, "maks") for x in a[1:2]), *a[2:]), 1, 3),
-    Perintah("dirasat-pdf <W…> <folder>", "unduh PDF penelitian (nomor OpenAlex dari `dirasat`) ke folder bahts; butuh kunci OpenAlex",
+    Perintah('dirasat "<kata kunci|W…|DOI>" [maks] [saringan] [--dari t] [--sampai t] [--bahasa b] [--urut u]', "\n"
+             "judul, peneliti, tahun, jurnal (+ jilid/nomor/halaman), tautan, dan ringkasan; dicari menurut kata\n"
+             "dan makna. --dari/--sampai (tahun atau YYYY-MM-DD), --bahasa (ar/en), --urut (terbaru/terlama/dikutip)\n"
+             "berlaku di OpenAlex dan DOAJ. Nomor W… atau DOI = tampilkan rincian + ringkasan utuh satu penelitian",
+             perintah_dirasat, 1, 3, DIRASAT_BENDERA),
+    Perintah("dirasat-pdf <W…|DOI> <folder>", "unduh PDF penelitian (nomor OpenAlex W… atau DOI) ke folder bahts;\n"
+             "coba salinan OpenAlex (butuh kunci), lalu otomatis jatuh ke tautan PDF akses terbuka bila ada",
              lambda a: dirasat.pdf(a[0], folder_bahts(a[1])), 2, 2),
 )
 PERINTAH = {p.nama: p for p in DAFTAR if isinstance(p, Perintah) and p.jalankan}

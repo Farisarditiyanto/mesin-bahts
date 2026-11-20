@@ -6,6 +6,11 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- `dirasat` kini mendukung saringan tanggal (`--dari`, `--sampai`), bahasa (`--bahasa`), dan perankingan ulang kolam relevan (`--urut terbaru|terlama|dikutip`) di OpenAlex maupun DOAJ, mencetak jilid/nomor/halaman jurnal, menggabungkan duplikat judul lintas sumber, serta menerima nomor `W…` atau DOI langsung untuk melihat rincian dan ringkasan utuh satu penelitian.
+- `dirasat-pdf` kini menerima nomor `W…` maupun DOI dan otomatis mencoba tautan PDF akses terbuka karya itu bila salinan OpenAlex tidak tersedia atau tanpa kunci.
+- `bukti <folder>` kini mencetak juga cuplikan teks halaman PDF penelitian `<<luar|berkas.pdf|hal>>` (bukan hanya kitab Shamela dan Waqfeya) untuk pemeriksa langkah 5.
+- Pemeriksaan PDF sesudah `rakit` kini memperingatkan halaman kosong dan teks/rumus yang meluap mendekati tepi kertas.
+
 ## 13.1.0 — 2026-11-20
 
 - Huruf Latin di tengah teks Arab (paragraf, tabel, catatan kaki, المصادر) dicetak Times New Roman dengan ukuran sebanding (matan 18 → 12, catatan kaki 14 → 10), tidak lagi dengan glyph Latin huruf Arab yang lebar dan seukuran teks Arabnya.

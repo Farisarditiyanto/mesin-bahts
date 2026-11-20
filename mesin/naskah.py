@@ -468,9 +468,10 @@ class Pengurai:
         for f in c.pdf:
             if len(f) != 2 or not f[0].strip() or not re.fullmatch(r"\d+(-\d+)?", f[1]):
                 raise TandaRusak(f"<<{LUAR}|{'|'.join(f)}>>: bentuknya <<{LUAR}|berkas.pdf|hal>>, hal = urutan halaman di berkas")
-        if c.shamela or c.wq:
+        pdf_bukti = [f"{LUAR}|{'|'.join(f)}" for f in c.pdf]
+        if c.shamela or c.wq or pdf_bukti:
             # Runs paragraf tetap diisi sampai akhir; batas c.dirujuk terputus oleh catatan penjelasan di tengah kutipan.
-            self.ctx.penunjuk.append({"n": self.ctx.baris, "bukti": c.shamela + c.wq, "runs": self.runs,
+            self.ctx.penunjuk.append({"n": self.ctx.baris, "bukti": c.shamela + c.wq + pdf_bukti, "runs": self.runs,
                                       "kutipan": c.penggal if c.diam else c.mk, "catatan": c.isi})
 
     def _cek_bukti_shamela(self, c):
