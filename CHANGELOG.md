@@ -6,6 +6,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Perbaikan: PDF bahts tanpa المصادر dan فهرس (mis. `@tanpa: …, pustaka` dan tanpa #R) tidak lagi berakhir dengan halaman kosong bernomor saat baris terakhirnya tepat di tepi bawah halaman.
 - `dirasat` kini mendukung saringan tanggal (`--dari`, `--sampai`), bahasa (`--bahasa`), dan perankingan ulang kolam relevan (`--urut terbaru|terlama|dikutip`) di OpenAlex maupun DOAJ, mencetak jilid/nomor/halaman jurnal, menggabungkan duplikat judul lintas sumber, serta menerima nomor `W…` atau DOI langsung untuk melihat rincian dan ringkasan utuh satu penelitian.
 - `dirasat-pdf` kini menerima nomor `W…` maupun DOI dan otomatis mencoba tautan PDF akses terbuka karya itu bila salinan OpenAlex tidak tersedia atau tanpa kunci; kalau semuanya gagal, alasan tiap tempat disebut.
 - `bukti <folder>` kini mencetak juga cuplikan teks halaman PDF penelitian `<<luar|berkas.pdf|hal>>` (bukan hanya kitab Shamela dan Waqfeya) untuk pemeriksa langkah 5.

@@ -1097,11 +1097,18 @@ try {
     foreach ($g in @($doc.Footnotes.Separator, $doc.Footnotes.ContinuationSeparator)) {
         try { $g.ParagraphFormat.ReadingOrder = 0; $g.ParagraphFormat.Alignment = 0 } catch {}
     }
-    # Word selalu menaruh satu paragraf sesudah tabel terakhir (فهرس). Tabel yang pas memenuhi halaman mendorong paragraf
-    # kosong itu ke halaman baru: PDF berakhir dengan halaman kosong yang hanya bernomor. Paragraf itu dikecilkan sampai
-    # setinggi 1 pt supaya tetap muat di halaman tabelnya
+    # Dokumen selalu berakhir dengan satu paragraf kosong: sisa TypeParagraph sesudah blok terakhir, atau paragraf wajib
+    # Word sesudah tabel terakhir (فهرس). Isi yang pas memenuhi halaman mendorongnya ke halaman baru: PDF berakhir dengan
+    # halaman kosong yang hanya bernomor. Sesudah paragraf biasa (bahts tanpa المصادر dan فهرس), tanda paragraf
+    # sebelumnya dihapus: paragraf kosong itu hilang, dan paragraf terakhir tetap memakai formatnya sendiri (diuji di
+    # Word: perataan, bingkai #T, ukuran, bookmark). Mengecilkannya sampai 1 pt tidak cukup kalau baris terakhir tepat di
+    # tepi bawah (naskah 50 baris pendek). Sesudah tabel paragraf itu tidak bisa dibuang: dikecilkan sampai setinggi 1 pt
     $ekor = $doc.Paragraphs.Last
-    if ($ekor.Range.Text.Trim().Length -eq 0) {
+    $tanda = if ($ekor.Range.Start -gt 0) { $doc.Range($ekor.Range.Start - 1, $ekor.Range.Start) }
+    if ($ekor.Range.Text.Trim().Length -eq 0 -and $tanda -and $tanda.Text -eq "`r" -and -not $tanda.Information(12)) {
+        [void]$tanda.Delete()                            # 12 = wdWithInTable; «`r» = bukan pemisah bagian Word
+    }
+    elseif ($ekor.Range.Text.Trim().Length -eq 0) {
         Huruf $ekor.Range.Font $null 1
         $ekor.SpaceBefore = 0; $ekor.SpaceAfter = 0; $ekor.LineSpacingRule = 4; $ekor.LineSpacing = 1   # 4 = wdLineSpaceExactly
     }
