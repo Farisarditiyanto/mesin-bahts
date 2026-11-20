@@ -506,7 +506,7 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
              lambda a: ketemu(waqfeya.halaman(*a) if wq(a[0]) else halaman(*a)), 3, 3),
     Perintah("scan <id> <juz> <hal>", "alamat scan cetakan halaman itu (PDF di turath.io, butuh internet), untuk bacaan yang meragukan",
              lambda a: ketemu(turath.scan(*a)), 3, 3),
-    Perintah("ekspor <id|w…> [...] [--ke <folder>]", "seluruh kitab jadi satu .docx untuk dibaca di Word (kanan-ke-kiri, judul bab,\n"
+    Perintah("ekspor <id|w…> [...] [--ke <folder>]", "seluruh kitab jadi satu .txt (satu paragraf satu baris, judul bab «#»,\n"
              "penanda juz/halaman, حاشية sesudah halamannya); yang belum diunduh diunduh dulu.\n"
              "Bawaan ke folder Downloads; nama berkas = judul kitab. Bukan bahan bahts",
              perintah_ekspor, 1, None, (KE,)),
