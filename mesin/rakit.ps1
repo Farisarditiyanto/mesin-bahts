@@ -421,7 +421,28 @@ try {
     $rujukanHalaman = @{}; $script:nRujukanHalaman = 0
     # $pg = isi tempat {P:}: '00' untuk teks yang dimasukkan; '__' (bukan angka, sama panjang) untuk mencari angka di teks
     # catatan kaki, supaya nomor halaman sementara tidak ikut dijadikan run kiri-ke-kanan @angka_ayat: latin
-    function TeksRuns($runs, $pg = $PENANDA_HALAMAN) { $s = ''; foreach ($r in $runs) { if ($null -ne $r.t) { $s += $r.t } elseif ($r.pg) { $s += $pg } }; return $s }
+    function TeksRuns($runs, $pg = $PENANDA_HALAMAN) { $s = ''; foreach ($r in $runs) { if ($null -ne $r.t) { $s += $r.t } elseif ($r.pg) { $s += $pg } elseif ($r.omml) { $s += 'E' } }; return $s }
+    # Paket Flat OPC untuk menyisipkan fragmen OMML (<m:oMath> atau <m:oMathPara>) lewat Range.InsertXML
+    function PaketOmml($omml) {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><pkg:package xmlns:pkg="http://schemas.microsoft.com/office/2006/xmlPackage"><pkg:part pkg:name="/_rels/.rels" pkg:contentType="application/vnd.openxmlformats-package.relationships+xml"><pkg:xmlData><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships></pkg:xmlData></pkg:part><pkg:part pkg:name="/word/document.xml" pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"><pkg:xmlData><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><w:body><w:p>' + $omml + '</w:p></w:body></w:document></pkg:xmlData></pkg:part></pkg:package>'
+    }
+    # Sisipkan OMML di posisi $sel. Penjaga U+200F (RLM) di belakang memastikan kursor keluar dari zona matematika
+    # (sehingga teks/tabel sesudahnya tidak masuk ke dalam rumus) sekaligus memulihkan arah kanan-ke-kiri teks Arab.
+    function TulisOmml($omml, [bool]$jaga = $true) {
+        $pkg = PaketOmml $omml
+        if ($jaga) {
+            $pos = $sel.Start
+            $sel.InsertAfter('X' + [string][char]0x200F)
+            $sel.Collapse(0)
+            $r = $doc.Range($pos, $pos + 1)
+            $r.InsertXML($pkg)
+            $akhir = $r.Paragraphs(1).Range.End - 1
+            $doc.Range($akhir, $akhir).Select()
+        } else {
+            $r = $sel.Range.Duplicate
+            $r.InsertXML($pkg)
+        }
+    }
     # nomor catatan kaki = tanda buatan sendiri, bukan nomor otomatis Word: nomor otomatis Word selalu 0-9
     # (Options.ArabicNumeral tidak berlaku untuknya). Nomornya dibetulkan NomorCatatan sesudah halaman tersusun.
     $asalCatatan = New-Object System.Collections.ArrayList   # nomor urut Word -> indeks bahan (bukti diam/potongan bisa melompat)
@@ -450,9 +471,10 @@ try {
         Tautan $fn.Range ($fr.Start + 1) (TeksRuns $c.runs)
         $fr.ParagraphFormat.SpaceBefore = 0; $fr.ParagraphFormat.SpaceAfter = 0; $fr.ParagraphFormat.LineSpacingRule = 0
         $off = 1
+        $fnOmml = New-Object System.Collections.ArrayList
         foreach ($r in $c.runs) {
             $len = 0
-            if ($null -ne $r.t) { $len = $r.t.Length } elseif ($r.pg) { $len = $PENANDA_HALAMAN.Length }
+            if ($null -ne $r.t) { $len = $r.t.Length } elseif ($r.pg) { $len = $PENANDA_HALAMAN.Length } elseif ($r.omml) { $len = 1; [void]$fnOmml.Add(@{ pos = ($fr.Start + $off); omml = $r.omml }) }
             if ($r.q) { $q = $fn.Range; $q.SetRange($fr.Start + $off, $fr.Start + $off + $len); Huruf $q.Font $QF }
             if ($r.pg) {
                 $q = $fn.Range.Duplicate; $q.SetRange($fr.Start + $off, $fr.Start + $off + $len)
@@ -460,6 +482,13 @@ try {
                 [void]$doc.Bookmarks.Add($nama, $q); $rujukanHalaman[$nama] = $r.pg
             }
             $off += $len
+        }
+        if ($fnOmml.Count) {
+            $fnOmml.Reverse()
+            foreach ($o in $fnOmml) {
+                $q = $fn.Range.Duplicate; $q.SetRange($o.pos, $o.pos + 1)
+                $q.InsertXML((PaketOmml $o.omml))
+            }
         }
         # nomor di catatan kaki: (1) ukuran normal, bukan superskrip
         $pr = $fr.Paragraphs(1).Range
@@ -562,6 +591,7 @@ try {
                 $doc.Range($awal, $sel.Start).Select(); $word.Selection.RtlRun(); $sel.Collapse(0)
             }
             elseif ($r.bm) { [void]$doc.Bookmarks.Add($r.bm, $sel.Range) }
+            elseif ($r.omml) { TulisOmml $r.omml $true }
             elseif ($r.q) { $u = $size; if ($size -eq $uMatan) { $u = $uAyat }; $w = -16777216; if ($r.w) { $w = $r.w }; Tulis $r.t $QF $u 0 0 $w }
             elseif ($null -ne $r.t) {
                 $tb = 0; if ($r.b -or $r.m -or $paksaTebal) { $tb = 1 }   # lafaz matn di syarah: tebal + merah (cetakan Saudi: tebal dalam kurung)
@@ -675,6 +705,9 @@ try {
                 }
             }
             $doc.Range($tbl.Range.End, $tbl.Range.End).Select()
+            if ($i + 1 -lt $DATA.blok.Count -and $DATA.blok[$i + 1].k -eq 'E' -and $DATA.blok[$i + 1].tag) {
+                Para 1 0 0; $sel.ParagraphFormat.LineSpacingRule = 4; $sel.ParagraphFormat.LineSpacing = 2; $sel.TypeParagraph()
+            }
         }
         elseif ($blk.k -eq 'G') {                         # gambar: di tengah, paling lebar = lebar teks, paling tinggi 70% halaman
             Para 1 6 0
@@ -693,6 +726,46 @@ try {
                 Runs $blk.runs $uCatatan $true $false
                 $sel.ParagraphFormat.SpaceAfter = 6
                 $sel.TypeParagraph()
+            }
+        }
+        elseif ($blk.k -eq 'E') {                         # persamaan matematika baris sendiri (OMML Word asli)
+            if ($blk.tag) {                               # dengan \tag{…}: tabel 3 kolom tanpa garis (rumus tengah, nomor di tepi kiri)
+                Para 1 6 0
+                HalamanBaru $pb
+                $tbl = $doc.Tables.Add($sel.Range, 1, 3)
+                $tbl.TableDirection = 0; $tbl.Borders.Enable = 0; $tbl.Rows.Alignment = 1
+                $tbl.PreferredWidthType = 2; $tbl.PreferredWidth = 100
+                $tbl.Columns.PreferredWidthType = 2
+                $tbl.Columns(1).PreferredWidth = [single]12; $tbl.Columns(2).PreferredWidth = [single]76; $tbl.Columns(3).PreferredWidth = [single]12
+                foreach ($c in 1..3) { $tbl.Cell(1, $c).VerticalAlignment = 1 }
+                $rf = $tbl.Range.ParagraphFormat
+                $rf.FirstLineIndent = 0; $rf.LeftIndent = 0; $rf.RightIndent = 0
+                $rf.SpaceBefore = 2; $rf.SpaceAfter = 2; $rf.LineSpacingRule = 0; $rf.KeepWithNext = 0; $rf.PageBreakBefore = $(if ($pb) { -1 } else { 0 })
+                $mid = $tbl.Cell(1, 2).Range; $mid.ParagraphFormat.ReadingOrder = 1; $mid.ParagraphFormat.Alignment = 1
+                $mid.Collapse(1); $mid.Select()
+                TulisOmml $blk.omml $false
+                $num = $tbl.Cell(1, 3).Range
+                $num.ParagraphFormat.ReadingOrder = 0; $num.ParagraphFormat.Alignment = 2
+                $tTag = [string]$blk.tag
+                if (-not ($tTag.StartsWith('(') -and $tTag.EndsWith(')'))) { $tTag = "($tTag)" }
+                $num.Text = $tTag
+                Huruf $num.Font $TA $uCatatan 0
+                $doc.Range($tbl.Range.End, $tbl.Range.End).Select()
+                # pisahkan tabel nomor persamaan dari tabel #J atau #E bertag berikutnya supaya Word tidak menggabungkannya
+                if ($i + 1 -lt $DATA.blok.Count -and ($DATA.blok[$i + 1].k -eq 'J' -or ($DATA.blok[$i + 1].k -eq 'E' -and $DATA.blok[$i + 1].tag))) {
+                    Para 1 0 0; $sel.ParagraphFormat.LineSpacingRule = 4; $sel.ParagraphFormat.LineSpacing = 2; $sel.TypeParagraph()
+                }
+            } else {
+                Para 1 6 0
+                HalamanBaru $pb
+                $sel.ParagraphFormat.ReadingOrder = 1
+                $sel.ParagraphFormat.SpaceAfter = 6
+                $pos = $sel.Start
+                $sel.TypeParagraph()
+                $r = $doc.Range($pos, $pos)
+                $r.InsertXML((PaketOmml $blk.omml))
+                $akhir = $r.Paragraphs(1).Range.End
+                $doc.Range($akhir, $akhir).Select()
             }
         }
         elseif ($blk.k -eq 'V') {                         # bait syair: di tengah, tanpa awal alinea

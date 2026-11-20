@@ -94,6 +94,7 @@ python mesin/bahts.py periksa
 | الإخراج | `rakit <folder> [--fasl n]` (Windows + Word) | `.docx` + `.pdf` (الغلاف، الحواشي، المصادر والمراجع، الفهارس)، `HALAMAN_ISI`، `HALAMAN` |
 | الحالة | `tahap <folder>` | `NASKAH=`، `HASIL=`، `RAKIT=`، `BERIKUTNYA` |
 | المخططات | `diagram <folder>` (Node.js + Chrome/Edge) | كل `<nama>.mmd` (Mermaid) يصير `<nama>.png`، ويطبع بـ`#G` |
+| المعاينة البصرية | `pratinjau <folder> [halaman]` | صفحات ملف PDF الناتج صورًا شبكية 2×2 من نوع PNG في TEMP (أو صفحة واحدة) لمراجعة التنسيق |
 
 كل الأوامر = `python mesin/bahts.py <perintah>`. القائمة الكاملة ومعاملاتها: `python mesin/bahts.py`. علامات نص البحث (`#F`، `{Q:}`، `{H:}`، `@format`، …): `python mesin/bahts.py tanda`. نص بحث نموذجي يجتاز `cek`: [`contoh/naskah.txt`](contoh/naskah.txt) (`ambil 11223` ثم `cek contoh`).
 
@@ -135,6 +136,8 @@ python mesin/bahts.py periksa
 | `mesin/hadits.py`، `dirasat.py` | دلالة التخريج، الدراسات السابقة |
 | `mesin/layanan.py` | `tafsir` و`takhrij` و`rawi` و`akar` دون إنترنت (جداول خدمات الشاملة في `kitab/_meta`) |
 | `mesin/diagram.py` | تحويل مخططات Mermaid إلى PNG (`diagram`) |
+| `mesin/rumus.py` | تحويل معادلات LaTeX (`#E` و`{E:…}`) إلى معادلات Word OMML أصلية دون TeX |
+| `mesin/pratinjau.py` | تحويل صفحات PDF إلى صور شبكية 2×2 بصيغة PNG في TEMP (`pratinjau`) |
 | `mesin/ekspor.py` | كتاب منزَّل كاملًا (من الشاملة أو الوقفية) في ملف ‎.docx من اليمين إلى اليسار للقراءة في Word (`ekspor`) |
 | `mesin/tahap.py`، `rakit.py`، `produk.py` | حالة البحث؛ جانب Python من `rakit` (القفل، مجلدات `.rakit-*`، تثبيت النتائج)؛ أسماء ملفات النتائج وأسطر التقرير |
 | `mesin/rakit.ps1`، `word.ps1`، `teks_pdf.py` | مُخرِج Word/PDF، هوية عملية Word التابعة له، ونص PDF |

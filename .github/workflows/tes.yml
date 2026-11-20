@@ -57,6 +57,12 @@ jobs:
       - run: python .github/uji_tabel_word.py
       # #G masuk DOCX dan dikecilkan ke halaman; @malahiq: akhir mencetak الملاحق sesudah المصادر; tanpa Word = lewati.
       - run: python .github/uji_gambar_word.py
+      # Rumus LaTeX (#E dan {E:…}) -> OMML XML sah, fuzzing 300x, @angka/@format, GAGAL sintaks, dan sub-bagian tunggal.
+      - run: python .github/uji_rumus.py
+      # #E dan {E:…} (paragraf, tabel #J, catatan kaki) jadi OMML asli di DOCX/PDF lewat Word + `pratinjau`; tanpa Word = lewati.
+      - run: python .github/uji_rumus_word.py
+      # `pratinjau`: PDF -> grid PNG 2×2 dan 1 halaman di TEMP tanpa mengotori folder bahts; rentang salah ditolak.
+      - run: python .github/uji_pratinjau.py
       # Isi tiap catatan kaki tetap miliknya saat nomor diulang per halaman, juga di potongan --fasl; tanpa Word = lewati.
       - run: python .github/uji_catatan_word.py
       # `halaman` dan `cari` mencetak isi halaman yang diminta (kitab buatan + kitab CI); berkas tulisan mesin mengikuti umask (bukan 0600)

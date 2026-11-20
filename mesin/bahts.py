@@ -78,8 +78,8 @@ def periksa():
     else:
         pip = f'"{sys.executable}" {pip}'
     baris(all(importlib.util.find_spec(m) for m in PUSTAKA), f"pustaka Python ({', '.join(PUSTAKA)})", pip)
-    baris(bool(importlib.util.find_spec("pymupdf")), "pustaka Python pymupdf (hanya untuk gambar PNG scan Waqfeya di "
-          "`halaman w…`; tanpa itu scan dibuka sebagai PDF)", pip, untuk_cek=False, untuk_rakit=False)
+    baris(bool(importlib.util.find_spec("pymupdf")), "pustaka Python pymupdf (untuk gambar PNG scan Waqfeya di "
+          "`halaman w…` dan grid visual `pratinjau`; tanpa itu scan dibuka sebagai PDF)", pip, untuk_cek=False, untuk_rakit=False)
     baris((shamela.ROOT / shamela.KATALOG).exists(), "katalog kitab", perintah("siapkan"))
     baris(layanan.siap(), "tabel layanan Shamela (hanya untuk `tafsir`, `takhrij`, `rawi`, `akar`)", perintah("siapkan"),
           untuk_cek=False, untuk_rakit=False)
@@ -403,6 +403,15 @@ def perintah_rakit(a):
     rakit.rakit(folder_bahts(a[0]), jalur_ketik(a[0]), k.get("fasl"))
 
 
+def perintah_pratinjau(a):
+    """`pratinjau <folder> [halaman]`: halaman PDF hasil `rakit` jadi gambar PNG grid 2×2 di TEMP, untuk pemeriksa."""
+    import pratinjau
+    try:
+        pratinjau.render(folder_bahts(a[0]), a[1] if len(a) == 2 else None)
+    except RuntimeError as e:
+        sys.exit(str(e))
+
+
 def perintah_ekspor(a):
     """`ekspor <id|w…> [...] [--ke <folder>]`: --ke boleh di mana saja."""
     import ekspor
@@ -468,6 +477,9 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
     Perintah("diagram <folder>", "tiap diagram Mermaid <nama>.mmd di folder itu jadi <nama>.png (butuh Node.js + Chrome/Edge),\n"
              "lalu dicetak dengan «#G <nama>.png | keterangan»; `cek` dan `rakit` hanya memakai PNG-nya",
              lambda a: sys.exit(1 if diagram.render(folder_bahts(a[0])) else 0), 1, 1),
+    Perintah("pratinjau <folder> [halaman]", "halaman PDF hasil `rakit` jadi gambar PNG grid 2×2 di TEMP (atau 1 halaman penuh,\n"
+             "mis. «1» atau «1-4»), untuk pemeriksaan tata letak visual (sampul, tabel #J, gambar #G, rumus #E)",
+             perintah_pratinjau, 1, 2),
     "Kitab (perpustakaan Shamela lokal, dipakai semua bahts):",
     Perintah("kitab", "daftar kitab yang sudah diunduh",
              lambda a: shamela.daftar(), 0, 0),

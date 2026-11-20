@@ -37,10 +37,29 @@ class TandaRusak(ValueError):
     pembeda ini, galat mesin di baris jebakan «#S GAGAL» terhitung sebagai galat yang diharapkan dan tidak ketahuan."""
 
 
+def akhir_rumus(teks, i):
+    """Letak «}» penutup «{E:...}» yang isinya mulai di teks[i] (sesudah «{E:»). Kurung kurawal bersarang di dalam
+    rumus (\\frac{a}{b}) berpasangan; «\\{» dan «\\}» dilewati sebagai tanda kurawal biasa."""
+    dalam, j = 0, i
+    while j < len(teks):
+        c = teks[j]
+        if c == "\\" and j + 1 < len(teks):
+            j += 2
+            continue
+        if c == "{":
+            dalam += 1
+        elif c == "}":
+            if not dalam:
+                return j
+            dalam -= 1
+        j += 1
+    raise TandaRusak("tanda {E: tidak ditutup dengan } (pastikan semua kurung kurawal { } di dalam rumus berpasangan)")
+
+
 def akhir_catatan(teks, i):
     """Letak «]» penutup catatan kaki yang isinya mulai di teks[i] (sesudah «[^»). Isi bukti <<…>> dilewati
-    (potongannya boleh memuat «]»), dan kurung siku biasa di dalamnya («[هكذا]», kata pembetul) berpasangan,
-    jadi tidak menutup catatan kakinya."""
+    (potongannya boleh memuat «]»), rumus {E:…} dilewati (boleh memuat «[»/«]» tak berpasangan seperti \\left[0,1\\right)),
+    dan kurung siku biasa di dalamnya («[هكذا]», kata pembetul) berpasangan, jadi tidak menutup catatan kakinya."""
     dalam, ada, j = 0, False, i
     sebab = lambda: (" (kurung siku [ di dalamnya berpasangan dengan ] sesudahnya: tutup tiap [ dengan ], lalu catatan "
                      "kakinya)" if ada else "")
@@ -52,6 +71,9 @@ def akhir_catatan(teks, i):
             if tutup < 0:
                 raise TandaRusak("bukti << di catatan kaki tidak ditutup dengan >>")
             j = tutup + 2
+            continue
+        if teks.startswith("{E:", j):
+            j = akhir_rumus(teks, j + 3) + 1
             continue
         if teks[j] == "[":
             dalam, ada = dalam + 1, True

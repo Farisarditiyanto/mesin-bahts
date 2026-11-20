@@ -5,6 +5,7 @@ import contextlib, dataclasses, re
 from pathlib import Path
 
 import norma
+import rumus
 import shamela
 from cek_ayat import ayat, ayat_ketik, penanda_ayat, rujukan_ayat, tandai_ayat
 from cek_hadits import hadits_janggal, hadits_lain, periksa_derajat, periksa_takhrij
@@ -280,6 +281,17 @@ class Pengurai:
             raise TandaRusak("{X}: tulis di awal paragraf khulasah (paragraf itu yang distabilo)")
         self.ctx.khulasah += 1
         self.runs.append({"bm": f"x_{self.ctx.khulasah}"})
+
+    def _rumus(self, tok):
+        """{E:latex}: persamaan matematika sebaris (OMML Word asli). Kurung kurawal bersarang di dalam rumus
+        (\\frac{a}{b}) berpasangan lewat rumus.akhir_rumus; sintaks LaTeX divalidasi sekarang, lalu dirender ulang
+        dengan huruf/ukuran @format sesudah naskah dibaca."""
+        j = rumus.akhir_rumus(self.teks, self.i)
+        latex = self.teks[self.i:j].strip()
+        self.i = j + 1
+        omml, _ = rumus.konversi(latex, display=False)
+        self.runs.append({"omml": omml, "latex": latex})
+        self.polos += " "
 
     def _kurung_nyasar(self, tok):  # "]" tanpa [^
         self.runs.append({"t": "]", "b": self.tebal}); self.polos += "]"
@@ -693,5 +705,5 @@ class Pengurai:
             self.seg_run_bukti = len(self.runs)
 
     PENANGAN = {"**": _tebal, "((": _matn, "))": _matn, "{Q:": _ayat, "{H2:": _hadits_lagi, "{H:": _hadits,
-                "{P:": _rujuk_halaman, "{A:": _jangkar, **dict.fromkeys((f"{{{f.tanda}:" for f in FIHRIS_NAMA), _nama), "{X}": _khulasah, "[^": _catatan_kaki, "]": _kurung_nyasar}
-    TOKEN = re.compile("(" + "|".join(re.escape(k) + (r"[^}]*\}" if k.endswith(":") else "") for k in PENANGAN) + ")")
+                "{P:": _rujuk_halaman, "{A:": _jangkar, "{E:": _rumus, **dict.fromkeys((f"{{{f.tanda}:" for f in FIHRIS_NAMA), _nama), "{X}": _khulasah, "[^": _catatan_kaki, "]": _kurung_nyasar}
+    TOKEN = re.compile("(" + "|".join(re.escape(k) + (r"[^}]*\}" if k.endswith(":") and k != "{E:" else "") for k in PENANGAN) + ")")
