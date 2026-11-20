@@ -136,19 +136,6 @@ def _gambar(hal):
     return puncak
 
 
-def _garis_pecahan(hal):
-    """[(y, x0, x1)] garis datar tipis vektor (batang pecahan OMML \\frac): untuk mengenali #E pecahan berbahasa
-    Arab murni (tanpa glyph CambriaMath) yang huruf pembilang/penyebutnya diperkecil Word di bawah `batas`."""
-    garis = []
-    def lihat(op, args, cm, tm):
-        if op == b"re" and len(args) == 4:
-            x, y, w, h = (float(a) for a in args)
-            if 0 < h <= 2.5 and 8 <= w <= 360:
-                garis.append((y * cm[3] + cm[5], x * cm[0] + cm[4], (x + w) * cm[0] + cm[4]))
-    hal.extract_text(visitor_operand_before=lihat)
-    return garis
-
-
 TEPI = 65  # pt dari tepi atas/bawah: nomor halaman (1,25 cm) ada di sini, matan dan catatan kaki (tepi 2,5 cm) tidak
 
 
@@ -206,13 +193,7 @@ def periksa(pdf, bahan):
             while re.search(r"\([^()]{1,4}\)$", akhir):   # nomor catatan kaki «(١)» sesudah «:»
                 akhir = re.sub(r"\s*\([^()]{1,4}\)$", "", akhir)
             batas_rumus = float(fmt.get("latin", 12))  # #E baris sendiri = latin + 1; catatan kaki = latin - 2
-            ada_pecahan = any(
-                TEPI < yg < y0 - 2
-                and any(yg < y < y0 - 2 and x0 - 20 <= x <= x1 + 20 for y, x, u, t, _ in potong)
-                and any(TEPI < y < yg and x0 - 20 <= x <= x1 + 20 for y, x, u, t, _ in potong)
-                for yg, x0, x1 in _garis_pecahan(hal)
-            )
-            disusul_isi = any(TEPI < g < y0 for g in _gambar(hal)) or ada_pecahan or any(
+            disusul_isi = any(TEPI < g < y0 for g in _gambar(hal)) or any(
                 TEPI < y < y0 - 2 and u >= batas_rumus and math for y, x, u, t, math in potong)
             if akhir.endswith(":") and not disusul_isi:   # disusul gambar #G atau rumus #E = tidak terpisah
                 ujung.append(i)

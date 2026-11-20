@@ -406,10 +406,7 @@ def perintah_rakit(a):
 def perintah_pratinjau(a):
     """`pratinjau <folder> [halaman]`: halaman PDF hasil `rakit` jadi gambar PNG grid 2×2 di TEMP, untuk pemeriksa."""
     import pratinjau
-    try:
-        pratinjau.render(folder_bahts(a[0]), a[1] if len(a) == 2 else None)
-    except RuntimeError as e:
-        sys.exit(str(e))
+    pratinjau.render(folder_bahts(a[0]), jalur_ketik(a[0]), *a[1:])
 
 
 def perintah_ekspor(a):

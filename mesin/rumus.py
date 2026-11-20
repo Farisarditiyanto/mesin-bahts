@@ -10,7 +10,6 @@ import re
 from xml.sax.saxutils import escape
 
 from dasar import TandaRusak
-from dasar import akhir_rumus as akhir_rumus
 
 ARAB = re.compile(r"[؀-ۿ]")
 BATAS_DALAM = 64  # cegah rekursi berlebih pada masukan berulang «{{{{...» atau «\sqrt\sqrt...»
@@ -34,10 +33,11 @@ SIMBOL = {
         # Operator biner & relasi
         "times": "×", "div": "÷", "cdot": "·", "pm": "±", "mp": "∓", "ast": "∗", "star": "⋆",
         "circ": "∘", "bullet": "•", "oplus": "⊕", "otimes": "⊗", "setminus": "∖",
-        "leq": "≤", "le": "≤", "geq": "≥", "ge": "≥", "neq": "≠", "ne": "≠",
+        "leq": "≤", "le": "≤", "leqslant": "≤", "geq": "≥", "ge": "≥", "geqslant": "≥", "neq": "≠", "ne": "≠",
         "approx": "≈", "equiv": "≡", "sim": "∼", "simeq": "≃", "cong": "≅", "propto": "∝",
         "ll": "≪", "gg": "≫", "prec": "≺", "succ": "≻", "preceq": "⪯", "succeq": "⪰",
         "perp": "⊥", "parallel": "∥", "mid": "∣", "nmid": "∤",
+        "lvert": "|", "rvert": "|", "lVert": "‖", "rVert": "‖",
         # Himpunan & logika
         "in": "∈", "notin": "∉", "ni": "∋", "subset": "⊂", "subseteq": "⊆", "supset": "⊃", "supseteq": "⊇",
         "cup": "∪", "cap": "∩", "emptyset": "∅", "varnothing": "∅",
@@ -79,20 +79,27 @@ AKSEN = {
 }
 
 GAYA_TEKS = {"text", "textrm", "mbox", "textbf", "textit", "textsf", "texttt"}
-GAYA_MATH = {"mathrm", "mathbf", "mathit", "mathsf", "mathtt", "mathcal", "mathbb", "boldsymbol", "bm", "operatorname"}
+# Gaya huruf rumus -> (tegak?, tebal?, m:scr); None = ikut bawaan simbolnya
+GAYA_MATH = {
+    "mathrm": (True, False, None), "operatorname": (True, False, None), "mathit": (False, False, None),
+    "mathbf": (True, True, None), "boldsymbol": (None, True, None), "bm": (None, True, None),
+    "mathbb": (True, False, "double-struck"), "mathcal": (True, False, "script"),
+    "mathsf": (True, False, "sans-serif"), "mathtt": (True, False, "monospace"),
+}
 PEMBESAR = {"big", "Big", "bigg", "Bigg", "bigl", "bigr", "Bigl", "Bigr", "biggl", "biggr", "Biggl", "Biggr"}
 KURUNG = {
     "(": "(", ")": ")", "[": "[", "]": "]", "|": "|", "/": "/",
     "{": "{", "}": "}", "lbrace": "{", "rbrace": "}", "vert": "|", "Vert": "‖",
     "langle": "⟨", "rangle": "⟩", "lfloor": "⌊", "rfloor": "⌋", "lceil": "⌈", "rceil": "⌉", ".": "",
+    "lvert": "|", "rvert": "|", "lVert": "‖", "rVert": "‖",
 }
+# Tanda yang bentuknya berarah: dicerminkan di rumus kanan-ke-kiri, karena operannya bertukar tempat
+CERMIN = str.maketrans("()[]{}⟨⟩⌊⌋⌈⌉<>≤≥≪≫≺≻⪯⪰→←⇒⇐⟶⟵⟹⟸↦↤∈∋∉∌⊂⊃⊆⊇", ")(][}{⟩⟨⌋⌊⌉⌈><≥≤≫≪≻≺⪰⪯←→⇐⇒⟵⟶⟸⟹↤↦∋∈∌∉⊃⊂⊇⊆")
 MATRIKS = {
     "matrix": ("", ""), "smallmatrix": ("", ""), "pmatrix": ("(", ")"), "bmatrix": ("[", "]"),
     "Bmatrix": ("{", "}"), "vmatrix": ("|", "|"), "Vmatrix": ("‖", "‖"),
 }
 JADWAL = {"aligned", "align", "align*", "gather", "gathered", "equation", "equation*", "split"}
-BLACKBOARD = {"R": "ℝ", "N": "ℕ", "Z": "ℤ", "Q": "ℚ", "C": "ℂ", "E": "𝔼", "P": "ℙ", "H": "ℍ"}
-OPERATOR_BINER = set("+-=<>*/,:;")
 
 
 def _token(latex):
@@ -118,8 +125,8 @@ def _token(latex):
                 while j < n and latex[j].isalpha():
                     j += 1
                 cmd = latex[i + 1:j]
-                if cmd in ("align", "equation") and j < n and latex[j] == "*":
-                    cmd += "*"
+                if cmd in ("align", "equation", "operatorname") and j < n and latex[j] == "*":
+                    cmd += "*" * (cmd != "operatorname")
                     j += 1
                 out.append(("cmd", cmd))
                 i = j
@@ -149,6 +156,23 @@ def _token(latex):
     return out
 
 
+def _kanan_ke_kiri(tok):
+    """Rumus tanpa huruf Latin/Yunani dan tanpa nama fungsi (teks Arab, angka, operator) dicetak kanan-ke-kiri seperti
+    kalimat Arab di sekitarnya; rumus yang memuatnya dicetak kiri-ke-kanan seluruhnya. Nama lingkungan
+    (\\begin{pmatrix}) dan nomor persamaan (\\tag{a}) bukan isi rumus."""
+    lewati = False
+    for jenis, isi in tok:
+        if lewati:
+            lewati = jenis != "rbrace"
+        elif jenis == "cmd" and isi in ("begin", "end", "tag"):
+            lewati = True
+        elif jenis == "txt" and isi.isalpha() and not ARAB.match(isi):
+            return False
+        elif jenis == "cmd" and (isi in FUNGSI or SIMBOL.get(isi, ("",))[0].isalpha()):
+            return False
+    return True
+
+
 class _PenguraiRumus:
     """Pengurai recursive-descent LaTeX -> fragmen XML OMML."""
 
@@ -161,7 +185,8 @@ class _PenguraiRumus:
         self.sz_arab = str(int(round(ukuran_arab * 2)))
         self.tag = None
         self.dalam = 0
-        self.gaya = None  # konteks gaya aktif (GAYA_MATH): (tegak_override, bold_override, blackboard)
+        self.gaya = None  # gaya aktif: nilai GAYA_MATH
+        self.rtl = _kanan_ke_kiri(self.tok)
 
     def _lewati_sp(self):
         while self.i < len(self.tok) and self.tok[self.i][0] == "sp":
@@ -182,7 +207,10 @@ class _PenguraiRumus:
     def _rpr_math(self, bold=False, italic=False):
         b = "<w:b/>" if bold else ""
         it = "<w:i/>" if italic else ""
-        return f'<w:rPr><w:rFonts w:ascii="{HURUF_MATH}" w:hAnsi="{HURUF_MATH}"/>{b}{it}<w:sz w:val="{self.sz_latin}"/></w:rPr>'
+        # w:lang en-US: tanpa itu Word (angka konteks @angka hindi) menukar «.» dan «,» di antara angka rumus
+        # saat mencetak («0.05» tercetak «0,05», «f(x, y)» tercetak «f(x. y)»)
+        return (f'<w:rPr><w:rFonts w:ascii="{HURUF_MATH}" w:hAnsi="{HURUF_MATH}"/>{b}{it}<w:sz w:val="{self.sz_latin}"/>'
+                '<w:lang w:val="en-US" w:bidi="en-US"/></w:rPr>')
 
     def _rpr_arab(self, bold=False):
         f = escape(self.huruf_arab)
@@ -193,21 +221,17 @@ class _PenguraiRumus:
     def _run_math(self, teks, *, tegak=False, bold=False, italic=False):
         if not teks:
             return ""
+        if self.rtl:
+            teks = teks.translate(CERMIN)
+        scr = ""
         if self.gaya is not None:
-            g_tegak, g_bold, g_bb = self.gaya
-            if g_bb:
-                teks = "".join(BLACKBOARD.get(ch, ch) for ch in teks)
+            g_tegak, g_bold, g_scr = self.gaya
             if g_tegak is not None:
                 tegak = g_tegak
-            if g_bold:
-                bold = True
-        mpr = ""
-        if tegak and bold:
-            mpr = '<m:rPr><m:sty m:val="b"/></m:rPr>'
-        elif tegak:
-            mpr = '<m:rPr><m:sty m:val="p"/></m:rPr>'
-        elif bold:
-            mpr = '<m:rPr><m:sty m:val="bi"/></m:rPr>'
+            bold = bold or g_bold
+            scr = f'<m:scr m:val="{g_scr}"/>' if g_scr else ""
+        sty = "b" if tegak and bold else "p" if tegak else "bi" if bold else ""
+        mpr = f'<m:rPr>{scr}{f"""<m:sty m:val="{sty}"/>""" if sty else ""}</m:rPr>' if scr or sty else ""
         sp = ' xml:space="preserve"' if teks.startswith(" ") or teks.endswith(" ") else ""
         return f"<m:r>{mpr}{self._rpr_math(bold=bold, italic=italic)}<m:t{sp}>{escape(teks)}</m:t></m:r>"
 
@@ -237,6 +261,8 @@ class _PenguraiRumus:
                 dalam -= 1; bagian.append("}")
             elif j == "cmd":
                 bagian.append(SIMBOL[v][0] if v in SIMBOL else "\\" + v)
+            elif j == "prime":
+                bagian.append("'" * len(v))
             else:
                 bagian.append(v)
         raise TandaRusak(f"\\{perintah}{{ tidak ditutup dengan }}")
@@ -324,7 +350,10 @@ class _PenguraiRumus:
             elif t[0] == "txt" and t[1] in ")]" and kurung > 0:
                 kurung -= 1
             bagian.append(self._baca_atom(izin_skrip=True))
-        return "".join(bagian)
+        # Word menata isi zona rumus kiri-ke-kanan menurut urutan tulisnya, juga teks Arab: tanpa dibalik,
+        # «\text{الإيرادات} - \text{المصروفات}» tercetak dengan الإيرادات di kiri, jadi pembaca Arab membacanya
+        # «المصروفات − الإيرادات». Rumus Arab murni dibalik di tiap deretnya supaya terbaca benar dari kanan.
+        return "".join(reversed(bagian) if self.rtl else bagian)
 
     def _skrip(self, dasar):
         """Tangkap rangkaian _, ^, dan prime (') sesudah atom `dasar`."""
@@ -342,6 +371,8 @@ class _PenguraiRumus:
                 if sup is not None:
                     raise TandaRusak("tanda pangkat «^» ganda pada satu simbol: gunakan kurung kurawal ^{…}")
                 sup = self._baca_arg("^")
+        if self.rtl and (sub is not None or sup is not None):  # rumus Arab: pangkat dan indeks di kiri simbolnya
+            return f"<m:sPre><m:sub>{sub or ''}</m:sub><m:sup>{sup or ''}</m:sup><m:e>{dasar}</m:e></m:sPre>"
         if sub is not None and sup is not None:
             return f"<m:sSubSup><m:e>{dasar}</m:e><m:sub>{sub}</m:sub><m:sup>{sup}</m:sup></m:sSubSup>"
         if sub is not None:
@@ -353,8 +384,10 @@ class _PenguraiRumus:
     def _baca_nary(self, cmd):
         chr_, und_ovr = NARY[cmd]
         sub = sup = None
-        while (t := self._intip()) is not None and t[0] in ("sub", "sup"):
+        while (t := self._intip()) is not None and (t[0] in ("sub", "sup") or t in (("cmd", "limits"), ("cmd", "nolimits"))):
             self.i += 1
+            if t[0] == "cmd":
+                continue
             if t[0] == "sub":
                 if sub is not None:
                     raise TandaRusak(f"\\{cmd}: batas bawah «_» ganda")
@@ -404,23 +437,49 @@ class _PenguraiRumus:
                     break
             if len(baris) > 1 and baris[-1] == [""]:
                 baris.pop()  # «\\» terakhir sebelum \end diabaikan seperti LaTeX
+            arah = -1 if self.rtl else 1  # rumus kanan-ke-kiri: kolom pertama di kanan
             if nama in JADWAL:
-                eqs = "".join(f"<m:e>{''.join(r)}</m:e>" for r in baris)
+                eqs = "".join(f"<m:e>{''.join(r[::arah])}</m:e>" for r in baris)
                 return f"<m:eqArr>{eqs}</m:eqArr>"
             lebar = max(len(r) for r in baris)
             baris_xml = "".join(
-                "<m:mr>" + "".join(f"<m:e>{r[c] if c < len(r) else ''}</m:e>" for c in range(lebar)) + "</m:mr>"
+                "<m:mr>" + "".join(f"<m:e>{r[c] if c < len(r) else ''}</m:e>" for c in range(lebar)[::arah]) + "</m:mr>"
                 for r in baris
             )
             m_xml = f'<m:m><m:mPr><m:mcs><m:mc><m:mcPr><m:count m:val="{lebar}"/><m:mcJc m:val="center"/></m:mcPr></m:mc></m:mcs></m:mPr>{baris_xml}</m:m>'
             if nama == "cases":
-                return f'<m:d><m:dPr><m:begChr m:val="{{"/><m:endChr m:val=""/></m:dPr><m:e>{m_xml}</m:e></m:d>'
+                buka, tutup_k = ("", "}") if self.rtl else ("{", "")
+                return f'<m:d><m:dPr><m:begChr m:val="{buka}"/><m:endChr m:val="{tutup_k}"/></m:dPr><m:e>{m_xml}</m:e></m:d>'
             buka, tutup_k = MATRIKS[nama]
             if buka or tutup_k:
                 return f'<m:d><m:dPr><m:begChr m:val="{escape(buka)}"/><m:endChr m:val="{escape(tutup_k)}"/></m:dPr><m:e>{m_xml}</m:e></m:d>'
             return m_xml
         finally:
             self.dalam -= 1
+
+    def _sisa_bilangan(self):
+        """Lanjutan satu bilangan sesudah angka pertamanya: angka, dan tanda yang langsung diapit angka («2.5», «2,5»,
+        «1,250», «1{,}250», «1\\,250», «1/2», «1:2»). Satu bilangan = satu run, jadi tidak ikut terbalik di rumus
+        kanan-ke-kiri (seperti di teks Arab biasa, tempat rangkaian itu tetap kiri-ke-kanan)."""
+        def angka(k):
+            return k < len(self.tok) and self.tok[k][0] == "txt" and self.tok[k][1].isdigit() and self.tok[k][1].isascii()
+        out = []
+        while True:
+            while angka(self.i):
+                out.append(self.tok[self.i][1])
+                self.i += 1
+            t = self.tok[self.i:self.i + 3]
+            if t[:1] in ([("txt", c)] for c in ".,/:") and angka(self.i + 1):
+                out.append(t[0][1])
+                self.i += 1
+            elif t[:1] == [("cmd", ",")] and angka(self.i + 1):
+                out.append(SIMBOL[","][0])
+                self.i += 1
+            elif t == [("lbrace", "{"), ("txt", ","), ("rbrace", "}")] and angka(self.i + 3):
+                out.append(",")
+                self.i += 3
+            else:
+                return "".join(out)
 
     def _baca_atom(self, *, izin_skrip):
         self.dalam += 1
@@ -455,13 +514,14 @@ class _PenguraiRumus:
                     buf.append(self.tok[self.i][1]); self.i += 1
                 dasar = self._run_teks("".join(buf))
             elif c.isdigit():
-                buf = [c]
-                while self.i < len(self.tok) and self.tok[self.i][0] == "txt" and self.tok[self.i][1].isdigit():
-                    buf.append(self.tok[self.i][1]); self.i += 1
-                dasar = self._run_math("".join(buf), tegak=True)
+                # argumen tanpa kurung kurawal = satu angka, seperti LaTeX: «\frac12» = ½, «x^12» = x¹2
+                dasar = self._run_math(c + (self._sisa_bilangan() if izin_skrip else ""), tegak=True)
             elif c.isalpha():
                 dasar = self._run_math(c, tegak=False)
             else:
+                if c == "$":
+                    raise TandaRusak("tanda «$» tidak dipakai di rumus: tulis rumusnya langsung sesudah #E atau di dalam "
+                                     "{E:…}; dolar sebagai mata uang ditulis «\\$»")
                 dasar = self._run_math(c, tegak=True)
             return self._skrip(dasar) if izin_skrip else dasar
         if t[0] == "cmd":
@@ -495,17 +555,7 @@ class _PenguraiRumus:
                 isi = self._baca_mentah(cmd)
                 dasar = self._run_teks(isi, bold=(cmd == "textbf"), italic=(cmd == "textit"))
             elif cmd in GAYA_MATH:
-                lama = self.gaya
-                if cmd == "mathbb":
-                    self.gaya = (True, False, True)
-                elif cmd == "mathbf":
-                    self.gaya = (True, True, False)
-                elif cmd in ("boldsymbol", "bm"):
-                    self.gaya = (None, True, False)
-                elif cmd == "mathit":
-                    self.gaya = (False, False, False)
-                else:
-                    self.gaya = (True, False, False)
+                lama, self.gaya = self.gaya, GAYA_MATH[cmd]
                 try:
                     dasar = self._baca_arg(cmd)
                 finally:
@@ -513,6 +563,10 @@ class _PenguraiRumus:
             elif cmd in AKSEN:
                 isi = self._baca_arg(cmd)
                 dasar = f'<m:acc><m:accPr><m:chr m:val="{AKSEN[cmd]}"/></m:accPr><m:e>{isi}</m:e></m:acc>'
+            elif cmd in ("overset", "underset", "stackrel"):  # \overset{atas}{dasar}
+                lim, isi = self._baca_arg(cmd), self._baca_arg(cmd)
+                jenis = "limLow" if cmd == "underset" else "limUpp"
+                dasar = f"<m:{jenis}><m:e>{isi}</m:e><m:lim>{lim}</m:lim></m:{jenis}>"
             elif cmd in ("overline", "underline"):
                 isi = self._baca_arg(cmd)
                 pos = "top" if cmd == "overline" else "bot"
@@ -539,6 +593,8 @@ class _PenguraiRumus:
                         raise TandaRusak("\\left tidak ditutup dengan \\right")
                     self.i += 1
                     tutup = self._baca_kurung("right")
+                    if self.rtl:
+                        buka, tutup = tutup.translate(CERMIN), buka.translate(CERMIN)
                     dasar = f'<m:d><m:dPr><m:begChr m:val="{escape(buka)}"/><m:endChr m:val="{escape(tutup)}"/></m:dPr><m:e>{isi}</m:e></m:d>'
                 finally:
                     self.dalam -= 1

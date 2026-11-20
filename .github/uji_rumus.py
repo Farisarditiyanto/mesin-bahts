@@ -131,6 +131,46 @@ def utama():
         s2 = [x for x in out2.splitlines() if x.startswith("CETAK_SHA256=")][0]
         assert s1 != s2, (s1, s2)
 
+        # Bentuk cetak lewat pintu pemakai: tiap rumus jadi satu #E, OMML-nya dibaca dari bahan `cek`.
+        # Isi tiap <m:t> menurut urutan tulisnya = urutan cetak kiri-ke-kanan di Word.
+        def cetak(*latex):
+            jalankan("bentuk cetak", dasar.replace("#K الخاتمة", "".join(f"#E {x}\n" for x in latex) + "#K الخاتمة"))
+            blok = [cek_xml(b["omml"]) for b in json.loads(bahan_path.read_text(encoding="utf8"))["blok"] if b["k"] == "E"]
+            assert len(blok) == len(latex), (len(blok), latex)
+            return blok
+
+        def teks(xml):
+            return [t.text for t in xml.iter(f"{{{ns['m']}}}t")]
+
+        w = XML_WRAP.split('xmlns:w="')[1].split('"')[0]
+        satu, limits, gaya, bilangan, arab, kurung, campur, relasi, angka, matriks = cetak(
+            r"\frac12 + x^12", r"\sum\limits_{i=1}^{n} x_i", r"\mathcal{L} + \mathbb{R}", r"f(1, 2) + 1,250.75 + 2{,}5 + 0.05",
+            r"\text{الربح} = (\text{الإيراد} - 2.5)^2 \div \text{المال}", r"\left[ \text{أ} - 3 \right)",
+            r"ROE = \text{الإيراد} - \text{المصروف}", r"\text{الربح} > \text{التكلفة} \to \text{الدين} \leq \text{المال}",
+            r"1\,250 - 1/2 = 2,5 \tag{a}", r"\begin{pmatrix} \text{أ} & \text{ب} \end{pmatrix}")
+        # argumen tanpa kurung kurawal = satu angka; \limits sesudah operator; gaya huruf lewat m:scr
+        assert teks(satu) == ["1", "2", "+", "x", "1", "2"], teks(satu)
+        assert limits.find(".//m:nary/m:sub/m:r", ns) is not None
+        assert [x.get(f"{{{ns['m']}}}val") for x in gaya.iter(f"{{{ns['m']}}}scr")] == ["script", "double-struck"]
+        # satu bilangan = satu run (desimal, ribuan), dan tiap run rumus berbahasa en-US: tanpa itu Word menukar «.» dan
+        # «,» saat mencetak di dokumen berangka ٠-٩
+        assert teks(bilangan) == ["f", "(", "1", ",", "2", ")", "+", "1,250.75", "+", "2,5", "+", "0.05"], teks(bilangan)
+        assert all(r.find(f"{{{w}}}rPr/{{{w}}}lang").get(f"{{{w}}}val") == "en-US" for r in bilangan.iter(f"{{{ns['m']}}}r"))
+        # rumus tanpa huruf Latin tercetak kanan-ke-kiri: urutan dibalik, kurung dan tanda berarah dicerminkan, pangkat
+        # di kiri (m:sPre), kolom pertama matriks di kanan; rumus yang memuat huruf Latin tetap kiri-ke-kanan
+        assert teks(arab) == ["المال", "÷", "2", "(", "2.5", "−", "الإيراد", ")", "=", "الربح"], teks(arab)
+        assert arab.find(".//m:sPre", ns) is not None
+        assert [x.get(f"{{{ns['m']}}}val") for x in kurung.find(".//m:dPr", ns)] == ["(", "]"], teks(kurung)
+        assert teks(campur) == ["R", "O", "E", "=", "الإيراد", "−", "المصروف"], teks(campur)
+        assert teks(relasi) == ["المال", "≥", "الدين", "←", "التكلفة", "<", "الربح"], teks(relasi)
+        # satu bilangan tetap utuh («1\,250», «1/2»), dan huruf di \tag bukan isi rumus
+        assert teks(angka) == ["2,5", "=", "1/2", "−", "1\u2009250"], teks(angka)
+        assert teks(matriks) == ["ب", "أ"], teks(matriks)
+
+        # angka rumus di catatan kaki bukan juz/halaman rujukan
+        pecahan = jalankan("pecahan di catatan kaki", dasar.replace("#K الخاتمة", "فقرة[^الكسر {E:3/4} هنا.].\n#K الخاتمة"))
+        assert "rujukan kitab tanpa bukti" not in pecahan, pecahan
+
         # Kasus GAGAL sintaks LaTeX
         gagal_kasus = [
             ("rumus inline kosong", "فقرة {E:} هنا.", "rumus kosong"),
@@ -150,6 +190,7 @@ def utama():
             ("rantai frac terlalu dalam", "#E " + "\\frac" * 1200 + "a", "terlalu dalam"),
             ("rantai hat terlalu dalam", "#E " + "\\hat" * 1200 + "x", "terlalu dalam"),
             ("rumus di judul", "#S المعادلة {E:x=1}", "judul tidak boleh memuat"),
+            ("tanda dolar LaTeX", "#E $a = b$", "tanda «$» tidak dipakai"),
         ]
         for nama, baris_uji, pesan in gagal_kasus:
             jalankan(nama, dasar.replace("#K الخاتمة", baris_uji + "\n#K الخاتمة"), gagal=True, pesan=pesan)
@@ -179,6 +220,12 @@ def utama():
             "#F الفصل الأول\n#B تمهيد\nنص التمهيد.\n#K الخاتمة",
         )
         assert "sub-bagian tunggal" not in jalankan("sub-bagian tunggal تمهيد", tamhid)
+        # تمهيد bukan pasangan: فصل berisi تمهيد + satu مبحث tetap tunggal; «مدخلات» bukan «مدخل»
+        tamhid_satu = dasar.replace(
+            "#K الخاتمة",
+            "#F الفصل الأول\nنص.\n#B تمهيد\nنص.\n#B المبحث الأول: مدخلات النظام\nنص.\n#K الخاتمة",
+        )
+        jalankan("تمهيد + satu مبحث", tamhid_satu, pesan="sub-bagian tunggal «المبحث الأول: مدخلات النظام»")
         assert "sub-bagian tunggal" not in jalankan("sub-bagian tunggal di kitab", "@bentuk: kitab\n" + tunggal_b)
 
     print("lolos uji rumus (fuzz 300x + CLI + sub-bagian tunggal)")

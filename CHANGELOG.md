@@ -6,10 +6,10 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
-- Persamaan matematika LaTeX asli di naskah: `#E <latex>` untuk persamaan baris sendiri (dukung `\tag{1}` untuk nomor persamaan di tepi kiri yang mengikuti `@angka`) dan `{E:<latex>}` untuk rumus sebaris di paragraf, tabel `#J`, atau catatan kaki (tanpa bentrok tanda `$`), dirakit menjadi objek persamaan OMML Word asli tanpa TeX dan mendukung teks Arab `\text{…}` kanan-ke-kiri dengan huruf `@format`. Sintaks LaTeX yang rusak ditolak `cek` sebagai `GAGAL`.
-- Perintah baru `pratinjau <folder> [halaman]`: mengubah halaman PDF hasil `rakit` menjadi gambar PNG grid 2×2 (kanan-ke-kiri, berbingkai dan bernomor halaman) atau satu halaman penuh di folder TEMP, supaya pemeriksa langkah 5 dapat memeriksa tata letak visual (sampul, margin, tabel, gambar, rumus).
-- `cek` memberi perhatian `sub-bagian tunggal` bila satu `#B` berdiri sendirian di bawah `#F` atau satu `#M` sendirian di bawah `#B` (di luar `تمهيد`/`مدخل` dan `@bentuk: kitab`).
-- `AGENTS.md` melengkapi pedoman pilih alat (kapan memakai alat lokal, connector, `waqfeya`, `dirasat`, rumus LaTeX, diagram vs grafik statistik, dan `pratinjau`), alur bahts non-Syariah (seperti قسم العلوم الإدارية والمالية), perencanaan sumber wajib (P0) vs pendukung (P1), serta pemeriksaan dua fokus (isi & sumber lewat `bukti`, tata letak visual lewat `pratinjau`).
+- Rumus LaTeX di naskah: `#E <latex>` (baris sendiri; `\tag{1}` = nomor persamaan di tepi kiri) dan `{E:<latex>}` (sebaris, juga di tabel `#J` dan catatan kaki) dirakit jadi persamaan Word asli tanpa TeX. Rumus tanpa huruf Latin (nama Arab, angka) dicetak kanan-ke-kiri; sintaks yang rusak = `GAGAL` di `cek`.
+- Perintah baru `pratinjau <folder> [halaman]`: halaman PDF yang terakhir dirakit (juga potongan `--fasl`) jadi gambar PNG grid 2×2 atau satu halaman penuh di TEMP, untuk memeriksa tata letak.
+- `cek` memberi perhatian `sub-bagian tunggal` bila satu `#B` sendirian di bawah `#F` atau satu `#M` sendirian di bawah `#B` (تمهيد/مدخل tidak dihitung; `@bentuk: kitab` tidak dinilai).
+- `AGENTS.md`: tabel pilih alat mencakup alat tanpa internet, `waqfeya`, `dirasat`, rumus, diagram, grafik, dan `pratinjau`; pemeriksa langkah 5 menilai isi dan tata letak sebagai dua fokus.
 
 ## 12.0.0 — 2026-11-20
 

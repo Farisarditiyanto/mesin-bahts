@@ -109,7 +109,10 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       «#G <nama>.png | الشكل (1): …». Berkas tidak ada, di luar folder bahts, atau bukan PNG/JPG = GAGAL
   #E rumus-LaTeX      persamaan matematika di baris sendiri (tengah halaman, OMML Word asli, tanpa TeX); untuk nomor
                       persamaan di tepi kiri tulis «\\tag{1}» di dalamnya (angkanya mengikuti @angka). Teks Arab di dalam
-                      rumus: «\\text{صافي الربح}». Sintaks LaTeX yang rusak = GAGAL
+                      rumus: «\\text{صافي الربح}». Rumus ditulis menurut urutan bacanya: yang tanpa huruf Latin/Yunani
+                      (teks Arab, angka) dicetak kanan-ke-kiri, yang memuatnya kiri-ke-kanan seluruhnya. Angka di rumus
+                      selalu 0-9, dan bilangan yang ditulis rapat tetap utuh («2.5», «2,5», «1\\,250», «1/2», «1:2»):
+                      pasangan, daftar, dan selang ditulis berspasi «(1, 2)», «[0, 1)». Dolar «\\$». Sintaks LaTeX yang rusak = GAGAL
   #R teks             awal المصادر والمراجع; sesudahnya satu kitab per baris (diurutkan abjad otomatis, القرآن الكريم paling atas).
                       Wajib, kecuali «@tanpa: pustaka»; semua bagian isi harus sebelum #R (tidak boleh ada judul/#T/#H sesudahnya)
   **...**             tebal
@@ -1033,6 +1036,23 @@ def _cek_bahan_sumber(ctx, naskah):
     return sumber
 
 
+PENGANTAR = re.compile(r"(?:ال)?(?:تمهيد|مدخل)\b")
+
+
+def _anak_tunggal(blok):
+    """(anak, induk) tiap sub-bagian yang sendirian di bawah induknya: satu #B di bawah #F, satu #M di bawah #B."""
+    for t_induk, t_anak, pemutus in (("F", "B", "KR"), ("B", "M", "KRF")):
+        induk, anak = None, []
+        for b in (*blok, {"k": "R"}):  # penutup: induk terakhir ikut dinilai
+            if b["k"] == t_anak and induk:
+                if not PENGANTAR.match(b["judul"]):  # تمهيد bukan pecahan bagiannya: tidak dihitung
+                    anak.append(b)
+            elif b["k"] == t_induk or b["k"] in pemutus:
+                if induk and len(anak) == 1:
+                    yield anak[0], induk
+                induk, anak = (b if b["k"] == t_induk else None), []
+
+
 def _cek_tata_letak(ctx):
     """@halaman_baru, @nomor, bagian kosong dan judul bertumpuk, @nim, dan kunci ya/tidak."""
     meta, blok, galat, perhatian = ctx.meta, ctx.blok, ctx.galat, ctx.perhatian
@@ -1065,26 +1085,10 @@ def _cek_tata_letak(ctx):
             perhatian.append(f"baris {a['n']}: judul «{a['judul'][:40]}» langsung disusul judul «{b['judul'][:40]}» "
                              f"tanpa paragraf pengantar: tulis pengantar di bawahnya (isinya dan pembagiannya: "
                              f"{'وفيه مبحثان' if a['judul'].startswith('الفصل') or (a['k'] == 'F' and not a['judul'].startswith('المبحث')) else 'وفيه مطلبان'}…)")
-    if not kitab:  # sub-bagian tunggal (#B sendirian di bawah #F, atau #M sendirian di bawah #B; bukan تمهيد/مدخل)
-        for tingkat_induk, tingkat_anak in (("F", "B"), ("B", "M")):
-            induk, anak = None, []
-            def _cek_tunggal():
-                nonlocal anak
-                if induk and len(anak) == 1 and not re.search(r"تمهيد|مدخل", anak[0]["judul"]):
-                    perhatian.append(
-                        f"baris {anak[0]['n']}: sub-bagian tunggal «{anak[0]['judul'][:40]}» di bawah "
-                        f"«{induk['judul'][:40]}»: bagian yang dipecah semestinya paling sedikit dua "
-                        "(tambah pasangannya, atau satukan isinya di bawah induknya)")
-                anak = []
-            for b in blok:
-                k = b["k"]
-                if k in ("K", "R") or (tingkat_induk == "B" and k == "F"):
-                    _cek_tunggal(); induk = None
-                elif k == tingkat_induk:
-                    _cek_tunggal(); induk = b
-                elif k == tingkat_anak and induk is not None:
-                    anak.append(b)
-            _cek_tunggal()
+    for anak, induk in () if kitab else _anak_tunggal(blok):
+        perhatian.append(f"baris {anak['n']}: sub-bagian tunggal «{anak['judul'][:40]}» di bawah «{induk['judul'][:40]}»: "
+                         "bagian yang dipecah semestinya paling sedikit dua (tambah pasangannya, atau satukan isinya "
+                         "di bawah induknya)")
     if re.fullmatch(r"0+", re.sub(r"\s", "", meta.get("nim", "").translate(ANGKA_LATIN))):  # isian contoh, bukan nomor
         galat.append(di("@nim") + f"@nim: «{meta['nim']}» tercetak di sampul sebagai nomor mahasiswa: tulis nomor asli, "
                                   "atau «-» kalau tidak ada")
@@ -1107,19 +1111,19 @@ def _render_rumus(ctx, profil):
     fmt = format_cetak(profil)
     if not fmt:
         return
-    huruf_arab = fmt["huruf"]
-    u_latin = fmt["latin"]
-    u_arab = max(fmt["catatan"], fmt["matan"] - 2)
+    huruf_arab, u_latin, u_arab = fmt["huruf"], fmt["latin"], fmt["matan"]
     for b in ctx.blok:
         if b["k"] == "E":
             b["omml"], _ = rumus.konversi(b["latex"], display=True, huruf_arab=huruf_arab,
                                           ukuran_latin=u_latin + 1, ukuran_arab=u_arab)
         else:
+            # sel #J: ukuran huruf tabel ($uTabel di rakit.ps1)
+            u_sel = math.ceil((fmt["matan"] + fmt["catatan"]) / 2) if b["k"] == "J" else u_arab
             for runs in (b["sel"] if b["k"] == "J" else [b.get("runs", [])]):
                 for r in runs:
                     if "omml" in r:
                         r["omml"], _ = rumus.konversi(r["latex"], display=False, huruf_arab=huruf_arab,
-                                                      ukuran_latin=u_latin, ukuran_arab=u_arab)
+                                                      ukuran_latin=u_latin, ukuran_arab=u_sel)
     for c in ctx.catatan:
         for r in c["runs"]:
             if "omml" in r:

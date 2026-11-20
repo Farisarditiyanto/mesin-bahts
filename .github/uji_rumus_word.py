@@ -66,6 +66,11 @@ def utama():
         # Pastikan teks sesudah {E:…} di sel tabel #J tetap di luar <m:oMath> (tidak tersedot masuk zona rumus)
         teks_math = "".join("".join(o.itertext()) for o in omaths_doc)
         assert "بعده" not in teks_math and "نهاية" not in teks_math, teks_math
+        # Run angka rumus tetap berbahasa en-US sesudah disimpan Word: tanpa itu «0.05» tercetak «0,05» di dokumen
+        # berangka ٠-٩ (lapisan teks PDF tetap «0.05», jadi yang bisa dijaga dari sini hanya penandanya)
+        w = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+        angka = [r for o in omaths_doc + omaths_fn for r in o.iter(f"{{{ns['m']}}}r") if "0.05" in "".join(r.itertext())]
+        assert len(angka) == 2 and all(r.find(f"{w}rPr/{w}lang").get(f"{w}val") == "en-US" for r in angka), len(angka)
 
         pdf_reader = PdfReader(folder / "uji.pdf")
         halaman = len(pdf_reader.pages)
@@ -75,6 +80,19 @@ def utama():
         hal2_teks = unicodedata.normalize("NFKC", pdf_reader.pages[1].extract_text() or "")
         assert "NPV" in hal1_teks and "NPV" not in hal2_teks, (hal1_teks, hal2_teks)
         assert "(٢)" not in hal1_teks and "(٢)" in hal2_teks and "Yi" in hal2_teks, (hal1_teks, hal2_teks)
+        # Pecahan Arab di catatan kaki bukan rumus #E yang menyusul matan: pengantar berakhir «:» di ujung halaman
+        # tetap diperingatkan
+        ujung = akar / "ujung"
+        ujung.mkdir()
+        (ujung / "naskah.txt").write_text(
+            "@bentuk: kitab\n@format: tatbiqi\n@judul: اختبار\n@berkas: ujung\n#K المقدمة\n"
+            "نص فيه حاشية[^النسبة {E:\\frac{\\text{صافي الربح}}{\\text{المبيعات}}} هنا.] وينتهي بتمهيد منفصل عن محتواه كما يأتي:\n"
+            "#H\nالمحتوى في الصفحة التالية.\n#K الخاتمة\nأهم النتائج: نجح.\n", encoding="utf8")
+        ru = subprocess.run(
+            [sys.executable, str(akar / "mesin" / "bahts.py"), "rakit", "ujung"],
+            cwd=akar, capture_output=True, encoding="utf8", timeout=1800,
+        )
+        assert ru.returncode == 0 and "berakhir «:»" in ru.stdout, ru.stdout + ru.stderr
         # Uji `pratinjau` pada PDF hasil rakit
         rp = subprocess.run(
             [sys.executable, str(akar / "mesin" / "bahts.py"), "pratinjau", "uji", "1"],
