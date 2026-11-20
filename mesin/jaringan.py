@@ -31,7 +31,10 @@ class _AlihAman(urllib.request.HTTPRedirectHandler):
 def buka(url, data=None, kepala=UA, waktu=60):
     """Satu pintu permintaan ke layanan luar (temukan, hadits, dirasat, font). Galat sementara (koneksi putus/direset,
     SSL terputus, waktu habis, HTTP 500/502/503) dicoba lagi sampai COBA kali dengan jeda 1, 2, 4 detik.
-    Penolakan lain (4xx, 429 jatah habis, 504) langsung dilempar: artinya beda per layanan, pemanggil yang menjelaskan."""
+    Penolakan lain (4xx, 429 jatah habis, 504) langsung dilempar: artinya beda per layanan, pemanggil yang menjelaskan.
+    Hanya http/https: alamat dari data layanan (mis. pdf_url OpenAlex) bisa saja file://, dan urllib membuka berkas lokal."""
+    if urllib.parse.urlsplit(url).scheme.lower() not in ("http", "https"):
+        raise ValueError(f"alamat bukan http/https, tidak dibuka: {url}")
     pembuka = urllib.request.build_opener(_AlihAman)
     for i in range(COBA):
         try:

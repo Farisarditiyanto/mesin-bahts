@@ -383,8 +383,15 @@ def utama():
             def putus(p, data):
                 tulis(p, data[:8])
                 raise OSError("injeksi disk penuh")
+            # metadata OpenAlex: salinan PDF tersimpan, dan kunci ada, jadi yang diunduh salinan itu
+            meta = json.dumps({"id": "https://openalex.org/W123", "has_content": {"pdf": True}}).encode()
+
+            def jawab(data):
+                return lambda url, *a: io.BytesIO(meta if "api.openalex.org" in url else data)
+            kunci = patch.object(dirasat, "_kunci", return_value="KUNCI-UJI")
+            kunci.start()
             for data, gagal in ((b"%PDF-1.7\nterpotong", True), (isi, True), (isi, False)):
-                with patch.object(dirasat, "_buka", side_effect=lambda *a: io.BytesIO(data)):
+                with patch.object(dirasat, "_buka", side_effect=jawab(data)):
                     try:
                         if data == isi and gagal:
                             with patch.object(Path, "write_bytes", putus): dirasat.pdf("W123", f)
@@ -400,7 +407,7 @@ def utama():
             with patch.object(dirasat, "_buka", side_effect=AssertionError("PDF sah diunduh lagi")):
                 dirasat.pdf("W123", f)
             tujuan.write_bytes(b"%PDF-lama-terpotong")
-            with patch.object(dirasat, "_buka", side_effect=lambda *a: io.BytesIO(b"%PDF-baru-terpotong")):
+            with patch.object(dirasat, "_buka", side_effect=jawab(b"%PDF-baru-terpotong")):
                 try:
                     dirasat.pdf("W123", f)
                 except SystemExit:
@@ -408,14 +415,15 @@ def utama():
                 else:
                     raise AssertionError("PDF rusak dianggap selesai")
             assert tujuan.read_bytes() == b"%PDF-lama-terpotong", "Kegagalan unduh mengganti berkas lama"
-            with patch.object(dirasat, "_buka", side_effect=lambda *a: io.BytesIO(isi)):
+            with patch.object(dirasat, "_buka", side_effect=jawab(isi)):
                 dirasat.pdf("W123", f)
             assert tujuan.read_bytes() == isi, "PDF lama yang rusak tidak dipulihkan"
             # Revisi kedua terpotong: pypdf masih bisa membaca revisi pertama, tetapi unduhannya belum selesai.
             tujuan.write_bytes(isi + b"\n9 0 obj\n<<" + b"0" * 2048)
-            with patch.object(dirasat, "_buka", side_effect=lambda *a: io.BytesIO(isi)):
+            with patch.object(dirasat, "_buka", side_effect=jawab(isi)):
                 dirasat.pdf("W123", f)
             assert tujuan.read_bytes() == isi, "PDF terpotong sesudah revisi lama dianggap utuh"
+            kunci.stop()
 
         def katalog_pola():
             # pola bertanda regex yang bukan regex sah (kurung tak berpasangan, pengulangan raksasa) dicocokkan sebagai teks

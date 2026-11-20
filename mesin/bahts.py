@@ -284,7 +284,7 @@ SARING = tuple(Bendera(n, f"{n} butuh nilai, mis. {n} {contoh}", lambda x: not x
                        f"{n} disebut dua kali; nilai ganda ditulis dengan koma, mis. {n} {contoh},…")
                for n, contoh in (("--mazhab", "hanbali"), ("--kitab", "8370"), ("--halaman", "2")))
 DIRASAT_BENDERA = tuple(
-    Bendera(n, f"{n} butuh nilai, mis. {n} {contoh}", lambda x: x.startswith("--"),
+    Bendera(n, f"{n} butuh nilai, mis. {n} {contoh}", lambda x: x.startswith("--") or not x.strip(),
             f"{n} disebut lebih dari sekali")
     for n, contoh in (("--dari", "2020"), ("--sampai", "2025"), ("--bahasa", "ar"), ("--urut", "terbaru"))
 )

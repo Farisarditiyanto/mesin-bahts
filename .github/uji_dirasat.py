@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "mesin"))
-import dirasat
+import dirasat, jaringan
 
 
 class _Resp(io.BytesIO):
@@ -143,6 +143,17 @@ def utama():
                 "abstract": "قديم",
             }
         },
+        {  # judul sama dengan W100, tahun lain: penelitian lain, tidak boleh terbuang sebagai duplikat
+            "bibjson": {
+                "title": "دراسة الفقه المالي المعاصر",
+                "author": [{"name": "باحث آخر"}],
+                "year": "2010",
+                "journal": {"title": "مجلة أخرى", "language": ["AR"]},
+                "identifier": [],
+                "link": [{"url": "https://doaj.example.org/2010"}],
+                "abstract": "دراسة أخرى بالعنوان نفسه",
+            }
+        },
         {  # sah lolos saringan DOAJ (AR, 2022, judul baru)
             "bibjson": {
                 "title": "بحث فريد من مجلة عربية مفتوحة",
@@ -211,6 +222,7 @@ def utama():
         # 2. --urut terlama & --urut dikutip
         kode, out_lama, err = _cli("dirasat", "الفقه المالي", "5", "--urut", "terlama")
         assert kode == 0, err
+        assert "دراسة أخرى بالعنوان نفسه" in out_lama and "نسخة مكررة" not in out_lama, out_lama  # judul + tahun
         assert out_lama.index("دراسة الفقه المالي المعاصر") < out_lama.index("أحكام المعاملات الرقمية") < out_lama.index("بحث بدون تاريخ محدد"), out_lama
         kode, out_kutip, err = _cli("dirasat", "الفقه المالي", "5", "--urut", "dikutip")
         assert kode == 0, err
@@ -245,20 +257,46 @@ def utama():
             ("dirasat", "uji", "--dari", "bukan-tanggal"),
             ("dirasat", "uji", "5", "--typo"),
             ("dirasat", "uji", "--tahun", "2020"),
+            ("dirasat", "uji", "--bahasa", "arabic"),
+            ("dirasat", "uji", "--bahasa", "ar,en"),
+            ("dirasat", "uji", "--bahasa", ""),
         ):
             kode, out, err = _cli(*buruk)
             assert kode != 0 and "Traceback" not in err, (buruk, kode, out, err)
+            if "--bahasa" in buruk:
+                assert "kode bahasa dua huruf" in err or "--bahasa butuh nilai" in err, (buruk, err)
             if "--typo" in buruk or "--tahun" in buruk:
                 assert "tidak dikenal" in err, (buruk, err)
 
-        # 6. Keamanan: skema file:// pada pdf_url OA wajib ditolak (tidak boleh menyalin berkas lokal)
+        # 6. pdf_url dari data layanan berskema file:// tidak pernah dibuka (urllib membuka berkas lokal), dan tiap
+        #    tempat yang gagal disebut alasannya
         with tempfile.TemporaryDirectory(prefix="bahts-uji-file-") as tmp:
             t = Path(tmp)
             rahasia = t / "rahasia.pdf"
             rahasia.write_bytes(pdf_bytes)
-            tujuan = t / "W999.pdf"
-            assert not dirasat._unduh_oa([rahasia.as_uri()], tujuan, "W999")
-            assert not tujuan.exists(), "file:// lokal tersalin oleh _unduh_oa!"
+            w400 = dict(oa_items[0], id="https://openalex.org/W400", best_oa_location={"pdf_url": rahasia.as_uri()})
+
+            def buka_file(url, kepala=None, waktu=60):
+                if urllib.parse.urlsplit(url).path == "/works/W400":
+                    return _Resp(json.dumps(w400).encode("utf8"))
+                return jaringan.buka(url, kepala=kepala, waktu=waktu)  # pintu jaringan asli yang menolak file://
+
+            with patch.object(dirasat, "buka", side_effect=buka_file):
+                try:
+                    dirasat.pdf("W400", t)
+                except SystemExit as e:
+                    pesan = str(e)
+                else:
+                    raise AssertionError("file:// lokal dianggap unduhan")
+            assert not (t / "W400.pdf").exists(), "file:// lokal tersalin oleh dirasat-pdf!"
+            assert rahasia.as_uri() in pesan and "bukan http/https" in pesan, pesan
+            # salinan OpenAlex ditolak (401) dan tidak ada tautan lain: alasannya tercetak, bukan ditelan
+            try:
+                dirasat.pdf("W200", t)
+            except SystemExit as e:
+                assert "salinan OpenAlex https://content.openalex.org/works/W200.pdf" in str(e) and "ditolak" in str(e), e
+            else:
+                raise AssertionError("W200 tanpa salinan yang bisa diunduh dianggap berhasil")
 
         # 7. Edge case id_karya & _masuk_rentang
         assert dirasat.id_karya("10.1234/...") is None
@@ -283,6 +321,32 @@ def utama():
             assert kode == 0, err
             assert "DOAJ: 0 penelitian cocok" in out_ms, out_ms
             assert "PERINGATAN: semua hasil di atas hanya MIRIP MAKNANYA" in out_ms, out_ms
+
+        # 8b. Judul sama: dua DOI berbeda = dua penelitian (keduanya tercetak); judul Latin yang sama tanpa DOI di DOAJ
+        #     = penelitian yang sama (dibuang)
+        def karya(nomor, judul, doi):
+            return dict(oa_items[0], id=f"https://openalex.org/{nomor}", title=judul, doi=doi,
+                        abstract_inverted_index={nomor: [0]})
+        kembar = [karya("W501", "التورق المصرفي المنظم", "https://doi.org/10.1/a"),
+                  karya("W502", "التورق المصرفي المنظم", "https://doi.org/10.2/b"),
+                  karya("W503", "Islamic Banking in Indonesia", "https://doi.org/10.3/c"),
+                  karya("W504", "رسالة جامعية بعنوان عام", None), karya("W505", "رسالة جامعية بعنوان عام", None)]
+        doaj_latin = [{"bibjson": dict(doaj_items[0]["bibjson"], title="Islamic banking in Indonésia",
+                                       abstract="SALINAN-DOAJ")}]
+
+        def buka_kembar(url, kepala=None, waktu=60):
+            u = urllib.parse.urlsplit(url)
+            if u.hostname == "api.openalex.org":
+                hasil = kembar if "search" in urllib.parse.parse_qs(u.query) else []
+                return _Resp(json.dumps({"meta": {"count": len(hasil)}, "results": hasil}).encode("utf8"))
+            return _Resp(json.dumps({"total": 1, "results": doaj_latin}).encode("utf8"))
+
+        with patch.object(dirasat, "buka", side_effect=buka_kembar):
+            kode, out_k, err = _cli("dirasat", "التورق", "5")
+        assert kode == 0, err
+        assert "W501" in out_k and "W502" in out_k, f"penelitian ber-DOI lain terbuang sebagai duplikat: {out_k}"
+        assert "W504" in out_k and "W505" in out_k, f"nomor W… lain tanpa DOI terbuang sebagai duplikat: {out_k}"
+        assert "W503" in out_k and "SALINAN-DOAJ" not in out_k, f"judul Latin yang sama tanpa DOI tidak digabung: {out_k}"
 
         # 9. Tanpa kunci OpenAlex: info W200 mencetak cara kunci, dan dirasat-pdf DOI melaporkan butuh kunci (bukan «tidak menyimpan»)
         with patch.object(dirasat, "_kunci", return_value=""):

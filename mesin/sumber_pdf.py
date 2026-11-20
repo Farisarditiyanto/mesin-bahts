@@ -80,7 +80,8 @@ def _teks_rentang(berkas, a, z):
 
 def cuplikan(berkas, hal, kutipan=None, sekitar=300):
     """Untuk `bukti`: (status, cuplikan teks) halaman PDF `hal` («3» atau «3-4»).
-    status = 'scan' bila lapisan teks kosong, atau 'terbaca'. Dipakai pemeriksa untuk menilai kutipan dan parafrase
+    status = 'scan' bila lapisan teks kosong, 'terbaca' bila kutipan ditemukan (cuplikan di sekitarnya), atau
+    'tanpa kutipan' (awal halaman: kutipan tidak diberikan atau tidak ditemukan di teks PDF). Dipakai pemeriksa untuk menilai kutipan dan parafrase
     dari PDF penelitian (<<luar|berkas.pdf|hal>>); tidak dipakai putusan `cek`."""
     m = re.fullmatch(r"(\d+)(?:-(\d+))?", str(hal).strip())
     if not m:
@@ -116,4 +117,4 @@ def cuplikan(berkas, hal, kutipan=None, sekitar=300):
                 mulai, akhir = max(0, j - sekitar), j + len(pot) + sekitar
                 return "terbaca", f"{'…' * (mulai > 0)}{gabung[mulai:akhir]}{'…' * (akhir < len(gabung))}"
     potong = gabung[:2 * sekitar]
-    return "terbaca", potong + ("…" if len(gabung) > 2 * sekitar else "")
+    return "tanpa kutipan", potong + ("…" if len(gabung) > 2 * sekitar else "")

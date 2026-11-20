@@ -8,13 +8,13 @@ yang kata-katanya lain tetapi bahasannya sama; pertanyaan panjang boleh). DOAJ =
 Kunci OpenAlex (gratis: daftar di https://openalex.org, salin dari Settings > API key) disimpan sebagai satu baris
 di kunci_openalex.txt, di samping folder mesin/; berkas itu tidak ada → dibaca dari variabel lingkungan OPENALEX_API_KEY
 (untuk komputer yang tidak menyimpan berkas, mis. cloud). Tanpa kunci: jatah sehari sekitar 50 kali `dirasat`, dan `dirasat-pdf`
-tidak jalan. Dengan kunci: sekitar 300 kali `dirasat` atau 100 PDF sehari; jatah kembali penuh tiap 00.00 UTC.
+hanya bisa memakai tautan PDF akses terbuka (salinan yang disimpan OpenAlex butuh kunci). Dengan kunci: sekitar 300 kali `dirasat` atau 100 PDF sehari; jatah kembali penuh tiap 00.00 UTC.
 """
-import datetime, json, os, re, time, urllib.error, urllib.parse
+import datetime, json, os, re, time, unicodedata, urllib.error, urllib.parse
 from pathlib import Path
 
 import norma
-from jaringan import JAWABAN_ASING, SEBAB_ASING, buka
+from jaringan import GAGAL_JARINGAN, JAWABAN_ASING, SEBAB_ASING, buka
 from dasar import perintah
 from berkas import sementara
 
@@ -41,10 +41,6 @@ class Ditolak(OSError):
     """Layanan menjawab, tetapi menolak; isinya kalimat untuk pemakai."""
 
 
-class TanpaKunci(Ditolak):
-    """OpenAlex menolak karena kunci belum ada atau tidak sah (HTTP 401)."""
-
-
 class SaringanSalah(Ditolak):
     """OpenAlex menolak saringannya (nama atau isinya salah)."""
 
@@ -59,12 +55,9 @@ def _kunci():
 
 
 def _buka(url, waktu=WAKTU_CARI):
-    """Buka alamat http/https (kunci OpenAlex ikut hanya ke openalex.org); penolakan OpenAlex yang dikenal dijadikan kalimat."""
-    parsed = urllib.parse.urlsplit(url)
-    if parsed.scheme.lower() not in ("http", "https"):
-        raise ValueError(f"alamat tidak diizinkan (harus http/https): {url}")
+    """Buka alamat (kunci OpenAlex ikut hanya ke openalex.org); penolakan OpenAlex yang dikenal dijadikan kalimat."""
     kepala = {"User-Agent": "bahts/1"}
-    openalex = (parsed.hostname or "").endswith(".openalex.org")
+    openalex = (urllib.parse.urlsplit(url).hostname or "").endswith(".openalex.org")
     if openalex and _kunci():
         kepala["Authorization"] = "Bearer " + _kunci()
     for sisa_coba in (1, 0):
@@ -82,7 +75,7 @@ def _buka(url, waktu=WAKTU_CARI):
                 raise Ditolak("pencarian ini kehabisan waktu di OpenAlex (tidak memotong jatah); hasil sumber lain tetap berlaku. "
                               "Kalau ini pencarian makna: tulis masalahnya sebagai kalimat yang lebih khusus")
             if e.code == 401:
-                raise TanpaKunci(f"kunci di {KUNCI.name} (atau {KUNCI_ENV}) ditolak atau belum ada; {CARA_KUNCI}")
+                raise Ditolak(f"kunci di {KUNCI.name} (atau {KUNCI_ENV}) ditolak atau belum ada; {CARA_KUNCI}")
             if e.code == 429:
                 raise Ditolak("jatah hari ini habis (kembali penuh 00.00 UTC). " + ("" if _kunci() else
                               f"Kunci menaikkannya 10 kali; {CARA_KUNCI}"))
@@ -130,15 +123,19 @@ def _tanggal_batas(nilai, akhir=False):
         raise ValueError(f"tanggal «{nilai}» tidak sah: tulis tahun (mis. 2020) atau YYYY-MM-DD (mis. 2020-01-01)") from None
 
 
-def _kunci_judul(judul):
-    """Kunci judul ternormalisasi untuk deduplikasi lintas sumber (OpenAlex vs DOAJ tanpa DOI)."""
-    t = norma.norm(ARAH.sub("", judul or "")).lower()
-    k = re.sub(r"[^a-z0-9\u0621-\u064a]+", " ", t).strip()
-    return k if len(k) >= 8 else ""
+def _kunci_judul(w):
+    """Judul (huruf Arab lewat norma, huruf Latin tanpa diakritik) + tahun: penelitian yang sama dari sumber lain yang
+    tidak memuat DOI-nya. Tahun ikut supaya dua penelitian berjudul sama («مقدمة», «Editorial») tidak saling membuang."""
+    judul = ARAH.sub("", w.get("judul") or "")
+    latin = "".join(c for c in unicodedata.normalize("NFKD", judul).lower() if not unicodedata.combining(c))
+    latin = re.sub(r"[^a-z0-9]+", " ", latin).strip()
+    k = " ".join(x for x in (norma.norm(judul), latin) if x)
+    return f"{k}|{str(w.get('tahun') or '')[:4]}" if len(k) >= 8 else ""
 
 
 def _format_biblio(vol, isu, hal_awal, hal_akhir):
-    """Susun jilid, nomor, dan halaman jurnal («مج 12، ع 3، ص 45-70») bila tercatat."""
+    """Susun jilid, nomor, dan halaman jurnal («مج 12، ع 3، ص 45-70») bila tercatat (halaman «0» = tidak tercatat)."""
+    hal_awal, hal_akhir = (h if str(h or "").strip("0 ") else "" for h in (hal_awal, hal_akhir))
     bagian = []
     if vol:
         bagian.append(f"مج {vol}")
@@ -367,6 +364,8 @@ def cari(kata, maks=10, saringan="", *, dari="", sampai="", bahasa="", urut=""):
     dicetak rincian lengkap dan ringkasan utuhnya."""
     if not kata.strip() or not 1 <= maks <= 100:
         raise ValueError('bentuknya: dirasat "<kata kunci|W…|DOI>" [maks 1-100] [saringan] [--dari t] [--sampai t] [--bahasa b] [--urut terbaru|terlama|dikutip]')
+    if bahasa and not re.fullmatch(r"[A-Za-z]{2}", bahasa):
+        raise ValueError(f"--bahasa «{bahasa}» bukan kode bahasa dua huruf (mis. ar, en, id); satu bahasa sekali cari")
     if urut and urut not in URUT:
         raise ValueError(f"--urut «{urut}» tidak dikenal: pilih salah satu dari {', '.join(URUT)}")
     dari = _tanggal_batas(dari, akhir=False)
@@ -376,13 +375,13 @@ def cari(kata, maks=10, saringan="", *, dari="", sampai="", bahasa="", urut=""):
     if id_karya(kata) and not (saringan or dari or sampai or bahasa or urut):
         return info(kata)
     n, sudah, gagal, rusak, saringan_ditolak, sisa, perlu_kunci = 0, set(), 0, 0, 0, None, False
+    judul_tercetak = {}  # kunci judul -> (DOI, nomor W…) penelitian yang sudah tercetak ("" = tidak ada)
     menurut_kata, dari_makna = 0, 0  # jumlah cocok menurut kata; hasil tercetak dari pencarian makna
     opsi = (dari, sampai, bahasa, urut)
-    pakai_opsi = any(opsi)
     for nama, ambil, makna in SUMBER:
         print(f"\n{nama}: ", end="", flush=True)  # tanda masih bekerja selama menunggu jawaban
         try:
-            jumlah, hasil, jatah = ambil(kata, maks, saringan, *opsi) if pakai_opsi else ambil(kata, maks, saringan)
+            jumlah, hasil, jatah = ambil(kata, maks, saringan, *opsi)
         except OSError as e:  # satu sumber mati tidak menghentikan sumber lain
             print(f"GAGAL — {e}")
             gagal += 1
@@ -399,10 +398,15 @@ def cari(kata, maks=10, saringan="", *, dari="", sampai="", bahasa="", urut=""):
         sisa = jatah or sisa
         baru = []
         for w in hasil:
-            kunci = ({w.get("doi"), w.get("nomor")} - {"", None}) | ({_kunci_judul(w.get("judul"))} - {""})
-            if kunci & sudah:
+            pengenal, judul = {w.get("doi"), w.get("nomor")} - {"", None}, _kunci_judul(w)
+            # judul sama hanya membuang kalau pengenalnya tidak bertentangan: dua DOI atau dua nomor W… berbeda =
+            # dua penelitian (mis. dua risalah kampus berjudul umum)
+            lain = judul_tercetak.get(judul)
+            if pengenal & sudah or (lain and not any(a and b for a, b in zip(lain, (w.get("doi"), w.get("nomor"))))):
                 continue
-            sudah |= kunci
+            sudah |= pengenal
+            if judul:
+                judul_tercetak.setdefault(judul, (w.get("doi") or "", w.get("nomor") or ""))
             baru.append(w)
         print(f"{jumlah} penelitian cocok" + (f", {len(hasil) - len(baru)} sudah tercetak di atas" if len(baru) < len(hasil) else ""))
         if makna and baru and not menurut_kata:
@@ -455,77 +459,49 @@ def _simpan_pdf(isi, tujuan, nomor, asal=""):
     print(f"Jadi: {tujuan} ({len(isi) / 1e6:.1f} MB){ket}")
 
 
-def _unduh_oa(calon, tujuan, nomor):
-    """Coba unduh PDF akses terbuka (best_oa_location/primary_location); True bila berhasil dan sah."""
-    for url in calon:
-        if urllib.parse.urlsplit(url).scheme.lower() not in ("http", "https"):
-            continue
-        try:
-            with _buka(url, WAKTU_PDF) as r:
-                isi = r.read()
-            _simpan_pdf(isi, tujuan, nomor, asal="tautan akses terbuka")
-            return True
-        except Exception:
-            continue
-    return False
-
-
 def pdf(nomor, folder):
-    """Unduh salinan PDF sebuah penelitian (nomor OpenAlex W… atau DOI) ke folder bahts, supaya isinya bisa dibaca.
-    Bila salinan OpenAlex tidak ada (404) atau tanpa kunci (401), dicoba tautan PDF akses terbuka karya itu."""
+    """Unduh salinan PDF sebuah penelitian (nomor OpenAlex W… atau DOI) ke folder bahts, supaya isinya bisa dibaca:
+    salinan OpenAlex kalau tersimpan (butuh kunci), lalu tautan PDF akses terbuka karya itu."""
     sel = id_karya(nomor)
     if not sel:
         raise ValueError(f"«{nomor}» bukan nomor OpenAlex (W123…) atau DOI (10.…/…)")
-    selector, label = sel
-    meta = None
-    if selector.startswith("doi:"):
+    def metadata():  # satu karya; tidak butuh kunci
         try:
-            meta = _baca_karya(selector)
+            w = _baca_karya(sel[0])
         except Ditolak as e:
-            raise SystemExit(f"PDF {label} tidak terunduh: {e}")
+            raise SystemExit(f"PDF {sel[1]} tidak terunduh: {e}")
         except JAWABAN_RUSAK as e:
-            raise SystemExit(f"PDF {label} tidak terunduh: jawaban OpenAlex {JAWABAN_ASING}: {e}")
-        if meta is None or not meta.get("nomor"):
-            raise SystemExit(f"Penelitian dengan DOI «{label}» tidak ditemukan di OpenAlex.")
-        nomor = meta["nomor"]
-    else:
-        nomor = selector
+            raise SystemExit(f"PDF {sel[1]} tidak terunduh: jawaban OpenAlex {JAWABAN_ASING} ({SEBAB_ASING}): {e}")
+        if w is None or not w["nomor"]:
+            raise SystemExit(f"Penelitian «{sel[1]}» tidak ditemukan di OpenAlex.")
+        return w
+
+    # DOI baru diketahui nomor W…-nya dari metadata; nomor W… langsung: PDF yang sudah ada tidak butuh internet
+    meta = metadata() if sel[0].startswith("doi:") else None
+    nomor = meta["nomor"] if meta else sel[0]
     tujuan = Path(folder) / f"{nomor}.pdf"
     if tujuan.exists():
         if _pdf_terbaca(tujuan):
             print(f"Sudah ada: {tujuan}")
             return
         print(f"PDF lama tidak bisa dibaca; mengunduh ulang: {tujuan}")
-    sebab_oa = None
-    if meta is not None and meta.get("tersimpan") and not _kunci():
-        sebab_oa = f"PDF {nomor} tersimpan di OpenAlex, tetapi butuh kunci; {CARA_KUNCI}"
-    if meta is None or (_kunci() and meta.get("tersimpan")):
+    meta = meta or metadata()
+    tempat, sebab = [], []  # sebab = tiap tempat yang gagal dan alasannya, untuk pemakai
+    if not meta["tersimpan"]:
+        sebab.append("OpenAlex tidak menyimpan salinannya")
+    elif _kunci():
+        tempat.append(("salinan OpenAlex", PDF.format(nomor)))
+    else:
+        sebab.append(f"salinan OpenAlex butuh kunci; {CARA_KUNCI}")
+    tempat += [("tautan akses terbuka", u) for u in meta["pdf_calon"]]
+    for nama, url in tempat:
         try:
-            with _buka(PDF.format(nomor), WAKTU_PDF) as r:
-                isi = r.read()
-        except TanpaKunci as e:
-            sebab_oa = f"PDF {nomor} tidak terunduh dari OpenAlex: {e}"
-        except Ditolak as e:
-            raise SystemExit(f"PDF {nomor} tidak terunduh: {e}")
-        except urllib.error.HTTPError as e:
-            if e.code != 404:
-                raise
-            sebab_oa = f"OpenAlex tidak menyimpan PDF {nomor}"
-        else:
-            try:
-                _simpan_pdf(isi, tujuan, nomor)
-            except ValueError as e:
-                raise SystemExit(str(e))
+            with _buka(url, WAKTU_PDF) as r:
+                _simpan_pdf(r.read(), tujuan, nomor, asal=f"{nama} {url}")
             return
-    # Cadangan akses terbuka: tanpa kunci OpenAlex pun metadata /works/{nomor} bisa dibaca untuk mencari pdf_url
-    if meta is None:
-        try:
-            meta = _baca_karya(nomor)
-        except Exception:
-            meta = None
-    calon = (meta or {}).get("pdf_calon") or []
-    if calon and _unduh_oa(calon, tujuan, nomor):
-        return
-    taut = (meta or {}).get("tautan")
-    saran = f"; buka tautan aslinya: {taut}" if taut else ": pakai tautan «PDF:» yang dicetak `dirasat`, kalau ada"
-    raise SystemExit((sebab_oa or f"OpenAlex tidak menyimpan PDF {nomor}") + saran)
+        except (*GAGAL_JARINGAN, OSError, ValueError) as e:  # ditolak, HTTP 4xx/5xx, koneksi, bukan PDF, tidak utuh: tempat berikutnya
+            sebab.append(f"{nama} {url}: {e}")
+    if not meta["pdf_calon"]:
+        sebab.append("OpenAlex tidak mencatat tautan PDF akses terbuka")
+    raise SystemExit(f"PDF {nomor} tidak terunduh:\n  - " + "\n  - ".join(sebab)
+                     + f"\nBuka tautan aslinya di peramban, lalu simpan PDF-nya di folder bahts: {meta['tautan'] or '-'}")

@@ -161,6 +161,11 @@ try:
     naskah.write_text(asli.replace(_BARIS[B_KUTIP - 1], 'قال الباحث: "KEYPHRASE_UNIQUE_IN_MIDDLE"[^دراسة طويلة، ص1. <<luar|panjang.pdf|1>>].'), encoding="utf-8")
     kode, keluar = jalan("bukti", "contoh", str(B_KUTIP))
     assert kode == 0 and "KEYPHRASE_UNIQUE_IN_MIDDLE" in keluar.splitlines()[-1], keluar
+    assert "sekitar kutipan" in keluar.splitlines()[-1], keluar
+    # kutipan yang tidak ada di teks PDF: yang dicetak awal halaman, dan itu dikatakan
+    naskah.write_text(asli.replace(_BARIS[B_KUTIP - 1], 'قال الباحث: "ZZZ_TIDAK_ADA_DI_PDF"[^دراسة طويلة، ص1. <<luar|panjang.pdf|1>>].'), encoding="utf-8")
+    kode, keluar = jalan("bukti", "contoh", str(B_KUTIP))
+    assert kode == 0 and "kutipan TIDAK ditemukan di teks PDF, awal halaman" in keluar.splitlines()[-1], keluar
     print("lolos: bukti PDF <<luar|berkas.pdf|hal>> mencetak cuplikan teks utuh (tanpa memotong kutipan) dan menandai halaman scan")
 finally:
     print("arsip uji:", AKAR)

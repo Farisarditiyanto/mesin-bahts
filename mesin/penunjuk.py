@@ -54,7 +54,9 @@ def _penunjuk_pdf(folder, berkas, hal, kutipan):
         return f"PDF «{berkas}» hal {hal} tidak terbaca ({type(e).__name__}: {e})"
     if status == "scan":
         return f"{berkas} [PDF hal {hal}; halaman gambar/scan tanpa teks terbaca: buka PDF-nya langsung]"
-    return f"{berkas} [PDF hal {hal}; teks PDF, cocokkan sendiri lafaz dan angkanya]: {teks}"
+    letak = ("sekitar kutipan" if status == "terbaca" else
+             "kutipan TIDAK ditemukan di teks PDF, awal halaman" if kutipan else "awal halaman")
+    return f"{berkas} [PDF hal {hal}; teks PDF, {letak}; cocokkan sendiri lafaz dan angkanya]: {teks}"
 
 
 def _penunjuk_waqfeya(w, n, hal, kutipan):

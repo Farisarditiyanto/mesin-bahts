@@ -258,7 +258,7 @@ def periksa(pdf, bahan):
                      + "): semua halaman semestinya A4; rakit lagi, masih begitu → sebut di laporan akhir.")
     if kosong:
         pesan.append(f"halaman kosong (tanpa isi) di halaman PDF ke-{', '.join(map(str, kosong))}: "
-                     "periksa tanda #H atau pindah halaman berlebih.")
+                     "buka halamannya (`pratinjau`); #H berlebih di naskah → buang, tidak ada → sebut di laporan akhir.")
     if meluap:
         pesan.append(f"teks atau rumus meluap ke tepi kertas di halaman PDF ke-{', '.join(map(str, meluap))}: "
                      "periksa tata letak (tabel #J, rumus #E, atau tautan panjang) dengan `pratinjau`.")
