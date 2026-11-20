@@ -6,6 +6,8 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+## 13.1.0 — 2026-11-20
+
 - Huruf Latin di tengah teks Arab (paragraf, tabel, catatan kaki, المصادر) dicetak Times New Roman dengan ukuran sebanding (matan 18 → 12, catatan kaki 14 → 10), tidak lagi dengan glyph Latin huruf Arab yang lebar dan seukuran teks Arabnya.
 
 ## 13.0.0 — 2026-11-20
