@@ -6,6 +6,9 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+## 13.0.0 — 2026-11-20
+
+- `ekspor` sekarang menulis `.txt` (UTF-8), bukan `.docx`: satu paragraf satu baris, judul kitab `#` dan judul bab `##` ke bawah, penanda juz/halaman di baris sendiri, حاشية di bawah garis pemisah. Isinya sekarang urut kitab juga di kitab yang berkas unduhannya tidak urut (mis. صحيح البخاري).
 - Rumus LaTeX di naskah: `#E <latex>` (baris sendiri; `\tag{1}` = nomor persamaan di tepi kiri) dan `{E:<latex>}` (sebaris, juga di tabel `#J` dan catatan kaki) dirakit jadi persamaan Word asli tanpa TeX. Rumus tanpa huruf Latin (nama Arab, angka) dicetak kanan-ke-kiri; sintaks yang rusak = `GAGAL` di `cek`.
 - Perintah baru `pratinjau <folder> [halaman]`: halaman PDF yang terakhir dirakit (juga potongan `--fasl`) jadi gambar PNG grid 2×2 atau satu halaman penuh di TEMP, untuk memeriksa tata letak.
 - `cek` memberi perhatian `sub-bagian tunggal` bila satu `#B` sendirian di bawah `#F` atau satu `#M` sendirian di bawah `#B` (تمهيد/مدخل tidak dihitung; `@bentuk: kitab` tidak dinilai).

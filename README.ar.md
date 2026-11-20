@@ -138,7 +138,7 @@ python mesin/bahts.py periksa
 | `mesin/diagram.py` | تحويل مخططات Mermaid إلى PNG (`diagram`) |
 | `mesin/rumus.py` | تحويل معادلات LaTeX (`#E` و`{E:…}`) إلى معادلات Word OMML أصلية دون TeX |
 | `mesin/pratinjau.py` | تحويل صفحات PDF إلى صور شبكية 2×2 بصيغة PNG في TEMP (`pratinjau`) |
-| `mesin/ekspor.py` | كتاب منزَّل كاملًا (من الشاملة أو الوقفية) في ملف ‎.docx من اليمين إلى اليسار للقراءة في Word (`ekspor`) |
+| `mesin/ekspor.py` | كتاب منزَّل كاملًا (من الشاملة أو الوقفية) في ملف ‎.txt واحد للقراءة (`ekspor`) |
 | `mesin/tahap.py`، `rakit.py`، `produk.py` | حالة البحث؛ جانب Python من `rakit` (القفل، مجلدات `.rakit-*`، تثبيت النتائج)؛ أسماء ملفات النتائج وأسطر التقرير |
 | `mesin/rakit.ps1`، `word.ps1`، `teks_pdf.py` | مُخرِج Word/PDF، هوية عملية Word التابعة له، ونص PDF |
 | `mesin/format.json` | أنماط شكل الصفحة (`@format`) |
