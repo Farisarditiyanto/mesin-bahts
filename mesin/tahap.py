@@ -108,34 +108,39 @@ class Keadaan:
     diterima: int = 0  # perhatian yang diterima lewat «terima» di riset.txt
 
 
+def hasil_rakit(folder, cek):
+    """[Produk] hasil `rakit` di folder menurut naskah sekarang (cek = olah.periksa): seluruh naskah dulu, lalu tiap
+    potongan --fasl urut nomornya."""
+    sidik, cetak, berkas = cek.sidik_naskah, cek.sidik_cetak, cek.ctx.meta["berkas"]
+    pdf, laporan = folder / produk.pdf(berkas), folder / produk.laporan()
+    ada = [Produk(laporan, hasil(pdf, laporan, sidik, cetak), pdf)]
+    for fasl, laporan in produk.potongan(folder):  # nama yang bukan --fasl sah dilewati: jangan menyarankan perintah palsu
+        label = produk.label_potongan(_baris(laporan), fasl)
+        pdf = None if label is None else folder / produk.pdf(produk.nama_potongan(berkas, label, fasl))
+        ada.append(Produk(laporan, hasil(pdf, laporan, sidik, cetak), pdf, f"--fasl {fasl}"))
+    return ada
+
+
+def terakhir(hasil):
+    """Produk yang terakhir dirakit (laporan paling baru), seluruh naskah atau potongan --fasl; belum ada laporan sama
+    sekali = seluruh naskah. Dirakit utuh lalu bertahap: potongannya yang menentukan langkah berikutnya."""
+    ada = [p for p in hasil if p.laporan.is_file()]
+    return max(ada, key=lambda p: p.laporan.stat().st_mtime) if ada else (hasil[0] if hasil else None)
+
+
 def baca(folder, jalur):
     """Baca naskah, produk, dan kunci rakit tanpa menulis apa pun (folder bahts, bahan `cek`, metadata kunci)."""
     folder = Path(folder)
     pemegang = lihat_kunci(PEKERJAAN)
     rakit = Rakit.JALAN if pemegang is not None else Rakit.YATIM if ps_yatim() else Rakit.BEBAS
     cek = olah.periksa(folder)
-    ctx, sidik, cetak = cek.ctx, cek.sidik_naskah, cek.sidik_cetak
-    berkas = ctx.meta["berkas"]
-    pdf, laporan = folder / produk.pdf(berkas), folder / produk.laporan()
-    hasil_rakit = [Produk(laporan, hasil(pdf, laporan, sidik, cetak), pdf)]
-    for fasl, laporan in produk.potongan(folder):  # nama yang bukan --fasl sah dilewati: jangan menyarankan perintah palsu
-        label = produk.label_potongan(_baris(laporan), fasl)
-        pdf = None if label is None else folder / produk.pdf(produk.nama_potongan(berkas, label, fasl))
-        hasil_rakit.append(Produk(laporan, hasil(pdf, laporan, sidik, cetak), pdf, f"--fasl {fasl}"))
+    ctx = cek.ctx
     return Keadaan(jalur=jalur, naskah=naskah(ctx.galat, ctx.perhatian), galat=len(ctx.galat),
                    perhatian=len(ctx.perhatian), diterima=len(ctx.diterima), tertolak=bool(ctx.tertolak),
-                   hasil=hasil_rakit, rakit=rakit, siapa=pemegang.kalimat() if pemegang else "",
+                   hasil=hasil_rakit(folder, cek), rakit=rakit, siapa=pemegang.kalimat() if pemegang else "",
                    rakit_sini=pemegang is not None and milik(pemegang, folder),
                    kerja=[(x.path.name, x.keadaan()) for x in FolderKerja.semua(folder)],
                    arsip=cadangan_tertinggal(folder))
-
-
-def penentu(k):
-    """Hasil yang menentukan langkah berikutnya: yang terakhir dirakit (laporan paling baru), seluruh naskah atau
-    potongan --fasl; belum ada laporan sama sekali = seluruh naskah. Dirakit utuh lalu bertahap: potongannya yang
-    menentukan."""
-    ada = [p for p in k.hasil if p.laporan.is_file()]
-    return max(ada, key=lambda p: p.laporan.stat().st_mtime) if ada else (k.hasil[0] if k.hasil else None)
 
 
 def berikutnya(k):
@@ -147,7 +152,7 @@ def berikutnya(k):
     if k.naskah is Naskah.GAGAL:
         return ("betulkan tiap baris «✗» di `cek`" + (", mulai dari petunjuk `--jejak`" if k.tertolak else ""),
                 perintah(f'cek "{k.jalur}" --jejak') if k.tertolak else cek)
-    p = penentu(k)
+    p = terakhir(k.hasil)
     keadaan = p.keadaan if p else Hasil.BELUM
     antre = (" (rakit lain sedang jalan: `rakit` antre sendiri)" if k.rakit is Rakit.JALAN else
              " (rakit.ps1 sisa rakit yang dimatikan masih jalan; `rakit` menunggunya berhenti sendiri)"

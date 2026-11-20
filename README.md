@@ -88,6 +88,7 @@ Computer requirements and how to fix them are in one place: `python mesin/bahts.
 | Build | `rakit <folder> [--fasl n]` (Windows + Word) | `.docx` + `.pdf` (cover, footnotes, المصادر والمراجع, الفهارس), `HALAMAN_ISI`, `HALAMAN` |
 | Status | `tahap <folder>` | `NASKAH=`, `HASIL=`, `RAKIT=`, `BERIKUTNYA` |
 | Diagrams | `diagram <folder>` (Node.js + Chrome/Edge) | each `<nama>.mmd` (Mermaid) becomes `<nama>.png`, printed through `#G` |
+| Visual preview | `pratinjau <folder> [halaman]` | built PDF pages as 2×2 PNG grids in TEMP (or a single page) for layout review |
 
 Every command = `python mesin/bahts.py <perintah>`. Full list with arguments: `python mesin/bahts.py`. List of manuscript markers (`#F`, `{Q:}`, `{H:}`, `@format`, …): `python mesin/bahts.py tanda`. A sample manuscript that passes `cek`: [`contoh/naskah.txt`](contoh/naskah.txt) (`ambil 11223`, then `cek contoh`).
 
@@ -129,6 +130,8 @@ Every command = `python mesin/bahts.py <perintah>`. Full list with arguments: `p
 | `mesin/waqfeya.py` | Waqfeya books: catalogue, `ambil w…`, OCR, scan cut-outs (PDF/PNG) |
 | `mesin/layanan.py` | `tafsir`, `takhrij`, `rawi`, and `akar` without internet (Shamela service tables in `kitab/_meta`) |
 | `mesin/diagram.py` | Mermaid diagrams to PNG (`diagram`) |
+| `mesin/rumus.py` | LaTeX math parser (`#E` / `{E:…}`) to native Word OMML equations, without TeX |
+| `mesin/pratinjau.py` | PDF pages to 2×2 PNG visual grids in TEMP (`pratinjau`) |
 | `mesin/ekspor.py` | a whole downloaded book (Shamela or Waqfeya) as a right-to-left .docx to read in Word (`ekspor`) |
 | `mesin/tahap.py`, `rakit.py`, `produk.py` | state of a bahts; the Python side of `rakit` (lock, `.rakit-*` folders, installing the results); result file names and report lines |
 | `mesin/rakit.ps1`, `word.ps1`, `teks_pdf.py` | Word/PDF builder, the identity of its own Word process, and PDF text |

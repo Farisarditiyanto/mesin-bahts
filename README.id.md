@@ -86,6 +86,7 @@ Kebutuhan komputer dan cara membereskannya ada di satu tempat: `python mesin/bah
 | Rakit | `rakit <folder> [--fasl n]` (Windows + Word) | `.docx` + `.pdf` (sampul, catatan kaki, المصادر والمراجع, الفهارس), `HALAMAN_ISI`, `HALAMAN` |
 | Status | `tahap <folder>` | `NASKAH=`, `HASIL=`, `RAKIT=`, `BERIKUTNYA` |
 | Diagram | `diagram <folder>` (Node.js + Chrome/Edge) | tiap `<nama>.mmd` (Mermaid) jadi `<nama>.png`, dicetak lewat `#G` |
+| Pratinjau visual | `pratinjau <folder> [halaman]` | halaman PDF hasil `rakit` jadi gambar PNG grid 2×2 di TEMP (atau 1 halaman penuh) untuk cek tata letak |
 
 Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumennya: `python mesin/bahts.py`. Daftar tanda naskah (`#F`, `{Q:}`, `{H:}`, `@format`, …): `python mesin/bahts.py tanda`. Naskah contoh yang lolos `cek`: [`contoh/naskah.txt`](contoh/naskah.txt) (`ambil 11223`, lalu `cek contoh`).
 
@@ -127,6 +128,8 @@ Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumenn
 | `mesin/waqfeya.py` | kitab Waqfeya: katalog, `ambil w…`, OCR, potongan scan (PDF/PNG) |
 | `mesin/layanan.py` | `tafsir`, `takhrij`, `rawi`, dan `akar` tanpa internet (tabel layanan Shamela di `kitab/_meta`) |
 | `mesin/diagram.py` | diagram Mermaid jadi PNG (`diagram`) |
+| `mesin/rumus.py` | pengurai rumus LaTeX (`#E` / `{E:…}`) menjadi persamaan OMML Word asli, tanpa TeX |
+| `mesin/pratinjau.py` | halaman PDF jadi gambar grid PNG 2×2 di TEMP (`pratinjau`) |
 | `mesin/ekspor.py` | satu kitab yang sudah diunduh (Shamela atau Waqfeya) jadi .docx kanan-ke-kiri untuk dibaca di Word (`ekspor`) |
 | `mesin/tahap.py`, `rakit.py`, `produk.py` | keadaan bahts; alur `rakit` sisi Python (kunci, folder `.rakit-*`, pemasangan hasil); nama berkas hasil dan baris laporannya |
 | `mesin/rakit.ps1`, `word.ps1`, `teks_pdf.py` | perakit Word/PDF, identitas proses Word miliknya, dan teks PDF |

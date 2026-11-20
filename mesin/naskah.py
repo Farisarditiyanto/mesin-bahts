@@ -5,6 +5,7 @@ import contextlib, dataclasses, re
 from pathlib import Path
 
 import norma
+import rumus
 import shamela
 from cek_ayat import ayat, ayat_ketik, penanda_ayat, rujukan_ayat, tandai_ayat
 from cek_hadits import hadits_janggal, hadits_lain, periksa_derajat, periksa_takhrij
@@ -13,7 +14,7 @@ from cek_naql import isyarat, panjang, salinan
 from cek_rujukan import cocok_halaman, judul_kitab, judul_shamela, kitab_lain, kitab_waqfeya, rujukan_halaman
 from cek_sumber import standar_sumber, urutan_sumber
 from cek_tautsiq import data_cetak, gelar, pemisah_sumber
-from dasar import ANGKA_LATIN, AYAT_DI_KUTIPAN, DIPOTONG, HURUF_LATIN, LUAR, SURAH, TandaRusak, WAQFEYA, WAQFEYA_BUKTI, akhir_catatan, ekor
+from dasar import ANGKA_LATIN, AYAT_DI_KUTIPAN, DIPOTONG, HURUF_LATIN, LUAR, SURAH, TandaRusak, WAQFEYA, WAQFEYA_BUKTI, akhir_catatan, akhir_rumus, ekor
 from kitab_lokal import Bukti, diunduh
 from petik import (
     diantar_qaul, kurung_akhir, kutipan_akhir, kutipan_pendek_diantar, kutipan_semua, luar_petik, seragam)
@@ -139,6 +140,15 @@ class CatatanKaki:
     def di_luar(self):
         """Sumbernya di luar Shamela: <<luar>>, atau kitab Waqfeya (OCR-nya penunjuk, bukan bukti)."""
         return self.luar or bool(self.wq)
+
+
+def tanpa_rumus(teks):
+    """Teks tanpa isi {E:…}: angka rumus («{E:3/4}») bukan juz/halaman rujukan."""
+    out, i = [], 0
+    while (j := teks.find("{E:", i)) >= 0:
+        out.append(teks[i:j])
+        i = akhir_rumus(teks, j + 3) + 1
+    return "".join(out) + teks[i:]
 
 
 class Pengurai:
@@ -280,6 +290,17 @@ class Pengurai:
             raise TandaRusak("{X}: tulis di awal paragraf khulasah (paragraf itu yang distabilo)")
         self.ctx.khulasah += 1
         self.runs.append({"bm": f"x_{self.ctx.khulasah}"})
+
+    def _rumus(self, tok):
+        """{E:latex}: persamaan matematika sebaris (OMML Word asli). Kurung kurawal bersarang di dalam rumus
+        (\\frac{a}{b}) berpasangan lewat akhir_rumus; sintaks LaTeX divalidasi sekarang, lalu dirender ulang
+        dengan huruf/ukuran @format sesudah naskah dibaca."""
+        j = akhir_rumus(self.teks, self.i)
+        latex = self.teks[self.i:j].strip()
+        self.i = j + 1
+        omml, _ = rumus.konversi(latex, display=False)
+        self.runs.append({"omml": omml, "latex": latex})
+        self.polos += " "
 
     def _kurung_nyasar(self, tok):  # "]" tanpa [^
         self.runs.append({"t": "]", "b": self.tebal}); self.polos += "]"
@@ -642,7 +663,7 @@ class Pengurai:
             else:
                 galat.append(f"kutipan «{mk[:30]}» tanpa bukti: tambahkan <<sid|juz|hal>> di catatan kakinya; "
                              f"sumber yang tidak ada di Shamela (jurnal, PDF penelitian): tulis <<{LUAR}>>{ekor(isi)}")
-        elif not c.shamela and not c.di_luar and not (c.rujukan_surah or c.sabaqa) and rujukan_halaman(isi):
+        elif not c.shamela and not c.di_luar and not (c.rujukan_surah or c.sabaqa) and rujukan_halaman(tanpa_rumus(isi)):
             # rujukan kitab (juz/halaman, رقم الحديث) tanpa kutipan bertanda petik: penisbatan yang belum dibuktikan
             perhatian.append(f"rujukan kitab tanpa bukti (halaman atau nomor hadits tercetak, tetapi tidak ada <<…>>): "
                              f"tambahkan <<sid|juz|hal>>; sumber yang tidak ada di Shamela: tulis <<{LUAR}>>{ekor(isi)}")
@@ -693,5 +714,5 @@ class Pengurai:
             self.seg_run_bukti = len(self.runs)
 
     PENANGAN = {"**": _tebal, "((": _matn, "))": _matn, "{Q:": _ayat, "{H2:": _hadits_lagi, "{H:": _hadits,
-                "{P:": _rujuk_halaman, "{A:": _jangkar, **dict.fromkeys((f"{{{f.tanda}:" for f in FIHRIS_NAMA), _nama), "{X}": _khulasah, "[^": _catatan_kaki, "]": _kurung_nyasar}
-    TOKEN = re.compile("(" + "|".join(re.escape(k) + (r"[^}]*\}" if k.endswith(":") else "") for k in PENANGAN) + ")")
+                "{P:": _rujuk_halaman, "{A:": _jangkar, "{E:": _rumus, **dict.fromkeys((f"{{{f.tanda}:" for f in FIHRIS_NAMA), _nama), "{X}": _khulasah, "[^": _catatan_kaki, "]": _kurung_nyasar}
+    TOKEN = re.compile("(" + "|".join(re.escape(k) + (r"[^}]*\}" if k.endswith(":") and k != "{E:" else "") for k in PENANGAN) + ")")

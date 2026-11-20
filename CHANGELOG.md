@@ -6,6 +6,11 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Rumus LaTeX di naskah: `#E <latex>` (baris sendiri; `\tag{1}` = nomor persamaan di tepi kiri) dan `{E:<latex>}` (sebaris, juga di tabel `#J` dan catatan kaki) dirakit jadi persamaan Word asli tanpa TeX. Rumus tanpa huruf Latin (nama Arab, angka) dicetak kanan-ke-kiri; sintaks yang rusak = `GAGAL` di `cek`.
+- Perintah baru `pratinjau <folder> [halaman]`: halaman PDF yang terakhir dirakit (juga potongan `--fasl`) jadi gambar PNG grid 2×2 atau satu halaman penuh di TEMP, untuk memeriksa tata letak.
+- `cek` memberi perhatian `sub-bagian tunggal` bila satu `#B` sendirian di bawah `#F` atau satu `#M` sendirian di bawah `#B` (تمهيد/مدخل tidak dihitung; `@bentuk: kitab` tidak dinilai).
+- `AGENTS.md`: tabel pilih alat mencakup alat tanpa internet, `waqfeya`, `dirasat`, rumus, diagram, grafik, dan `pratinjau`; pemeriksa langkah 5 menilai isi dan tata letak sebagai dua fokus.
+
 ## 12.0.0 — 2026-11-20
 
 - `@malahiq: akhir` tanpa `#R` (`@tanpa: pustaka` atau `@bentuk: kitab`) kini GAGAL di `cek`: الملاحق dicetak sesudah المصادر, jadi tanpa المصادر barisnya tidak berefek. Hapus `@malahiq: akhir` atau tulis `#R`.

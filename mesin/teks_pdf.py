@@ -115,11 +115,12 @@ def _gid(f):
 
 
 def _baris(hal):
-    """[(y, x, ukuran, teks)] tiap potongan teks halaman (y dari bawah halaman, satuan pt)."""
+    """[(y, x, ukuran, teks, math)] tiap potongan teks halaman (y dari bawah halaman, satuan pt)."""
     out = []
     def lihat(t, cm, tm, fd, fs):
         if t.strip():
-            out.append((tm[5] * cm[3] + cm[5], tm[4] * cm[0] + cm[4], abs(fs * tm[3] * cm[3]), t))
+            math = bool(fd and "CambriaMath" in str(fd.get("/BaseFont", "")))
+            out.append((tm[5] * cm[3] + cm[5], tm[4] * cm[0] + cm[4], abs(fs * tm[3] * cm[3]), t, math))
     hal.extract_text(visitor_text=lihat)
     return out
 
@@ -182,16 +183,19 @@ def periksa(pdf, bahan):
         tinggi = float(hal.mediabox.height)
         potong = sorted(_baris(hal), key=lambda p: -p[1])
         # kaki halaman = nomor halaman saja (@templat yang nomornya di kepala halaman: tidak diperiksa)
-        kaki = re.sub(r"[\s\u200c\u200e\u200f]", "", "".join(t for y, x, u, t in potong if y < TEPI))
+        kaki = re.sub(r"[\s\u200c\u200e\u200f]", "", "".join(t for y, x, u, t, _ in potong if y < TEPI))
         if kaki:
             nomor[i] = kaki.isascii() and kaki.isdigit()   # ٠-٩ terbaca benar sesudah betulkan (_gid)
         matan = [p for p in potong if TEPI < p[0] < tinggi - TEPI and p[2] >= batas]
         if matan:
             y0 = min(p[0] for p in matan)
-            akhir = "".join(t for y, x, u, t in matan if abs(y - y0) < 2).strip()
+            akhir = "".join(t for y, x, u, t, _ in matan if abs(y - y0) < 2).strip()
             while re.search(r"\([^()]{1,4}\)$", akhir):   # nomor catatan kaki «(١)» sesudah «:»
                 akhir = re.sub(r"\s*\([^()]{1,4}\)$", "", akhir)
-            if akhir.endswith(":") and not any(TEPI < g < y0 for g in _gambar(hal)):   # disusul gambar #G = tidak terpisah
+            batas_rumus = float(fmt.get("latin", 12))  # #E baris sendiri = latin + 1; catatan kaki = latin - 2
+            disusul_isi = any(TEPI < g < y0 for g in _gambar(hal)) or any(
+                TEPI < y < y0 - 2 and u >= batas_rumus and math for y, x, u, t, math in potong)
+            if akhir.endswith(":") and not disusul_isi:   # disusul gambar #G atau rumus #E = tidak terpisah
                 ujung.append(i)
     if hindi:
         salah = [i for i, latin in nomor.items() if latin]
