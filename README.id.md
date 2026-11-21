@@ -145,7 +145,7 @@ Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumenn
 
 ### Mengubah mesin
 
-- Aturannya: `AGENTS.md` «Untuk yang mengubah mesin».
+- Aturannya: `dok/mengubah-mesin.md`.
 - Tes: `python .github/uji_semua.py` (daftar dibaca dari `.github/workflows/tes.yml`; kitab tes: baris `ambil` di berkas itu).
 - Perubahan yang dirasakan pemakai masuk [`CHANGELOG.md`](CHANGELOG.md) bagian «Belum dirilis».
 - Berkas ini dan [`README.ar.md`](README.ar.md) = terjemahan [`README.md`](README.md): ubah ketiganya bersamaan (`.github/uji_readme.py` mencocokkannya).

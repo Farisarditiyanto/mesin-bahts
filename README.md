@@ -147,7 +147,7 @@ Every command = `python mesin/bahts.py <perintah>`. Full list with arguments: `p
 
 ### Changing the machine
 
-- The rules: `AGENTS.md` «Untuk yang mengubah mesin».
+- The rules: `dok/mengubah-mesin.md`.
 - Tests: `python .github/uji_semua.py` (the list is read from `.github/workflows/tes.yml`; test books: the `ambil` line in that file).
 - Changes the user notices go into [`CHANGELOG.md`](CHANGELOG.md), section «Belum dirilis».
 - [`README.id.md`](README.id.md) and [`README.ar.md`](README.ar.md) are translations of this file: change all three together (`.github/uji_readme.py` compares them).

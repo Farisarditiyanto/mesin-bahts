@@ -592,7 +592,8 @@ class Pengurai:
                 continue
             if any(terbaca(b, k) for b in c.terbukti):
                 continue
-            self.perhatian.append(f"kutipan tanpa catatan kaki sendiri (hanya kutipan tepat sebelum [^ yang dicek): «{k[:40]}»"
+            self.perhatian.append(f"kutipan tanpa catatan kaki sendiri (hanya kutipan tepat sebelum [^ yang dicek): «{k[:40]}»: "
+                                  f"beri catatan kaki berbukti, atau buang tanda petiknya"
                                   f"{ekor(c.isi, rapat=True)}")
 
     def _takhrij_dulu(self, mk, kunci):

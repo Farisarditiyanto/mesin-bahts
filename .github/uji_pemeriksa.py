@@ -6,7 +6,7 @@ yang lolos `cek` dengan jebakan tertanam, permintaan pemakai, prompt pemeriksa, 
   python .github/uji_pemeriksa.py                  penjaga (CI): jebakan tetap tidak terlihat `cek` (NASKAH=LOLOS),
                                                    tiap tempat di kunci.json menunjuk tepat satu baris, dan ciri
                                                    alasannya tidak tertulis di baris itu sendiri
-  python .github/uji_pemeriksa.py siapkan          ruang kerja baru di TEMP (tanpa .github/ dan tanpa petunjuk uji) + prompt
+  python .github/uji_pemeriksa.py siapkan          ruang kerja baru di TEMP (tanpa .github/ dan berkas yang menyebut uji ini) + prompt
   python .github/uji_pemeriksa.py nilai <temuan.json>…
   python .github/uji_pemeriksa.py jalan [--kali N] [--agen "<perintah>"]
                                                    N kali: ruang kerja baru, agen membaca prompt dari stdin, lalu nilai
@@ -84,12 +84,10 @@ def siapkan():
     akar = induk / "mesin-bahts"
     berkas = subprocess.run(["git", "ls-files", "-z"], cwd=REPO, capture_output=True, check=True).stdout.decode().split("\0")
     for b in filter(None, berkas):
-        if not b.startswith(".github/"):
+        # berkas yang menyebut uji ini (dok/mengubah-mesin.md) memberi tahu pemeriksa bahwa naskahnya ujian
+        if not b.startswith(".github/") and b"uji_pemeriksa" not in (REPO / b).read_bytes():
             (akar / b).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(REPO / b, akar / b)
-    # butir AGENTS.md tentang uji ini memberi tahu pemeriksa bahwa naskahnya ujian
-    agents = (akar / "AGENTS.md").read_text(encoding="utf-8").splitlines(keepends=True)
-    (akar / "AGENTS.md").write_text("".join(b for b in agents if "uji_pemeriksa" not in b), encoding="utf-8")
     # kitab yang dirujuk: bukti <<id|…>> di naskah dan «halaman <id>» di riset.txt (kitab yang dibaca saat riset)
     rujukan = (BAHTS / "naskah.txt").read_text(encoding="utf-8") + (BAHTS / "riset.txt").read_text(encoding="utf-8")
     for sid in sorted({a or b for a, b in re.findall(r"<<(\d+)\||halaman (\d+) ", rujukan)}) + ["_meta"]:

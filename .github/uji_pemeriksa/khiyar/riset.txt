@@ -8,4 +8,4 @@ cari دون سائر العقود | shamela_search_phrase tanpa scope: 28 halama
 cari طلب خير الأمرين | shamela_search_phrase tanpa scope: 193 halaman, antara lain النهاية لابن الأثير 2/91
 takhrij8 syurut shamela_search_phrase «المسلمون على شروطهم» category_ids [8]: 52 halaman, antara lain تنقيح التحقيق للذهبي 2/80 dan مختصر تلخيص الذهبي لابن الملقن 1/554
 takhrij8 istiqala shamela_search_phrase «خشية أن يستقيله» category_ids [8]: 20 halaman, antara lain الإيماء إلى أطراف أحاديث الموطأ 2/418-419
-terima 6bbb8e salah tangkap: kalimat ini ringkasan dari الشرح الممتع 8/270 tentang istilah الخيار, bukan salinan halaman bukti 8/261
+terima 367514 salah tangkap: kalimat ini ringkasan dari الشرح الممتع 8/270 tentang istilah الخيار, bukan salinan halaman bukti 8/261

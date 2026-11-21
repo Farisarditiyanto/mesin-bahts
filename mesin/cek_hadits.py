@@ -80,7 +80,7 @@ def takhrij_janggal(b, nomor, lafaz):
         return f"nomor takhrij ({nomor}) bukan kepala hadits di sekitar {juz}/{p1}: cocokkan nomornya ke kitab"
     hasyiah = norma.padat(" ".join(r.get("footnotes") or "" for r in rr))  # kalimat muhaqqiq (derajat) bukan bagian hadits
     if any(not any(norma.padat(x) in norma.padat(s) for s, _ in ruas) and norma.padat(x) not in hasyiah for x in lafaz):
-        return f"lafaz bukti tidak ada di hadits ({nomor}) sekitar {juz}/{p1}: mungkin nomornya milik hadits lain"
+        return f"lafaz bukti tidak ada di hadits ({nomor}) sekitar {juz}/{p1}: mungkin nomornya milik hadits lain: buka kitabnya, betulkan nomor atau buktinya"
 
 
 def periksa_takhrij(isi, terbukti, kutipan):

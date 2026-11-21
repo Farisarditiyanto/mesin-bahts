@@ -75,7 +75,7 @@ def salinan(penggal, mk, isi, terbukti):
     return (f"{len(terpanjang)} kata berurutan di luar tanda petik sama persis dengan halaman buktinya «{asli}…»: "
             f"beri tanda petik, atau tutup kitabnya lalu tulis ulang dengan kalimat sendiri; mengganti beberapa kata saja "
             f"bukan إعادة الصياغة (أبو سليمان، كتابة البحث العلمي، ص113). الاختصار yang memang memakai kata pengarang "
-            f"(ص114) boleh dibiarkan dan disebut di laporan akhir; batas {SALIN_MIN} kata aturan repo{ekor(isi)}")
+            f"(ص114) boleh diterima («terima <kode> <alasan>», alasannya menyebut jenis الاختصار-nya) dan disebut di laporan akhir; batas {SALIN_MIN} kata aturan repo{ekor(isi)}")
 
 
 def isyarat(penggal, mk, isi, terbukti, kutipan_di_catatan):

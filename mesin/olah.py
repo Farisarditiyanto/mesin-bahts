@@ -1088,7 +1088,8 @@ def _cek_tata_letak(ctx):
                              f"judul berikutnya yang setingkat atau lebih tinggi; tulis isinya, atau hapus judulnya")
         elif a["k"] in JUDUL_FIHRIS and (b["k"] == "H" or i + 1 in halaman_baru):
             perhatian.append(f"baris {a['n']}: judul «{a['judul'][:40]}» tercetak sendirian di halamannya, karena judul "
-                             f"sesudahnya mulai halaman baru: tulis paragraf pengantar di bawahnya")
+                             f"sesudahnya mulai halaman baru: tulis paragraf pengantar di bawahnya (kaitannya dengan bagian "
+                             f"sebelumnya dan isinya, mis. وفيه مطلبان…, tanpa klaim baru tanpa bukti)")
         elif (a["k"] in ("F", "B") and b["k"] in ("B", "M") and "FBM".index(b["k"]) > "FBM".index(a["k"])
               and not re.search(r"تمهيد|مدخل", b["judul"])):  # judul «تمهيد» di bawahnya = pengantar itu sendiri
             # فصل/مبحث yang langsung disusul مبحث/مطلب-nya: judul bertumpuk tanpa تمهيد (dikeluhkan dosen)

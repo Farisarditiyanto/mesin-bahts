@@ -428,7 +428,7 @@ def periksa_muqaddimah(blok, jenis):
     if not kurang:
         return []
     return [f"baris {m[0]}: المقدمة belum menyebut: {'، '.join(kurang)} (isi المقدمة رسالة menurut أبو سليمان، كتابة البحث "
-            f"العلمي، ص196-197); tulis yang diminta خطة dosen, yang tidak diminta biarkan dan sebut di laporan akhir"]
+            f"العلمي، ص196-197); tulis yang diminta خطة dosen, yang tidak diminta diterima («terima <kode> <alasan>») dan disebut di laporan akhir"]
 
 
 def periksa_khatimah(blok):

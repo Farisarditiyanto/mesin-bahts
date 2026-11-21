@@ -153,7 +153,7 @@ python mesin/bahts.py periksa
 
 ### تعديل الآلة
 
-- القواعد: `AGENTS.md` «Untuk yang mengubah mesin».
+- القواعد: `dok/mengubah-mesin.md`.
 - الاختبار: `python .github/uji_semua.py` (القائمة تُقرأ من `.github/workflows/tes.yml`؛ كتب الاختبار في سطر `ambil` منه).
 - التغيير الذي يحسه المستخدم يُكتب في [`CHANGELOG.md`](CHANGELOG.md) قسم «Belum dirilis».
 - هذا الملف و[`README.id.md`](README.id.md) ترجمتان لـ[`README.md`](README.md): تُعدَّل الثلاثة معًا (`.github/uji_readme.py` يطابق بينها).
