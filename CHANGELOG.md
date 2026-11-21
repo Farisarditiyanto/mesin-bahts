@@ -6,7 +6,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
-- `AGENTS.md`: judul yang tidak diberikan dosen/خطة/pemakai ditanyakan, bukan dikarang; nomor mahasiswa, pembimbing, dan jenis tugas yang disalin dari bahts lain dipastikan ke pemakai; permintaan «jangan mirip bahts lain» dibedakan lewat خطة, isi, dan sumber, bukan `@format`/huruf/gaya.
+- `AGENTS.md`: judul yang tidak diberikan dosen/خطة/pemakai ditanyakan, bukan dikarang; data sampul yang disalin `baru` dari bahts terakhir orang yang sama ditunjukkan ke pemakai untuk dipastikan, dan `@jenis` ditanyakan ulang; permintaan «jangan mirip bahts lain» dibedakan lewat خطة, isi, dan sumber, bukan `@format`/huruf/gaya.
 - Perbaikan: `pustaka` tidak lagi mencetak gelar «د»/«أ د» tanpa titik, kurung kosong, atau tahun wafat muhaqqiq di draf `#R`, dan menilai edisi dari muhaqqiq, nama penerbit, nomor cetakan, serta tahun hijriah dan masehi (angka Latin atau ٠١٢٣, nama pengarang boleh lebih pendek), lalu menyebut bidang yang berbeda. `kartu` dan `cek` juga mengenali gelar «د» tanpa titik di depan nama.
 - Perbaikan: `dirasat-cek` menerima rujukan ringkas kedua dan seterusnya (nama keluarga + judul pokok), menilai tiap catatan kaki sendiri kalau satu baris merujuk dua penelitian, dan tidak menyalahkan tahun naskah yang tercetak di kepala PDF penelitian itu walau katalog menulis tahun lain sampai dua tahun.
 - Perintah baru `peta <folder>` (tanpa internet, tidak membebani `cek`) untuk melihat peta struktur/kata/catatan kaki, daftar sumber urut wafat dan inventaris kitab mazhab, busur argumen (`المقدمة` ↔ `الترجيح/الخلاف` ↔ `الخاتمة`), daftar `{H:…}`, dan seluruh baris `terima` di `riset.txt` dalam satu layar (didampingi panduan audit langkah 5 `dok/audit.md`).
