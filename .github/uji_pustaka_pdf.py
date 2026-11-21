@@ -6,6 +6,7 @@ from pathlib import Path
 from bantu import salin_mesin
 
 AKAR = Path(__file__).resolve().parent.parent
+KETERANGAN_PDF = "Table identifier ZX19782 and edition 2019"
 sys.stdout.reconfigure(encoding="utf8")
 sys.stderr.reconfigure(encoding="utf8")
 
@@ -22,6 +23,7 @@ def _buat_pdf_arab(jalur, teks_halaman):
             p.insert_text((50, 100), teks, fontname="ar", fontsize=14)
         else:
             p.insert_textbox(pymupdf.Rect(50, 50, 540, 750), teks, fontsize=12)
+        p.insert_text((530, 450), KETERANGAN_PDF, rotate=90)
     doc.save(jalur)
     doc.close()
 
@@ -134,6 +136,8 @@ def utama():
             assert kode == 0, out_b
             assert "sekitar kutipan" in out_b and "حقوق الإنسان في الدستور" in out_b, out_b
             assert "لُغَةٌ عَرَبِيَّةٌ" in out_b, out_b
+            assert "(٢٠٢١)" in out_b, out_b
+            assert KETERANGAN_PDF in out_b, out_b
 
         print("lolos uji pustaka dan pemulihan teks PDF Arab")
 
