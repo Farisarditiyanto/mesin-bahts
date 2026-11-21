@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Uji audit silang `#R`, generator `pustaka`, audit bahasa/keseimbangan (`cek_gaya`), dan pemulihan teks PDF Arab
-visual-reversed (`sumber_pdf` + `bukti`) lewat pintu pemakai (`bahts.py`)."""
+"""Uji audit silang `#R`, generator `pustaka`, dan pemulihan teks PDF Arab visual-reversed
+(`sumber_pdf` + `bukti`) lewat pintu pemakai (`bahts.py`)."""
 import os, subprocess, sys, tempfile
 from pathlib import Path
 from bantu import salin_mesin
@@ -27,7 +27,7 @@ def _buat_pdf_arab(jalur, teks_halaman):
 
 
 def utama():
-    with tempfile.TemporaryDirectory(prefix="bahts-pustaka-gaya-") as t:
+    with tempfile.TemporaryDirectory(prefix="bahts-pustaka-pdf-") as t:
         akar = Path(t)
         salin_mesin(akar, ("_meta", "11223", "1082", "1727"), huruf=False)
         f = akar / "uji"
@@ -84,75 +84,7 @@ def utama():
         assert "المصادر والمراجع belum memuat «رسالة في القضاء والقدر» (kitab 11223)" in out_ms, out_ms
         assert 'pustaka "bahts/ahmad/naskah uji"' in out_ms, out_ms
 
-        # 2. Audit gaya bahasa akademik (`cek_gaya`)
-        gaya_salah = dasar.replace(
-            "#K الخاتمة",
-            "بصفتي نموذج ذكاء اصطناعي لا أستطيع الجزم بذلك.\n"
-            "أقول إن هذا القول معتبر في الفقه.\n"
-            "أنا أرجح هذا القول في المسألة.\n"
-            "قلت: هذه المسألة واضحة في الشرع.\n"
-            "هذا الحكمُ, وهو ظاهر في المعاملات.\n"
-            "وهذا أصلٌ; وينبني عليه فروع.\n"
-            "هل هذا جائزٌ? وهل يصح العقد ?\n"
-            "و الفقه الإسلامي واسع في أبوابه.\n"
-            "في عالم اليوم يلعب دوراً محورياً في الدراسة.\n"
-            "#K الخاتمة",
-        )
-        (f / "naskah.txt").write_text(gaya_salah, encoding="utf8")
-        kode, out_g = jalan("cek", "uji")
-        assert kode == 0, out_g
-        assert "ungkapan sistem AI" in out_g, out_g
-        assert "kata ganti orang pertama «أقول»" in out_g, out_g
-        assert "kata ganti orang pertama «أنا أرجح»" in out_g, out_g
-        assert "kata ganti orang pertama «قلت:»" in out_g, out_g
-        assert "tanda baca Latin «,»" in out_g, out_g
-        assert "tanda baca Latin «;»" in out_g, out_g
-        assert "tanda baca Latin «?»" in out_g, out_g
-        assert "huruf sambung «و» terpisah spasi" in out_g, out_g
-        assert "ungkapan klise/terjemahan harfiah" in out_g, out_g
-
-        # 2b. Bukan false positive: isim tafdhil fiqih («أرجح القولين/ما قيل/هذه الأقوال/أن»), fi'il «قلت غلتها»,
-        #     serta «و» yang menempel pada kutipan/ayat («و«…»», «و"…"», «و{Q:…}»)
-        gaya_aman = dasar.replace(
-            "#K الخاتمة",
-            "وإذا تعارضت مفسدة ومصلحة أرجح منها قُدّمت المصلحة، كما إذا قلت غلتها أو تعطلت منافعها.\n"
-            "وهو أرجح القولين عند أهل العلم، وهذا أرجح ما قيل في هذه المسألة، وهو أرجح الرأيين وأرجح المذهبين، "
-            "فهو أرجح هذه الأقوال، وكان أرجح أن يحمل اللفظ على العموم.\n"
-            'قال بعضهم: «الربوبية» و«الألوهية» هما أصل التوحيد، كما يجمع بين "العقل" و"النقل" في الفهم، '
-            'ونحو قوله تعالى: {Q:1:2} و{Q:1:2} في السورة[^سورة الفاتحة، آية: 2.][^سورة الفاتحة، آية: 2.].\n'
-            "#K الخاتمة",
-        )
-        (f / "naskah.txt").write_text(gaya_aman, encoding="utf8")
-        kode, out_a = jalan("cek", "uji")
-        assert kode == 0 and "): 0\n" in out_a, out_a
-
-        # 2c. Keseimbangan panjang bagian: #F 600 kata vs #F 50 kata -> perhatian;
-        #     #F التمهيد dan #F المبحث التمهيدي tidak dinilai; #B setingkat di bawah satu #F tetap dinilai
-        panjang_600 = "وهذا بيان مفصل لمسألة التوحيد " * 120
-        pendek_50 = "وهذا بيان موجز جدا " * 12
-        timpang = dasar.replace(
-            "#K الخاتمة",
-            f"{panjang_600}\n\n#F التمهيد: مدخل عام\n{pendek_50}\n\n#F المبحث التمهيدي: التعريف بالمسألة\n{pendek_50}\n\n"
-            f"#F المبحث الثاني: تفاصيل الحكم\n{pendek_50}\n\n#K الخاتمة",
-        )
-        (f / "riset.txt").write_text("tafsir 1:2\ncari التوحيد | uji\ncari مدخل | uji\ncari التعريف | uji\ncari الحكم | uji\n", encoding="utf8")
-        (f / "naskah.txt").write_text(timpang, encoding="utf8")
-        kode, out_t = jalan("cek", "uji")
-        assert kode == 0, out_t
-        baris_timpang = [b for b in out_t.splitlines() if "sangat timpang dibanding" in b]
-        assert len(baris_timpang) == 1 and "المبحث الثاني" in baris_timpang[0], out_t
-        assert "التمهيد" not in baris_timpang[0] and "التمهيدي" not in baris_timpang[0], out_t
-
-        # #B setingkat di bawah satu #F tetap dinilai (sedangkan #B di bawah #K المقدمة tidak dinilai)
-        timpang_b = dasar.replace(
-            "#K الخاتمة",
-            f"\n#B المبحث الأول: تفاصيل موسعة\n{panjang_600}\n\n#B المبحث الثاني: تفاصيل الحكم\n{pendek_50}\n\n#K الخاتمة",
-        )
-        (f / "naskah.txt").write_text(timpang_b, encoding="utf8")
-        kode, out_tb = jalan("cek", "uji")
-        assert kode == 0 and "sangat timpang dibanding" in out_tb and "المبحث الثاني" in out_tb, out_tb
-
-        # 3. Regresi kartu `pustaka`: tahun wafat tanpa «ههـ» dobel, harakat «المتوفَّى», dan label ber-«：» + gelar
+        # 2. Regresi kartu `pustaka`: tahun wafat tanpa «ههـ» dobel, harakat «المتوفَّى», dan label ber-«：» + gelar
         sys.path.insert(0, str(akar / "mesin"))
         import pustaka
         import sumber_pdf
@@ -167,7 +99,7 @@ def utama():
         assert "المتوف" not in kartu_uji["pengarang"] and "الشيخ" not in kartu_uji["pengarang"], kartu_uji
         assert kartu_uji["muhaqqiq"] == "عبد الله التركي", kartu_uji
 
-        # 4. Pemulihan teks PDF Arab visual-reversed & ligatur Word (`sumber_pdf.pulihkan_arab` + end-to-end `bukti`)
+        # 3. Pemulihan teks PDF Arab visual-reversed & ligatur Word (`sumber_pdf.pulihkan_arab` + end-to-end `bukti`)
         assert sumber_pdf.pulihkan_arab("(٢٠٠٥) روتسدلا يف ناسنإلا قوقح") == "حقوق الإنسان في الدستور (٢٠٠٥)"
         assert sumber_pdf.pulihkan_arab("(125-140 .ص) ثحبلا عجرم") == "مرجع البحث (ص. 125-140)"
         assert sumber_pdf.pulihkan_arab("ةيبرعلا ةغللا (IFRS 17)") == "(IFRS 17) اللغة العربية"
@@ -199,7 +131,7 @@ def utama():
             assert kode == 0, out_b
             assert "sekitar kutipan" in out_b and "حقوق الإنسان في الدستور" in out_b, out_b
 
-        print("lolos uji pustaka, cek_gaya, keseimbangan bagian, dan pemulihan teks PDF Arab")
+        print("lolos uji pustaka dan pemulihan teks PDF Arab")
 
 
 if __name__ == "__main__":

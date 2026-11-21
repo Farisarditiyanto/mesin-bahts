@@ -9,7 +9,6 @@ import norma
 import produk
 import rumus
 from berkas import sementara
-from cek_gaya import keseimbangan_bagian, periksa_gaya
 from cek_seluruh import (KEPALA_PERHATIAN, RISET, periksa_dirasat, periksa_khatimah, periksa_muqaddimah, periksa_pustaka,
                          periksa_riset, porsi_kutipan)
 from cek_rujukan import rujukan_halaman
@@ -783,8 +782,6 @@ def _cek_sesudah_naskah(ctx):
     if not bentuk_kitab(ctx.meta):  # muqarrar tanpa المقدمة/الخاتمة bahts
         perhatian += periksa_muqaddimah(blok, ctx.meta.get("jenis", ""))
         perhatian += periksa_khatimah(blok)
-        perhatian += periksa_gaya(blok, catatan)
-        perhatian += keseimbangan_bagian(blok)
     for r in ctx.rujuk_silang:
         if r["k"] not in ctx.jangkar:
             dulu = any(h["k"] == "h_" + r["k"] for h in hadits_idx)
