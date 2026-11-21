@@ -11,10 +11,15 @@ from norma import HARAKAT
 # judul kitab didahului spasi biasa («مجموع فتاوى ورسائل فضيلة الشيخ …»). «الأستاذ المساعد/المشارك» = jabatan di belakang
 # nama, bukan gelar (kartu 2, 22793).
 # «د.ت»/«د.ط»/«د.ن»/«د.م» (دون تاريخ/طبعة/ناشر/مكان) di data cetak bukan gelar «د.»
+# «د» tanpa titik di depan nama («المؤلف: د خالد بن عبد الرحمن الجريسي», kartu 1497; «أ د خالد», kartu 1262; «و د صالح»,
+# kartu 14474) juga gelar; huruf tunggal sesudahnya («د ت») tetap singkatan data cetak, dan «ود» rapat adalah kata
+# («كان كل واحد منهم ود أن أخاه كفاه»).
 # Gelar yang tidak pernah jadi awal judul kitab (singkatan dan sebutan akademik/profesi) dinilai di awal nama mana pun;
 # gelar yang juga awal judul («الشيخ محمد بن عبد الوهاب عقيدته السلفية»، «سماحة الإسلام»، «معالي الهمم») hanya di tempat
 # nama, lihat GELAR_NAMA.
+_D_POLOS = r"(?=\s+[ء-ي]{2})"
 _PASTI = (r"(?:أ\s*\.\s*د\s*[./]|د\s*[./](?!\s*[تطنم](?![ء-ي]))|"
+          rf"أ\s*\.?\s*د{_D_POLOS}|(?<!و)د{_D_POLOS}|(?<=و)\s+د{_D_POLOS}|"
           r"(?:الدكتور[ةه]?|الأستاذ[ةه]?(?!\s+(?:ال)?(?:مساعد|مشارك))|المحامي)(?![ء-ي]))")
 _RAGU = r"(?:(?:الشيخ|العلام[ةه]|فضيل[ةه]|سماح[ةه]|معالي)(?![ء-ي]))"
 _GELAR_KATA = rf"(?:{_PASTI}|{_RAGU})\s*/?\s*"
