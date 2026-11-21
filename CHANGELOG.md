@@ -6,6 +6,9 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Perintah baru `peta <folder>` (tanpa internet, tidak membebani `cek`) untuk melihat peta struktur/kata/catatan kaki, daftar sumber urut wafat dan inventaris kitab mazhab, busur argumen (`المقدمة` ↔ `الترجيح/الخلاف` ↔ `الخاتمة`), daftar `{H:…}`, dan seluruh baris `terima` di `riset.txt` dalam satu layar (didampingi panduan audit langkah 5 `dok/audit.md`).
+- Perintah baru `edisi <judul|id|w…> [pengarang]` (tanpa internet) untuk menyatukan pencarian kandidat cetakan lintas katalog Shamela dan Waqfeya, memisahkan riwayat lain dan karya terkait, menjembatani judul alternatif (`=` / `المسمى` / kurung), serta meningkatkan ketepatan pencocokan kitab Shamela pada `waqfeya`.
+- `rawi <id> <juz> <hal>` memperlihatkan posisi rawi yang nomornya kosong di indeks sanad Shamela.
 - Perintah baru `pustaka <folder>` menyusun draf `#R` (المصادر والمراجع) siap tempel langsung dari `kartu` kitab lokal yang berbukti di catatan kaki (sesuai `@pustaka_gaya`, tanpa gelar, urut abjad). Perintah ini menunjukkan padanan data cetak dan judul yang masih perlu dicocokkan edisinya.
 - Perintah baru `dirasat-cek <folder>` menunjukkan status DOI/nomor OpenAlex, pencabutan karya, dan petunjuk metadata per baris. DOI yang tidak tercatat di OpenAlex/Crossref diperiksa registrasinya di doi.org; `dirasat` juga menandai karya yang dicabut.
 - Pembaca PDF penelitian (`<<luar|berkas.pdf|hal>>` di `cek` dan `bukti`) kini memulihkan baris PDF Arab yang tersimpan dalam urutan huruf visual terbalik serta ligatur Word yang pasti terbalik («هللا» → «الله»).

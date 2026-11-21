@@ -77,12 +77,12 @@ Kebutuhan komputer dan cara membereskannya ada di satu tempat: `python mesin/bah
 | Langkah | Perintah | Hasil |
 |---|---|---|
 | Buat folder | `baru <folder> "<judul>"` | `naskah.txt` (kerangka), `riset.txt` |
-| Cari bahan | connector `shamela_*`, `temukan`, `katalog`, `hadits`, `dirasat`; tanpa internet: `tafsir <surat:ayat>`, `takhrij <id> <juz> <hal>`, `rawi <id> <juz> <hal>`, `akar <id> "<akar>"`; kitab yang tidak ada di Shamela: `waqfeya "<judul>"` | nomor kitab + juz/halaman (penunjuk) |
+| Cari bahan | connector `shamela_*`, `temukan`, `katalog`, `edisi`, `hadits`, `dirasat`; tanpa internet: `tafsir <surat:ayat>`, `takhrij <id> <juz> <hal>`, `rawi <id> <juz> <hal>`, `akar <id> "<akar>"`; kitab yang tidak ada di Shamela: `waqfeya "<judul>"` | nomor kitab + juz/halaman (penunjuk) |
 | Unduh kitab | `ambil <id>` atau `ambil <folder>`; Waqfeya: `ambil w<nomor>` | `kitab/<id>/`, `kitab/waqfeya/w<nomor>/` |
 | Data cetak | `kartu <id>`, `pustaka <folder>` | rujukan pertama dan draf المصادر dari kitab berbukti |
 | Baca teks | `cari`, `teks`, `bab`, `halaman` | teks lokal untuk disalin persis |
 | Periksa | `cek <folder>` (`--jejak` untuk kutipan yang tidak ketemu); cek DOI online: `dirasat-cek <folder>` | `GAGAL: n`, perhatian, `NASKAH_SHA256` |
-| Pemeriksa | `bukti <folder> [awal-akhir]` | teks halaman di sekitar tiap catatan kaki (Shamela, Waqfeya, dan PDF penelitian), dan paragraf isi tanpa catatan kaki |
+| Pemeriksa | opsional `peta <folder>`, `bukti <folder> [awal-akhir]` | peta struktur/sumber/busur argumen offline ([`dok/audit.md`](dok/audit.md)), teks halaman di sekitar tiap catatan kaki (Shamela, Waqfeya, dan PDF penelitian), dan paragraf isi tanpa catatan kaki |
 | Rakit | `rakit <folder> [--fasl n]` (Windows + Word) | `.docx` + `.pdf` (sampul, catatan kaki, المصادر والمراجع, الفهارس), `HALAMAN_ISI`, `HALAMAN` |
 | Status | `tahap <folder>` | `NASKAH=`, `HASIL=`, `RAKIT=`, `BERIKUTNYA` |
 | Diagram | `diagram <folder>` (Node.js + Chrome/Edge) | tiap `<nama>.mmd` (Mermaid) jadi `<nama>.png`, dicetak lewat `#G` |

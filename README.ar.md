@@ -85,12 +85,12 @@ python mesin/bahts.py periksa
 | الخطوة | الأمر | الناتج |
 |---|---|---|
 | إنشاء المجلد | `baru <folder> "<judul>"` | `naskah.txt` (هيكل نص البحث)، `riset.txt` |
-| جمع المادة | الموصِّل `shamela_*`، `temukan`، `katalog`، `hadits`، `dirasat`؛ ودون إنترنت: `tafsir <surat:ayat>`، `takhrij <id> <juz> <hal>`، `rawi <id> <juz> <hal>`، `akar <id> "<الجذر>"`؛ والكتاب الذي ليس في الشاملة: `waqfeya "<العنوان>"` | رقم الكتاب والجزء/الصفحة (دلالة فقط) |
+| جمع المادة | الموصِّل `shamela_*`، `temukan`، `katalog`، `edisi`، `hadits`، `dirasat`؛ ودون إنترنت: `tafsir <surat:ayat>`، `takhrij <id> <juz> <hal>`، `rawi <id> <juz> <hal>`، `akar <id> "<الجذر>"`؛ والكتاب الذي ليس في الشاملة: `waqfeya "<العنوان>"` | رقم الكتاب والجزء/الصفحة (دلالة فقط) |
 | تنزيل الكتاب | `ambil <id>` أو `ambil <folder>`؛ الوقفية: `ambil w<nomor>` | `kitab/<id>/`، `kitab/waqfeya/w<nomor>/` |
 | بيانات النشر | `kartu <id>`، `pustaka <folder>` | التوثيق الأول ومسودة قائمة المصادر من الكتب الموثقة |
 | قراءة النص | `cari`، `teks`، `bab`، `halaman` | نص محلي يُنسخ كما هو |
 | الفحص | `cek <folder>` (و`--jejak` للنقل غير الموجود)؛ وفحص DOI بالشبكة: `dirasat-cek <folder>` | `GAGAL: n`، تنبيهات، `NASKAH_SHA256` |
-| المراجِع | `bukti <folder> [awal-akhir]` | نص الصفحة حول كل حاشية (الشاملة، والوقفية، وملفات PDF البحثية)، والفقرات التي بلا حاشية |
+| المراجِع | `peta <folder>` اختياريًّا، `bukti <folder> [awal-akhir]` | خريطة الهيكل والمصادر وقوس الحجاج دون إنترنت ([`dok/audit.md`](dok/audit.md))، ونص الصفحة حول كل حاشية (الشاملة، والوقفية، وملفات PDF البحثية)، والفقرات التي بلا حاشية |
 | الإخراج | `rakit <folder> [--fasl n]` (Windows + Word) | `.docx` + `.pdf` (الغلاف، الحواشي، المصادر والمراجع، الفهارس)، `HALAMAN_ISI`، `HALAMAN` |
 | الحالة | `tahap <folder>` | `NASKAH=`، `HASIL=`، `RAKIT=`، `BERIKUTNYA` |
 | المخططات | `diagram <folder>` (Node.js + Chrome/Edge) | كل `<nama>.mmd` (Mermaid) يصير `<nama>.png`، ويطبع بـ`#G` |

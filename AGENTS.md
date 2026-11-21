@@ -105,6 +105,8 @@ Sesi baru, atau tidak tahu bahts ini sampai mana → `tahap <folder>` dulu, jang
    | Judul bab | `shamela`: `shamela_search_titles` | |
    | Kitab ada di katalog, dan nomornya | `shamela`: `shamela_suggest_download` | `downloaded` di sini = ada di peladen shamela.link, bukan sudah di-`ambil` |
    | Kitab cetak yang tidak ada di Shamela | `mesin`: `waqfeya "<judul>"` → `ambil w…` | Lafaz dan halaman cetak disalin dari scan (`halaman w…`), bukan OCR |
+   | Kandidat cetakan lintas Shamela & Waqfeya | `mesin`: `edisi "<judul\|id\|w…>" [pengarang]` | Tanpa internet; cocokkan riwayat dan data cetaknya sebelum menyalin juz/halaman |
+   | Peta struktur, sijil sumber/mazhab, busur argumen, & `terima` | `mesin`: `peta <folder>` | Ringkasan opsional tanpa internet; panduan audit argumen: `dok/audit.md` |
    | Jurnal, tesis, riset modern (الإدارة والمالية، الدراسات السابقة) | `mesin`: `dirasat` (`--dari`, `--sampai`, `--bahasa`, `--urut terbaru\|terlama\|dikutip`; `dirasat <W…\|DOI>` = rincian utuh) → `dirasat-pdf <W…\|DOI> <folder>` → `<<luar\|berkas.pdf\|hal>>` | `dirasat-pdf` coba OpenAlex (butuh kunci) lalu jatuh ke tautan PDF akses terbuka bila ada; cek DOI, status pencabutan, dan petunjuk metadata per baris: `dirasat-cek <folder>` |
    | Susun draf `#R` dari kitab berbukti | `mesin`: `pustaka <folder>` | Tanpa internet; membaca `kartu` lokal sesuai `@pustaka_gaya`, tanpa gelar, urut abjad |
    | Syarah hadits | `hadithunlocked`: `search_hadith_commentary` | |

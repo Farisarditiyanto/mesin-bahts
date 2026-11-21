@@ -388,6 +388,18 @@ def perintah_bukti(a):
     ketemu(penunjuk.bukti(folder_bahts(a[0]), dari, sampai))
 
 
+def perintah_peta(a):
+    """`peta <folder>`: peta struktur, sijil sumber/mazhab, busur argumen, hadits, dan `terima` (lihat peta.cetak)."""
+    import peta
+    peta.cetak(folder_bahts(a[0]))
+
+
+def perintah_edisi(a):
+    """`edisi <kueri|sid|w…> [pengarang]`: rekonsiliasi edisi lintas katalog Shamela & Waqfeya (lihat edisi.cetak)."""
+    import edisi
+    ketemu(edisi.cetak(a[0], a[1] if len(a) > 1 else "", wq=waqfeya))
+
+
 def perintah_pustaka(a):
     """`pustaka <folder>`: susun draf `#R` dari kitab berbukti di catatan kaki (lihat pustaka.cetak)."""
     import pustaka
@@ -479,6 +491,10 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
              "juga tiap paragraf isi tanpa catatan kaki (untuk dinilai: penisbatan tanpa sumber); tiap\n"
              "baris keluaran diawali «baris n». Penunjuk saja, putusan tetap `cek`",
              perintah_bukti, 1, 2),
+    Perintah("peta <folder>", "ringkasan opsional untuk penulis dan pemeriksa, tanpa internet:\n"
+             "struktur dan jumlah kata/catatan kaki, daftar sumber dan inventaris kitab mazhab,\n"
+             "busur argumen (المقدمة ↔ الترجيح/الخلاف ↔ الخاتمة), daftar {H:…}, dan semua `terima` riset.txt",
+             perintah_peta, 1, 1),
     Perintah("pustaka <folder>", "susun draf baris #R (المصادر والمراجع) siap tempel langsung dari `kartu` kitab berbukti\n"
              "di catatan kaki (sesuai @pustaka_gaya, tanpa gelar, urut abjad, tanpa internet), sekaligus\n"
              "menunjukkan data cetak yang cocok dan judul yang edisinya perlu dicek",
@@ -505,6 +521,10 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
              lambda a: shamela.daftar(), 0, 0),
     Perintah('katalog "<pola>"', "cari judul/pengarang di katalog Shamela (regex)",
              lambda a: ketemu(shamela.katalog(pola(a[0]))), 1, 1),
+    Perintah('edisi "<judul|id|w…>" [pengarang]', "cari kandidat cetakan di Shamela dan Waqfeya tanpa internet: pisahkan\n"
+             "riwayat lain serta karya terkait (شرح/مختصر/حاشية), dan jembatani\n"
+             "judul alternatif («تفسير القرطبي» ↔ «الجامع لأحكام القرآن») dengan filter pengarang anti-kerabat/nisbah",
+             perintah_edisi, 1, 2),
     Perintah('temukan "<frasa>" [maks] [--mazhab m,…] [--kitab id,…] [--halaman n]', "\n"
              "cari frasa di isi SEMUA kitab Shamela (turath.io, butuh internet) -> kitab + juz/halaman; 20 hasil\n"
              "tiap halaman. --mazhab: hanya kitab fikih mazhab itu; --kitab: hanya kitab itu, walau belum\n"

@@ -489,7 +489,7 @@ def _sanad(p):
     for x in _json(p.get("services_raw"), "esnad"):
         b = str(x).split()
         if len(b) > 2 and b[0].isdigit() and b[1].isalpha():
-            hasil.append((int(b[0]), [int(n) for n in reversed(b[2:]) if n.isdigit() and int(n)]))
+            hasil.append((int(b[0]), [int(n) if n.isdigit() else 0 for n in reversed(b[2:])]))
     return hasil
 
 
@@ -527,7 +527,7 @@ def rawi(*a):
         # rawi yang ditautkan di teks halaman tetapi tidak ada di data sanad Shamela (hadits/athar tanpa data sanad)
         lain = [n for n in dict.fromkeys(int(x) for _, bagian in rekaman for b in bagian for x in TAUTAN_RAWI.findall(b))
                 if n in semua_ and n not in nomor]
-        if not nomor and not lain:
+        if not sanad and not lain:
             tabel = [b for b in _tabel_kitab("hadits") if _karya(b) == _karya(sid)]
             print(f"[{sid}] {juz}/{hal}: tidak ada sanad dari layanan Shamela di halaman ini."
                   + (f" Edisi yang bertautan: {perintah(f'ambil {tabel[0]}')} (jembatan nomor hadits)." if tabel and tabel[0] not in _lokal() else ""))
@@ -535,7 +535,7 @@ def rawi(*a):
         print(f"[{sid}] {juz}/{hal}: {len(sanad)} sanad, {len(nomor)} rawi (layanan sanad Shamela"
               + (f", lewat edisi [{jembatan}]" if jembatan else "") + "). Rincian جرح وتعديل: " + perintah("rawi <nomor>"))
         for k, r in sanad:
-            print(f"  hadits Shamela #{k}: " + " > ".join(_nama_rawi(n) for n in r if n in semua_))
+            print(f"  hadits Shamela #{k}: " + " > ".join(_nama_rawi(n) if n else "[rawi tanpa nomor]" for n in r))
         if lain:
             print("  di luar data sanad Shamela (urut kemunculan di teks; rantainya baca sendiri): "
                   + "، ".join(_nama_rawi(n) for n in lain))
