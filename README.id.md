@@ -79,9 +79,9 @@ Kebutuhan komputer dan cara membereskannya ada di satu tempat: `python mesin/bah
 | Buat folder | `baru <folder> "<judul>"` | `naskah.txt` (kerangka), `riset.txt` |
 | Cari bahan | connector `shamela_*`, `temukan`, `katalog`, `hadits`, `dirasat`; tanpa internet: `tafsir <surat:ayat>`, `takhrij <id> <juz> <hal>`, `rawi <id> <juz> <hal>`, `akar <id> "<akar>"`; kitab yang tidak ada di Shamela: `waqfeya "<judul>"` | nomor kitab + juz/halaman (penunjuk) |
 | Unduh kitab | `ambil <id>` atau `ambil <folder>`; Waqfeya: `ambil w<nomor>` | `kitab/<id>/`, `kitab/waqfeya/w<nomor>/` |
-| Data cetak | `kartu <id>` | rujukan pertama dan المصادر |
+| Data cetak | `kartu <id>`, `pustaka <folder>` | rujukan pertama dan draf المصادر dari kitab berbukti |
 | Baca teks | `cari`, `teks`, `bab`, `halaman` | teks lokal untuk disalin persis |
-| Periksa | `cek <folder>` (`--jejak` untuk kutipan yang tidak ketemu) | `GAGAL: n`, perhatian, `NASKAH_SHA256` |
+| Periksa | `cek <folder>` (`--jejak` untuk kutipan yang tidak ketemu); cek DOI online: `dirasat-cek <folder>` | `GAGAL: n`, perhatian, `NASKAH_SHA256` |
 | Pemeriksa | `bukti <folder> [awal-akhir]` | teks halaman di sekitar tiap catatan kaki (Shamela, Waqfeya, dan PDF penelitian), dan paragraf isi tanpa catatan kaki |
 | Rakit | `rakit <folder> [--fasl n]` (Windows + Word) | `.docx` + `.pdf` (sampul, catatan kaki, المصادر والمراجع, الفهارس), `HALAMAN_ISI`, `HALAMAN` |
 | Status | `tahap <folder>` | `NASKAH=`, `HASIL=`, `RAKIT=`, `BERIKUTNYA` |
@@ -125,7 +125,8 @@ Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumenn
 | `mesin/shamela.py` | unduh kitab, katalog, `cari`, `teks`, `bab`, `halaman` |
 | `mesin/turath.py` | klien turath.io: `temukan`, `scan` |
 | `mesin/jaringan.py` | transport layanan luar, pengalihan aman, jatah, dan unduhan utuh |
-| `mesin/hadits.py`, `dirasat.py` | penunjuk takhrij, penelitian terdahulu |
+| `mesin/hadits.py`, `dirasat.py` | penunjuk takhrij, penelitian terdahulu dan verifikasi DOI/retraksi (`dirasat-cek`) |
+| `mesin/pustaka.py` | penyusun draf `#R` dari kitab berbukti (`pustaka`) |
 | `mesin/waqfeya.py` | kitab Waqfeya: katalog, `ambil w…`, OCR, potongan scan (PDF/PNG) |
 | `mesin/layanan.py` | `tafsir`, `takhrij`, `rawi`, dan `akar` tanpa internet (tabel layanan Shamela di `kitab/_meta`) |
 | `mesin/diagram.py` | diagram Mermaid jadi PNG (`diagram`) |

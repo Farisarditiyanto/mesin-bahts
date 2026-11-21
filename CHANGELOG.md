@@ -6,6 +6,9 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Perintah baru `pustaka <folder>` menyusun draf `#R` (المصادر والمراجع) siap tempel langsung dari `kartu` kitab lokal yang berbukti di catatan kaki (sesuai `@pustaka_gaya`, tanpa gelar, urut abjad). Perintah ini menunjukkan padanan data cetak dan judul yang masih perlu dicocokkan edisinya.
+- Perintah baru `dirasat-cek <folder>` menunjukkan status DOI/nomor OpenAlex, pencabutan karya, dan petunjuk metadata per baris. DOI yang tidak tercatat di OpenAlex/Crossref diperiksa registrasinya di doi.org; `dirasat` juga menandai karya yang dicabut.
+- Pembaca PDF penelitian (`<<luar|berkas.pdf|hal>>` di `cek` dan `bukti`) kini memulihkan baris PDF Arab yang tersimpan dalam urutan huruf visual terbalik serta ligatur Word yang pasti terbalik («هللا» → «الله»).
 - Pesan perhatian `cek` kini selalu menyebut tindakannya (kutipan tanpa catatan kaki sendiri, nomor hadits yang lafaznya tidak cocok, judul tercetak sendirian), dan perhatian 8 kata serta المقدمة menyuruh `terima` untuk yang memang tidak dibereskan; kode kelima jenis perhatian itu ikut berubah, jadi baris `terima` lamanya perlu ditulis ulang dengan kode barunya.
 - Perbaikan: PDF bahts tanpa المصادر dan فهرس (mis. `@tanpa: …, pustaka` dan tanpa #R) tidak lagi berakhir dengan halaman kosong bernomor saat baris terakhirnya tepat di tepi bawah halaman.
 - `dirasat` kini mendukung saringan tanggal (`--dari`, `--sampai`), bahasa (`--bahasa`), dan perankingan ulang kolam relevan (`--urut terbaru|terlama|dikutip`) di OpenAlex maupun DOAJ, mencetak jilid/nomor/halaman jurnal, menggabungkan duplikat judul lintas sumber, serta menerima nomor `W…` atau DOI langsung untuk melihat rincian dan ringkasan utuh satu penelitian.
