@@ -92,7 +92,9 @@ def naskah(baris):
     f = AKAR / "bahts" / "uji"
     f.mkdir(parents=True, exist_ok=True)
     teks = ["@judul: بحث تجريبي", "@nama: طالب تجريبي", "@minimal_halaman: 0", "", "#K المقدمة", baris, "",
-            "#K الخاتمة", "أهم النتائج: لا شيء.", "", "#R المصادر والمراجع", "كتاب تجريبي، مؤلف تجريبي.", ""]
+            "#K الخاتمة", "أهم النتائج: لا شيء.", "", "#R المصادر والمراجع", "كتاب تجريبي، مؤلف تجريبي.",
+            # kitab Shamela baris «campur»: kitab berbukti harus ada di #R (cek_rujukan.kitab_tanpa_pustaka)
+            "رسالة في القضاء والقدر، محمد بن صالح العثيمين، دار الوطن، 1423هـ.", ""]
     (f / "naskah.txt").write_text("\n".join(teks), encoding="utf-8")
     return "bahts/uji"
 
