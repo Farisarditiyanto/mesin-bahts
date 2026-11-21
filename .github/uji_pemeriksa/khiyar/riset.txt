@@ -1,0 +1,11 @@
+# Jejak langkah riset yang tidak meninggalkan bukti di kitab lokal (dibaca `cek`, lihat `python mesin/bahts.py tanda`).
+takhrij8 tabaya shamela_search_phrase «بالخيار ما لم يتفرقا» category_ids [8]: 69 halaman, antara lain الإيماء إلى أطراف أحاديث الموطأ 2/416 dan تنقيح التحقيق للذهبي 2/69
+tafsir 4:29 زاد المسير لابن الجوزي 1/395 (mesin tafsir, lalu: halaman 23619 1 395)
+khilaf خيار المجلس research_scope dengan sinonim خيار المتبايعين: keempat mazhab «موجود» (حنفي 477، مالكي 183، شافعي 1172، حنبلي 794 halaman)
+cari خيار المجلس | shamela_search_phrase tanpa scope: 3202 halaman, antara lain التعليقة الكبيرة لأبي يعلى 3/13
+cari التفرق بالأبدان | shamela_search_phrase tanpa scope: 363 halaman, antara lain شرح صحيح البخاري لابن بطال 6/239
+cari دون سائر العقود | shamela_search_phrase tanpa scope: 28 halaman, antara lain الوجيز للدجيلي ص177
+cari طلب خير الأمرين | shamela_search_phrase tanpa scope: 193 halaman, antara lain النهاية لابن الأثير 2/91
+takhrij8 syurut shamela_search_phrase «المسلمون على شروطهم» category_ids [8]: 52 halaman, antara lain تنقيح التحقيق للذهبي 2/80 dan مختصر تلخيص الذهبي لابن الملقن 1/554
+takhrij8 istiqala shamela_search_phrase «خشية أن يستقيله» category_ids [8]: 20 halaman, antara lain الإيماء إلى أطراف أحاديث الموطأ 2/418-419
+terima 6bbb8e salah tangkap: kalimat ini ringkasan dari الشرح الممتع 8/270 tentang istilah الخيار, bukan salinan halaman bukti 8/261
