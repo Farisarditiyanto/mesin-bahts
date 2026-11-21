@@ -9,8 +9,9 @@ import norma
 import produk
 import rumus
 from berkas import sementara
-from cek_seluruh import (KEPALA_PERHATIAN, RISET, periksa_dirasat, periksa_khatimah, periksa_muqaddimah, periksa_riset,
-                         porsi_kutipan)
+from cek_gaya import keseimbangan_bagian, periksa_gaya
+from cek_seluruh import (KEPALA_PERHATIAN, RISET, periksa_dirasat, periksa_khatimah, periksa_muqaddimah, periksa_pustaka,
+                         periksa_riset, porsi_kutipan)
 from cek_rujukan import rujukan_halaman
 from cek_sumber import standar_baris
 from cek_tautsiq import gelar
@@ -415,6 +416,13 @@ def periksa(folder):
     _cek_minimal_rusak(ctx)
     quran = _urutkan_fihris(ctx)
     _cek_jumlah_kitab(ctx, quran)
+    if not bentuk_kitab(ctx.meta) and "pustaka" not in daftar(ctx.meta, "tanpa"):
+        try:
+            rel_f = folder.resolve().relative_to(HERE.parent.resolve()).as_posix()
+        except ValueError:
+            rel_f = str(folder)
+        arg_f = f'"{rel_f}"' if " " in rel_f else rel_f
+        ctx.perhatian += periksa_pustaka(ctx, quran, arg_f)
     n_matan, n_fn = _hitung_kata(ctx)
     _cek_sampul(ctx)
     sumber = _cek_bahan_sumber(ctx, naskah)
@@ -655,7 +663,9 @@ def _satu_baris(ctx, n, b):
         else:
             TANDA_BARIS[k](ctx, n, k, t)
     elif "#R" in di_baris:
-        pustaka.append(b.strip())
+        teks_r = b.strip()
+        pustaka.append(teks_r)
+        ctx.pustaka_baris.append((n, teks_r))
         g = gelar(b, "pustaka")
         if g:
             perhatian.append(g)
@@ -773,6 +783,8 @@ def _cek_sesudah_naskah(ctx):
     if not bentuk_kitab(ctx.meta):  # muqarrar tanpa المقدمة/الخاتمة bahts
         perhatian += periksa_muqaddimah(blok, ctx.meta.get("jenis", ""))
         perhatian += periksa_khatimah(blok)
+        perhatian += periksa_gaya(blok, catatan)
+        perhatian += keseimbangan_bagian(blok)
     for r in ctx.rujuk_silang:
         if r["k"] not in ctx.jangkar:
             dulu = any(h["k"] == "h_" + r["k"] for h in hadits_idx)
@@ -834,17 +846,21 @@ def _cek_bentuk(ctx):
         galat.append(di("@berkas") + f"@berkas: «{meta['berkas']}»: nama perangkat Windows tidak bisa dipakai sebagai nama hasil")
 
 
+def kunci_urut(s, pengarang=False):
+    """Kunci urutan abjad Arab untuk المصادر dan فهرس: buang harakat, tanda tebal/miring, «ال» (selain «الله»),
+    dan «ابن/أبو» di depan nama pengarang («ابن القيم» di ق؛ أبو سليمان ص204)."""
+    s = norma.HARAKAT.sub("", s.replace("**", "").replace("__", ""))  # tanda tebal/miring @pustaka_gaya: muallif
+    if pengarang:  # baris diawali nama pengarang: «ابن/أبو» tidak dihitung, «ابن القيم» di ق (أبو سليمان ص204)
+        s = re.sub(r"^(?:(?:ابن|أبو|أبي|أبا|ابو|ابي|ابا)\s+)+", "", s)
+    if not s.startswith("الله"):
+        s = re.sub(r"^ال", "", s)
+    return re.sub("[إأآ]", "ا", s)
+
+
 def _urutkan_fihris(ctx):
     """Urutan المصادر (القرآن الكريم paling atas), nama surat فهرس الآيات, urutan فهرس الأحاديث.
     Kembalikan baris pustaka القرآن الكريم."""
     pustaka, ayat_idx, hadits_idx = ctx.pustaka, ctx.ayat_idx, ctx.hadits_idx
-    def kunci_urut(s, pengarang=False):
-        s = norma.HARAKAT.sub("", s.replace("**", "").replace("__", ""))  # tanda tebal/miring @pustaka_gaya: muallif
-        if pengarang:  # baris diawali nama pengarang: «ابن/أبو» tidak dihitung, «ابن القيم» di ق (أبو سليمان ص204)
-            s = re.sub(r"^(?:(?:ابن|أبو|أبي|أبا|ابو|ابي|ابا)\s+)+", "", s)
-        if not s.startswith("الله"):
-            s = re.sub(r"^ال", "", s)
-        return re.sub("[إأآ]", "ا", s)
     quran = [p for p in pustaka if _mushaf(p)]  # tanpa nomor, paling atas
     pengarang = ctx.meta.get("pustaka_gaya") == "muallif"
     pustaka = quran + sorted([p for p in pustaka if p not in quran], key=lambda p: kunci_urut(p, pengarang))

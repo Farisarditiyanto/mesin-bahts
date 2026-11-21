@@ -47,6 +47,8 @@ jobs:
       - run: python .github/uji_jaringan.py
       # `dirasat` & `dirasat-pdf` tiruan (tanpa internet): --dari/--sampai/--bahasa/--urut, biblio, dedup judul, lookup W…/DOI, fallback OA PDF.
       - run: python .github/uji_dirasat.py
+      # Audit silang #R, generator `pustaka`, audit bahasa/keseimbangan (`cek_gaya`), dan pemulihan teks PDF Arab visual-reversed.
+      - run: python .github/uji_pustaka_gaya.py
       # Cache dan indeks rusak pulih, sumber tidak tertimpa, PDF unduhan utuh, hasil lama utuh saat rakit gagal; Word disimulasikan.
       - run: python .github/uji_integritas.py
       # Pemeriksaan PDF sesudah rakit: isian «....» dan @judul di sampul, nomor halaman 0123/٠١٢٣, pengantar «:» di dasar halaman
