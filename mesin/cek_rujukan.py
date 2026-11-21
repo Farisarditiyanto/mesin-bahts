@@ -7,7 +7,7 @@ import typing
 import norma
 import shamela
 import waqfeya
-from dasar import ANGKA_LATIN, RENTANG_MAKS, ekor
+from dasar import ANGKA_LATIN, LUAR, RENTANG_MAKS, WAQFEYA_BUKTI, ekor, perintah
 from kitab_lokal import bagian_kitab, kitab_meta, rekaman
 from laporan import ringkas_rentang
 
@@ -303,6 +303,199 @@ def judul_kitab(k, sid_bukti):
         if len(judul.split()) < 2 or kata and not PENGARANG_SESUDAH.match(kata[0]) and not (len(kata) <= 4 and set(mirip) & {int(x) for x in sid_bukti if x.isdigit()}):
             return False
     return len(sisa) < 2 or len(sisa[1].split()) < 4
+
+
+def kata_rujukan(teks):
+    """Kata bentuk sama (`norma.norm`) sebuah judul atau baris #R, tanpa tanda baca dan tanda tebal/miring: «التنزيل،»
+    = «التنزيل»; angka dipisah dari huruf («1407هـ» = «1407» + «هـ»); kata Latin (judul penelitian, nomor fatwa
+    «DSN-MUI») tanpa besar-kecil, di tempatnya (`norma.norm` membuang huruf Latin)."""
+    kata = []
+    for k in re.findall(r"[0-9]+|[A-Za-z]+|[^\sA-Za-z0-9]+", teks.translate(ANGKA_LATIN).replace("ـ", "")):
+        kata += [k.lower()] if k.isascii() and k.isalnum() else re.findall(r"[0-9]+|[ء-ي]+", norma.norm(k))
+    return kata
+
+
+def termuat(bagian, baris):
+    """Deret kata `bagian` (judul, pengarang) ada utuh dan berurutan di `baris` (keduanya hasil `kata_rujukan`)."""
+    n = len(bagian)
+    return bool(n) and any(baris[i:i + n] == bagian for i in range(len(baris) - n + 1))
+
+
+RUJUK_ULANG = re.compile(r"السابق|نفسه|المرجع|المصدر")  # «المرجع السابق»، «المصدر نفسه»: bukan judul
+
+
+def _bagian(isi):
+    """Bagian catatan kaki atau baris #R di antara tanda baca, tanpa «انظر:» dan bukti <<…>>."""
+    isi = AWALAN_RUJUKAN.sub("", re.sub(r"<<[^<>]*>>", " ", isi).replace("**", "").replace("__", "").strip())
+    return [b.strip() for b in PEMISAH_RUJUKAN.split(isi) if b.strip()]
+
+
+def _tertulis(isi):
+    """(judul, pengarang) seperti ditulis di catatan kaki: bagian pertama dan kedua sesudah «انظر:». Catatan kaki takhrij
+    («أخرجه البخاري، كتاب …») dan rujukan ulang tidak menulis judul."""
+    bagian = _bagian(isi)
+    if not bagian or TAKHRIJ_OLEH.search(bagian[0]) or re.match(r"(?:أخرج|رو[ىا])", bagian[0]) or RUJUK_ULANG.search(bagian[0]):
+        return None, None
+    return bagian[0], (bagian[1] if len(bagian) > 1 and not RUJUK_ULANG.search(bagian[1]) else None)
+
+
+def _judul_baris(teks):
+    """Judul sebuah baris #R: yang bergaris miring «__…__» (@pustaka_gaya: muallif), atau bagian pertamanya."""
+    m = re.search(r"__(.+?)__", teks)
+    return kata_rujukan(m[1] if m else (_bagian(teks) or [""])[0])
+
+
+def _tanpa_judul(teks):
+    """Kata baris #R di luar judulnya: tempat nama pengarang («البخاري» di judul «فتح الباري بشرح صحيح البخاري» bukan
+    pengarang baris itu)."""
+    m = re.search(r"__(.+?)__", teks)
+    if m:
+        return kata_rujukan(teks[:m.start()] + " " + teks[m.end():])
+    bagian = PEMISAH_RUJUKAN.split(AWALAN_RUJUKAN.sub("", teks.replace("**", "").strip()), 1)
+    return kata_rujukan(bagian[1] if len(bagian) > 1 else "")
+
+
+def _judul_kartu(m):
+    """Isi baris «الكتاب:» kartu Shamela (judul cetak lengkap), atau ""."""
+    for b in (m.get("betaka_text") or "").replace("\r", "\n").splitlines():
+        label, titik, nilai = b.replace("：", ":").partition(":")
+        if titik and norma.HARAKAT.sub("", label).strip() == "الكتاب":
+            return re.sub(r"\[[^\[\]]*\]", " ", nilai).strip()
+    return ""
+
+
+def bentuk_judul(m, tertulis=()):
+    """Bentuk judul kitab Shamela `m` (hasil `kata_rujukan`) yang dicari di baris #R: judul katalog dan judul kartu
+    (`judul_pokok`: tanpa keterangan edisi dan pengarang tempelan), dan judul seperti ditulis di catatan kakinya
+    («الكشاف عن حقائق غوامض التنزيل» untuk kartu «… وعيون الأقاويل في وجوه التأويل»)."""
+    judul = shamela.judul_pokok(m.get("title_ar") or "") + shamela.judul_pokok(_judul_kartu(m)) + list(tertulis)
+    return [list(k) for k in dict.fromkeys(tuple(kata_rujukan(j)) for j in judul if j) if k]
+
+
+def judul_di_baris(bentuk, teks):
+    """Baris #R `teks` menyebut kitab berjudul `bentuk` (`bentuk_judul`): salah satu bentuknya termuat utuh, atau judul
+    baris itu (dua kata atau lebih) awal salah satu bentuknya: «سلسلة الأحاديث الضعيفة والموضوعة» untuk katalog «… وأثرها
+    السيئ في الأمة». Dipakai juga `pustaka`."""
+    return skor_judul(bentuk, teks) > 0
+
+
+def skor_judul(bentuk, teks):
+    """Panjang padanan judul terbaik `bentuk` di `teks` (jumlah kata; 0 = tidak menyebut): bentuk yang termuat utuh,
+    atau judul `teks` yang jadi awal sebuah bentuk (setengah kata lebih rendah: «معاني القرآن» lebih dekat ke kitab
+    berjudul persis itu daripada ke «معاني القرآن وإعرابه»)."""
+    kata, awal = kata_rujukan(teks), _judul_baris(teks)
+    return max([len(j) for j in bentuk if termuat(j, kata)]
+               + [len(awal) - 0.5 for j in bentuk if len(awal) >= 2 and j[:len(awal)] == awal], default=0)
+
+
+def _kitab_bukti(kunci):
+    """(nama untuk pesan, bentuk judul, ciri pengarang) kitab bukti Shamela atau Waqfeya; None kalau belum diunduh
+    (`cek` sudah GAGAL di buktinya). Bentuk judul dan ciri pengarang = hasil `kata_rujukan`."""
+    if kunci.isdecimal():
+        try:
+            m = shamela.info(int(kunci))
+        except (LookupError, OSError, ValueError, SystemExit):
+            return None
+        nama, bentuk = m["title_ar"], bentuk_judul(m)
+        pengarang = [x.strip() for x in (m.get("main_author_name_ar") or "").split("،")]
+    else:
+        if not WAQFEYA_BUKTI.fullmatch(f"{kunci}|1|1") or not waqfeya.ada(kunci):
+            return None
+        d = waqfeya.data(kunci)
+        nama, pengarang = d["judul"], [d.get("pengarang") or ""]
+        bentuk = [k for k in (kata_rujukan(waqfeya._pokok(d["judul"])), kata_rujukan(d["judul"])) if k]
+    ciri = _nama(pengarang)
+    return f"«{nama}» (<<{kunci}|…>>)", bentuk, ciri
+
+
+def _nama(daftar):
+    """Ciri pengarang (kata tanpa «ال»: «ابن عثيمين» = «… العثيمين»): nama utuh dan kata terakhirnya (nisbah)."""
+    return [c for c in (_tanpa_al(kata_rujukan(x)) for x in daftar + [x.split()[-1] for x in daftar if x.split()]) if c]
+
+
+def _tanpa_al(kata):
+    return [k[2:] if k.startswith("ال") and len(k) > 4 else k for k in kata]
+
+
+def kitab_tanpa_pustaka(penunjuk, pustaka_baris):
+    """Perhatian tiap kitab berbukti (<<sid|…>>, <<w…|…>>, <<luar|berkas|…>>) di catatan kaki yang tidak ada di baris #R
+    (`pustaka_baris`: [(nomor, teks)] tanpa القرآن الكريم).
+    Catatan kaki dipecah di «؛» (beberapa sumber satu hal); tiap bukti dipasangkan dengan bagian yang menyebut judulnya,
+    atau dengan satu-satunya bagian kalau catatan kaki itu hanya berbukti satu kitab. Kitab Shamela dan Waqfeya ada di
+    #R kalau satu baris menyebut judulnya (`judul_di_baris`: katalog, kartu, atau judul seperti di catatan kakinya) dan
+    baris itu menyebut pengarangnya (di luar judulnya: `_tanpa_judul`) atau tidak disebut judul kitab berbukti lain (dua «معاني القرآن»: الفراء dan
+    الأخفش). PDF luar (tanpa kartu) ada kalau judul seperti ditulis di catatan kakinya disebut satu baris #R
+    (`judul_di_baris`), atau satu bagian catatan kakinya yang tiga kata atau lebih (judul penelitian, nama peneliti), di
+    luar bagian milik kitab lain, termuat utuh di tepat satu baris #R."""
+    baris = {n: kata_rujukan(t) for n, t in pustaka_baris}
+    pengarang_baris = {n: _tanpa_al(_tanpa_judul(t)) for n, t in pustaka_baris}
+    kitab, data = {}, {}  # kunci -> catatan kaki pertama, judul/pengarang tertulis, bagian; kunci -> _kitab_bukti
+    for p in penunjuk:
+        if "bukti" not in p:
+            continue
+        sumber = [[x.strip() for x in b.split("|")] for b in p["bukti"]]
+        bagian = [b for b in re.sub(r"<<[^<>]*>>", " ", p.get("catatan") or "").split("؛") if b.strip()]
+        # <<luar>> tanpa berkas: sumbernya dikenali dari dua bagian pertama catatan kakinya (lembaga + judul keputusan)
+        tanpa_berkas = "، ".join(_bagian(bagian[0] if bagian else "")[:2])
+        semua = list(dict.fromkeys(f"{LUAR}|{s[1] if len(s) > 1 and s[1] else tanpa_berkas}" if s[0] == LUAR else s[0]
+                                   for s in sumber))
+        for kunci in semua:
+            if kunci not in data:
+                data[kunci] = None if kunci.startswith(f"{LUAR}|") else _kitab_bukti(kunci)
+        # tiap bagian milik kitab dengan padanan judul terpanjang; seri diputus pengarang katalog yang disebut bagian itu
+        punya = {k: [] for k in semua}
+        for b in bagian:
+            skor = {k: skor_judul(data[k][1], b) for k in semua if data[k]}
+            puncak = [k for k, v in skor.items() if v and v == max(skor.values())]
+            if len(puncak) > 1:
+                kb = _tanpa_al(kata_rujukan(b))
+                puncak = [k for k in puncak if any(termuat(c, kb) for c in data[k][2])]
+            if len(puncak) == 1:
+                punya[puncak[0]].append(b)
+        diklaim = {id(b) for bb in punya.values() for b in bb}
+        # PDF luar: bagian yang tidak milik kitab lain; beberapa PDF dengan bagian sebanyak itu = berpasangan urut
+        luar = [k for k in semua if k.startswith(f"{LUAR}|")]
+        sisa = [b for b in bagian if id(b) not in diklaim]
+        for kunci in semua:
+            k = kitab.setdefault(kunci, {"n": p["n"], "tertulis": [], "pengarang": [], "bagian": []})
+            if kunci.startswith(f"{LUAR}|"):
+                milik = [sisa[luar.index(kunci)]] if len(luar) > 1 and len(sisa) == len(luar) else sisa
+            else:
+                milik = punya[kunci] or (bagian if len(semua) == 1 else [])
+            for b in milik:
+                judul, pengarang = _tertulis(b)
+                k["tertulis"] += [judul] if judul else []
+                k["pengarang"] += [pengarang] if pengarang else []
+                k["bagian"] += _bagian(b)
+    calon, ciri = {}, {}
+    for kunci, k in kitab.items():
+        if data.get(kunci):
+            k["nama"], bentuk, ciri[kunci] = data[kunci]
+            bentuk = bentuk + [kb for kb in map(kata_rujukan, k["tertulis"]) if kb]
+            ciri[kunci] = ciri[kunci] + _nama(k["pengarang"])
+            calon[kunci] = {n for n, t in pustaka_baris if judul_di_baris(bentuk, t)}
+        elif kunci.startswith(f"{LUAR}|"):
+            judul = [kb for kb in map(kata_rujukan, k["tertulis"]) if kb]
+            if sum(judul_di_baris(judul, t) for _, t in pustaka_baris) > 1:
+                judul = []  # «بنك إندونيسيا»: lembaga atau peneliti di tempat judul, disebut banyak baris
+            bentuk = [kb for kb in map(kata_rujukan, k["bagian"]) if sum(not x.isdecimal() for x in kb) >= 3]
+            if not judul and not bentuk:
+                continue  # catatan kakinya hanya merujuk ulang atau ringkas: tidak ada judul untuk dicari
+            # bagian yang ada di banyak baris (penerbit, nama jurnal, kampus) tidak menunjuk satu sumber
+            bentuk = [j for j in bentuk if sum(termuat(j, kb) for kb in baris.values()) == 1]
+            k["nama"] = f"«{(k['tertulis'] or k['bagian'])[0]}» (<<{kunci}|…>>)"
+            calon[kunci] = {n for n, t in pustaka_baris if judul and judul_di_baris(judul, t)
+                            or any(termuat(j, baris[n]) for j in bentuk)}
+    hasil = []
+    for kunci, nn in calon.items():
+        lain = set().union(*(v for x, v in calon.items() if x != kunci))
+        disebut = any(termuat(c, pengarang_baris[n]) for n in nn for c in ciri.get(kunci, ()))
+        if disebut or nn - lain or nn and kunci not in ciri:
+            continue
+        hasil.append(f"baris {kitab[kunci]['n']}: kitab {kitab[kunci]['nama']} dirujuk di catatan kaki tetapi tidak ada di "
+                     "المصادر والمراجع (#R)" + (" (judulnya ada di #R, tetapi barisnya milik kitab lain berjudul sama)" if nn else "")
+                     + ": tambahkan barisnya ke #R; draf dan data cetaknya: " + perintah("pustaka <folder>"))
+    return hasil
 
 
 def kitab_waqfeya(isi, kitab):

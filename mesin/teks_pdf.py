@@ -138,6 +138,19 @@ def _gambar(hal):
     return kotak
 
 
+# halaman sisa di bagian belakang: diukur di PDF nyata (فهرس meluap 5 baris = 16-17 kata; dua entri المصادر panjang
+# = 4 baris, 41 kata)
+SISA_KATA = 40
+SISA_BARIS = 5
+
+
+def _jumlah_baris(potong, ukuran):
+    """Jumlah baris teks dari potongan `_baris`: potongan yang tingginya berselisih kurang dari ±0,6 ukuran matan = satu
+    baris (sel tabel dan huruf ayat yang naik-turun sedikit)."""
+    y = sorted(p[0] for p in potong)
+    return sum(1 for a, b in zip([None] + y, y) if a is None or b - a > 0.6 * ukuran)
+
+
 TEPI = 65  # pt dari tepi atas/bawah: nomor halaman (1,25 cm) ada di sini, matan dan catatan kaki (tepi 2,5 cm) tidak
 BATAS_TEPI = 18  # pt (±6 mm) dari tepi kiri/kanan kertas: teks/rumus/tabel yang melewati batas ini hampir terpotong
 
@@ -187,7 +200,8 @@ def _ada(kata, teks):
 def periksa(pdf, bahan):
     """Peringatan sesudah rakit (tidak menggagalkan): titik-titik isian di sampul, @judul yang tidak ada di sampul, jenis
     angka nomor halaman yang tidak sesuai @angka, ukuran kertas yang bercampur, halaman kosong, teks/rumus yang meluap
-    ke tepi kertas, dan baris terakhir matan halaman yang berakhir «:». Teks PDF buatan Word
+    ke tepi kertas, baris terakhir matan halaman yang berakhir «:», dan halaman sisa di bagian belakang (lihat SISA_KATA).
+    Teks PDF buatan Word
     tidak tersalin persis (huruf sambung, angka ٠-٩), jadi pencocokannya longgar: yang diperingatkan hanya yang jelas."""
     import pypdf
     meta, rencana = bahan["meta"], bahan.get("cetak") or {}
@@ -211,7 +225,11 @@ def periksa(pdf, bahan):
             pesan.append(f"sampul tidak memuat @judul persis (tidak terbaca: {' '.join(hilang)}): samakan judul di "
                          + ("sampul templat Word dengan @judul." if meta.get("templat") else "sampul dengan @judul."))
     hindi = meta.get("angka", "hindi") == "hindi"
-    nomor, ujung, kosong, meluap = {}, [], [], []
+    nomor, ujung, kosong, meluap, sisa = {}, [], [], [], []
+    # judul bagian sesudah isi (المصادر, فهرس): halaman sejak judul pertamanya yang tanpa judul dan berisi sedikit kata
+    # = lanjutan tabel/daftar halaman sebelumnya yang meluap beberapa baris
+    judul_belakang = {"".join(sorted(padat(b["judul"]))) for b in rencana.get("bagian") or () if b.get("judul")}
+    belakang = False
     luap_mupdf = _halaman_meluap(pdf, awal)
     batas = (float(fmt["matan"]) + float(fmt["catatan"])) / 2   # matan dan judul; catatan kaki lebih kecil
     for i, hal in enumerate(halaman[awal:], awal + 1):
@@ -231,6 +249,15 @@ def periksa(pdf, bahan):
                 meluap.append(i)
         elif any(x < BATAS_TEPI or x > lebar - BATAS_TEPI for _, x, _, _, _ in isi):
             meluap.append(i)
+        besar = {}  # baris berhuruf lebih besar dari matan = judul
+        for y, x, u, t, _ in isi:
+            if u > float(fmt["matan"]) + 0.5:
+                besar.setdefault(round(y), []).append(t)
+        if not belakang and any("".join(sorted(padat("".join(t)))) in judul_belakang for t in besar.values()):
+            belakang = True
+        elif belakang and not besar and isi and (sum(len(t.split()) for _, _, _, t, _ in isi) < SISA_KATA
+                                                 or _jumlah_baris(isi, float(fmt["matan"])) <= SISA_BARIS):
+            sisa.append(i)
         matan = [p for p in isi if p[2] >= batas]
         if matan:
             y0 = min(p[0] for p in matan)
@@ -262,6 +289,11 @@ def periksa(pdf, bahan):
     if meluap:
         pesan.append(f"teks atau rumus meluap ke tepi kertas di halaman PDF ke-{', '.join(map(str, meluap))}: "
                      "periksa tata letak (tabel #J, rumus #E, atau tautan panjang) dengan `pratinjau`.")
+    if sisa:
+        pesan.append(f"halaman sisa di المصادر/الفهارس (kurang dari {SISA_KATA} kata atau paling banyak {SISA_BARIS} baris "
+                     f"lanjutan tabel atau daftar halaman sebelumnya) di halaman PDF ke-{', '.join(map(str, sisa))}: lihat lewat `pratinjau`; فهرس الموضوعات "
+                     "yang meluap → @maudhuat: titik, فهرس yang tiap kali mulai halaman baru → @fihris: sambung, lalu rakit "
+                     "lagi; masih begitu → sebut di laporan akhir.")
     if ujung:
         pesan.append(f"baris terakhir matan berakhir «:» (pengantar terpisah dari isinya di halaman berikutnya) di halaman "
                      f"PDF ke-{', '.join(map(str, ujung))}: lihat halamannya; perlu → pendekkan/panjangkan paragraf sebelumnya.")

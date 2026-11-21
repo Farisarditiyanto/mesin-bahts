@@ -20,11 +20,15 @@ META = {"judul": "مثال: توحيد الربوبية", "nim": "000000000", "a
 LATIN = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
 
 
-def tulis(tujuan, tambahan={}, latin=False, gambar={}):
+def tulis(tujuan, tambahan={}, latin=False, gambar={}, halaman_baru=False):
     """Salinan PDF contoh. tambahan = teks Helvetica {halaman (mulai 1): [(x, y, ukuran, teks)]}; latin = semua angka
     ٠-٩ tersalin 0-9, seperti PDF yang nomor halamannya tercetak 0123; gambar = {halaman: (x, y, lebar, tinggi)}
-    satu gambar abu-abu 1×1 piksel yang direntang ke kotak itu (seperti #G)."""
+    satu gambar abu-abu 1×1 piksel yang direntang ke kotak itu (seperti #G); halaman_baru = satu halaman kosong
+    seukuran isi di akhir (halaman 8) sebelum teks ditambahkan."""
     w = PdfWriter(clone_from=str(PDF))
+    if halaman_baru:
+        baru = w.add_blank_page(width=w.pages[1].mediabox.width, height=w.pages[1].mediabox.height)
+        baru[NameObject("/Resources")] = DictionaryObject({NameObject("/Font"): DictionaryObject()})
     for n in set(tambahan) | set(gambar):
         isi = tambahan.get(n, [])
         hal = w.pages[n - 1]
@@ -45,7 +49,8 @@ def tulis(tujuan, tambahan={}, latin=False, gambar={}):
             x, y, lb, tg = gambar[n]
             teks += f"q {lb} 0 0 {tg} {x} {y} cm /ImUji Do Q\n"
         s.set_data(teks.encode("latin1"))
-        hal[NameObject("/Contents")] = ArrayObject([w._add_object(hal.get_contents()), w._add_object(s)])
+        lama = hal.get_contents()   # halaman_baru: belum berisi
+        hal[NameObject("/Contents")] = ArrayObject(([w._add_object(lama)] if lama is not None else []) + [w._add_object(s)])
     if latin:
         for hal in w.pages:
             for f in hal["/Resources"]["/Font"].values():
@@ -61,10 +66,11 @@ def tulis(tujuan, tambahan={}, latin=False, gambar={}):
 def utama():
     gagal, diuji = [], []
 
-    def uji(nama, pdf, meta, harus):
-        """harus: potongan pesan yang wajib ada, satu per peringatan (kosong = tidak boleh ada peringatan)."""
+    def uji(nama, pdf, meta, harus, cetak=None):
+        """harus: potongan pesan yang wajib ada, satu per peringatan (kosong = tidak boleh ada peringatan).
+        cetak = rencana cetak bahan rakit (olah.rencana_cetak), mis. judul bagian sesudah isi."""
         diuji.append(nama)
-        pesan = teks_pdf.periksa(pdf, {"meta": {**META, **meta}, "format": FORMAT})
+        pesan = teks_pdf.periksa(pdf, {"meta": {**META, **meta}, "format": FORMAT, **({"cetak": cetak} if cetak else {})})
         if len(pesan) != len(harus) or not all(any(h in p for p in pesan) for h in harus):
             gagal.append(nama)
             print(f"GAGAL {nama}: harus {harus}, dapat {pesan}")
@@ -100,6 +106,25 @@ def utama():
         with open(tmp / "letter.pdf", "wb") as h:
             w.write(h)
         uji("sampul Letter di depan isi A4: ukuran kertas bercampur", tmp / "letter.pdf", {}, ["ukuran kertas"])
+        # halaman sisa: halaman sesudah judul bagian belakang (المصادر, فهرس; contoh: hal 5-7) tanpa judul dan dengan
+        # sedikit kata = lanjutan tabel/daftar yang meluap (فهرس الموضوعات 5 baris). Judul bagian dari rencana cetak contoh
+        cetak = {"bagian": [{"jenis": j, "judul": t} for j, t in (("pustaka", "المصادر والمراجع"), ("ayat", "فهرس الآيات القرآنية"),
+                                                                   ("alam", "فهرس الأعلام"), ("maudhuat", "فهرس الموضوعات"))]}
+        uji("PDF contoh dengan judul bagian belakang: tanpa halaman sisa", PDF, {}, [], cetak)
+        baris = [(200, 760 - 28 * i, 18, f"mawdu {i} fi al-bahth 1{i}") for i in range(9)]   # 5 kata tiap baris
+        sisa = tulis(tmp / "sisa.pdf", {8: baris[:5]}, halaman_baru=True)
+        penuh = tulis(tmp / "sisa_penuh.pdf", {8: baris}, halaman_baru=True)
+        judul = tulis(tmp / "sisa_judul.pdf", {8: [(200, 770, 22, "fihris")] + baris[:5]}, halaman_baru=True)
+        pesan_sisa = ["halaman sisa di المصادر/الفهارس (kurang dari 40 kata atau paling banyak 5 baris lanjutan tabel atau "
+                      "daftar halaman sebelumnya) di halaman PDF ke-8:"]
+        uji("halaman terakhir sesudah فهرس berisi 5 baris lanjutan: halaman sisa", sisa, {}, pesan_sisa, cetak)
+        # dua entri المصادر yang panjang: 4 baris, lebih dari 40 kata = tetap halaman sisa
+        panjang = tulis(tmp / "sisa_panjang.pdf", {8: [(100, 760 - 28 * i, 12, " ".join(["kata"] * 11)) for i in range(4)]},
+                        halaman_baru=True)
+        uji("halaman 4 baris berkata banyak: halaman sisa", panjang, {}, pesan_sisa, cetak)
+        uji("halaman lanjutan 45 kata: bukan halaman sisa", penuh, {}, [], cetak)
+        uji("halaman pendek yang diawali judul bagian: bukan halaman sisa", judul, {}, [], cetak)
+        uji("tanpa rencana cetak (judul bagian belakang tidak diketahui): tidak dinilai", sisa, {}, [])
         # halaman kosong (tanpa isi teks maupun gambar): diperingatkan
         w = PdfWriter(clone_from=str(PDF))
         w.add_blank_page(width=w.pages[1].mediabox.width, height=w.pages[1].mediabox.height)

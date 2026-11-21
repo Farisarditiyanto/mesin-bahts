@@ -11,7 +11,7 @@ import rumus
 from berkas import sementara
 from cek_seluruh import (KEPALA_PERHATIAN, RISET, periksa_dirasat, periksa_khatimah, periksa_muqaddimah, periksa_riset,
                          porsi_kutipan)
-from cek_rujukan import rujukan_halaman
+from cek_rujukan import kitab_tanpa_pustaka, rujukan_halaman
 from cek_sumber import standar_baris
 from cek_tautsiq import gelar
 from dasar import (AD, ANGKA_LATIN, BUKAN_RUJUKAN, HERE, HORMAT_CETAK, HURUF_LATIN, JUDUL_BAB, JUDUL_FIHRIS, JUDUL_ISI, KITAB,
@@ -42,10 +42,12 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       pustaka (akhir = urutan خطة yang menaruh فهرس المصادر والمراجع sesudah فهرس الأحاديث (dan فهرس الأعلام
                       kalau ada), dengan judul itu;
                       bawaan: المصادر والمراجع sebelum فهرس الآيات)
-                      templat (berkas .docx di folder bahts): Word mahasiswa sendiri; halaman pertamanya jadi sampul
-                      apa adanya (data sampul di naskah tidak dipakai), kepala halamannya (termasuk judul di dalamnya) dipakai
-                      di tiap halaman isi; nomor halaman di kaki hanya kalau kepala itu tidak memuat nomor halaman;
-                      kertas sampulnya A4 seperti isi (tepi atas dan bidang teks Word itu tetap, selisih tinggi kertas ke tepi bawah)
+                      templat (berkas .docx di folder bahts): Word mahasiswa sendiri; halaman pertamanya (sampai pemisah
+                      halaman pertama) jadi sampul apa adanya (data sampul di naskah tidak dipakai), kepala halamannya
+                      (termasuk judul di dalamnya; penanda «عنوان البحث» diganti @kepala_judul/@judul) dipakai di tiap
+                      halaman isi; nomor halaman di kaki hanya kalau kepala itu tidak memuat nomor halaman;
+                      kertas sampulnya A4 seperti isi (tepi atas dan bidang teks Word itu tetap, selisih tinggi kertas ke tepi bawah);
+                      sampul yang jadi lebih dari satu halaman di A4 = PERINGATAN sesudah `rakit`
                       nomor (abjad = halaman sebelum #F pertama bernomor huruf أ ب ت, mulai #F pertama nomornya ١، ٢، ٣)
                       (mukadimah = sama, tetapi nomor ١ mulai #K المقدمة; الإهداء dst. sebelumnya tetap huruf)
                       minimal_halaman (bilangan; bawaan 25): perkiraan halaman seluruh PDF (sampul s.d. فهرس) kurang dari
@@ -116,7 +118,8 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       selalu 0-9, dan bilangan yang ditulis rapat tetap utuh («2.5», «2,5», «1\\,250», «1/2», «1:2»):
                       pasangan, daftar, dan selang ditulis berspasi «(1, 2)», «[0, 1)». Dolar «\\$». Sintaks LaTeX yang rusak = GAGAL
   #R teks             awal المصادر والمراجع; sesudahnya satu kitab per baris (diurutkan abjad otomatis, القرآن الكريم paling atas).
-                      Wajib, kecuali «@tanpa: pustaka»; semua bagian isi harus sebelum #R (tidak boleh ada judul/#T/#H sesudahnya)
+                      Wajib, kecuali «@tanpa: pustaka»; semua bagian isi harus sebelum #R (tidak boleh ada judul/#T/#H sesudahnya).
+                      Kitab berbukti <<…>> di catatan kaki yang judulnya tidak ada di satu baris #R = perhatian (draf: `pustaka`)
   **...**             tebal
   ((...))             lafaz matn yang disyarah: dicetak merah di dalam kurung, «((ليس بحجة))» -> (ليس بحجة)
   {Q:s:a} {Q:s:a-b} {Q:s:a:i-j}   ayat surat s ayat a (atau a-b; atau kata ke-i s.d. j): teks resmi rasm Utsmani + masuk فهرس الآيات.
@@ -415,6 +418,7 @@ def periksa(folder):
     _cek_minimal_rusak(ctx)
     quran = _urutkan_fihris(ctx)
     _cek_jumlah_kitab(ctx, quran)
+    _cek_kitab_pustaka(ctx)
     n_matan, n_fn = _hitung_kata(ctx)
     _cek_sampul(ctx)
     sumber = _cek_bahan_sumber(ctx, naskah)
@@ -927,6 +931,15 @@ def _cek_jumlah_kitab(ctx, quran):
             (di("@minimal_kitab") or di("#R")) + f"المصادر والمراجع baru {n} kitab (selain القرآن الكريم), kurang dari {batas} ({asal}): "
             "tambah kitab yang benar-benar dibaca dan dirujuk di catatan kaki; kalau dosen memang meminta lebih sedikit, "
             "tulis jumlah dari dosen di «@minimal_kitab: n»")
+
+
+def _cek_kitab_pustaka(ctx):
+    """Kitab berbukti di catatan kaki yang tidak ada di المصادر والمراجع = perhatian (cek_rujukan.kitab_tanpa_pustaka).
+    Tidak dinilai: @bentuk: kitab, @tanpa: pustaka (sumber cukup di catatan kaki), dan #R yang kosong atau tidak ada
+    (sudah GAGAL di _cek_bentuk)."""
+    if bentuk_kitab(ctx.meta) or "pustaka" in daftar(ctx.meta, "tanpa") or not ctx.pustaka:
+        return
+    ctx.perhatian += kitab_tanpa_pustaka(ctx.penunjuk, [(n, t) for n, t in ctx.pustaka_baris if not _mushaf(t)])
 
 
 def kurang_halaman(meta, halaman):
