@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Uji audit silang `#R`, generator `pustaka`, dan pemulihan teks PDF Arab visual-reversed
 (`sumber_pdf` + `bukti`) lewat pintu pemakai (`bahts.py`)."""
-import os, subprocess, sys, tempfile
+import json, os, subprocess, sys, tempfile
 from pathlib import Path
 from bantu import salin_mesin
 
@@ -88,6 +88,74 @@ def utama():
         kode, out_campur = jalan("pustaka", "uji")
         assert kode == 0 and "1727: judul ditemukan, edisi perlu dicek" in out_campur, out_campur
         assert "data cetak cocok" not in next(s for s in out_campur.splitlines() if "1727:" in s), out_campur
+
+        # 1e. #R berangka Latin, bertahun wafat «(ت 261هـ)», dan nama pengarang lebih pendek dari kartu tetap edisi
+        #     yang sama; yang dinilai muhaqqiq, penerbit, cetakan, dan tahun, dan yang beda disebut bidangnya.
+        ringkas = dasar.replace(
+            "#K الخاتمة", "وفي الكتاب رواية.[^انظر: صحيح مسلم، مسلم، 1/2. <<1727|1|2|الحمد لله>>]\n\n#K الخاتمة")
+        ringkas += ("صحيح مسلم، مسلم بن الحجاج القشيري النيسابوري (ت 261هـ)، تحقيق: محمد فؤاد عبد الباقي، "
+                    "مطبعة عيسى البابي الحلبي وشركاه، القاهرة، 1374هـ - 1955م.\n")
+        (f / "naskah.txt").write_text(ringkas, encoding="utf8")
+        kode, out_r = jalan("pustaka", "uji")
+        assert kode == 0 and "1727: data cetak cocok di #R" in out_r, out_r
+        # Penerbit tanpa kata badan usaha di depannya tetap penerbit yang sama.
+        (f / "naskah.txt").write_text(ringkas.replace("مطبعة عيسى", "عيسى"), encoding="utf8")
+        kode, out_r = jalan("pustaka", "uji")
+        assert kode == 0 and "1727: data cetak cocok di #R" in out_r, out_r
+        for salah, benar, bidang in (("1374هـ - 1955م", "1412هـ - 1991م", "tahun"), ("1955م", "1960م", "tahun"),
+                                     ("محمد فؤاد عبد الباقي", "أحمد شاكر", "muhaqqiq"),
+                                     ("مطبعة عيسى البابي الحلبي وشركاه، القاهرة", "دار إحياء التراث العربي، بيروت",
+                                      "penerbit"),
+                                     ("مطبعة عيسى البابي الحلبي وشركاه", "دار عيسى للنشر", "penerbit")):
+            (f / "naskah.txt").write_text(ringkas.replace(salah, benar), encoding="utf8")
+            kode, out_s = jalan("pustaka", "uji")
+            baris_1727 = next(s for s in out_s.splitlines() if "1727:" in s)
+            assert kode == 0 and "edisi perlu dicek" in baris_1727 and f"beda {bidang}" in baris_1727, (benar, out_s)
+
+        # 1f. Draf #R tanpa gelar «د» bertitik atau tidak, tanpa kurung kosong sisa «[ت ١٤٢١ هـ]», dan muhaqqiq per
+        #     baris sesudah label kosong ikut terbaca.
+        meta_p = akar / "kitab" / "11223" / "book_metadata.json"
+        meta = json.loads(meta_p.read_text(encoding="utf8"))
+        meta["betaka_text"] = ("الكتاب: رسالة في القضاء والقدر\rالمؤلف: د محمد بن صالح بن محمد العثيمين "
+                               "[ت ١٤٢١ هـ، خلافا لما على الغلاف: ١٤٢٠ هـ]\r"
+                               "تحقيق وتعليق:\rأ د أحمد محمد شاكر (جـ ١)\rو د محمد فؤاد عبد الباقي (جـ ٢)\r"
+                               "الناشر: دار الوطن\rالطبعة: ١٤٢٣هـ\rعام النشر:\rالجزء: ١ - الطبعة: ٠، ١٩٠٠\r"
+                               "عدد الصفحات: ٢٩")
+        meta_p.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf8")
+        (f / "naskah.txt").write_text(dasar, encoding="utf8")
+        kode, out_g = jalan("pustaka", "uji")
+        baris_draf = next(s for s in out_g.splitlines() if s.startswith("رسالة في القضاء والقدر"))
+        assert kode == 0 and "، محمد بن صالح بن محمد العثيمين، " in baris_draf, out_g
+        assert "[" not in baris_draf and "]" not in baris_draf and "١٩٠٠" not in baris_draf, out_g
+        assert "تحقيق: أحمد محمد شاكر (جـ ١)، ومحمد فؤاد عبد الباقي" in baris_draf, out_g
+        (f / "naskah.txt").write_text("@pustaka_gaya: muallif\n" + dasar, encoding="utf8")
+        kode, out_g = jalan("pustaka", "uji")
+        assert kode == 0 and "**محمد بن صالح بن محمد العثيمين** (ت ١٤٢١هـ)" in out_g, out_g
+
+        # 1g. Penerbit dinilai dari nama khasnya ke dua arah: kota yang ditempel di kartu dan «للنشر» boleh beda tempat,
+        #     tetapi penerbit lain yang berawalan sama («دار الوطن العربي») atau jenis lain («مؤسسة») tetap beda.
+        #     Muhaqqiq berlabel jilid dan «جماعة من العلماء بإشراف الناشر» dinilai dari namanya.
+        meta["betaka_text"] = ("الكتاب: رسالة في القضاء والقدر\rالمؤلف: محمد بن صالح بن محمد العثيمين\r"
+                               "المحقق: ضبطه وصححه جماعة من العلماء بإشراف الناشر\r"
+                               "الناشر: دار الوطن للنشر بالرياض\rالطبعة: ١٤٢٣هـ")
+        meta_p.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf8")
+        asal_r = "رسالة في القضاء والقدر، محمد بن صالح بن محمد العثيمين، دار الوطن، 1423هـ."
+        assert asal_r in dasar
+        r_baru = "رسالة في القضاء والقدر، العثيمين، ضبطه وصححه جماعة من العلماء، دار الوطن- الرياض، 1423هـ."
+
+        def status_11223(baris_r):
+            (f / "naskah.txt").write_text(dasar.replace(asal_r, baris_r), encoding="utf8")
+            kode, out = jalan("pustaka", "uji")
+            assert kode == 0, out
+            return next(s for s in out.splitlines() if "11223:" in s)
+        assert "data cetak cocok" in status_11223(r_baru), r_baru
+        for lain in ("دار الوطن العربي", "مؤسسة الوطن", "دار الفكر"):
+            assert "beda penerbit" in status_11223(r_baru.replace("دار الوطن", lain)), lain
+        meta["betaka_text"] = meta["betaka_text"].replace(
+            "المحقق: ضبطه وصححه جماعة من العلماء بإشراف الناشر", "تحقيق:\rجزء ١، ٢: عبد الله التركي\rجزء ٣: شعيب الأرنؤوط")
+        meta_p.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf8")
+        assert "data cetak cocok" in status_11223(r_baru.replace("ضبطه وصححه جماعة من العلماء", "تحقيق: عبد الله التركي"))
+        assert "beda muhaqqiq" in status_11223(r_baru.replace("ضبطه وصححه جماعة من العلماء", "تحقيق: أحمد شاكر"))
 
         # 2. Regresi kartu `pustaka`: tahun wafat tanpa «ههـ» dobel, harakat «المتوفَّى», dan label ber-«：» + gelar
         sys.path.insert(0, str(akar / "mesin"))

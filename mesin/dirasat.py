@@ -10,12 +10,12 @@ di kunci_openalex.txt, di samping folder mesin/; berkas itu tidak ada → dibaca
 (untuk komputer yang tidak menyimpan berkas, mis. cloud). Tanpa kunci: jatah sehari sekitar 50 kali `dirasat`, dan `dirasat-pdf`
 hanya bisa memakai tautan PDF akses terbuka (salinan yang disimpan OpenAlex butuh kunci). Dengan kunci: sekitar 300 kali `dirasat` atau 100 PDF sehari; jatah kembali penuh tiap 00.00 UTC.
 """
-import datetime, json, os, re, time, unicodedata, urllib.error, urllib.parse
+import datetime, functools, json, logging, os, re, time, unicodedata, urllib.error, urllib.parse
 from pathlib import Path
 
 import norma
 from jaringan import GAGAL_JARINGAN, JAWABAN_ASING, SEBAB_ASING, buka
-from dasar import ANGKA_LATIN, perintah
+from dasar import ANGKA_LATIN, TandaRusak, akhir_catatan, perintah
 from berkas import sementara
 
 KUNCI = Path(__file__).parent.parent / "kunci_openalex.txt"
@@ -518,9 +518,14 @@ DOI_DI_TEKS = re.compile(r"(?:https?://(?:dx\.)?doi\.org/|doi\s*[:：]\s*)?(10\.
 # (ID OpenAlex nyata 9-10 digit) agar PDF lokal seperti `w1.pdf` tidak pernah dianggap ID OpenAlex.
 OA_URL_DI_TEKS = re.compile(r"https?://(?:api\.)?openalex\.org/(?:works/)?(W\d+)", re.I)
 OA_PDF_DI_TEKS = re.compile(r"<<luar\|(W\d{6,})\.pdf\|")
+KEPALA_TERBIT = re.compile(r"\b(?:vol(?:ume)?|issue|no\.|published|journal|copyright)\b|©|المجلد|العدد|مجلة|نشر|السنة", re.I)
+TERIMA_NASKAH = re.compile(r"\b(?:received|accepted|submitted|revised)\b|استلام|قبول", re.I)
+PDF_LUAR_DI_TEKS = re.compile(r"<<luar\|([^|<>]+\.pdf)\|", re.I)
 WAFAT_DI_TEKS = re.compile(r"\(?\s*(?:المتوفى|ت)\s*[:：]?\s*\d{3,4}\s*(?:هـ|ه|م)?\s*\)?")
 TAHUN_DI_TEKS = re.compile(r"(?<!\d)(1[3-4]\d\d|19\d\d|20\d\d)(?!\d)(?:\s*(هـ|ه|م|AH|CE))?", re.I)
 KATA_ABAI_LATIN = frozenset("the and for with from into this that study analysis research journal article review".split())
+KATA_NASAB = frozenset(norma.norm(k) for k in ("بن", "ابن", "بنت", "أبو", "أبي", "عبد"))
+JUDUL_RINGKAS = 4  # rujukan ringkas boleh memotong judul pokok; paling sedikit kata sebanyak ini (atau seluruhnya)
 
 
 def _awal_hijriah_jdn(h):
@@ -583,12 +588,55 @@ def _baca_crossref(doi):
 
 
 def _kata_latin(teks):
-    s = "".join(c for c in unicodedata.normalize("NFKD", teks or "").lower() if not unicodedata.combining(c))
-    return [w for w in re.findall(r"[a-z]{4,}", s) if w not in KATA_ABAI_LATIN]
+    return [w for w in re.findall(r"[a-z]{4,}", _huruf_latin(teks)) if w not in KATA_ABAI_LATIN]
 
 
-def _banding_rujukan(konteks, w):
-    """Bandingkan petunjuk tiap bidang pada satu baris. Teks bebas dan terjemahan bisa tidak memuat judul katalog."""
+def _huruf_latin(teks):
+    return "".join(c for c in unicodedata.normalize("NFKD", teks or "").lower() if not unicodedata.combining(c))
+
+
+def _kata_nama(nama):
+    """{tulisan: kata terakhir} nama peneliti katalog = nama keluarga atau nisbahnya («Seng Chun Hoo» → hoo,
+    «فهد مطلق العتيبي» → العتيبي). Nama depan tidak dihitung: «فهد» atau «Aderonke» bukan bukti penelitinya."""
+    out = {}
+    for tulisan, kata in (("latin", re.findall(r"[a-z]{3,}", _huruf_latin(nama))),
+                          ("arab", [k for k in norma.norm(nama or "").split() if len(k) > 2 and k not in KATA_NASAB])):
+        if kata:
+            out[tulisan] = {kata[-1]}
+    return out
+
+
+def _kata_nama_teks(teks):
+    """{tulisan: semua kata} di `teks`, dalam bentuk yang sama dengan `_kata_nama`."""
+    return {"latin": set(re.findall(r"[a-z]{3,}", _huruf_latin(teks))), "arab": set(norma.norm(teks).split())}
+
+
+@functools.cache
+def _tahun_berkas(berkas):
+    """Tahun Masehi di baris kepala terbitan (jurnal, jilid, nomor, tanggal terbit, hak cipta) dua halaman pertama satu
+    PDF. Tahun di kalimat isi («As of December 2017») dan tanggal terima naskah bukan tahun terbit."""
+    from pypdf import PdfReader
+    logging.getLogger("pypdf").setLevel(logging.ERROR)  # keluhan pypdf soal PDF cacat bukan isi laporan
+    try:
+        isi = " ".join(p.extract_text() or "" for p in PdfReader(berkas).pages[:2])
+    except Exception:  # PDF hilang, rusak, atau bersandi: tahunnya tidak bisa dibaca, katalog tetap dibandingkan
+        return frozenset()
+    return frozenset(int(t) for baris in isi.translate(ANGKA_LATIN).splitlines() if KEPALA_TERBIT.search(baris)
+                     and not TERIMA_NASKAH.search(baris) for t in re.findall(r"(?<!\d)(19\d\d|20\d\d)(?!\d)", baris))
+
+
+def _tahun_pdf(folder, teks):
+    """Tahun Masehi yang tercetak di PDF `<<luar|berkas.pdf|…>>` yang disebut `teks`."""
+    return frozenset().union(*(_tahun_berkas(str(Path(folder) / nama))
+                               for nama in dict.fromkeys(PDF_LUAR_DI_TEKS.findall(teks))))
+
+
+def _banding_rujukan(konteks, w, ringkas=False, tercetak=frozenset):
+    """Bandingkan petunjuk tiap bidang pada satu baris. Teks bebas dan terjemahan bisa tidak memuat judul katalog.
+    `ringkas` = rujukan kedua dan seterusnya: cukup judul pokok (sebelum «:») atau awal judulnya, tanpa sub-judul.
+    `tercetak()` = tahun yang tercetak di PDF penelitian itu (dibaca hanya kalau tahunnya beda): tahun naskah yang
+    sama dengan cetakannya tidak dinilai salah walau katalog menulis tahun lain sampai dua tahun (terbit daring dan
+    nomor cetak sering beda)."""
     polos = ARAH.sub("", konteks).translate(ANGKA_LATIN)
     # Buang DOI/URL agar angka tahun di dalam string DOI (mis. 10.1234/2020.01) tidak dibaca sebagai tahun terbit.
     tanpa_url = re.sub(r"https?://\S+|10\.\d{4,}/\S+|<<[^<>]+>>", " ", polos)
@@ -605,7 +653,11 @@ def _banding_rujukan(konteks, w):
                 tahun_ada.append((v, "هـ", tahun_masehi_hijriah(v)))
             elif not hijri and 1900 <= v <= 2100:
                 tahun_ada.append((v, "م", {v}))
-        if tahun_ada and not any(tahun_rec in masehi for _, _, masehi in tahun_ada):
+        # Selisih lebih dari dua tahun bukan beda terbit daring dan cetak; tahun lain di halaman PDF (tanggal terima,
+        # daftar pustaka) tidak boleh menutupinya.
+        dekat = [masehi for _, _, masehi in tahun_ada if any(abs(t - tahun_rec) <= 2 for t in masehi)]
+        if tahun_ada and not any(tahun_rec in masehi for _, _, masehi in tahun_ada) and not any(
+                masehi & tercetak() for masehi in dekat):
             tertulis = "، ".join(f"{v}{t}" for v, t, _ in tahun_ada[:3])
             beda.append(f"tahun di naskah ({tertulis}) ≠ katalog ({tahun_rec})")
     def arab(teks):
@@ -614,11 +666,18 @@ def _banding_rujukan(konteks, w):
     def ada(kata, konteks):
         return bool(kata) and f" {' '.join(kata)} " in f" {' '.join(konteks)} "
 
-    for label, nilai in (("judul", [w.get("judul") or ""]), ("nama peneliti", w.get("peneliti") or [])):
-        pasangan = [(urai(v), urai(tanpa_url)) for urai in (arab, _kata_latin) for v in nilai]
-        dapat_dibandingkan = any(kata and len(konteks) >= 2 for kata, konteks in pasangan)
-        if dapat_dibandingkan and not any(ada(kata, konteks) for kata, konteks in pasangan):
-            belum.append(f"{label} katalog belum terkonfirmasi di baris ini")
+    judul = w.get("judul") or ""
+    pasangan = [(urai(judul), urai(tanpa_url), urai(judul.split(":")[0])) for urai in (arab, _kata_latin)]
+    if any(kata and len(konteks) >= 2 for kata, konteks, _ in pasangan) and not any(
+            ada(kata, konteks) or ringkas and len(pokok) >= 2 and ada(pokok[:JUDUL_RINGKAS], konteks)
+            for kata, konteks, pokok in pasangan):
+        belum.append("judul katalog belum terkonfirmasi di baris ini")
+    # Nama dibandingkan dalam tulisan yang sama: nama Latin di baris berhuruf Arab saja tidak bisa dinilai.
+    kata_baris = _kata_nama_teks(tanpa_url)
+    nama = [(kata, kata_baris[tulisan]) for v in w.get("peneliti") or [] for tulisan, kata in _kata_nama(v).items()
+            if len(kata_baris[tulisan]) >= 2]
+    if nama and not any(kata & ada_di for kata, ada_di in nama):
+        belum.append("nama peneliti katalog belum terkonfirmasi di baris ini")
     return beda, belum
 
 
@@ -674,6 +733,34 @@ def _hasil_rujukan(entri):
     return hasil
 
 
+def _pengenal(teks):
+    """DOI dan nomor OpenAlex (W…) di `teks`, urut kemunculan."""
+    ids = dict.fromkeys(f"doi:{doi}" for m in DOI_DI_TEKS.finditer(teks) if (doi := _bersih_doi(m[1])))
+    for pola in (OA_URL_DI_TEKS, OA_PDF_DI_TEKS):
+        ids.update(dict.fromkeys(m[1].upper() for m in pola.finditer(teks)))
+    return list(ids)
+
+
+def _konteks_pengenal(baris, ids):
+    """{pengenal: (teks, pengenal di teks itu)}: baris tanpa catatan kaki yang hanya menyebut pengenal lain, supaya
+    satu baris yang merujuk dua penelitian di dua catatan kaki dinilai per penelitian."""
+    catatan, i = [], 0
+    while (awal := baris.find("[^", i)) >= 0:
+        try:
+            i = akhir_catatan(baris, awal + 2) + 1
+        except TandaRusak:
+            break
+        catatan.append((awal, i, set(_pengenal(baris[awal:i]))))
+    out = {}
+    for sel in ids:
+        teks = baris
+        for awal, akhir, isi in reversed(catatan):
+            if isi and sel not in isi:
+                teks = teks[:awal] + " " + teks[akhir:]
+        out[sel] = (teks, _pengenal(teks))
+    return out
+
+
 def cek_rujukan(folder):
     """Verifikasi online DOI dan nomor OpenAlex (W…) yang tertulis di `naskah.txt` (OpenAlex + fallback Crossref):
     mendeteksi DOI tidak terdaftar, karya dicabut, dan petunjuk metadata per baris.
@@ -686,11 +773,8 @@ def cek_rujukan(folder):
         if not baris.strip() or baris.lstrip().startswith("@"):
             continue
         baris = baris.translate(ANGKA_LATIN)
-        ids = dict.fromkeys(f"doi:{doi}" for m in DOI_DI_TEKS.finditer(baris) if (doi := _bersih_doi(m[1])))
-        for pola in (OA_URL_DI_TEKS, OA_PDF_DI_TEKS):
-            ids.update(dict.fromkeys(m[1].upper() for m in pola.finditer(baris)))
-        if ids:
-            baris_naskah[n] = (baris, list(ids))
+        if ids := _pengenal(baris):
+            baris_naskah[n] = _konteks_pengenal(baris, ids)
         for sel in ids:
             entri.setdefault(sel, []).append(n)
     if not entri:
@@ -725,7 +809,7 @@ def cek_rujukan(folder):
         lengkap += 1
         print(f"  • baris {baris_str} [{label}]: ID DITEMUKAN — {ringkas}")
         for n in kemunculan:
-            teks, ids = baris_naskah[n]
+            teks, ids = baris_naskah[n][sel]
             if len(ids) > 1:
                 if sel != ids[0]:
                     continue
@@ -733,7 +817,8 @@ def cek_rujukan(folder):
                     perlu += 1
                     print(f"    ! baris {n}: beberapa pengenal di baris ini; periksa metadata masing-masing")
                     continue
-            beda, belum = _banding_rujukan(teks, w)
+            # Rujukan pertama memuat data lengkap; berikutnya boleh ringkas (nama keluarga + judul pokok).
+            beda, belum = _banding_rujukan(teks, w, ringkas=n != kemunculan[0], tercetak=lambda: _tahun_pdf(folder, teks))
             if beda or belum:
                 perlu += 1
                 status = "TIDAK COCOK" if beda else "PERIKSA METADATA"

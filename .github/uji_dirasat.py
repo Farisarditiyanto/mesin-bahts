@@ -366,6 +366,14 @@ def utama():
         retracted = dict(oa_items[1], id="https://openalex.org/W999", doi="https://doi.org/10.9999/ret",
                          title="دراسة مسحوبة في التمويل", is_retracted=True)
         alias_oa = dict(oa_items[0], id="https://openalex.org/W100000", doi="https://doi.org/10.5555/alias")
+        hoo_oa = dict(oa_items[0], id="https://openalex.org/W5000001", publication_year=2019, language="en",
+                      title="Biometric Attendance Tracking System for Education: A Survey on Hardware",
+                      authorships=[{"author": {"display_name": "Seng Chun Hoo"}},
+                                   {"author": {"display_name": "Haidi Ibrahim"}}])
+        lawal_oa = dict(oa_items[0], id="https://openalex.org/W6000001", publication_year=2026, language="en",
+                        title="A Mobile Fingerprint Attendance System for University Lectures",
+                        authorships=[{"author": {"display_name": "Aderonke Rasheedat Lawal"}},
+                                     {"author": {"display_name": "Aina Segun"}}])
 
         def buka_cek(url, kepala=None, waktu=60):
             u = urllib.parse.urlsplit(url)
@@ -380,6 +388,10 @@ def utama():
                     return _Resp(json.dumps(oa_items[0]).encode("utf8"))
                 if "10.9999/ret" in u.path:
                     return _Resp(json.dumps(retracted).encode("utf8"))
+                if u.path.endswith("/W5000001"):
+                    return _Resp(json.dumps(hoo_oa).encode("utf8"))
+                if u.path.endswith("/W6000001"):
+                    return _Resp(json.dumps(lawal_oa).encode("utf8"))
                 raise urllib.error.HTTPError(url, 404, "Not Found", {}, io.BytesIO(b""))
             if u.hostname == "api.crossref.org":
                 if "10.5555%2Fcr1" in u.path or "10.5555/cr1" in u.path:
@@ -474,6 +486,48 @@ def utama():
                                  "[^doi:10.5555/alias <<luar|W100000.pdf|1>>]\n", encoding="utf8")
                 kode, out_alias, err = _cli("dirasat-cek", uji_dir.name)
                 assert kode == 0 and "beberapa pengenal" not in out_alias and "0 perlu dicek" in out_alias, out_alias + err
+
+                # d) Rujukan berikutnya boleh ringkas (nama keluarga + judul pokok), dua penelitian di dua catatan kaki
+                #    satu baris dinilai sendiri-sendiri, dan tahun cetak PDF menang atas katalog yang beda setahun.
+                #    Nama, judul, atau tahun yang memang salah tetap ditandai; rujukan pertama tetap harus utuh.
+                import pymupdf
+                doc = pymupdf.open()
+                doc.new_page().insert_text((50, 100), "Ife Journal of ICT, Volume 9, 2025\nReceived: 3 May 2024\n"
+                                                      "As of December 2024, 160 ATMs were installed")
+                doc.save(uji_dir / "W6000001.pdf")
+                doc.close()
+                hoo = "Hoo & Ibrahim, Biometric Attendance Tracking System for Education"
+                lawal = "Lawal & Aina, A Mobile Fingerprint Attendance System for University Lectures"
+                kasus.write_text(
+                    "ودراسة Hoo[^انظر: Hoo, Seng Chun & Ibrahim, Haidi, Biometric Attendance Tracking System for "
+                    "Education: A Survey on Hardware, 2019, p. 1. <<luar|W5000001.pdf|1>>] ودراسة Lawal[^انظر: Lawal, "
+                    "Aderonke R. & Aina, Segun, A Mobile Fingerprint Attendance System for University Lectures, vol. 9, "
+                    "2025, p. 27. <<luar|W6000001.pdf|1>>].\n"
+                    f"وفيه[^انظر: {hoo}, p. 4. <<luar|W5000001.pdf|4>>].\n"
+                    f"وفيه[^انظر: {lawal}, p. 34. <<luar|W6000001.pdf|1>>].\n"
+                    "وفيه[^انظر: Smith & Jones, Biometric Attendance Tracking System for Education, p. 5. "
+                    "<<luar|W5000001.pdf|5>>].\n"
+                    "وفيه[^انظر: Hoo & Ibrahim, Cloud Security for Hospitals, p. 5. <<luar|W5000001.pdf|5>>].\n"
+                    f"وفيه[^انظر: {lawal}, 2021, p. 3. <<luar|W6000001.pdf|1>>].\n"
+                    f"وفيه[^انظر: {lawal}, 2024, p. 3. <<luar|W6000001.pdf|1>>].\n"
+                    "وفيه[^انظر: Aderonke & Faith, A Mobile Fingerprint Attendance System for University Lectures, "
+                    "p. 3. <<luar|W6000001.pdf|1>>].\n", encoding="utf8")
+                kode, out_ringkas, err = _cli("dirasat-cek", uji_dir.name)
+                assert kode == 2, out_ringkas + err
+                for n in (1, 2, 3):
+                    assert f"! baris {n}:" not in out_ringkas, out_ringkas
+                assert "baris 4: PERIKSA METADATA (nama peneliti" in out_ringkas, out_ringkas
+                assert "baris 5: PERIKSA METADATA (judul" in out_ringkas, out_ringkas
+                assert "baris 6: TIDAK COCOK (tahun di naskah (2021" in out_ringkas, out_ringkas
+                # Tahun di tanggal terima dan kalimat isi PDF bukan tahun terbit; nama depan bukan nama keluarga.
+                assert "baris 7: TIDAK COCOK (tahun di naskah (2024" in out_ringkas, out_ringkas
+                assert "baris 8: PERIKSA METADATA (nama peneliti" in out_ringkas, out_ringkas
+                assert "5 perlu dicek" in out_ringkas, out_ringkas
+                kasus.write_text(f"وفيه[^انظر: {hoo}, p. 4. <<luar|W5000001.pdf|4>>].\n"
+                                 f"وفيه[^انظر: {hoo}, p. 5. <<luar|W5000001.pdf|5>>].\n", encoding="utf8")
+                kode, out_pertama, err = _cli("dirasat-cek", uji_dir.name)
+                assert "baris 1: PERIKSA METADATA (judul" in out_pertama, out_pertama
+                assert "! baris 2:" not in out_pertama and "1 perlu dicek" in out_pertama, out_pertama
             finally:
                 import shutil
                 shutil.rmtree(uji_dir, ignore_errors=True)

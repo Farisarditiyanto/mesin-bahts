@@ -6,6 +6,8 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Perbaikan: `pustaka` tidak lagi mencetak gelar «د»/«أ د» tanpa titik, kurung kosong, atau tahun wafat muhaqqiq di draf `#R`, dan menilai edisi dari muhaqqiq, nama penerbit, nomor cetakan, serta tahun hijriah dan masehi (angka Latin atau ٠١٢٣, nama pengarang boleh lebih pendek), lalu menyebut bidang yang berbeda. `kartu` dan `cek` juga mengenali gelar «د» tanpa titik di depan nama.
+- Perbaikan: `dirasat-cek` menerima rujukan ringkas kedua dan seterusnya (nama keluarga + judul pokok), menilai tiap catatan kaki sendiri kalau satu baris merujuk dua penelitian, dan tidak menyalahkan tahun naskah yang tercetak di kepala PDF penelitian itu walau katalog menulis tahun lain sampai dua tahun.
 - Perintah baru `peta <folder>` (tanpa internet, tidak membebani `cek`) untuk melihat peta struktur/kata/catatan kaki, daftar sumber urut wafat dan inventaris kitab mazhab, busur argumen (`المقدمة` ↔ `الترجيح/الخلاف` ↔ `الخاتمة`), daftar `{H:…}`, dan seluruh baris `terima` di `riset.txt` dalam satu layar (didampingi panduan audit langkah 5 `dok/audit.md`).
 - Perintah baru `edisi <judul|id|w…> [pengarang]` (tanpa internet) untuk menyatukan pencarian kandidat cetakan lintas katalog Shamela dan Waqfeya, memisahkan riwayat lain dan karya terkait, menjembatani judul alternatif (`=` / `المسمى` / kurung), serta meningkatkan ketepatan pencocokan kitab Shamela pada `waqfeya`.
 - `rawi <id> <juz> <hal>` memperlihatkan posisi rawi yang nomornya kosong di indeks sanad Shamela.
