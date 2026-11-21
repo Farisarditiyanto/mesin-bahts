@@ -95,6 +95,7 @@ class Pemeriksaan:
     di_baris: dict = dataclasses.field(default_factory=dict)  # @kunci dan #R -> nomor barisnya (galat yang ketahuan belakangan)
     blok: list = dataclasses.field(default_factory=list)  # paragraf dan judul, urut naskah
     pustaka: list = dataclasses.field(default_factory=list)  # baris sesudah #R
+    pustaka_baris: list = dataclasses.field(default_factory=list)  # [(nomor baris, teks baris)] sesudah #R
 
     def di(self, kunci):
         """Awal pesan «baris n: » untuk @kunci/#R yang sudah dibaca; kosong kalau tidak ditulis di naskah."""

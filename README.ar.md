@@ -87,10 +87,10 @@ python mesin/bahts.py periksa
 | إنشاء المجلد | `baru <folder> "<judul>"` | `naskah.txt` (هيكل نص البحث)، `riset.txt` |
 | جمع المادة | الموصِّل `shamela_*`، `temukan`، `katalog`، `edisi`، `hadits`، `dirasat`؛ ودون إنترنت: `tafsir <surat:ayat>`، `takhrij <id> <juz> <hal>`، `rawi <id> <juz> <hal>`، `akar <id> "<الجذر>"`؛ والكتاب الذي ليس في الشاملة: `waqfeya "<العنوان>"` | رقم الكتاب والجزء/الصفحة (دلالة فقط) |
 | تنزيل الكتاب | `ambil <id>` أو `ambil <folder>`؛ الوقفية: `ambil w<nomor>` | `kitab/<id>/`، `kitab/waqfeya/w<nomor>/` |
-| بيانات النشر | `kartu <id>` | التوثيق الأول والمصادر |
+| بيانات النشر | `kartu <id>`، `pustaka <folder>` | التوثيق الأول ومسودة قائمة المصادر من الكتب الموثقة |
 | قراءة النص | `cari`، `teks`، `bab`، `halaman` | نص محلي يُنسخ كما هو |
-| الفحص | `cek <folder>` (و`--jejak` للنقل غير الموجود) | `GAGAL: n`، تنبيهات، `NASKAH_SHA256` |
-| المراجِع | `peta <folder>` اختياريًّا، `bukti <folder> [awal-akhir]` | خريطة الهيكل والمصادر وقوس الحجاج دون إنترنت ([`dok/audit.md`](dok/audit.md))، ونص الصفحة حول كل حاشية (الشاملة، الوقفية، ملفات PDF البحثية)، والفقرات التي بلا حاشية |
+| الفحص | `cek <folder>` (و`--jejak` للنقل غير الموجود)؛ وفحص DOI بالشبكة: `dirasat-cek <folder>` | `GAGAL: n`، تنبيهات، `NASKAH_SHA256` |
+| المراجِع | `peta <folder>` اختياريًّا، `bukti <folder> [awal-akhir]` | خريطة الهيكل والمصادر وقوس الحجاج دون إنترنت ([`dok/audit.md`](dok/audit.md))، ونص الصفحة حول كل حاشية (الشاملة، والوقفية، وملفات PDF البحثية)، والفقرات التي بلا حاشية |
 | الإخراج | `rakit <folder> [--fasl n]` (Windows + Word) | `.docx` + `.pdf` (الغلاف، الحواشي، المصادر والمراجع، الفهارس)، `HALAMAN_ISI`، `HALAMAN` |
 | الحالة | `tahap <folder>` | `NASKAH=`، `HASIL=`، `RAKIT=`، `BERIKUTNYA` |
 | المخططات | `diagram <folder>` (Node.js + Chrome/Edge) | كل `<nama>.mmd` (Mermaid) يصير `<nama>.png`، ويطبع بـ`#G` |
@@ -134,7 +134,8 @@ python mesin/bahts.py periksa
 | `mesin/turath.py` | الاتصال بموقع turath.io: `temukan`، `scan` |
 | `mesin/jaringan.py` | الاتصال بالخدمات الخارجية، التحويل الآمن، الحصص، والتنزيل الكامل |
 | `mesin/waqfeya.py` | كتب الوقفية: الفهرس، `ambil w…`، النص المستخرج آليا (OCR)، مقتطفات المصورة (PDF/PNG) |
-| `mesin/hadits.py`، `dirasat.py` | دلالة التخريج، الدراسات السابقة |
+| `mesin/hadits.py`، `dirasat.py` | دلالة التخريج، الدراسات السابقة، والتحقق من DOI والأبحاث المسحوبة (`dirasat-cek`) |
+| `mesin/pustaka.py` | توليد مسودة قائمة المصادر `#R` من الكتب الموثقة (`pustaka`) |
 | `mesin/layanan.py` | `tafsir` و`takhrij` و`rawi` و`akar` دون إنترنت (جداول خدمات الشاملة في `kitab/_meta`) |
 | `mesin/diagram.py` | تحويل مخططات Mermaid إلى PNG (`diagram`) |
 | `mesin/rumus.py` | تحويل معادلات LaTeX (`#E` و`{E:…}`) إلى معادلات Word OMML أصلية دون TeX |

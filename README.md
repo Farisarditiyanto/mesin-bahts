@@ -81,10 +81,10 @@ Computer requirements and how to fix them are in one place: `python mesin/bahts.
 | Create the folder | `baru <folder> "<judul>"` | `naskah.txt` (outline), `riset.txt` |
 | Find sources | connector `shamela_*`, `temukan`, `katalog`, `edisi`, `hadits`, `dirasat`; without internet: `tafsir <surat:ayat>`, `takhrij <id> <juz> <hal>`, `rawi <id> <juz> <hal>`, `akar <id> "<akar>"`; books not in Shamela: `waqfeya "<judul>"` | book number + volume/page (a pointer) |
 | Download a book | `ambil <id>` or `ambil <folder>`; Waqfeya: `ambil w<nomor>` | `kitab/<id>/`, `kitab/waqfeya/w<nomor>/` |
-| Publication data | `kartu <id>` | first reference and المصادر |
+| Publication data | `kartu <id>`, `pustaka <folder>` | first reference and المصادر draft from cited books |
 | Read the text | `cari`, `teks`, `bab`, `halaman` | local text to copy exactly |
-| Check | `cek <folder>` (`--jejak` for quotations that are not found) | `GAGAL: n`, perhatian, `NASKAH_SHA256` |
-| Reviewer | optional `peta <folder>`, `bukti <folder> [awal-akhir]` | offline structure/source/claim-arc overview ([`dok/audit.md`](dok/audit.md)), page text around each footnote (Shamela, Waqfeya, research PDFs), and body paragraphs without a footnote |
+| Check | `cek <folder>` (`--jejak` for quotations that are not found); online DOI check: `dirasat-cek <folder>` | `GAGAL: n`, perhatian, `NASKAH_SHA256` |
+| Reviewer | optional `peta <folder>`, `bukti <folder> [awal-akhir]` | offline structure/source/claim-arc overview ([`dok/audit.md`](dok/audit.md)), the page text around each footnote (Shamela, Waqfeya, and research PDFs), and body paragraphs without a footnote |
 | Build | `rakit <folder> [--fasl n]` (Windows + Word) | `.docx` + `.pdf` (cover, footnotes, المصادر والمراجع, الفهارس), `HALAMAN_ISI`, `HALAMAN` |
 | Status | `tahap <folder>` | `NASKAH=`, `HASIL=`, `RAKIT=`, `BERIKUTNYA` |
 | Diagrams | `diagram <folder>` (Node.js + Chrome/Edge) | each `<nama>.mmd` (Mermaid) becomes `<nama>.png`, printed through `#G` |
@@ -127,7 +127,8 @@ Every command = `python mesin/bahts.py <perintah>`. Full list with arguments: `p
 | `mesin/shamela.py` | book download, catalogue, `cari`, `teks`, `bab`, `halaman` |
 | `mesin/turath.py` | turath.io client: `temukan`, `scan` |
 | `mesin/jaringan.py` | transport for outside services, safe redirects, rate limits, and complete downloads |
-| `mesin/hadits.py`, `dirasat.py` | takhrij pointers, previous studies |
+| `mesin/hadits.py`, `dirasat.py` | takhrij pointers, previous studies and DOI/retraction verification (`dirasat-cek`) |
+| `mesin/pustaka.py` | `#R` bibliography draft generator from cited books (`pustaka`) |
 | `mesin/waqfeya.py` | Waqfeya books: catalogue, `ambil w…`, OCR, scan cut-outs (PDF/PNG) |
 | `mesin/layanan.py` | `tafsir`, `takhrij`, `rawi`, and `akar` without internet (Shamela service tables in `kitab/_meta`) |
 | `mesin/diagram.py` | Mermaid diagrams to PNG (`diagram`) |

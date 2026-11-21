@@ -400,6 +400,12 @@ def perintah_edisi(a):
     ketemu(edisi.cetak(a[0], a[1] if len(a) > 1 else "", wq=waqfeya))
 
 
+def perintah_pustaka(a):
+    """`pustaka <folder>`: susun draf `#R` dari kitab berbukti di catatan kaki (lihat pustaka.cetak)."""
+    import pustaka
+    pustaka.cetak(folder_bahts(a[0]))
+
+
 def perintah_tahap(a):
     """`tahap <folder>`: keadaan bahts dibaca ulang dari barang aslinya; mesin keadaannya di tahap.py. Folder bahts dan
     bahan `cek` di mesin/_tmp tidak disentuh."""
@@ -489,6 +495,10 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
              "struktur dan jumlah kata/catatan kaki, daftar sumber dan inventaris kitab mazhab,\n"
              "busur argumen (المقدمة ↔ الترجيح/الخلاف ↔ الخاتمة), daftar {H:…}, dan semua `terima` riset.txt",
              perintah_peta, 1, 1),
+    Perintah("pustaka <folder>", "susun draf baris #R (المصادر والمراجع) siap tempel langsung dari `kartu` kitab berbukti\n"
+             "di catatan kaki (sesuai @pustaka_gaya, tanpa gelar, urut abjad, tanpa internet), sekaligus\n"
+             "menunjukkan data cetak yang cocok dan judul yang edisinya perlu dicek",
+             perintah_pustaka, 1, 1),
     Perintah("rakit <folder> [--fasl n]", "cek, lalu rakit .docx + .pdf (Word) ke dalam folder itu; --fasl 2 (atau 1-2): hanya #F\n"
              "ke-2, untuk bahts yang dikumpulkan bertahap per فصل (lihat `tanda`); `cek` tetap\n"
              "memeriksa seluruh naskah",
@@ -581,6 +591,10 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
     Perintah("dirasat-pdf <W…|DOI> <folder>", "unduh PDF penelitian (nomor OpenAlex W… atau DOI) ke folder bahts;\n"
              "coba salinan OpenAlex (butuh kunci), lalu otomatis jatuh ke tautan PDF akses terbuka bila ada",
              lambda a: dirasat.pdf(a[0], folder_bahts(a[1])), 2, 2),
+    Perintah("dirasat-cek <folder>", "periksa DOI dan nomor OpenAlex (W…) secara online; tampilkan rekaman, status\n"
+             "pencabutan dan petunjuk metadata per baris. Kode 1: ID tidak ditemukan/karya dicabut;\n"
+             "kode 2: metadata perlu dicek atau layanan gagal; kode 0: tidak ada temuan.",
+             lambda a: sys.exit(dirasat.cek_rujukan(folder_bahts(a[0]))), 1, 1),
 )
 PERINTAH = {p.nama: p for p in DAFTAR if isinstance(p, Perintah) and p.jalankan}
 

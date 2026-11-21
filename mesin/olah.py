@@ -655,7 +655,9 @@ def _satu_baris(ctx, n, b):
         else:
             TANDA_BARIS[k](ctx, n, k, t)
     elif "#R" in di_baris:
-        pustaka.append(b.strip())
+        teks_r = b.strip()
+        pustaka.append(teks_r)
+        ctx.pustaka_baris.append((n, teks_r))
         g = gelar(b, "pustaka")
         if g:
             perhatian.append(g)
@@ -834,17 +836,21 @@ def _cek_bentuk(ctx):
         galat.append(di("@berkas") + f"@berkas: «{meta['berkas']}»: nama perangkat Windows tidak bisa dipakai sebagai nama hasil")
 
 
+def kunci_urut(s, pengarang=False):
+    """Kunci urutan abjad Arab untuk المصادر dan فهرس: buang harakat, tanda tebal/miring, «ال» (selain «الله»),
+    dan «ابن/أبو» di depan nama pengarang («ابن القيم» di ق؛ أبو سليمان ص204)."""
+    s = norma.HARAKAT.sub("", s.replace("**", "").replace("__", ""))  # tanda tebal/miring @pustaka_gaya: muallif
+    if pengarang:  # baris diawali nama pengarang: «ابن/أبو» tidak dihitung, «ابن القيم» di ق (أبو سليمان ص204)
+        s = re.sub(r"^(?:(?:ابن|أبو|أبي|أبا|ابو|ابي|ابا)\s+)+", "", s)
+    if not s.startswith("الله"):
+        s = re.sub(r"^ال", "", s)
+    return re.sub("[إأآ]", "ا", s)
+
+
 def _urutkan_fihris(ctx):
     """Urutan المصادر (القرآن الكريم paling atas), nama surat فهرس الآيات, urutan فهرس الأحاديث.
     Kembalikan baris pustaka القرآن الكريم."""
     pustaka, ayat_idx, hadits_idx = ctx.pustaka, ctx.ayat_idx, ctx.hadits_idx
-    def kunci_urut(s, pengarang=False):
-        s = norma.HARAKAT.sub("", s.replace("**", "").replace("__", ""))  # tanda tebal/miring @pustaka_gaya: muallif
-        if pengarang:  # baris diawali nama pengarang: «ابن/أبو» tidak dihitung, «ابن القيم» di ق (أبو سليمان ص204)
-            s = re.sub(r"^(?:(?:ابن|أبو|أبي|أبا|ابو|ابي|ابا)\s+)+", "", s)
-        if not s.startswith("الله"):
-            s = re.sub(r"^ال", "", s)
-        return re.sub("[إأآ]", "ا", s)
     quran = [p for p in pustaka if _mushaf(p)]  # tanpa nomor, paling atas
     pengarang = ctx.meta.get("pustaka_gaya") == "muallif"
     pustaka = quran + sorted([p for p in pustaka if p not in quran], key=lambda p: kunci_urut(p, pengarang))
