@@ -6,6 +6,10 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- `cek` kini memberi perhatian untuk kitab yang dirujuk di catatan kaki (bukti Shamela, Waqfeya, atau PDF `<<luar>>`) tetapi tidak ditulis di المصادر والمراجع (`#R`), dan menyuruh menjalankan `pustaka <folder>`; `@tanpa: pustaka` tidak dinilai.
+- `rakit` dengan `@templat` mengganti penanda «عنوان البحث» di kepala halaman Word itu dengan judul bahts, dan memberi PERINGATAN kalau penanda itu masih tercetak.
+- Perbaikan: sampul `@templat` yang meluap ke halaman kedua sesudah diisi tidak lagi kehilangan baris akhirnya (mis. «العام الجامعي») diam-diam: sampul dipotong di pemisah halaman Word itu, dan `rakit` memberi PERINGATAN kalau sampulnya lebih dari satu halaman.
+- Pemeriksaan PDF sesudah `rakit` kini memperingatkan halaman sisa di المصادر/الفهارس: halaman tanpa judul berisi kurang dari 40 kata lanjutan tabel atau daftar (mis. فهرس الموضوعات yang meluap beberapa baris), dengan saran `@maudhuat: titik` atau `@fihris: sambung`.
 - `AGENTS.md`: judul yang tidak diberikan dosen/خطة/pemakai ditanyakan, bukan dikarang; data sampul yang disalin `baru` dari bahts terakhir orang yang sama ditunjukkan ke pemakai untuk dipastikan, dan `@jenis` ditanyakan ulang; permintaan «jangan mirip bahts lain» dibedakan lewat خطة, isi, dan sumber, bukan `@format`/huruf/gaya.
 - Perbaikan: `pustaka` tidak lagi mencetak gelar «د»/«أ د» tanpa titik, kurung kosong, atau tahun wafat muhaqqiq di draf `#R`, dan menilai edisi dari muhaqqiq, nama penerbit, nomor cetakan, serta tahun hijriah dan masehi (angka Latin atau ٠١٢٣, nama pengarang boleh lebih pendek), lalu menyebut bidang yang berbeda. `kartu` dan `cek` juga mengenali gelar «د» tanpa titik di depan nama.
 - Perbaikan: `dirasat-cek` menerima rujukan ringkas kedua dan seterusnya (nama keluarga + judul pokok), menilai tiap catatan kaki sendiri kalau satu baris merujuk dua penelitian, dan tidak menyalahkan tahun naskah yang tercetak di kepala PDF penelitian itu walau katalog menulis tahun lain sampai dua tahun.

@@ -11,6 +11,7 @@ import gelar
 import norma
 import shamela
 import waqfeya
+from cek_rujukan import bentuk_judul, judul_di_baris
 from dasar import ANGKA_LATIN, WAQFEYA_BUKTI
 from olah import _mushaf, kunci_urut, periksa
 
@@ -141,14 +142,6 @@ def format_baris(info_kartu, gaya="judul"):
         return ". ".join(bagian) + "."
     bagian = [x for x in (info_kartu["judul"], info_kartu["pengarang"], ekor_data) if x]
     return "، ".join(bagian) + "."
-
-
-def _ejaan(teks):
-    return norma.norm(teks.translate(ANGKA_LATIN))
-
-
-def _termuat(bagian, teks):
-    return bool(bagian) and f" {bagian} " in f" {teks} "
 
 
 def _buku(penunjuk):
@@ -305,12 +298,11 @@ def _beda_cetak(data, teks):
     return [b for b, ok in nilai.items() if not ok] if nilai else None
 
 
-def _cocok(data, judul, pustaka, baris_asli):
-    """Untuk tiap baris #R yang menyebut judul kitab ini: daftar bidang data cetak yang berbeda ([] = cocok),
-    atau None kalau kartu tidak punya data cetak."""
-    judul = {_ejaan(j) for j in judul}
-    return {n: _beda_cetak(data, baris_asli[n]) for n, teks in pustaka.items()
-            if any(_termuat(j, teks) for j in judul)}
+def _cocok(data, bentuk, baris_asli):
+    """Untuk tiap baris #R yang menyebut judul kitab ini (`cek_rujukan.judul_di_baris`, sama dengan perhatian `cek`
+    «tidak ada di المصادر والمراجع»): daftar bidang data cetak yang berbeda ([] = cocok), atau None kalau kartu tidak
+    punya data cetak."""
+    return {n: _beda_cetak(data, teks) for n, teks in baris_asli.items() if judul_di_baris(bentuk, teks)}
 
 
 def _daftar(nomor):
@@ -323,7 +315,6 @@ def cetak(folder):
     gaya = ctx.meta.get("pustaka_gaya", "judul")
     sids, wids = _buku(ctx.penunjuk)
     baris_r = {n: teks for n, teks in ctx.pustaka_baris if not _mushaf(teks)}
-    pustaka = {n: _ejaan(teks) for n, teks in baris_r.items()}
     draf, sid_cocok, catatan, terlihat = [], {}, {}, set()
     for sid in sids:
         try:
@@ -332,8 +323,7 @@ def cetak(folder):
             catatan[sid] = "kartu lokal belum terbaca"
             continue
         data = _ekstrak_kartu(m)
-        alias = shamela.judul_pokok(m["title_ar"]) + shamela.judul_pokok(data["judul"])
-        beda = _cocok(data, alias, pustaka, baris_r)
+        beda = _cocok(data, bentuk_judul(m), baris_r)
         terlihat.update(beda)
         sid_cocok[sid] = beda
         draf.append(format_baris(data, gaya=gaya))

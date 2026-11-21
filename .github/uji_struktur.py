@@ -98,6 +98,30 @@ def utama():
             kembar = nama.startswith("#R kembar")  # selalu bisa dibereskan: GAGAL
             out = cek(nama, dua.replace(*ganti), kembar, "baris kembar (dihitung sekali)" if kembar else "")
             assert ("baru 1 kitab" in out) == kurang, (nama, out)
+        # kitab berbukti di catatan kaki harus ada di #R (cek_rujukan.kitab_tanpa_pustaka): judul katalog, judul kartu,
+        # judul seperti di catatan kaki, atau judul #R yang disingkat; @pustaka_gaya: muallif = judul di __…__
+        hilang = "«رسالة في القضاء والقدر» (<<11223|…>>) dirujuk di catatan kaki tetapi tidak ada di المصادر والمراجع (#R)"
+        lain = "الأصول من علم الأصول، محمد بن صالح العثيمين، دار ابن الجوزي، 1426هـ.\n"
+        out = cek("kitab berbukti tidak ada di #R", dasar.replace(kitab, lain), pesan=hilang)
+        assert "pustaka <folder>" in out, out
+        for nama, ganti in (("judul #R disingkat", "رسالة في القضاء، محمد بن صالح العثيمين، دار الوطن، 1423هـ.\n"),
+                            ("judul #R gaya muallif", "**العثيمين، محمد بن صالح** (ت 1421هـ). __رسالة في القضاء والقدر__. دار الوطن، 1423هـ.\n"),
+                            ("judul #R dengan pengarang tempelan", "رسالة في القضاء والقدر للعثيمين، دار الوطن، 1423هـ.\n")):
+            out = cek(nama, dasar.replace(kitab, ganti + lain))
+            assert "(#R)" not in out, (nama, out)
+        # satu catatan kaki, dua sumber dipisah «؛»: judul dan pengarang bagian pertama bukan milik kitab kedua
+        dua_sumber = dasar.replace("#K الخاتمة", "نص للاختبار.[^انظر: رسالة في القضاء والقدر، ابن عثيمين، ص5؛ صحيح "
+                                   "البخاري، البخاري، 1/6. <<11223|-|5|توحيد الربوبية وهو إفراد الله>> "
+                                   "<<1681|1|6|إنما الأعمال بالنيات>>]\n#K الخاتمة", 1)
+        bukhari = "صحيح البخاري، محمد بن إسماعيل البخاري، الطبعة السلطانية، بولاق، 1311هـ.\n"
+        out = cek("dua sumber «؛» semuanya di #R", dua_sumber.replace(kitab, kitab + bukhari))
+        assert "(#R)" not in out, out
+        out = cek("dua sumber «؛», sumber kedua tidak di #R", dua_sumber, pesan="(<<1681|…>>) dirujuk di catatan kaki tetapi tidak ada")
+        assert "<<11223|…>>) dirujuk" not in out, out
+        out = cek("dua sumber «؛», sumber pertama tidak di #R", dua_sumber.replace(kitab, bukhari), pesan=hilang)
+        assert "<<1681|…>>) dirujuk" not in out, out
+        out = cek("@tanpa: pustaka tidak menilai #R",dasar.replace("@minimal_halaman: 0\n", "@minimal_halaman: 0\n@tanpa: pustaka\n").split("#R")[0])
+        assert "(#R)" not in out, out
         # #K sebelum المقدمة (الملخص dst.) bukan halaman isi, juga tanpa @nomor (HALAMAN_ISI rakit.ps1 sama)
         mulakhas = dasar.replace("#K المقدمة", "#K الملخص\n" + "كلمة " * 600 + "\n#K المقدمة", 1)
         isi = perkiraan.search(cek("الملخص panjang sebelum المقدمة", mulakhas)).group(1)

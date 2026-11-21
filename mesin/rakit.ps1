@@ -231,7 +231,16 @@ try {
     # @templat: Word mahasiswa sendiri; halaman pertamanya jadi sampul apa adanya, kepala halamannya dipakai di bagian isi
     $doc = $word.Documents.Add(); $doc.SaveAs2($tmp, 16); Draft
     $TPL = $word.Documents.Open($M.templat, $false, $true)
-    $akhir = if ($TPL.ComputeStatistics(2) -gt 1) { $TPL.GoTo(1, 1, 2).Start - 1 } else { $TPL.Content.End - 1 }
+    # sampul = sampai pemisah halaman atau pemisah bagian pertama, bukan sampai halaman 2 tata letak: sampul yang sudah
+    # diisi bisa meluap (judul dua baris), dan potongan di halaman 2 diam-diam membuang baris akhirnya («العام الجامعي»)
+    $akhir = $TPL.Content.End - 1; $pisah = $false
+    $cari = $TPL.Content; $f = $cari.Find; $f.ClearFormatting()
+    if ($f.Execute('^m')) { $akhir = $cari.Start; $pisah = $true }
+    if ($TPL.Sections.Count -gt 1) { $akhir = [Math]::Min($akhir, $TPL.Sections(2).Range.Start - 1); $pisah = $true }
+    if (-not $pisah -and $TPL.ComputeStatistics(2) -gt 1) {
+        $akhir = $TPL.GoTo(1, 1, 2).Start - 1
+        Write-Output "PERINGATAN: Word @templat lebih dari satu halaman tanpa pemisah halaman sesudah sampulnya: sampul dipotong di akhir halaman pertama dan teks sesudahnya tidak dicetak. Buka Word itu: sampul yang meluap → pendekkan isinya; sesudah sampul → sisipkan pemisah halaman (Ctrl+Enter)."
+    }
     $doc.Content.FormattedText = $TPL.Range(0, $akhir).FormattedText
     $doc.Activate()                                      # Selection di bawah milik dokumen aktif; Open membuat templat aktif
     $pt = $TPL.Sections(1).PageSetup; $p1 = $doc.Sections(1).PageSetup
@@ -253,6 +262,16 @@ try {
     # tepinya (tepi atas tidak berubah, jadi letak tegaknya tetap); nilai di bawah -999000 = rata kiri/tengah/kanan Word, tidak digeser
     foreach ($s in $doc.Shapes) {
         if ($s.RelativeHorizontalPosition -eq 1 -and $s.Left -gt -999000) { $s.Left = $s.Left + $dW }
+    }
+    # di kertas A4 dengan tepi di atas sampul bisa lebih dari satu halaman; dihitung di Print Layout, dengan satu paragraf
+    # sementara untuk baris pemisah bagian sesudah sampul (seperti sampul qism)
+    $doc.ActiveWindow.View.Type = 3
+    $doc.Content.InsertParagraphAfter()
+    $nSampul = $doc.ComputeStatistics(2)
+    [void]$doc.Paragraphs.Last.Range.Delete()
+    Draft
+    if ($nSampul -gt 1) {
+        Write-Output "PERINGATAN: sampul dari @templat jadi $nSampul halaman di kertas A4: baris akhirnya pindah ke halaman berikutnya. Pendekkan isi sampul di Word @templat (judul, nama kampus) atau kecilkan hurufnya sampai muat satu halaman, lalu rakit lagi."
     }
     } elseif ($RENCANA.sampul -eq 'mahad') {
     $doc = $word.Documents.Open("$dir\sampul.doc", $false, $true)
@@ -354,9 +373,17 @@ try {
         $adaPage = @($sh0.Range.Fields | Where-Object { $_.Code.Text -match 'PAGE' }).Count -gt 0
         foreach ($sp in $sh0.Shapes) { if ($sp.TextFrame.HasText -and @($sp.TextFrame.TextRange.Fields | Where-Object { $_.Code.Text -match 'PAGE' }).Count) { $adaPage = $true } }
         if ($adaPage) { $ft.Range.Text = '' }
-        if ($KEPALA_KOTAK) {                             # penanda judul di kepala_kotak.docx = judul (pendek) bahts ini
-            $f = $hd.Range.Find; $f.ClearFormatting(); $f.Replacement.ClearFormatting()
-            [void]$f.Execute('عنوان البحث', $true, $false, $false, $false, $false, $true, 0, $false, $JUDUL_KEPALA, 2)
+        # penanda judul «عنوان البحث» (kepala_kotak.docx, atau Word @templat yang belum diisi, mis. «قالب إثراء المتون
+        # للباحثين») = judul (pendek) bahts ini, di teks kepala halaman dan di kotak teksnya; kurung penandanya ikut diganti
+        $tempat = { @($hd.Range) + @(try { @($hd.Range.ShapeRange) | Where-Object { $_.TextFrame.HasText } | ForEach-Object { $_.TextFrame.TextRange } } catch { }) }
+        foreach ($penanda in '(عنوان البحث)', 'عنوان البحث') {
+            foreach ($r in & $tempat) {
+                $f = $r.Find; $f.ClearFormatting(); $f.Replacement.ClearFormatting()
+                [void]$f.Execute($penanda, $true, $false, $false, $false, $false, $true, 0, $false, $JUDUL_KEPALA, 2)
+            }
+        }
+        if ((@(& $tempat | ForEach-Object { $_.Text }) -join ' ') -match 'عنوان البحث' -and $JUDUL_KEPALA -notmatch 'عنوان البحث') {
+            Write-Output "PERINGATAN: kepala halaman dari @templat masih mencetak «عنوان البحث» di halaman isi: tulis judul bahts di kepala halaman Word @templat, lalu rakit lagi."
         }
         $TPL.Close(0); $TPL = $null; $doc.Activate(); $script:kepalaTpl = $hd
     }
