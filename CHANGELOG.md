@@ -6,6 +6,9 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Perintah baru `peta <folder>` (tanpa internet, tidak membebani `cek`) untuk melihat peta struktur/kata/catatan kaki, sijil sumber urut wafat beserta cakupan kitab mazhab, busur argumen (`المقدمة` ↔ `الترجيح/الخلاف` ↔ `الخاتمة`), daftar `{H:…}`, dan seluruh baris `terima` di `riset.txt` dalam satu layar (didampingi panduan audit langkah 5 `dok/audit.md`).
+- Perintah baru `edisi <judul|id|w…> [pengarang]` (tanpa internet) untuk menyatukan pencarian edisi setara lintas katalog Shamela dan Waqfeya, memisahkan karya terkait (`شرح`/`مختصر`/`حاشية`), menjembatani judul alternatif (`=` / `المسمى` / kurung), serta meningkatkan ketepatan pencocokan kitab Shamela pada `waqfeya`.
+- `rawi <id> <juz> <hal>` dan `rawi <nomor>` kini menampilkan klasifikasi ringkas rutbah rawi (`صحابي` s.d. `كذاب` dari التقريب/الكاشف) beserta qarinah sanad (rawi terendah, qarinah إرسال, انقطاع زمني, dan مدلس/اختلط — penunjuk untuk dikaji, bukan hukum final).
 - Pesan perhatian `cek` kini selalu menyebut tindakannya (kutipan tanpa catatan kaki sendiri, nomor hadits yang lafaznya tidak cocok, judul tercetak sendirian), dan perhatian 8 kata serta المقدمة menyuruh `terima` untuk yang memang tidak dibereskan; kode kelima jenis perhatian itu ikut berubah, jadi baris `terima` lamanya perlu ditulis ulang dengan kode barunya.
 - Perbaikan: PDF bahts tanpa المصادر dan فهرس (mis. `@tanpa: …, pustaka` dan tanpa #R) tidak lagi berakhir dengan halaman kosong bernomor saat baris terakhirnya tepat di tepi bawah halaman.
 - `dirasat` kini mendukung saringan tanggal (`--dari`, `--sampai`), bahasa (`--bahasa`), dan perankingan ulang kolam relevan (`--urut terbaru|terlama|dikutip`) di OpenAlex maupun DOAJ, mencetak jilid/nomor/halaman jurnal, menggabungkan duplikat judul lintas sumber, serta menerima nomor `W…` atau DOI langsung untuk melihat rincian dan ringkasan utuh satu penelitian.

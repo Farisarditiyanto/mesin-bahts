@@ -13,7 +13,7 @@ GAGAL hanya untuk yang pasti salah (cek_kutipan.cek_waqfeya); lafaznya tidak din
 import ast, csv, difflib, functools, gzip, hashlib, json, re, urllib.parse
 from pathlib import Path
 
-import jaringan, norma, shamela
+import edisi, jaringan, norma, shamela
 from dasar import ANGKA_LATIN, HALAMAN_MAKS, perintah
 from berkas import sementara
 
@@ -68,70 +68,13 @@ def rawan(b):
     return bool(RAWAN_KATEGORI.search(b["kategori"]) or RAWAN_JUDUL.search(b["judul"]))
 
 
-# bagian nama yang dipakai banyak ulama (ism, kunyah, laqab umum): tidak membedakan pengarang
-NAMA_UMUM = {norma.norm(x) for x in """محمد أحمد عبد الله الدين بن أبو أبي علي عمر الرحمن إبراهيم الحسن الحسين حسن حسين
-سعيد يوسف عثمان إسماعيل يحيى موسى سليمان عيسى صالح خالد جعفر طاهر العباس القاسم الفضل بكر زيد مصطفى عمرو يعقوب داود
-إسحاق منصور محمود الشيخ الإمام الحافظ العلامة القاضي شهاب جمال كمال زين تقي شمس بدر عماد نجم سراج فخر العزيز""".split()}
-
-
-def _kata_nama(nama):
-    """Kata nama yang membedakan orang, tanpa «ال» («العثيمين» = «عثيمين»: katalog menulisnya dua cara)."""
-    out = set()
-    for w in norma.norm(nama or "").split():
-        if len(w) >= 4 and w not in NAMA_UMUM and "ال" + w not in NAMA_UMUM:
-            w = w[2:] if w.startswith("ال") else w
-            if len(w) >= 3 and w not in NAMA_UMUM:
-                out.add(w)
-    return out
-
-
-@functools.cache
-def _pengarang_shamela():
-    """{nomor kitab Shamela: kata nama pengarangnya} (untuk mencocokkan judul pendek Shamela, mis. «المحصول»)."""
-    try:
-        return {int(r["shamela_id"]): _kata_nama(r["main_author_name_ar"]) for r in shamela.isi_katalog()}
-    except SystemExit:
-        return {}
+_kata_nama = edisi.kata_nama
 
 
 def _di_shamela(b):
-    """Nomor kitab Shamela yang judul pokoknya sama dengan judul Waqfeya (tanpa kurung dan keterangan edisi sesudah
-    « - »), atau judul pokok Shamela-nya awal judul Waqfeya dan pengarangnya sama («المحصول» ↔ «المحصول في علم أصول
-    الفقه»). Penunjuk saja: edisinya bisa berbeda."""
-    pokok, nama = _pokok(b["judul"]), _nama_kitab(b)
-    ada = shamela.nomor_judul_pokok(pokok) or shamela.nomor_judul(pokok)[0]
-    if ada and nama:  # judul sama, pengarang lain («شرح منتهى الإرادات» البهوتي ≠ ابن النجار) = kitab lain
-        return [s for s in ada if nama & _pengarang_shamela().get(s, set())]
-    if ada:
-        return ada
-    q = norma.padat(pokok)
-    if not nama:
-        return []
-    return sorted(s for j, ss in _judul_tanpa_pengarang().items() if len(j) >= 6 and q.startswith(j)
-                  for s in ss if nama & _pengarang_shamela().get(s, set()))
-
-
-@functools.cache
-def _judul_tanpa_pengarang():
-    """{judul pokok Shamela `padat`: {nomor}}, juga tanpa nama pengarang yang ditempel «لـ…» di akhir («المحصول
-    للرازي» → «المحصول»): shamela.judul_pokok hanya membuang للشيخ/لابن/لأبي…"""
-    out = {}
-    for j, ss in shamela.judul_pokok_padat().items():
-        out.setdefault(j, set()).update(ss)
-    try:
-        daftar = shamela.isi_katalog()
-    except SystemExit:
-        return out
-    for r in daftar:
-        for b in shamela.judul_pokok(r["title_ar"]):
-            kata = b.split()
-            nama = _kata_nama(r["main_author_name_ar"])
-            akhir = kata[-1] if len(kata) >= 2 else ""
-            # «للرازي» = لـ + الرازي (alif ال luluh), «لابن…» = لـ + ابن…
-            orang = "ال" + akhir[2:] if akhir.startswith("لل") else akhir[1:] if akhir.startswith("ل") else ""
-            if orang and _kata_nama(orang) & nama:
-                out.setdefault(norma.padat(" ".join(kata[:-1])), set()).add(int(r["shamela_id"]))
-    return out
+    """Nomor kitab Shamela yang setara dengan entri Waqfeya `b` (judul pokok/alternatif + kecocokan pengarang
+    anti-kerabat/nisbah lewat `edisi.shamela_untuk_waqfeya`). Penunjuk saja: edisinya bisa berbeda."""
+    return edisi.shamela_untuk_waqfeya(b)
 
 
 def _pokok(judul):

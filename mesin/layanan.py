@@ -325,9 +325,129 @@ def _rawi_semua():
     """{nomor rawi: baris tabel narrators}."""
     siapkan("rawi")
     import pyarrow.parquet as pq
-    t = pq.read_table(ROOT / TABEL["rawi"], columns=["id", "short_name", "long_name", "biography_text",
-                                                     "criticism_text"]).to_pylist()
+    t = pq.read_table(ROOT / TABEL["rawi"], columns=["id", "short_name", "long_name", "narrator_type",
+                                                     "biography_text", "criticism_text"]).to_pylist()
     return {int(r["id"]): r for r in t}
+
+
+# Tangga مراتب الجرح والتعديل (diadaptasi dari prinsip Hadith-research, MIT): dipakai hanya sebagai qarinah penunjuk
+# titik lemah sanad di `rawi <id> <juz> <hal>`, bukan hukum final atas hadits.
+MARATIB = {
+    "صحابي": 10, "ثقة": 9, "صدوق": 7, "صدوق له أوهام": 6,
+    "مقبول": 5, "لين": 4, "مجهول": 3, "ضعيف": 2, "متروك": 1, "كذاب": 0,
+}
+_POLA_RUTBAH = (
+    ("كذاب", ("كذاب", "وضاع", "يضع الحديث", "متهم بالكذب", "متهم بالوضع", "دجال")),
+    ("متروك", ("متروك", "متروكة", "ساقط", "ذاهب الحديث", "هالك", "ليس بشيء", "تركوه", "متهم")),
+    ("ضعيف", ("ضعيف", "ضعيفة", "واه", "منكر الحديث", "ليس بثقة", "فيه ضعف", "لا يحتج به", "ضعفوه")),
+    ("لين", ("لين الحديث", "لين", "فيه لين", "ليس بالقوي", "ليس بذاك")),
+    ("مجهول", ("مجهول", "مجهولة", "مستور", "مستورة", "لا يعرف", "لا تعرف", "لا يعرف حاله", "لا يعرف حالها")),
+    ("مقبول", ("مقبول", "مقبولة")),
+    ("صدوق", ("صدوق", "صدوقة", "لا باس به", "لا باس بها", "ليس به باس", "صالح الحديث", "محله الصدق")),
+    ("ثقة", ("ثقة", "ثبت", "حافظ", "حجة", "امام", "متقن", "عدل", "جبل")),
+    ("صحابي", ("صحابي", "صحابية", "له صحبة", "لها صحبة", "صحبة", "من الصحابة", "احد العشرة", "بدري", "شهد بدرا")),
+)
+_QAYD_SADUQ = tuple(norma.norm(x).replace("ة", "ه") for x in (
+    "يهم", "يخطئ", "اخطا", "اوهام", "اختلط", "خولط", "خلط", "تغير", "سيئ الحفظ", "سيء الحفظ",
+    "له مناكير", "ربما وهم", "فيه لين", "في حفظه لين", "لين الحفظ", "ضعيف الحفظ", "في حفظه شيء",
+    "كثير الغلط", "كثير الوهم", "يغلط",
+))
+_POLA_RUTBAH_N = tuple((k, tuple(norma.norm(p).replace("ة", "ه") for p in ps)) for k, ps in _POLA_RUTBAH)
+_NAFI = tuple(norma.norm(x) for x in ("ليس", "غير", "لا"))
+_KADHAB_NABAWI = re.compile(r"(?:مسيلمة|الأسود|طليحة|سجاح|المختار)\s+(?:العنسي\s+|الثقفي\s+)?الكذاب")
+_MUDALLIS = re.compile(r"مدلس|يدلس|التدليس")
+_MUKHTALIT = re.compile(r"اختلط|خولط|تغير بآخره|تغير باخره|ساء حفظه")
+# Tangkap tahun menempel «102هـ» maupun berspasi «102 هـ», hindari selisih relatif «بـ 12 سنة»
+_TAHUN_RAWI = re.compile(r"(?<!\d)(\d{1,3})(?!\d)(?!\s*(?:سن[ةه]|اعوام|أعوام|عام|شه|يوم))")
+_SELISIH_RELATIF = re.compile(r"(?:قبل|بعد).{0,25}\b\d{1,3}\s*سن[ةه]")
+
+
+def klasifikasi_rutbah(teks):
+    """(kategori, peringkat 0..10) dari rumusan rutbah rawi, atau (None, None) bila tidak terbaca."""
+    if not teks:
+        return None, None
+    t = " " + norma.norm(_KADHAB_NABAWI.sub(" ", teks)).replace("ة", "ه") + " "
+    terbaik, pos_min = None, 10**9
+    for kat, frasa in _POLA_RUTBAH_N:
+        for f in frasa:
+            i = t.find(f" {f} ")
+            if i < 0:
+                i = t.find(f" ال{f} ")
+            if 0 <= i < pos_min:
+                terbaik, pos_min = kat, i
+    if terbaik is None:
+        return None, None
+    if terbaik in ("ثقة", "صدوق", "مقبول", "صحابي"):
+        jendela = t[max(0, pos_min - 12):pos_min + 1]
+        if any(f" {n} " in jendela for n in _NAFI):
+            return None, None
+    if terbaik == "صدوق" and any(f" {q} " in t for q in _QAYD_SADUQ):
+        terbaik = "صدوق له أوهام"
+    return terbaik, MARATIB[terbaik]
+
+
+def _tahun_rawi(teks):
+    if not teks or _SELISIH_RELATIF.search(teks):
+        return None
+    angka_ = [int(x) for x in _TAHUN_RAWI.findall(teks) if 1 <= int(x) <= 600]
+    return (min(angka_), max(angka_)) if angka_ else None
+
+
+def nilai_rawi(r):
+    """Ringkasan klasifikasi satu baris rawi: {kat, peringkat, sumber, wafat, milad, qarinah}."""
+    ring = _ringkasan(r)
+    hajar, dhahabi, tab = ring.get("الرتبة عند ابن حجر", ""), ring.get("الرتبة عند الذهبي", ""), ring.get("طبقة رواة التقريب", "")
+    kat, p = klasifikasi_rutbah(hajar)
+    sumber = "ابن حجر" if kat else ""
+    if kat is None:
+        kat, p = klasifikasi_rutbah(dhahabi)
+        sumber = "الذهبي" if kat else ""
+    if kat is None and "صحاب" in tab:
+        kat, p, sumber = "صحابي", 10, "التقريب"
+    teks_wafat = ring.get("تاريخ الوفاة", "")
+    wafat = _tahun_rawi(teks_wafat)
+    if not wafat and not _SELISIH_RELATIF.search(teks_wafat or "") and isinstance(r.get("narrator_type"), int) and 1 <= r["narrator_type"] <= 600:
+        wafat = (r["narrator_type"], r["narrator_type"])
+    milad = _tahun_rawi(ring.get("تاريخ الميلاد", ""))
+    gab = norma.HARAKAT.sub("", f"{hajar} {dhahabi}")
+    qarinah = []
+    if _MUDALLIS.search(gab):
+        qarinah.append("مدلس")
+    if _MUKHTALIT.search(gab):
+        qarinah.append("اختلط")
+    return {"kat": kat, "peringkat": p, "sumber": sumber, "wafat": wafat, "milad": milad, "qarinah": qarinah}
+
+
+def analisis_sanad(nomor_list, semua_=None):
+    """Analisis qarinah satu rantai sanad (urutan pengarang -> ujung sanad):
+    titik terendah (weakest link), qarinah irsal (ujung non-sahabi), qarinah inqita' kronologis, dan tadlis/ikhtilat."""
+    semua_ = _rawi_semua() if semua_ is None else semua_
+    rantai = [(n, _bersih(semua_[n]["short_name"]), nilai_rawi(semua_[n])) for n in nomor_list if n in semua_]
+    if not rantai:
+        return None
+    bernilai = [(n, nm, inf) for n, nm, inf in rantai if inf["peringkat"] is not None]
+    terendah = min(bernilai, key=lambda x: x[2]["peringkat"]) if bernilai else None
+    catatan = []
+    if len(rantai) >= 2:
+        ujung_n, ujung_nm, ujung_inf = rantai[-1]
+        if ujung_inf["kat"] and ujung_inf["kat"] != "صحابي":
+            catatan.append(f"قرينة إرسال/وقف (طرف السند ليس صحابيًا: {ujung_nm} [{ujung_inf['kat']}])")
+        for (_, nm_m, im), (_, nm_s, isy) in zip(rantai, rantai[1:]):
+            if im["milad"] and isy["wafat"] and isy["wafat"][1] < im["milad"][0]:
+                catatan.append(f"قرينة انقطاع زمني ({nm_s} ت {isy['wafat'][1]}هـ قبل ميلاد {nm_m} ولد {im['milad'][0]}هـ)")
+            elif im["wafat"] and isy["wafat"]:
+                selisih = im["wafat"][0] - isy["wafat"][1]
+                if selisih > 115:
+                    catatan.append(f"قرينة انقطاع زمني (فجوة {selisih} سنة بين {nm_m} ت {im['wafat'][0]}هـ و{nm_s} ت {isy['wafat'][1]}هـ)")
+                elif isy["wafat"][0] - im["wafat"][1] > 35:
+                    catatan.append(f"قرينة اضطراب طبقة ({nm_m} ت {im['wafat'][1]}هـ سبق شيخه {nm_s} ت {isy['wafat'][0]}هـ بأكثر من 35 سنة)")
+    mudallis = [nm for _, nm, inf in rantai if "مدلس" in inf["qarinah"]]
+    mukhtalit = [nm for _, nm, inf in rantai if "اختلط" in inf["qarinah"]]
+    if mudallis:
+        catatan.append("مدلس في السند: " + "، ".join(mudallis[:3]))
+    if mukhtalit:
+        catatan.append("اختلط في السند: " + "، ".join(mukhtalit[:3]))
+    return {"terendah": terendah, "catatan": catatan}
 
 
 def _json(teks, kunci):
@@ -536,6 +656,14 @@ def rawi(*a):
               + (f", lewat edisi [{jembatan}]" if jembatan else "") + "). Rincian جرح وتعديل: " + perintah("rawi <nomor>"))
         for k, r in sanad:
             print(f"  hadits Shamela #{k}: " + " > ".join(_nama_rawi(n) for n in r if n in semua_))
+            ana = analisis_sanad(r, semua_)
+            if ana and (ana["terendah"] or ana["catatan"]):
+                bag = []
+                if ana["terendah"]:
+                    tn, tnm, tinf = ana["terendah"]
+                    bag.append(f"terendah: {tnm} (#{tn}) [{tinf['kat']}]")
+                bag += ana["catatan"]
+                print("    qarinah sanad (bukan hukum): " + " | ".join(bag))
         if lain:
             print("  di luar data sanad Shamela (urut kemunculan di teks; rantainya baca sendiri): "
                   + "، ".join(_nama_rawi(n) for n in lain))
@@ -549,6 +677,12 @@ def rawi(*a):
         if r is None:
             raise SystemExit(f"Rawi #{x} tidak ada di tabel rawi Shamela; cari nomornya: " + perintah('rawi "<nama>"'))
         print(f"#{x} {_bersih(r['long_name'] or r['short_name'])}")
+        inf = nilai_rawi(r)
+        if inf["kat"]:
+            w_str = (f" | wafat: {inf['wafat'][0]}هـ" if inf["wafat"] and inf["wafat"][0] == inf["wafat"][1]
+                     else f" | wafat: {inf['wafat'][0]}-{inf['wafat'][1]}هـ" if inf["wafat"] else "")
+            q_str = f" | qarinah: {'، '.join(inf['qarinah'])}" if inf["qarinah"] else ""
+            print(f"  klasifikasi ringkas ({inf['sumber']}): {inf['kat']} (peringkat {inf['peringkat']}/10){w_str}{q_str}")
         for k, v in _ringkasan(r).items():
             print(f"  {k}: {v}")
         ucapan = _json(r["criticism_text"], "garh")

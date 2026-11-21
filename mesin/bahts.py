@@ -388,6 +388,18 @@ def perintah_bukti(a):
     ketemu(penunjuk.bukti(folder_bahts(a[0]), dari, sampai))
 
 
+def perintah_peta(a):
+    """`peta <folder>`: peta struktur, sijil sumber/mazhab, busur argumen, hadits, dan `terima` (lihat peta.cetak)."""
+    import peta
+    peta.cetak(folder_bahts(a[0]))
+
+
+def perintah_edisi(a):
+    """`edisi <kueri|sid|w…> [pengarang]`: rekonsiliasi edisi lintas katalog Shamela & Waqfeya (lihat edisi.cetak)."""
+    import edisi
+    ketemu(edisi.cetak(a[0], a[1] if len(a) > 1 else "", wq=waqfeya))
+
+
 def perintah_tahap(a):
     """`tahap <folder>`: keadaan bahts dibaca ulang dari barang aslinya; mesin keadaannya di tahap.py. Folder bahts dan
     bahan `cek` di mesin/_tmp tidak disentuh."""
@@ -473,6 +485,10 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
              "juga tiap paragraf isi tanpa catatan kaki (untuk dinilai: penisbatan tanpa sumber); tiap\n"
              "baris keluaran diawali «baris n». Penunjuk saja, putusan tetap `cek`",
              perintah_bukti, 1, 2),
+    Perintah("peta <folder>", "ringkasan terstruktur offline untuk penulis & pemeriksa langkah 5 (tidak membebani `cek`):\n"
+             "pohon struktur + jumlah kata/fn/paragraf polos, sijil sumber urut wafat + cakupan kitab mazhab,\n"
+             "busur argumen (المقدمة ↔ الترجيح/الخلاف ↔ الخاتمة), daftar {H:…}, dan semua `terima` riset.txt",
+             perintah_peta, 1, 1),
     Perintah("rakit <folder> [--fasl n]", "cek, lalu rakit .docx + .pdf (Word) ke dalam folder itu; --fasl 2 (atau 1-2): hanya #F\n"
              "ke-2, untuk bahts yang dikumpulkan bertahap per فصل (lihat `tanda`); `cek` tetap\n"
              "memeriksa seluruh naskah",
@@ -495,6 +511,10 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
              lambda a: shamela.daftar(), 0, 0),
     Perintah('katalog "<pola>"', "cari judul/pengarang di katalog Shamela (regex)",
              lambda a: ketemu(shamela.katalog(pola(a[0]))), 1, 1),
+    Perintah('edisi "<judul|id|w…>" [pengarang]', "rekonsiliasi edisi lintas katalog Shamela & Waqfeya (offline): temukan\n"
+             "semua cetakan setara satu kitab, pisahkan dari karya terkait (شرح/مختصر/حاشية), dan jembatani\n"
+             "judul alternatif («تفسير القرطبي» ↔ «الجامع لأحكام القرآن») dengan filter pengarang anti-kerabat/nisbah",
+             perintah_edisi, 1, 2),
     Perintah('temukan "<frasa>" [maks] [--mazhab m,…] [--kitab id,…] [--halaman n]', "\n"
              "cari frasa di isi SEMUA kitab Shamela (turath.io, butuh internet) -> kitab + juz/halaman; 20 hasil\n"
              "tiap halaman. --mazhab: hanya kitab fikih mazhab itu; --kitab: hanya kitab itu, walau belum\n"
