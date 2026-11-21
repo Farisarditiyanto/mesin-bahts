@@ -96,7 +96,7 @@ def _timpang_catatan(blok):
 def _sijil_sumber(ctx):
     """Rekap kitab Shamela/Waqfeya/PDF/<<luar>> yang benar-benar berbukti di catatan kaki + cakupan mazhab."""
     sids, wids, pdfs = {}, {}, {}
-    n_luar = 0
+    n_luar = sum(c["luar"] for c in ctx.catatan)
     for p in ctx.penunjuk:
         for b in p.get("bukti", ()):
             if mw := WAQFEYA_BUKTI.fullmatch(b):
@@ -104,8 +104,6 @@ def _sijil_sumber(ctx):
             elif b.startswith(LUAR + "|"):
                 nama = b.split("|", 2)[1].strip()
                 pdfs[nama] = pdfs.get(nama, 0) + 1
-            elif b == LUAR:
-                n_luar += 1
             else:
                 p0 = b.split("|", 1)[0].strip()
                 if p0.isdigit():
@@ -179,18 +177,16 @@ def _busur_argumen(blok):
 
 
 def _daftar_hadits(ctx):
-    """Ringkasan tiap hadits {H:…} di naskah (kunci `t` = taraf, `r` = rawi, baris dari bookmark `bm` di blok)
-    beserta catatan kaki takhrij terdekat pada baris yang sama."""
+    """Ringkasan {H:…} dan halaman Shamela yang diperiksa untuk penanda itu saat naskah diurai."""
     bm_baris = {r["bm"]: b["n"] for b in ctx.blok if "n" in b for r in b.get("runs", ()) if "bm" in r}
-    fn_baris = {}
-    for p in ctx.penunjuk:
-        if "catatan" in p:
-            fn_baris.setdefault(p["n"], []).append(p["catatan"])
     out = []
     for h in ctx.hadits_idx:
         baris_n = bm_baris.get(h.get("k"))
-        fn = " | ".join(fn_baris.get(baris_n, ())[:2])
-        out.append((baris_n, h.get("t", ""), h.get("r", ""), _ringkas_teks(fn, 110)))
+        bukti = []
+        for sid, juz, awal, akhir in h.get("bukti", ()):
+            hal = str(awal) if awal == akhir else f"{awal}-{akhir}"
+            bukti.append(f"{sid}|{juz}|{hal}")
+        out.append((baris_n, h["t"], h["r"], ", ".join(dict.fromkeys(bukti))))
     out.sort(key=lambda x: (x[0] is None, x[0] or 0))
     return out
 
@@ -234,7 +230,7 @@ def cetak(folder):
             if mz in sijil["mazhab_disebut"]:
                 n_b = sijil["bukti_mazhab"][mz]
                 ring_mz.append(f"{_MAZHAB_NAMA[mz]}: {n_b} bukti" + (" (KOSONG!)" if n_b == 0 else ""))
-        print("  Cakupan kitab mazhab (disebut di matan): " + " | ".join(ring_mz))
+        print("  Kitab mazhab dalam seluruh naskah (mazhab disebut di matan): " + " | ".join(ring_mz))
 
     muq, isi, kha = _busur_argumen(ctx.blok)
     print(f"\n[3] Busur Argumen (المقدمة: {len(muq)}, الترجيح/الخلاف/الإجماع: {len(isi)}, الخاتمة: {len(kha)}):")
@@ -250,9 +246,10 @@ def cetak(folder):
     hadits = _daftar_hadits(ctx)
     if hadits:
         print(f"\n[4] Hadits bertanda {{H:…}} ({len(hadits)}):")
-        for n, taraf, rawi, fn in hadits:
+        for n, taraf, rawi, bukti in hadits:
             pos = f"L{n:4d}" if n else "L?   "
-            print(f"  {pos} «{taraf[:55]}» (الراوي: {rawi or '-'})" + (f" | {fn}" if fn else ""))
+            letak = f" | halaman bukti yang diperiksa: {bukti}" if bukti else ""
+            print(f"  {pos} «{taraf[:55]}» (الراوي: {rawi or '-'}){letak}")
 
     if ctx.diterima:
         print(f"\n[5] Perhatian Diterima (`terima` di riset.txt: {len(ctx.diterima)}, wajib dicek pemeriksa):")

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Uji `peta <folder>`, `edisi <kueri|id|w…>`, dan qarinah sanad pada `rawi` lewat pintu pemakai (`bahts.py`),
+"""Uji `peta <folder>`, `edisi <kueri|id|w…>`, dan posisi rawi yang belum dikenal lewat pintu pemakai (`bahts.py`),
 100% offline dengan subset kitab CI."""
 import os, shutil, subprocess, sys, tempfile
 from pathlib import Path
@@ -45,6 +45,20 @@ def utama():
         # Pastikan baris hadits memuat nomor baris nyata (bukan L?), nama rawi, dan ringkasan takhrij
         assert "L?" not in out_k and "ابن عمر" in out_k and "إذا تبايع الرجلان" in out_k, out_k
         assert "[5] Perhatian Diterima" in out_k and "367514" in out_k, out_k
+
+        # Dua {H:} yang berbeda dapat ditulis pada satu baris, masing-masing dengan bukti sendiri.
+        khiyar = akar / "khiyar" / "naskah.txt"
+        teks = khiyar.read_text(encoding="utf8")
+        h1, h2, *_ = [s for s in teks.splitlines() if "{H:" in s]
+        khiyar.write_text(teks.replace(h1, h1 + " " + h2).replace("\n" + h2 + "\n", "\n"), encoding="utf8")
+        kode, out_h = jalan("peta", "khiyar")
+        hadits = out_h.split("[4] Hadits bertanda", 1)[1].split("[5]", 1)[0].splitlines()
+        assert kode == 0, out_h
+        assert any("ابن عمر" in s and "1681|3|64" in s for s in hadits), hadits
+        assert any("أبو هريرة" in s and "1726|3|304" in s and "1681|3|64" not in s for s in hadits), hadits
+        khiyar.write_text(teks.replace("#K الخاتمة", "وفي دراسة معاصرة تفصيل.[^بحث معاصر. <<luar>>]\n#K الخاتمة"), encoding="utf8")
+        kode, out_l = jalan("peta", "khiyar")
+        assert kode == 0 and "<<luar>> 1" in out_l, out_l
 
         # 2b. `peta` menandai bagian isi >=80 kata tanpa catatan kaki, ketimpangan panjang antar-#F,
         # `#K الملخص` tidak ikut jadi [متن], dan `#F مقدمة في …` tetap dinilai [متن] (bukan [مقدمة])
@@ -97,7 +111,7 @@ def utama():
 
         # 3b. `edisi` dengan nomor Waqfeya (تفسير ابن كثير di dalam kurung) menemukan Shamela تفسير ابن كثير
         sys.path.insert(0, str(akar / "mesin"))
-        import edisi, layanan, waqfeya
+        import edisi, waqfeya
         wid_ik = next(w for w, b in waqfeya.katalog().items() if "ابن كثير" in b["judul"])
         kode, out_e2 = jalan("edisi", wid_ik)
         assert kode == 0, out_e2
@@ -126,36 +140,24 @@ def utama():
         assert edisi.hubungan_judul("فيض القدير", "فيض القدير شرح الجامع الصغير") == "sama"
         assert edisi.hubungan_judul("الجامع لأحكام القرآن", "الجامع لأحكام القرآن") == "sama"
 
-        # 4. `rawi` dengan klasifikasi rutbah & qarinah sanad (Hadith-research)
+        # 4. Riwayat lain satu karya tidak ditempatkan bersama cetakan riwayat yang sedang dibuka.
+        kode, out_e5 = jalan("edisi", "1699")
+        bag_cetak, _, riwayat = out_e5.partition("Riwayat lain di Shamela")
+        assert kode == 0 and "Shamela 28107" in bag_cetak, out_e5
+        for sid in ("8140", "16050"):
+            assert f"Shamela {sid}" not in bag_cetak and f"Shamela {sid}" in riwayat, out_e5
+
+        # 5. `rawi` menyajikan sumber penilaian sebagaimana tercatat.
         kode, out_r1 = jalan("rawi", "1681", "1", "31")
         assert kode == 0, out_r1
         assert "#84: البخاري (#5495) > إسماعيل بن أبي أويس (#676) > مالك بن أنس بن مالك (#5361)" in out_r1, out_r1
-        assert "qarinah sanad (bukan hukum): terendah:" in out_r1, out_r1
-        assert "قرينة انقطاع" not in out_r1 and "قرينة إرسال" not in out_r1, out_r1
+        assert "وقيل: إنه تغير بآخره" in out_r1 and "terendah:" not in out_r1 and "اختلط في السند" not in out_r1, out_r1
+        kode, out_r2 = jalan("rawi", "1580")
+        assert kode == 0 and "إلا أنه ربما دلس" in out_r2 and "peringkat" not in out_r2, out_r2
+        kode, out_r3 = jalan("rawi", "1681", "1", "72")
+        assert kode == 0 and "(#1562) > [rawi tanpa nomor] > #1" in out_r3, out_r3
 
-        kode, out_r2 = jalan("rawi", "676")
-        assert kode == 0 and "klasifikasi ringkas (" in out_r2, out_r2
-
-        # 4b. Penjaga klasifikasi: laqab nabi palsu, nafi, bentuk mu'annats, qayd saduq, mukhtalit, tahun menempel هـ,
-        # selisih relatif (bukan tahun hijriah), serta deteksi inqita' & irsal
-        assert layanan.klasifikasi_rutbah("ثقة، شهد قصة المختار الكذاب بالكوفة")[0] == "ثقة"
-        assert layanan.klasifikasi_rutbah("غير عدل")[0] is None
-        assert layanan.klasifikasi_rutbah("صدوق يهم")[0] == "صدوق له أوهام"
-        assert layanan.klasifikasi_rutbah("صدوق، فيه لين")[0] == "صدوق له أوهام"
-        assert layanan.klasifikasi_rutbah("مقبولة")[0] == "مقبول"
-        assert layanan.klasifikasi_rutbah("لا تعرف")[0] == "مجهول"
-        assert layanan.klasifikasi_rutbah("ضعيفة")[0] == "ضعيف"
-        assert layanan._tahun_rawi("102هـ") == (102, 102)
-        assert layanan._tahun_rawi("قبل ابن المقرئ بـ 12 سنة") is None
-        palsu = {
-            1: {"short_name": "التلميذ", "narrator_type": 250, "biography_text": '{"summary":[["تاريخ الميلاد","180هـ"],["الرتبة عند ابن حجر","ثقة خولط بأخرة"]]}', "criticism_text": ""},
-            2: {"short_name": "الشيخ", "narrator_type": 120, "biography_text": '{"summary":[["تاريخ الوفاة","120هـ"],["الرتبة عند ابن حجر","ثقة مدلس"]]}', "criticism_text": ""},
-        }
-        ana = layanan.analisis_sanad([1, 2], semua_=palsu)
-        gab = " | ".join(ana["catatan"])
-        assert "قرينة انقطاع زمني" in gab and "قرينة إرسال" in gab and "مدلس في السند" in gab and "اختلط في السند" in gab, ana
-
-        print("lolos uji peta, edisi lintas-katalog, dan qarinah sanad rawi")
+        print("lolos uji peta, edisi lintas-katalog, dan tampilan sanad rawi")
 
 
 if __name__ == "__main__":

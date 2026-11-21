@@ -54,6 +54,7 @@ _SALINAN_DIGITAL = re.compile(
 _GABUNG_KITAB = re.compile(r"\s+(?:ويليه|ومعه|وبهامشه|ومعها|وبذيله|وعليه)\s+.*$")
 _EKOR_EDISI = re.compile(r"\s*(?:-|—|–)\s*(?:ت[\s.:،_]|ط[\s.:،_]|تحقيق|طبعة|دار|مؤسسة|مكتبة|موافق للمطبوع|مشكول|نسخة أخرى|المطبعة).*$")
 _EKOR_SEBARIS = re.compile(r"\s+(?:ت|ط)\s*[:._-]\s*.*$")
+_RIWAYAT = re.compile(r"(?<![ء-ي])رواية\s+([^()\[\]،؛=–—-]+)")
 _BUANG_DEPAN = re.compile(r"^(?:كتاب|رسالة في|جزء فيه)\s+")
 _KERABAT = re.compile(r"(?<![ء-ي])(?:سبط|حفيد|والد|أخو|تلميذ)\s+")
 _NISBAH_PEMBEDA = re.compile(r"(?<![ء-ي])(ال[ء-ي]{3,}[يى])(?![ء-ي])")
@@ -71,6 +72,23 @@ def ekstrak_ekor_edisi(judul):
     if m := _EKOR_EDISI.search(judul or ""):
         bag.append(m.group(0).lstrip(" -–—").strip())
     return "؛ ".join(dict.fromkeys(bag))
+
+
+def _riwayat(judul):
+    bersih = _EKOR_SEBARIS.sub("", _EKOR_EDISI.sub("", _SALINAN_DIGITAL.sub("", judul)))
+    if m := _RIWAYAT.search(norma.HARAKAT.sub("", bersih)):
+        return norma.norm(m[1])
+    return ""
+
+
+def _beda_riwayat(judul_a, judul_b):
+    a, b = _riwayat(judul_a), _riwayat(judul_b)
+    # «رواية يحيى» dan «رواية يحيى بن يحيى الليثي» dapat merujuk ke riwayat yang sama.
+    def kata(nama):
+        return tuple(re.sub(r"^اب[ايو](?= )", "ابو", nama).split())
+
+    a, b = sorted((kata(a), kata(b)), key=len)
+    return bool(a and a != b[:len(a)])
 
 
 def _tanpa_ekor_pengarang(judul, pengarang):
@@ -256,7 +274,7 @@ def shamela_untuk_waqfeya(b):
     for sid in sorted(calon):
         r = by_id[sid]
         peng_s = r.get("main_author_name_ar") or ""
-        if not _pengarang_terima(peng_w_gab, peng_s):
+        if _beda_riwayat(b["judul"], r["title_ar"]) or not _pengarang_terima(peng_w_gab, peng_s):
             continue
         # Pastikan hubungan judul tidak konflik ukuran/turunan
         hub = [hubungan_judul(jw, js) for jw in judul_w for js in pecah_judul(r.get("title_ar") or "", peng_s)]
@@ -275,7 +293,7 @@ def shamela_untuk_waqfeya(b):
                     for sid in sorted(sids):
                         r = by_id[sid]
                         peng_s = r.get("main_author_name_ar") or ""
-                        if cocok_pengarang(peng_w_gab, peng_s) != "sama":
+                        if _beda_riwayat(b["judul"], r["title_ar"]) or cocok_pengarang(peng_w_gab, peng_s) != "sama":
                             continue
                         hub = [hubungan_judul(j, js) for js in pecah_judul(r.get("title_ar") or "", peng_s)]
                         if "sama" in hub and sid not in hasil:
@@ -296,7 +314,7 @@ def _waqfeya_untuk_karya(judul_list, pengarang, wq, wafat=None):
         if not any(k in kata_kunci for jw in jw_list for k in _kata_judul(jw)):
             continue
         hubs = {hubungan_judul(ja, jb) for ja in judul_list for jb in jw_list}
-        if "sama" in hubs:
+        if "sama" in hubs and not any(_beda_riwayat(j, b["judul"]) for j in judul_list):
             if _pengarang_terima(pengarang, peng_w, wafat_a=wafat):
                 sama.append((w, b))
         elif "terkait" in hubs:
@@ -321,7 +339,7 @@ def _baris_waqfeya(w, b, wq):
 
 
 def cetak(kueri, pengarang="", maks=15, wq=None):
-    """`edisi <kueri|sid|w…> [pengarang]`: tampilkan semua edisi setara lintas Shamela & Waqfeya (offline)."""
+    """`edisi <kueri|sid|w…> [pengarang]`: cari kandidat satu karya lintas Shamela dan Waqfeya (offline)."""
     by_id, _, by_group = _indeks_shamela()
     lokal = set(shamela.punya())
     q = kueri.strip()
@@ -337,46 +355,44 @@ def cetak(kueri, pengarang="", maks=15, wq=None):
         wafat = _tahun_wafat_sah(r.get("main_author_death_hijri"))
         print(f"EDISI KITAB: {judul_l[0] if judul_l else r.get('title_ar')} — {peng or '?'}"
               + (f" (ت {wafat}هـ)" if wafat else ""))
-        saudara, sh_terkait = {sid}, set()
-        # Cek semua kitab Shamela: saudara satu group_id tetap disaring agar مختصر/شرح tidak dianggap edisi sama
-        kandidat_sh = set(by_group.get(r.get("group_id"), [])) if r.get("group_id") else set()
-        for s2 in kandidat_sh:
+        saudara, sh_terkait, riwayat_lain = {sid}, set(), set()
+        satu_grup = set(by_group.get(r.get("group_id"), ()))
+        for s2, r2 in by_id.items():
             if s2 == sid:
                 continue
-            r2 = by_id[s2]
             peng2 = r2.get("main_author_name_ar") or ""
             hubs = {hubungan_judul(ja, jb) for ja in judul_l for jb in pecah_judul(r2.get("title_ar") or "", peng2)}
-            peng_ok = cocok_pengarang(peng, peng2, wafat, r2.get("main_author_death_hijri"))
-            if "terkait" in hubs or peng_ok == "beda":
+            if "terkait" in hubs and ("sama" not in hubs or s2 in satu_grup):
                 sh_terkait.add(s2)
+                continue
+            if "sama" not in hubs or cocok_pengarang(peng, peng2, wafat, r2.get("main_author_death_hijri")) != "sama":
+                continue
+            if _beda_riwayat(r["title_ar"], r2["title_ar"]):
+                riwayat_lain.add(s2)
             else:
                 saudara.add(s2)
-        for s2, r2 in by_id.items():
-            if s2 in saudara or s2 in sh_terkait:
-                continue
-            peng2 = r2.get("main_author_name_ar") or ""
-            hubs = {hubungan_judul(ja, jb) for ja in judul_l for jb in pecah_judul(r2.get("title_ar") or "", peng2)}
-            if "sama" in hubs and cocok_pengarang(peng, peng2, wafat, r2.get("main_author_death_hijri")) == "sama":
-                saudara.add(s2)
-            elif "terkait" in hubs:
-                sh_terkait.add(s2)
-        print(f"\nEdisi di Shamela ({len(saudara)}):")
+        print(f"\nKandidat cetakan di Shamela ({len(saudara)}):")
         for s2 in sorted(saudara):
             print(_baris_shamela(s2, by_id[s2], lokal))
         wq_sama, wq_terkait = _waqfeya_untuk_karya(judul_l, peng, wq, wafat)
-        print(f"\nEdisi scan di Waqfeya ({len(wq_sama)}):")
+        print(f"\nKandidat scan di Waqfeya ({len(wq_sama)}):")
         if wq is None or not wq.KATALOG.exists():
             print("  (katalog Waqfeya belum diunduh; jalankan `waqfeya \"<judul>\"` sekali untuk mengunduhnya)")
         elif not wq_sama:
-            print("  (tidak ditemukan edisi setara di katalog Waqfeya)")
+            print("  (tidak ditemukan kandidat karya di katalog Waqfeya)")
         for w, b in wq_sama[:maks]:
             print(_baris_waqfeya(w, b, wq))
+        if riwayat_lain:
+            print(f"\nRiwayat lain di Shamela ({len(riwayat_lain)}):")
+            for s2 in sorted(riwayat_lain):
+                print(_baris_shamela(s2, by_id[s2], lokal))
         if sh_terkait or wq_terkait:
             print(f"\nKarya terkait (syarah/mukhtashar/hasyiah, bukan edisi sama — {len(sh_terkait)} Shamela, {len(wq_terkait)} Waqfeya):")
             for s2 in sorted(sh_terkait)[:5]:
                 print(_baris_shamela(s2, by_id[s2], lokal))
             for w, b in wq_terkait[:5]:
                 print(_baris_waqfeya(w, b, wq))
+        print("\nCocokkan riwayat dan data cetak sebelum memakai nomor juz/halaman.")
         return len(saudara) + len(wq_sama)
 
     # 2. Input nomor Waqfeya (w…) — tetap 100% offline: tolak dengan pesan bersih bila katalog belum diunduh
@@ -389,15 +405,16 @@ def cetak(kueri, pengarang="", maks=15, wq=None):
         judul_l = pecah_judul(b["judul"], b.get("pengarang") or "")
         print(f"EDISI KITAB: {judul_l[0] if judul_l else b['judul']} — {b['pengarang'] or '?'}")
         sh_cocok = shamela_untuk_waqfeya(b)
-        print(f"\nEdisi di Shamela ({len(sh_cocok)}):")
+        print(f"\nKandidat cetakan di Shamela ({len(sh_cocok)}):")
         if not sh_cocok:
             print("  (tidak ditemukan di katalog Shamela; pakai Waqfeya ini dan baca dari scan)")
         for s2 in sh_cocok:
             print(_baris_shamela(s2, by_id[s2], lokal))
         wq_sama, _ = _waqfeya_untuk_karya(judul_l, b["pengarang"], wq)
-        print(f"\nEdisi scan di Waqfeya ({len(wq_sama)}):")
+        print(f"\nKandidat scan di Waqfeya ({len(wq_sama)}):")
         for w, bw in wq_sama[:maks]:
             print(_baris_waqfeya(w, bw, wq))
+        print("\nCocokkan riwayat dan data cetak sebelum memakai nomor juz/halaman.")
         return len(sh_cocok) + len(wq_sama)
 
     # 3. Pencarian judul (+ pengarang opsional) lintas Shamela & Waqfeya sekaligus

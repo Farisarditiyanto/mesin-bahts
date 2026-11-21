@@ -485,8 +485,8 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
              "juga tiap paragraf isi tanpa catatan kaki (untuk dinilai: penisbatan tanpa sumber); tiap\n"
              "baris keluaran diawali «baris n». Penunjuk saja, putusan tetap `cek`",
              perintah_bukti, 1, 2),
-    Perintah("peta <folder>", "ringkasan terstruktur offline untuk penulis & pemeriksa langkah 5 (tidak membebani `cek`):\n"
-             "pohon struktur + jumlah kata/fn/paragraf polos, sijil sumber urut wafat + cakupan kitab mazhab,\n"
+    Perintah("peta <folder>", "ringkasan opsional untuk penulis dan pemeriksa, tanpa internet:\n"
+             "struktur dan jumlah kata/catatan kaki, daftar sumber dan inventaris kitab mazhab,\n"
              "busur argumen (المقدمة ↔ الترجيح/الخلاف ↔ الخاتمة), daftar {H:…}, dan semua `terima` riset.txt",
              perintah_peta, 1, 1),
     Perintah("rakit <folder> [--fasl n]", "cek, lalu rakit .docx + .pdf (Word) ke dalam folder itu; --fasl 2 (atau 1-2): hanya #F\n"
@@ -511,8 +511,8 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
              lambda a: shamela.daftar(), 0, 0),
     Perintah('katalog "<pola>"', "cari judul/pengarang di katalog Shamela (regex)",
              lambda a: ketemu(shamela.katalog(pola(a[0]))), 1, 1),
-    Perintah('edisi "<judul|id|w…>" [pengarang]', "rekonsiliasi edisi lintas katalog Shamela & Waqfeya (offline): temukan\n"
-             "semua cetakan setara satu kitab, pisahkan dari karya terkait (شرح/مختصر/حاشية), dan jembatani\n"
+    Perintah('edisi "<judul|id|w…>" [pengarang]', "cari kandidat cetakan di Shamela dan Waqfeya tanpa internet: pisahkan\n"
+             "riwayat lain serta karya terkait (شرح/مختصر/حاشية), dan jembatani\n"
              "judul alternatif («تفسير القرطبي» ↔ «الجامع لأحكام القرآن») dengan filter pengarang anti-kerabat/nisbah",
              perintah_edisi, 1, 2),
     Perintah('temukan "<frasa>" [maks] [--mazhab m,…] [--kitab id,…] [--halaman n]', "\n"

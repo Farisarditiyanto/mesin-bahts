@@ -4,11 +4,11 @@ Panduan ringkas ini melengkapi `AGENTS.md` (Alur kerja langkah 2 dan 5) untuk mo
 
 ## 1. Pintu Data Deterministik (jalankan sebelum membaca panjang)
 
-1. **`python mesin/bahts.py peta <folder>`** — satu kali jalan (offline, tanpa membebani `cek`) untuk melihat:
+1. **`python mesin/bahts.py peta <folder>`** — ringkasan opsional (offline) untuk melihat:
    - **Cakupan rencana vs isi**: pohon `#K/#F/#B/#M/#S`, jumlah kata/catatan kaki/paragraf polos tiap bagian, bagian isi ≥80 kata tanpa satu pun catatan kaki, serta ketimpangan panjang antarbagian setingkat.
-   - **Sijil sumber & matriks mazhab**: tiap kitab Shamela/Waqfeya/PDF/`<<luar>>` berbukti urut dari pengarang tertua (`ت …هـ`), penanda `[معتمد]`/`[معاصر]`, dan perbandingan mazhab yang disebut di matan terhadap jumlah bukti kitab mazhabnya sendiri.
+   - **Inventaris sumber dan kitab mazhab**: tiap kitab Shamela/Waqfeya/PDF/`<<luar>>` berbukti urut dari pengarang tertua (`ت …هـ`), penanda `[معتمد]`/`[معاصر]`, dan perbandingan mazhab yang disebut di matan terhadap jumlah bukti kitab mazhabnya sendiri di seluruh naskah. Buka bukti tiap masalah untuk menilai cakupan klaimnya.
    - **Busur argumen**: baris rencana/pertanyaan di `المقدمة`, baris `القول الأول/الثاني`/`إجماع`/`الراجح` di isi, dan baris hasil di `الخاتمة` berdampingan untuk menangkap kontradiksi isi↔kesimpulan dan pertanyaan yang belum terjawab (*qaws maftuh*).
-   - **Daftar `{H:…}` dan `terima` di `riset.txt`**: semua hadits bertanda dan semua perhatian yang ditutup `terima` terkumpul di satu layar untuk diperiksa satu per satu.
+   - **Daftar `{H:…}` dan `terima` di `riset.txt`**: semua hadits bertanda, halaman bukti Shamela yang diperiksa, dan semua perhatian yang ditutup `terima` terkumpul di satu layar untuk diperiksa satu per satu.
 2. **`python mesin/bahts.py bukti <folder> [awal-akhir]`** — baca teks kitab di sekitar tiap catatan kaki, ayat `{Q:}`, bukti Waqfeya/PDF, dan tiap paragraf isi tanpa catatan kaki.
 3. **`python mesin/bahts.py pratinjau <folder> [halaman]`** — periksa tata letak visual PDF sesudah `rakit` (fokus B terpisah dari fokus A Isi & Sumber).
 
@@ -32,5 +32,5 @@ Saat membaca `peta <folder>` dan isi naskah, periksa enam cacat logika/struktur 
 
 ## 4. Disiplin Sijil Bukti & Verifikasi Asimetris
 
-- **دليل موثق أو خلو معلن (Bukti tertulis atau pengakuan kosong)**: sebelum menulis bagian khilaf atau sanad, kumpulkan bukti dari kitab mu'tamad/kitab asal (`edisi` untuk menemukan cetakan setara di Shamela/Waqfeya; `rawi <id> <juz> <hal>` untuk memeriksa rantai sanad & qarinah titik lemahnya). Bila suatu mazhab atau derajat hadits benar-benar tidak ditemukan di sumber yang tersedia, nyatakan terus terang dan sebut di laporan akhir — jangan menambal dari ingatan.
+- **دليل موثق أو خلو معلن (Bukti tertulis atau pengakuan kosong)**: sebelum menulis bagian khilaf atau sanad, kumpulkan bukti dari kitab mu'tamad/kitab asal (`edisi` untuk menemukan kandidat cetakan di Shamela/Waqfeya, lalu cocokkan data cetaknya; `rawi <id> <juz> <hal>` untuk melihat rantai dan membuka penilaian rawi dari kitab asal). Bila suatu mazhab atau derajat hadits benar-benar tidak ditemukan di sumber yang tersedia, nyatakan terus terang dan sebut di laporan akhir — jangan menambal dari ingatan.
 - **Verifikasi asimetris**: pemeriksa hanya membuktikan kesalahan yang tertangkap dengan bukti perintah + potongan keluaran; tidak ditemukannya temuan berarti «belum terlihat cacat pada titik yang diperiksa», bukan sertifikat bebas salah mutlak.
