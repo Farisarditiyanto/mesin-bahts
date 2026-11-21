@@ -26,6 +26,7 @@ PDF = "https://content.openalex.org/works/{}.pdf"  # salinan PDF yang disimpan O
 KOLOM = ("id,title,publication_year,publication_date,type,language,cited_by_count,biblio,authorships,"
          "primary_location,best_oa_location,doi,has_content,abstract_inverted_index,is_retracted")
 CROSSREF = "https://api.crossref.org/works/"
+DOI_HANDLE = "https://doi.org/api/handles/"
 MAKNA_MAKS = 50  # OpenAlex menjawab pencarian makna paling banyak sebanyak ini
 KATA_POOL_MAKS = 200  # OpenAlex per_page maksimum untuk kolam perankingan ulang (--urut)
 DOAJ_POOL_MAKS = 100  # DOAJ pageSize maksimum
@@ -65,13 +66,13 @@ def _buka(url, waktu=WAKTU_CARI):
         try:
             return buka(url, kepala=kepala, waktu=waktu)  # galat sementara dicoba lagi di sana
         except urllib.error.HTTPError as e:
+            if not openalex:
+                raise
             pesan = e.read().decode("utf8", "replace")
             # mesin pencari makna OpenAlex kadang kewalahan dan menjawabnya sebagai 400: tunggu, coba lagi
             if sisa_coba and "Failed to embed" in pesan:
                 time.sleep(3)
                 continue
-            if not openalex:
-                raise
             if e.code == 504 and "query_timeout" in pesan:  # diulang pun sama; tidak memotong jatah
                 raise Ditolak("pencarian ini kehabisan waktu di OpenAlex (tidak memotong jatah); hasil sumber lain tetap berlaku. "
                               "Kalau ini pencarian makna: tulis masalahnya sebagai kalimat yang lebih khusus")
@@ -545,6 +546,7 @@ def tahun_masehi_hijriah(h):
 
 def _bersih_doi(raw):
     d = re.split(r"[?#]", raw.strip(), maxsplit=1)[0].rstrip(".,;:/")
+    d = urllib.parse.unquote(d)
     while d.endswith(")") and d.count(")") > d.count("("):
         d = d[:-1].rstrip(".,;:/")
     return d.lower() if re.fullmatch(r"10\.\d{4,}/\S+", d) else ""
@@ -566,9 +568,9 @@ def _baca_crossref(doi):
         if bagian and bagian[0] and isinstance(bagian[0][0], int):
             tahun = bagian[0][0]
             break
-    dicabut = (any("retract" in str(u.get("type", "")).lower()
-                   for u in (msg.get("update-to") or []) + (msg.get("updated-by") or []))
-               or any("retract" in str(k).lower() for k in (msg.get("relation") or {})))
+    # update-to menautkan dokumen pemberitahuan ke artikel yang diperbarui.
+    dicabut = (any(u.get("type") == "retraction" for u in msg.get("updated-by") or ())
+               or bool((msg.get("relation") or {}).get("is-retracted-by")))
     return {
         "judul": (msg.get("title") or [""])[0],
         "peneliti": [f"{a.get('given', '')} {a.get('family', '')}".strip()
@@ -586,11 +588,11 @@ def _kata_latin(teks):
 
 
 def _banding_rujukan(konteks, w):
-    """Bandingkan teks konteks naskah dengan rekaman katalog `w`: daftar ketidakcocokan (kosong = cocok)."""
+    """Bandingkan petunjuk tiap bidang pada satu baris. Teks bebas dan terjemahan bisa tidak memuat judul katalog."""
     polos = ARAH.sub("", konteks).translate(ANGKA_LATIN)
     # Buang DOI/URL agar angka tahun di dalam string DOI (mis. 10.1234/2020.01) tidak dibaca sebagai tahun terbit.
     tanpa_url = re.sub(r"https?://\S+|10\.\d{4,}/\S+|<<[^<>]+>>", " ", polos)
-    beda = []
+    beda, belum = [], []
     tahun_rec = w.get("tahun")
     if isinstance(tahun_rec, int):
         tanpa_wafat = WAFAT_DI_TEKS.sub(" ", tanpa_url)
@@ -606,85 +608,136 @@ def _banding_rujukan(konteks, w):
         if tahun_ada and not any(tahun_rec in masehi for _, _, masehi in tahun_ada):
             tertulis = "، ".join(f"{v}{t}" for v, t, _ in tahun_ada[:3])
             beda.append(f"tahun di naskah ({tertulis}) ≠ katalog ({tahun_rec})")
-    # Judul & penulis hanya dinilai bila aksara katalog dan aksara konteks saling bertemu (ringkasan berbahasa Arab
-    # atas makalah Inggris tanpa kata Latin tidak bisa dicocokkan langsung tanpa transliterasi).
-    huruf_isi = re.sub(r"[\W\d_]+", "", tanpa_url)
-    if len(huruf_isi) >= 20:
-        konteks_ar = set(norma.norm(tanpa_url).split())
-        konteks_en = set(_kata_latin(tanpa_url))
-        judul_ar = [k for k in norma.norm(w.get("judul") or "").split() if len(k) >= 3]
-        judul_en = _kata_latin(w.get("judul") or "")
-        cocok_judul = (bool(judul_ar) and sum(1 for k in judul_ar if k in konteks_ar) >= max(1, len(judul_ar) // 3)
-                       or bool(judul_en) and sum(1 for k in judul_en if k in konteks_en) >= max(1, len(judul_en) // 3))
-        penulis_ar, penulis_en = set(), set()
-        for p in w.get("peneliti") or []:
-            penulis_ar.update(k for k in norma.norm(p).split() if len(k) >= 3)
-            penulis_en.update(_kata_latin(p))
-        cocok_penulis = bool((penulis_ar & konteks_ar) or (penulis_en & konteks_en))
-        bisa_ar = bool(judul_ar or penulis_ar) and bool(konteks_ar)
-        bisa_en = bool(judul_en or penulis_en) and len(konteks_en) >= 2
-        if (bisa_ar or bisa_en) and not cocok_judul and not cocok_penulis:
-            beda.append("judul dan nama peneliti tidak cocok dengan rekaman DOI/OpenAlex")
-    return beda
+    def arab(teks):
+        return [k for k in norma.norm(teks).split() if not k.isdecimal()]
+
+    def ada(kata, konteks):
+        return bool(kata) and f" {' '.join(kata)} " in f" {' '.join(konteks)} "
+
+    for label, nilai in (("judul", [w.get("judul") or ""]), ("nama peneliti", w.get("peneliti") or [])):
+        pasangan = [(urai(v), urai(tanpa_url)) for urai in (arab, _kata_latin) for v in nilai]
+        dapat_dibandingkan = any(kata and len(konteks) >= 2 for kata, konteks in pasangan)
+        if dapat_dibandingkan and not any(ada(kata, konteks) for kata, konteks in pasangan):
+            belum.append(f"{label} katalog belum terkonfirmasi di baris ini")
+    return beda, belum
+
+
+def _registrasi_doi(doi):
+    """Status registrasi dari resolver DOI. Galat jaringan/format diteruskan sebagai pemeriksaan yang belum selesai."""
+    url = DOI_HANDLE + urllib.parse.quote(doi, safe="")
+    try:
+        with _buka(url) as jawaban:
+            status = json.load(jawaban)["responseCode"]
+    except urllib.error.HTTPError as e:
+        if e.code != 404:
+            raise
+        with e:
+            status = json.load(e)["responseCode"]
+    if status not in (1, 100):
+        raise ValueError(f"resolver DOI mengembalikan status {status}")
+    return status == 1
+
+
+def _rekaman_rujukan(sel):
+    if w := _baca_karya(sel):
+        return w, "OpenAlex", True
+    if not sel.startswith("doi:"):
+        return None, "OpenAlex", False
+    doi = sel[4:]
+    if w := _baca_crossref(doi):
+        return w, "Crossref", True
+    return None, "doi.org", _registrasi_doi(doi)
+
+
+def _alias_katalog(w):
+    alias = {w["nomor"]} if w["nomor"] else set()
+    if w["doi"]:
+        alias.add(f"doi:{w['doi']}")
+    return alias
+
+
+def _hasil_rujukan(entri):
+    """Satu permintaan per identitas yang ditemukan. OpenAlex mengembalikan padanan W… dan DOI."""
+    hasil = {}
+    for sel in entri:
+        if sel in hasil:
+            continue
+        try:
+            w, sumber, terdaftar = hasil[sel] = _rekaman_rujukan(sel)
+        except (Ditolak, OSError, *JAWABAN_RUSAK) as e:
+            hasil[sel] = str(e)
+            continue
+        if w:
+            for a in _alias_katalog(w):
+                if a in entri:
+                    hasil.setdefault(a, (w, sumber, terdaftar))
+    return hasil
 
 
 def cek_rujukan(folder):
     """Verifikasi online DOI dan nomor OpenAlex (W…) yang tertulis di `naskah.txt` (OpenAlex + fallback Crossref):
-    mendeteksi DOI palsu/tidak ditemukan, karya dicabut (retracted), dan ketidakcocokan tahun/judul/penulis.
-    Kembalikan jumlah masalah fatal (tidak ditemukan atau dicabut)."""
+    mendeteksi DOI tidak terdaftar, karya dicabut, dan petunjuk metadata per baris.
+    Kode keluar: 1 untuk ID tidak ditemukan/karya dicabut, 2 kalau layanan atau metadata perlu diperiksa, 0 lainnya."""
     naskah = Path(folder) / "naskah.txt"
     if not naskah.exists():
         raise SystemExit(f"Naskah tidak ditemukan: {naskah}")
-    entri = {}  # kunci (selector) -> {"label": str, "baris": [int], "teks": [str]}
+    entri, baris_naskah = {}, {}
     for n, baris in enumerate(naskah.read_text(encoding="utf-8-sig").splitlines(), 1):
         if not baris.strip() or baris.lstrip().startswith("@"):
             continue
-        for m in DOI_DI_TEKS.finditer(baris):
-            doi = _bersih_doi(m.group(1))
-            if doi:
-                e = entri.setdefault(f"doi:{doi}", {"label": doi, "baris": [], "teks": []})
-                if n not in e["baris"]:
-                    e["baris"].append(n); e["teks"].append(baris)
+        baris = baris.translate(ANGKA_LATIN)
+        ids = dict.fromkeys(f"doi:{doi}" for m in DOI_DI_TEKS.finditer(baris) if (doi := _bersih_doi(m[1])))
         for pola in (OA_URL_DI_TEKS, OA_PDF_DI_TEKS):
-            for m in pola.finditer(baris):
-                wid = m.group(1).upper()
-                e = entri.setdefault(wid, {"label": wid, "baris": [], "teks": []})
-                if n not in e["baris"]:
-                    e["baris"].append(n); e["teks"].append(baris)
+            ids.update(dict.fromkeys(m[1].upper() for m in pola.finditer(baris)))
+        if ids:
+            baris_naskah[n] = (baris, list(ids))
+        for sel in ids:
+            entri.setdefault(sel, []).append(n)
     if not entri:
         print(f"Tidak ada DOI atau nomor OpenAlex (W…) di {naskah.name}.")
         return 0
-    fatal, beda_n, cocok_n, galat_n = 0, 0, 0, 0
-    for sel, info_e in entri.items():
-        baris_str = ", ".join(map(str, info_e["baris"]))
-        sumber, w = "OpenAlex", None
-        try:
-            w = _baca_karya(sel)
-            if w is None and sel.startswith("doi:"):
-                sumber = "Crossref"
-                w = _baca_crossref(sel[4:])
-        except (Ditolak, OSError, *JAWABAN_RUSAK) as e:
-            galat_n += 1
-            print(f"  ? baris {baris_str} [{info_e['label']}]: gagal memeriksa ({e})")
+    fatal, perlu, lengkap, galat = 0, 0, 0, 0
+    hasil = _hasil_rujukan(entri)
+    for sel, kemunculan in entri.items():
+        label = sel.removeprefix("doi:")
+        baris_str = ", ".join(map(str, kemunculan))
+        jawaban = hasil[sel]
+        if isinstance(jawaban, str):
+            galat += 1
+            print(f"  ? baris {baris_str} [{label}]: GAGAL MEMERIKSA ({jawaban})")
+            continue
+        w, sumber, terdaftar = jawaban
+        if not terdaftar:
+            fatal += 1
+            print(f"  ✗ baris {baris_str} [{label}]: TIDAK DITEMUKAN di {sumber}")
             continue
         if w is None:
-            fatal += 1
-            print(f"  ✗ baris {baris_str} [{info_e['label']}]: TIDAK DITEMUKAN di OpenAlex/Crossref (DOI palsu atau salah ketik?)")
+            perlu += 1
+            print(f"  ! baris {baris_str} [{label}]: DOI TERDAFTAR di {sumber}; metadata belum ada di OpenAlex/Crossref")
             continue
         judul = ARAH.sub("", w.get("judul") or "-")
         penulis = "، ".join((w.get("peneliti") or [])[:3]) or "-"
         ringkas = f"«{judul[:80]}» ({penulis}, {w.get('tahun') or '-'}) [{sumber}]"
         if w.get("dicabut"):
             fatal += 1
-            print(f"  ✗ baris {baris_str} [{info_e['label']}]: DICABUT (RETRACTED) — {ringkas}")
+            print(f"  ✗ baris {baris_str} [{label}]: DICABUT (RETRACTED) — {ringkas}")
             continue
-        beda = _banding_rujukan(" ".join(info_e["teks"]), w)
-        if beda:
-            beda_n += 1
-            print(f"  ! baris {baris_str} [{info_e['label']}]: TIDAK COCOK ({'; '.join(beda)}) — {ringkas}")
-        else:
-            cocok_n += 1
-            print(f"  ✓ baris {baris_str} [{info_e['label']}]: COCOK — {ringkas}")
-    print(f"\nRingkasan dirasat-cek ({len(entri)} pengenal): {cocok_n} cocok, {beda_n} tidak cocok, {fatal} fatal (tidak ditemukan/dicabut)"
-          + (f", {galat_n} gagal jaringan" if galat_n else "") + ".")
-    return fatal
+        lengkap += 1
+        print(f"  • baris {baris_str} [{label}]: ID DITEMUKAN — {ringkas}")
+        for n in kemunculan:
+            teks, ids = baris_naskah[n]
+            if len(ids) > 1:
+                if sel != ids[0]:
+                    continue
+                if not _alias_katalog(w).issuperset(ids):
+                    perlu += 1
+                    print(f"    ! baris {n}: beberapa pengenal di baris ini; periksa metadata masing-masing")
+                    continue
+            beda, belum = _banding_rujukan(teks, w)
+            if beda or belum:
+                perlu += 1
+                status = "TIDAK COCOK" if beda else "PERIKSA METADATA"
+                print(f"    ! baris {n}: {status} ({'; '.join(beda + belum)})")
+    print(f"\nRingkasan dirasat-cek ({len(entri)} pengenal): {lengkap} rekaman, {perlu} perlu dicek, "
+          f"{fatal} fatal (tidak ditemukan/dicabut), {galat} gagal memeriksa.")
+    return 1 if fatal else 2 if perlu or galat else 0

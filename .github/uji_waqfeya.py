@@ -91,11 +91,8 @@ def jalankan(*a):
 def naskah(baris):
     f = AKAR / "bahts" / "uji"
     f.mkdir(parents=True, exist_ok=True)
-    pustaka = ["كتاب تجريبي، مؤلف تجريبي."]
-    if "<<11223|" in baris:
-        pustaka.append("رسالة في القضاء والقدر، محمد بن صالح العثيمين، دار الوطن، 1423هـ.")
     teks = ["@judul: بحث تجريبي", "@nama: طالب تجريبي", "@minimal_halaman: 0", "", "#K المقدمة", baris, "",
-            "#K الخاتمة", "أهم النتائج: لا شيء.", "", "#R المصادر والمراجع", *pustaka, ""]
+            "#K الخاتمة", "أهم النتائج: لا شيء.", "", "#R المصادر والمراجع", "كتاب تجريبي، مؤلف تجريبي.", ""]
     (f / "naskah.txt").write_text("\n".join(teks), encoding="utf-8")
     return "bahts/uji"
 

@@ -3,12 +3,13 @@
 yang benar-benar berbukti di catatan kaki naskah (tanpa internet, tidak mengubah berkas), sekaligus menampilkan
 kitab yang belum masuk `#R` dan baris `#R` yang tidak terhubung ke bukti catatan kaki."""
 import re
+from collections import Counter
 
 import gelar
 import norma
 import shamela
 import waqfeya
-from cek_seluruh import cocok_sid_pustaka, kumpul_bukti_pustaka
+from dasar import ANGKA_LATIN, WAQFEYA_BUKTI
 from olah import _mushaf, kunci_urut, periksa
 
 _BIDANG = (
@@ -88,49 +89,100 @@ def format_baris(info_kartu, gaya="judul"):
     return "، ".join(bagian) + "."
 
 
+def _ejaan(teks):
+    return norma.norm(teks.translate(ANGKA_LATIN))
+
+
+def _termuat(bagian, teks):
+    return bool(bagian) and f" {bagian} " in f" {teks} "
+
+
+def _buku(penunjuk):
+    shamela_id, waqfeya_id = set(), set()
+    for p in penunjuk:
+        for bukti in p.get("bukti", ()):
+            if m := WAQFEYA_BUKTI.fullmatch(bukti):
+                waqfeya_id.add(m[1])
+            else:
+                sid = bukti.split("|", 1)[0].strip()
+                if sid.isdecimal():
+                    shamela_id.add(int(sid))
+    return sorted(shamela_id), sorted(waqfeya_id)
+
+
+def _cocok(data, judul, nama_katalog, pustaka):
+    """Nomor baris dengan judul sepadan, dan subset yang memuat data cetak dari kartu."""
+    judul = {_ejaan(j) for j in judul}
+    nama = {_ejaan(data["pengarang"]), _ejaan(nama_katalog or "")}
+    penerbitan = {_ejaan(data[k]) for k in ("muhaqqiq", "penerbit") if data[k]}
+    cetak = (penerbitan | {_ejaan(data["cetakan"]), _ejaan(data["tahun"])}) - {""}
+    # Tahun yang sudah disebut dalam label satu cetakan bukan petunjuk yang kedua.
+    mandiri = {d for d in cetak if not any(d != lain and _termuat(d, lain) for lain in cetak)}
+    calon, cocok = set(), set()
+    for n, teks in pustaka.items():
+        if not any(_termuat(j, teks) for j in judul):
+            continue
+        calon.add(n)
+        if (len(mandiri) >= 2 and penerbitan and all(_termuat(d, teks) for d in cetak)
+                and any(_termuat(p, teks) for p in nama)):
+            cocok.add(n)
+    return calon, cocok
+
+
 def cetak(folder):
-    """Cetak draf `#R` dari kitab berbukti di catatan kaki + status kecocokannya dengan `#R` saat ini."""
-    h = periksa(folder)
-    ctx = h.ctx
+    """Cetak blok #R yang bisa ditempel, lalu petunjuk per kitab untuk mencocokkannya dengan daftar saat ini."""
+    ctx = periksa(folder).ctx
     gaya = ctx.meta.get("pustaka_gaya", "judul")
-    muallif = gaya == "muallif"
-    sids, wids = kumpul_bukti_pustaka(ctx.penunjuk)
-    non_mushaf = [(n, teks) for n, teks in ctx.pustaka_baris if not _mushaf(teks)]
-    ada_mushaf = any(_mushaf(teks) for _, teks in ctx.pustaka_baris)
-    terhubung = set()
-    entri = []  # [(baris_draf, status_label, catatan_tambahan)]
-    for sid in sorted(sids):
+    sids, wids = _buku(ctx.penunjuk)
+    baris_r = {n: teks for n, teks in ctx.pustaka_baris if not _mushaf(teks)}
+    pustaka = {n: _ejaan(teks) for n, teks in baris_r.items()}
+    draf, sid_cocok, catatan, terlihat = [], {}, {}, set()
+    for sid in sids:
         try:
             m = shamela.info(sid)
         except (LookupError, OSError, ValueError, SystemExit):
-            entri.append((f"[kitab {sid} belum diunduh]", "BELUM DIUNDUH", ""))
+            catatan[sid] = "kartu lokal belum terbaca"
             continue
-        cocok = [i for i, (_, teks) in enumerate(non_mushaf) if cocok_sid_pustaka(sid, teks)]
-        terhubung.update(cocok)
-        baris = format_baris(_ekstrak_kartu(m), gaya=gaya)
-        entri.append((baris, "SUDAH DI #R" if cocok else "BELUM DI #R", f"kitab {sid}"))
-    for w in sorted(wids):
-        if not waqfeya.ada(w):
-            entri.append((f"[kitab {w} belum diunduh]", "BELUM DIUNDUH", ""))
+        data = _ekstrak_kartu(m)
+        alias = shamela.judul_pokok(m["title_ar"]) + shamela.judul_pokok(data["judul"])
+        calon, cocok = _cocok(data, alias, m.get("main_author_name_ar"), pustaka)
+        terlihat.update(calon)
+        sid_cocok[sid] = calon, cocok
+        draf.append(format_baris(data, gaya=gaya))
+    pemilik = Counter(n for _, cocok in sid_cocok.values() for n in cocok)
+    for sid, (calon, cocok) in sid_cocok.items():
+        if sah := sorted(n for n in cocok if pemilik[n] == 1):
+            catatan[sid] = "data cetak cocok di #R baris " + ", ".join(map(str, sah))
+        elif calon:
+            catatan[sid] = "judul ditemukan, edisi perlu dicek di #R baris " + ", ".join(map(str, sorted(calon)))
+        else:
+            catatan[sid] = "judul belum ditemukan di #R"
+    for wid in wids:
+        if not waqfeya.ada(wid):
+            catatan[wid] = "scan belum diunduh"
             continue
-        cocok = [i for i, (_, teks) in enumerate(non_mushaf) if waqfeya.judul_disebut(w, teks)]
-        terhubung.update(cocok)
-        d = waqfeya.data(w)
-        baris = format_baris({"judul": d["judul"], "pengarang": d.get("pengarang") or "", "wafat": "",
-                              "muhaqqiq": "", "penerbit": "", "cetakan": "", "tahun": ""}, gaya=gaya)
-        entri.append((baris, "SUDAH DI #R" if cocok else "BELUM DI #R", f"{w}; lengkapi data cetak dari scan: kartu {w}"))
-    entri.sort(key=lambda x: kunci_urut(x[0], muallif))
-    belum = sum(1 for _, st, _ in entri if st == "BELUM DI #R")
-    print(f"Draf #R المصادر والمراجع (gaya: {gaya}; {len(entri)} kitab berbukti, {belum} belum ada di #R):")
-    if ctx.ayat_idx:
-        st_q = "SUDAH DI #R" if ada_mushaf else "BELUM DI #R"
-        print(f"  [{st_q}] القرآن الكريم.")
-    for baris, st, ket in entri:
-        print(f"  [{st}] {baris}" + (f"  # {ket}" if ket else ""))
-    if not entri and not ctx.ayat_idx:
-        print("  (belum ada kitab berbukti Shamela/Waqfeya atau ayat {Q:} di naskah ini)")
-    sisa = [(n, teks) for i, (n, teks) in enumerate(non_mushaf) if i not in terhubung]
-    if sisa:
-        print(f"\nBaris #R saat ini yang tidak terhubung ke bukti Shamela/Waqfeya ({len(sisa)} — bisa sumber luar/PDF, atau tidak dirujuk):")
-        for n, teks in sisa:
-            print(f"  baris {n}: {teks}")
+        d = waqfeya.data(wid)
+        calon = {n for n, teks in baris_r.items() if waqfeya.judul_disebut(wid, teks)}
+        terlihat.update(calon)
+        catatan[wid] = f"salin data cetak dari scan: kartu {wid}"
+        if calon:
+            catatan[wid] += " (judul ditemukan di #R baris " + ", ".join(map(str, sorted(calon))) + ")"
+        draf.append(format_baris(dict(judul=d["judul"], pengarang=d["pengarang"] or "", wafat="", muhaqqiq="",
+                                      penerbit="", cetakan="", tahun=""), gaya=gaya))
+    if draf or ctx.ayat_idx:
+        print("Draf kitab berbukti. Periksa data cetak dan gabungkan dengan rujukan lain di #R.")
+        print("#R المصادر والمراجع")
+        if ctx.ayat_idx:
+            print("القرآن الكريم.")
+        for baris in sorted(draf, key=lambda b: kunci_urut(b, gaya == "muallif")):
+            print(baris)
+    else:
+        print("Belum ada kartu kitab berbukti atau ayat {Q:} untuk menyusun draf.")
+    if catatan:
+        print("\nPemeriksaan #R:")
+        for sid, pesan in catatan.items():
+            print(f"  {sid}: {pesan}")
+    if sisa := sorted(baris_r.keys() - terlihat):
+        print("\nBaris #R di luar padanan kitab berbukti; periksa sumber lain/PDF:")
+        for n in sisa:
+            print(f"  baris {n}: {baris_r[n]}")

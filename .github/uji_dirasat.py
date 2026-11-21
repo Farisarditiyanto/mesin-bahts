@@ -361,15 +361,19 @@ def utama():
                 else:
                     raise AssertionError("dirasat-pdf DOI tanpa kunci seharusnya gagal")
 
-        # 10. `dirasat-cek`: deteksi DOI cocok (termasuk tahun Hijriah), fallback Crossref, ketidakcocokan tahun/judul,
-        #     karya dicabut (retracted), dan phantom DOI (404 di OpenAlex & Crossref)
+        # 10. `dirasat-cek`: metadata per baris, Crossref, pencabutan, registrasi DOI, dan layanan tidak tersedia.
         assert dirasat.tahun_masehi_hijriah(1442) == {2020, 2021}, dirasat.tahun_masehi_hijriah(1442)
         retracted = dict(oa_items[1], id="https://openalex.org/W999", doi="https://doi.org/10.9999/ret",
                          title="دراسة مسحوبة في التمويل", is_retracted=True)
+        alias_oa = dict(oa_items[0], id="https://openalex.org/W100000", doi="https://doi.org/10.5555/alias")
 
         def buka_cek(url, kepala=None, waktu=60):
             u = urllib.parse.urlsplit(url)
             if u.hostname == "api.openalex.org":
+                if "10.5555/alias" in u.path:
+                    return _Resp(json.dumps(alias_oa).encode("utf8"))
+                if "10.5555/offline" in u.path:
+                    raise urllib.error.URLError("layanan tidak tersedia")
                 if "10.1234/w200" in u.path or u.path.endswith("/W200"):
                     return _Resp(json.dumps(oa_items[1]).encode("utf8"))
                 if "10.1234/w100" in u.path or u.path.endswith("/W100") or u.path.endswith("/W2741809807"):
@@ -394,7 +398,17 @@ def utama():
                         "published-print": {"date-parts": [[2022]]},
                         "updated-by": [{"type": "retraction"}],
                     }}).encode("utf8"))
+                if "10.5555%2Fnotice" in u.path:
+                    return _Resp(json.dumps({"message": {
+                        "DOI": "10.5555/notice",
+                        "title": ["Retraction Notice"],
+                        "update-to": [{"type": "retraction", "DOI": "10.5555/cr-ret"}],
+                    }}).encode("utf8"))
                 raise urllib.error.HTTPError(url, 404, "Not Found", {}, io.BytesIO(b""))
+            if u.hostname == "doi.org" and u.path.startswith("/api/handles/"):
+                if u.path.endswith("registered"):
+                    return _Resp(b'{"responseCode":1}')
+                raise urllib.error.HTTPError(url, 404, "Not Found", {}, io.BytesIO(b'{"responseCode":100}'))
             raise AssertionError(f"URL tak terduga: {url}")
 
         with patch.object(dirasat, "buka", side_effect=buka_cek):
@@ -417,8 +431,9 @@ def utama():
                     encoding="utf8",
                 )
                 kode, out_ok, err = _cli("dirasat-cek", uji_dir.name)
-                assert kode == 0, out_ok + err
-                assert "COCOK" in out_ok and "[Crossref]" in out_ok and "0 tidak cocok, 0 fatal" in out_ok, out_ok
+                assert kode in (0, 2), out_ok + err
+                assert "ID DITEMUKAN" in out_ok and "[Crossref]" in out_ok and "0 fatal" in out_ok, out_ok
+                assert "TIDAK COCOK" not in out_ok, out_ok
                 assert "W2741809807" in out_ok and "W1]" not in out_ok, out_ok
 
                 # b) ketidakcocokan tahun & judul + karya dicabut (OpenAlex & Crossref updated-by) + phantom DOI -> exit 1
@@ -435,6 +450,30 @@ def utama():
                 assert "TIDAK COCOK" in out_bad and "tahun di naskah" in out_bad, out_bad
                 assert out_bad.count("DICABUT (RETRACTED)") == 2, out_bad
                 assert "TIDAK DITEMUKAN" in out_bad and "3 fatal" in out_bad, out_bad
+
+                # c) Judul yang salah tetap perlu diperiksa walau nama peneliti dan tahun cocok.
+                #    Tahun pada kemunculan kedua tidak boleh tertutupi tahun benar pada kemunculan pertama.
+                kasus = uji_dir / "naskah.txt"
+                kasus.write_text("An Entirely Different Title. Ali Hassan. 2021. doi:10.5555/cr1\n"
+                                 "Islamic Finance Governance. Ali Hassan. 1995. doi:10.5555/cr1\n"
+                                 "Retraction Notice. doi:10.5555/notice\n"
+                                 "doi:10.5555/registered\n"
+                                 "doi:10.5555/offline\n", encoding="utf8")
+                kode, out_sebagian, err = _cli("dirasat-cek", uji_dir.name)
+                assert kode == 2, out_sebagian + err
+                assert "baris 1: PERIKSA METADATA (judul" in out_sebagian, out_sebagian
+                assert "baris 2: TIDAK COCOK (tahun di naskah (1995" in out_sebagian, out_sebagian
+                assert "baris 3 [10.5555/notice]: ID DITEMUKAN" in out_sebagian, out_sebagian
+                assert "baris 4 [10.5555/registered]: DOI TERDAFTAR" in out_sebagian, out_sebagian
+                assert "baris 5 [10.5555/offline]: GAGAL MEMERIKSA" in out_sebagian and "0 fatal" in out_sebagian, out_sebagian
+                kasus.write_text("doi:10.5555/offline\n", encoding="utf8")
+                kode, out_offline, err = _cli("dirasat-cek", uji_dir.name)
+                assert kode == 2 and "1 gagal memeriksa" in out_offline, out_offline + err
+
+                kasus.write_text("دراسة الفقه المالي المعاصر، أحمد محمد، 1442هـ"
+                                 "[^doi:10.5555/alias <<luar|W100000.pdf|1>>]\n", encoding="utf8")
+                kode, out_alias, err = _cli("dirasat-cek", uji_dir.name)
+                assert kode == 0 and "beberapa pengenal" not in out_alias and "0 perlu dicek" in out_alias, out_alias + err
             finally:
                 import shutil
                 shutil.rmtree(uji_dir, ignore_errors=True)

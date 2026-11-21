@@ -9,8 +9,8 @@ import norma
 import produk
 import rumus
 from berkas import sementara
-from cek_seluruh import (KEPALA_PERHATIAN, RISET, periksa_dirasat, periksa_khatimah, periksa_muqaddimah, periksa_pustaka,
-                         periksa_riset, porsi_kutipan)
+from cek_seluruh import (KEPALA_PERHATIAN, RISET, periksa_dirasat, periksa_khatimah, periksa_muqaddimah, periksa_riset,
+                         porsi_kutipan)
 from cek_rujukan import rujukan_halaman
 from cek_sumber import standar_baris
 from cek_tautsiq import gelar
@@ -415,13 +415,6 @@ def periksa(folder):
     _cek_minimal_rusak(ctx)
     quran = _urutkan_fihris(ctx)
     _cek_jumlah_kitab(ctx, quran)
-    if not bentuk_kitab(ctx.meta) and "pustaka" not in daftar(ctx.meta, "tanpa"):
-        try:
-            rel_f = folder.resolve().relative_to(HERE.parent.resolve()).as_posix()
-        except ValueError:
-            rel_f = str(folder)
-        arg_f = f'"{rel_f}"' if " " in rel_f else rel_f
-        ctx.perhatian += periksa_pustaka(ctx, quran, arg_f)
     n_matan, n_fn = _hitung_kata(ctx)
     _cek_sampul(ctx)
     sumber = _cek_bahan_sumber(ctx, naskah)

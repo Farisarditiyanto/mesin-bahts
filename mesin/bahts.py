@@ -481,7 +481,7 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
              perintah_bukti, 1, 2),
     Perintah("pustaka <folder>", "susun draf baris #R (المصادر والمراجع) siap tempel langsung dari `kartu` kitab berbukti\n"
              "di catatan kaki (sesuai @pustaka_gaya, tanpa gelar, urut abjad, tanpa internet), sekaligus\n"
-             "menandai kitab yang belum masuk #R dan baris #R yang tidak terhubung ke bukti",
+             "menunjukkan data cetak yang cocok dan judul yang edisinya perlu dicek",
              perintah_pustaka, 1, 1),
     Perintah("rakit <folder> [--fasl n]", "cek, lalu rakit .docx + .pdf (Word) ke dalam folder itu; --fasl 2 (atau 1-2): hanya #F\n"
              "ke-2, untuk bahts yang dikumpulkan bertahap per فصل (lihat `tanda`); `cek` tetap\n"
@@ -571,10 +571,10 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
     Perintah("dirasat-pdf <W…|DOI> <folder>", "unduh PDF penelitian (nomor OpenAlex W… atau DOI) ke folder bahts;\n"
              "coba salinan OpenAlex (butuh kunci), lalu otomatis jatuh ke tautan PDF akses terbuka bila ada",
              lambda a: dirasat.pdf(a[0], folder_bahts(a[1])), 2, 2),
-    Perintah("dirasat-cek <folder>", "verifikasi online DOI dan nomor OpenAlex (W…) yang tertulis di naskah terhadap\n"
-             "OpenAlex + Crossref: deteksi DOI palsu/tidak ditemukan, karya dicabut (retracted), serta\n"
-             "ketidakcocokan tahun (Masehi maupun Hijriah), judul, dan peneliti",
-             lambda a: sys.exit(1 if dirasat.cek_rujukan(folder_bahts(a[0])) else 0), 1, 1),
+    Perintah("dirasat-cek <folder>", "periksa DOI dan nomor OpenAlex (W…) secara online; tampilkan rekaman, status\n"
+             "pencabutan dan petunjuk metadata per baris. Kode 1: ID tidak ditemukan/karya dicabut;\n"
+             "kode 2: metadata perlu dicek atau layanan gagal; kode 0: tidak ada temuan.",
+             lambda a: sys.exit(dirasat.cek_rujukan(folder_bahts(a[0]))), 1, 1),
 )
 PERINTAH = {p.nama: p for p in DAFTAR if isinstance(p, Perintah) and p.jalankan}
 

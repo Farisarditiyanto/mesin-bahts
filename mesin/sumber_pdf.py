@@ -63,7 +63,13 @@ def _terbalik_visual(baris):
 
 def _balik_baris_visual(baris):
     """Balik baris visual-reversed ke urutan baca Arab sambil menjaga kurung, angka, dan segmen Latin tetap utuh."""
-    dibalik = baris[::-1].translate(CERMIN)
+    gugus = []
+    for huruf in baris:
+        if gugus and unicodedata.category(huruf).startswith("M"):
+            gugus[-1] += huruf
+        else:
+            gugus.append(huruf)
+    dibalik = "".join(reversed(gugus)).translate(CERMIN)
     # Setelah dibalik utuh, segmen LTR (angka, Latin, URL) ikut terbalik: balik kembali segmen LTR itu saja.
     return LTR_SEGMEN.sub(lambda m: m.group(0)[::-1], dibalik)
 
@@ -102,10 +108,15 @@ def _baca(berkas, waktu):
     for p in PdfReader(berkas).pages:
         mentah = unicodedata.normalize("NFKC", p.extract_text() or "")  # bentuk tampilan (ﻣﻠﻒ, ﳌ) -> huruf biasa
         t = pulihkan_arab(mentah)
-        balik = "\n".join(" ".join(b.split()[::-1]) for b in t.splitlines())
-        varian = (_sidik(t), _sidik(balik)) if t == mentah else (_sidik(t), _sidik(balik), _sidik(mentah))
+        # Pemulihan satu baris tidak membuang pencocokan lama untuk baris lain di halaman yang sama.
+        ekstraksi = (t,) if t == mentah else (t, mentah)
+        varian = tuple(dict.fromkeys(s for teks in ekstraksi for s in (_sidik(teks), _sidik_urutan_balik(teks))))
         hasil.append((varian, len(ARAB.findall(t))))
     return tuple(hasil)
+
+
+def _sidik_urutan_balik(teks):
+    return _sidik(" ".join(" ".join(baris.split()[::-1]) for baris in teks.splitlines()))
 
 
 def halaman(berkas):

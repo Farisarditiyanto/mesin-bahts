@@ -29,7 +29,7 @@ def _buat_pdf_arab(jalur, teks_halaman):
 def utama():
     with tempfile.TemporaryDirectory(prefix="bahts-pustaka-pdf-") as t:
         akar = Path(t)
-        salin_mesin(akar, ("_meta", "11223", "1082", "1727"), huruf=False)
+        salin_mesin(akar, ("_meta", "11223", "1082", "711", "1727"), huruf=False)
         f = akar / "uji"
         f.mkdir()
         dasar = (AKAR / "contoh" / "naskah.txt").read_text(encoding="utf8")
@@ -48,41 +48,44 @@ def utama():
         kode, out = jalan("cek", "uji")
         assert kode == 0 and "): 0\n" in out, out
 
-        # 1a. Kitab berbukti di catatan kaki hilang dari #R -> perhatian
+        # 1a. Daftar pustaka diperiksa lewat perintah opsional.
         hilang_r = dasar.replace(
             "رسالة في القضاء والقدر، محمد بن صالح بن محمد العثيمين، دار الوطن، 1423هـ.",
             "كتاب آخر غير مذكور في الحواشي، مؤلف وهمي، دار الفكر، 1430هـ.",
         )
         (f / "naskah.txt").write_text(hilang_r, encoding="utf8")
         kode, out = jalan("cek", "uji")
-        assert kode == 0, out
-        assert "المصادر والمراجع belum memuat «رسالة في القضاء والقدر» (kitab 11223)" in out, out
-        assert "tetapi tidak dirujuk di catatan kaki mana pun" in out, out
+        assert kode == 0 and "): 0\n" in out, out
 
-        # 1b. Perintah `pustaka uji` menghasilkan draf siap tempel, menandai [BELUM DI #R], dan melaporkan sisa #R
+        # 1b. Blok #R siap ditempel, dan status ditulis terpisah dari draf.
         kode, out_p = jalan("pustaka", "uji")
         assert kode == 0, out_p
-        assert "[SUDAH DI #R] القرآن الكريم." in out_p, out_p
-        assert "[BELUM DI #R] رسالة في القضاء والقدر" in out_p and "# kitab 11223" in out_p, out_p
-        assert "tidak terhubung ke bukti Shamela/Waqfeya" in out_p and "كتاب آخر غير مذكور" in out_p, out_p
+        assert "#R المصادر والمراجع\nالقرآن الكريم.\nرسالة في القضاء والقدر" in out_p, out_p
+        assert "11223: judul belum ditemukan di #R" in out_p, out_p
+        assert "di luar padanan kitab berbukti" in out_p and "كتاب آخر غير مذكور" in out_p, out_p
 
         # 1c. `pustaka uji` dengan @pustaka_gaya: muallif memakai format **pengarang** dan __judul__
         (f / "naskah.txt").write_text("@pustaka_gaya: muallif\n" + dasar, encoding="utf8")
         kode, out_m = jalan("pustaka", "uji")
         assert kode == 0 and "**" in out_m and "__رسالة في القضاء والقدر__" in out_m, out_m
 
-        # 1d. `#R` hanya berisi القرآن الكريم. tetap melaporkan kitab berbukti yang hilang, dan jalur berspasi dikutip
-        mushaf_saja = dasar.replace(
-            "رسالة في القضاء والقدر، محمد بن صالح بن محمد العثيمين، دار الوطن، 1423هـ.\n", "",
+        # 1d. Satu entri data cetak hanya cukup untuk edisi yang cocok, walau ada dua bukti صحيح مسلم.
+        dua_edisi = dasar.replace(
+            "#K الخاتمة",
+            "وفي الكتاب روايتان.[^انظر: صحيح مسلم، مسلم، 1/2. <<711|1|2|الحمد لله>>]"
+            "[^انظر: صحيح مسلم، مسلم، 1/2. <<1727|1|2|الحمد لله>>]\n\n#K الخاتمة",
         )
-        f_spasi = akar / "bahts" / "ahmad" / "naskah uji"
-        f_spasi.mkdir(parents=True)
-        (f_spasi / "riset.txt").write_text("tafsir 1:2\ncari توحيد الربوبية | uji\n", encoding="utf8")
-        (f_spasi / "naskah.txt").write_text(mushaf_saja, encoding="utf8")
-        kode, out_ms = jalan("cek", "bahts/ahmad/naskah uji")
-        assert kode == 0, out_ms
-        assert "المصادر والمراجع belum memuat «رسالة في القضاء والقدر» (kitab 11223)" in out_ms, out_ms
-        assert 'pustaka "bahts/ahmad/naskah uji"' in out_ms, out_ms
+        dua_edisi += ("صحيح مسلم، مسلم، تحقيق محمد فؤاد عبد الباقي [ت ١٣٨٨ هـ]، "
+                      "مطبعة عيسى البابي الحلبي وشركاه، القاهرة، ١٣٧٤ هـ - ١٩٥٥ م.\n")
+        (f / "naskah.txt").write_text(dua_edisi, encoding="utf8")
+        kode, out_dua = jalan("pustaka", "uji")
+        assert kode == 0 and "1727: data cetak cocok di #R" in out_dua, out_dua
+        assert "711: judul ditemukan, edisi perlu dicek" in out_dua, out_dua
+        (f / "naskah.txt").write_text(dua_edisi.replace("مطبعة عيسى البابي الحلبي وشركاه، القاهرة", "دار الطباعة العامرة"),
+                                      encoding="utf8")
+        kode, out_campur = jalan("pustaka", "uji")
+        assert kode == 0 and "1727: judul ditemukan, edisi perlu dicek" in out_campur, out_campur
+        assert "data cetak cocok" not in next(s for s in out_campur.splitlines() if "1727:" in s), out_campur
 
         # 2. Regresi kartu `pustaka`: tahun wafat tanpa «ههـ» dobel, harakat «المتوفَّى», dan label ber-«：» + gelar
         sys.path.insert(0, str(akar / "mesin"))
@@ -120,7 +123,7 @@ def utama():
         if pymupdf is not None and (AKAR / "mesin" / "UthmanicHafs_V22.ttf").exists():
             # Uji end-to-end PDF nyata berisi teks Arab visual-reversed melalui `bahts.py bukti`
             pdf_p = f / "kajian.pdf"
-            baris_terbalik = "(٢٠٢١) روتسدلا يف ناسنإلا قوقح نع ةيملع ةسارد"
+            baris_terbalik = "ةٌيَّبِرَعَ ةٌغَلُ (٢٠٢١) روتسدلا يف ناسنإلا قوقح نع ةيملع ةسارد"
             _buat_pdf_arab(pdf_p, [baris_terbalik])
             naskah_pdf = dasar.replace(
                 "#K الخاتمة",
@@ -130,6 +133,7 @@ def utama():
             kode, out_b = jalan("bukti", "uji")
             assert kode == 0, out_b
             assert "sekitar kutipan" in out_b and "حقوق الإنسان في الدستور" in out_b, out_b
+            assert "لُغَةٌ عَرَبِيَّةٌ" in out_b, out_b
 
         print("lolos uji pustaka dan pemulihan teks PDF Arab")
 
