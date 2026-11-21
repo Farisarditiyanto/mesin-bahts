@@ -115,7 +115,13 @@ def utama():
         sisa = tulis(tmp / "sisa.pdf", {8: baris[:5]}, halaman_baru=True)
         penuh = tulis(tmp / "sisa_penuh.pdf", {8: baris}, halaman_baru=True)
         judul = tulis(tmp / "sisa_judul.pdf", {8: [(200, 770, 22, "fihris")] + baris[:5]}, halaman_baru=True)
-        uji("halaman terakhir sesudah فهرس berisi 5 baris lanjutan: halaman sisa", sisa, {}, ["halaman sisa di المصادر/الفهارس (kurang dari 40 kata lanjutan tabel atau daftar halaman sebelumnya) di halaman PDF ke-8:"], cetak)
+        pesan_sisa = ["halaman sisa di المصادر/الفهارس (kurang dari 40 kata atau paling banyak 5 baris lanjutan tabel atau "
+                      "daftar halaman sebelumnya) di halaman PDF ke-8:"]
+        uji("halaman terakhir sesudah فهرس berisi 5 baris lanjutan: halaman sisa", sisa, {}, pesan_sisa, cetak)
+        # dua entri المصادر yang panjang: 4 baris, lebih dari 40 kata = tetap halaman sisa
+        panjang = tulis(tmp / "sisa_panjang.pdf", {8: [(100, 760 - 28 * i, 12, " ".join(["kata"] * 11)) for i in range(4)]},
+                        halaman_baru=True)
+        uji("halaman 4 baris berkata banyak: halaman sisa", panjang, {}, pesan_sisa, cetak)
         uji("halaman lanjutan 45 kata: bukan halaman sisa", penuh, {}, [], cetak)
         uji("halaman pendek yang diawali judul bagian: bukan halaman sisa", judul, {}, [], cetak)
         uji("tanpa rencana cetak (judul bagian belakang tidak diketahui): tidak dinilai", sisa, {}, [])

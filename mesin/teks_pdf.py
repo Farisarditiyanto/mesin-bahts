@@ -138,7 +138,19 @@ def _gambar(hal):
     return kotak
 
 
-SISA_KATA = 40  # halaman sisa di bagian belakang: diukur di PDF nyata (fihris meluap 5 baris = 16-17 kata)
+# halaman sisa di bagian belakang: diukur di PDF nyata (فهرس meluap 5 baris = 16-17 kata; dua entri المصادر panjang
+# = 4 baris, 41 kata)
+SISA_KATA = 40
+SISA_BARIS = 5
+
+
+def _jumlah_baris(potong, ukuran):
+    """Jumlah baris teks dari potongan `_baris`: potongan yang tingginya berselisih kurang dari ±0,6 ukuran matan = satu
+    baris (sel tabel dan huruf ayat yang naik-turun sedikit)."""
+    y = sorted(p[0] for p in potong)
+    return sum(1 for a, b in zip([None] + y, y) if a is None or b - a > 0.6 * ukuran)
+
+
 TEPI = 65  # pt dari tepi atas/bawah: nomor halaman (1,25 cm) ada di sini, matan dan catatan kaki (tepi 2,5 cm) tidak
 BATAS_TEPI = 18  # pt (±6 mm) dari tepi kiri/kanan kertas: teks/rumus/tabel yang melewati batas ini hampir terpotong
 
@@ -243,7 +255,8 @@ def periksa(pdf, bahan):
                 besar.setdefault(round(y), []).append(t)
         if not belakang and any("".join(sorted(padat("".join(t)))) in judul_belakang for t in besar.values()):
             belakang = True
-        elif belakang and not besar and isi and sum(len(t.split()) for _, _, _, t, _ in isi) < SISA_KATA:
+        elif belakang and not besar and isi and (sum(len(t.split()) for _, _, _, t, _ in isi) < SISA_KATA
+                                                 or _jumlah_baris(isi, float(fmt["matan"])) <= SISA_BARIS):
             sisa.append(i)
         matan = [p for p in isi if p[2] >= batas]
         if matan:
@@ -277,8 +290,8 @@ def periksa(pdf, bahan):
         pesan.append(f"teks atau rumus meluap ke tepi kertas di halaman PDF ke-{', '.join(map(str, meluap))}: "
                      "periksa tata letak (tabel #J, rumus #E, atau tautan panjang) dengan `pratinjau`.")
     if sisa:
-        pesan.append(f"halaman sisa di المصادر/الفهارس (kurang dari {SISA_KATA} kata lanjutan tabel atau daftar halaman "
-                     f"sebelumnya) di halaman PDF ke-{', '.join(map(str, sisa))}: lihat lewat `pratinjau`; فهرس الموضوعات "
+        pesan.append(f"halaman sisa di المصادر/الفهارس (kurang dari {SISA_KATA} kata atau paling banyak {SISA_BARIS} baris "
+                     f"lanjutan tabel atau daftar halaman sebelumnya) di halaman PDF ke-{', '.join(map(str, sisa))}: lihat lewat `pratinjau`; فهرس الموضوعات "
                      "yang meluap → @maudhuat: titik, فهرس yang tiap kali mulai halaman baru → @fihris: sambung, lalu rakit "
                      "lagi; masih begitu → sebut di laporan akhir.")
     if ujung:
