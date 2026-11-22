@@ -36,7 +36,8 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       jenis, nim, fasl, jabatan, dan sifat tidak tercetak di model ini),
                       judul_sampul (hanya @sampul: tengah: @judul persis ditambah « // » di tempat judul pindah baris di
                       sampul, mis. «المدح في العصر العباسي // لامية مروان بن أبي حفصة في مدح المهدي»; kata yang beda
-                      dari @judul = GAGAL; tanpa barisnya judul dipecah di « - » saja),
+                      dari @judul = GAGAL; « - » sub-judul di tempat pindah baris boleh dibuang, tidak tercetak di ujung
+                      baris; tanpa barisnya judul dipecah di « - » saja; «@qism: -» = tanpa baris qism),
                       tahun (العام الجامعي di sampul qism dan tahun sampul tengah, mis. ١٤٤٨; «١٤٤٨ - ٢٠٢٦» tercetak «١٤٤٨هـ – ٢٠٢٦م»;
                       bawaan = tahun hijriah Umm al-Qura saat tahun ajaran mulai, 1 Agustus),
                       berkas (nama file hasil), format (profil di format.json; bawaan imam),
@@ -87,7 +88,7 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       «#F الفصل الأول: المقدمة» tercetak «الفصل الأول» lalu «المقدمة»; فهرس الموضوعات tetap satu baris.
                       Tanpa #F bertitik dua = GAGAL)
                       ihda (- | tengah = paragraf di bawah «#K الإهداء» rata tengah, tebal, tanpa awal alinea menjorok,
-                      dengan celah satu baris kosong (atau jarak_paragraf profil kalau lebih besar) sebelum tiap paragraf;
+                      dengan celah satu baris kosong (atau jarak_paragraf profil kalau lebih besar) di atas tiap paragraf;
                       tanpa «#K الإهداء» berparagraf = GAGAL)
                       logo (- | berwarna = logo جامعة الإمام berwarna seperti sampul jakarta di sampul qism; kop, data,
                       dan tata letak sampul qism tetap. Hanya untuk sampul qism: bersama @sampul jakarta/mahad, @templat, atau
@@ -249,7 +250,8 @@ TANDA = "\n\n".join((TANDA_NASKAH, TANDA_BERTAHAP, TANDA_RISET))
 FORMAT = profil_format()  # huruf & ukuran tiap pedoman; dipilih dengan @format
 # Kunci profil yang boleh tidak ditulis di format.json: nilai bawaannya, atau (IKUT_FORMAT) kunci lain yang nilainya dipakai.
 # rakit.ps1 tidak punya bawaan sendiri: ia membaca profil yang sudah lengkap (format_cetak)
-BAWAAN_FORMAT = {"latin": 12, "spasi": 1, "mulakhas_berjarak": False, "jarak_paragraf": 0, "tepi_kanan": 3.5, "jarak_kepala": 1.25}
+BAWAAN_FORMAT = {"latin": 12, "spasi": 1, "mulakhas_berjarak": False, "jarak_paragraf": 0, "jarak_judul": 0, "tepi_kanan": 3.5,
+                 "jarak_kepala": 1.25}
 IKUT_FORMAT = {"judul_sub": "judul", "ayat": "matan", "huruf_judul": "huruf", "spasi_mulakhas": "spasi", "ukuran_pustaka": "matan"}
 # @sampul: model sampul bahts -> data yang wajib. mahad = mesin/sampul.doc (معهد، كلية الشريعة);
 # qism = mesin/sampul_qism.docx (قسم الشريعة: logo, judul besar, sub-judul dalam kurung kalau ada, العام الجامعي; jenis dan nim tercetak kalau diisi, fasl tidak)
@@ -1069,9 +1071,13 @@ def _hitung_kata(ctx):
     return n_matan, n_fn
 
 
+PISAH_SUB = re.compile(r"^\s*[-–—]\s+|\s+[-–—]\s*$")  # « - » sub-judul di ujung baris @judul_sampul: tidak tercetak
+
+
 def _rapat(s):
-    """Teks dengan spasi dirapatkan dan angka 0-9: pembanding @judul_sampul dengan @judul."""
-    return re.sub(r"\s+", " ", s.translate(ANGKA_LATIN)).strip()
+    """Teks dengan spasi dirapatkan, angka 0-9, dan tanpa « - » sub-judul: pembanding @judul_sampul dengan @judul (baris
+    sampul boleh pindah di « - » tanpa menulis tandanya)."""
+    return re.sub(r"\s+", " ", re.sub(r"(?<!\S)[-–—](?!\S)", " ", s.translate(ANGKA_LATIN))).strip()
 
 
 def _cek_sampul(ctx):
@@ -1403,21 +1409,28 @@ def rencana_cetak(d):
             "judul_kanan": [t for t in daftar(meta, "judul_kanan") if t != GAYA["judul_kanan"][0]],
             "tengah": _sampul_tengah(meta, sub, judul) if sampul == "tengah" else None,
             "judul_dua_baris": judul_dua_baris(blok) if meta.get("judul_fasl") == "dua_baris" else {},
-            "ihda": paragraf_ihda(blok) if meta.get("ihda") == "tengah" else [],
-            # celah sebelum tiap paragraf الإهداء: jarak paragraf profil, paling sedikit satu baris kosong matan
-            # (tinggi satu baris Traditional Arabic ±1,5 × ukurannya)
-            "jarak_ihda": max(fmt["jarak_paragraf"], round(1.5 * fmt["matan"])) if fmt else 0,
+            "ihda": _jarak_ihda(blok, fmt) if meta.get("ihda") == "tengah" else {},
             "bagian": bagian}
+
+
+def _jarak_ihda(blok, fmt):
+    """@ihda: tengah -> {indeks paragraf الإهداء: celah di atasnya (pt)}. Celah = jarak paragraf profil, paling sedikit
+    satu baris kosong matan (tinggi satu baris Traditional Arabic ±1,5 × ukurannya); paragraf tepat di bawah judulnya
+    dikurangi jarak_judul yang sudah ada di bawah judul itu."""
+    celah = max(fmt["jarak_paragraf"], round(1.5 * fmt["matan"])) if fmt else 0
+    return {str(i): max(0, celah - fmt["jarak_judul"]) if fmt and blok[i - 1]["k"] == "K" else celah
+            for i in paragraf_ihda(blok)}
 
 
 def _sampul_tengah(meta, sub, judul):
     """Baris-baris sampul tengah dari atas ke bawah, sesudah logo. Judul: per « // » di @judul_sampul, atau @judul
     (sub-judul « - …» baris sendiri). @jenis, @nim, @fasl, @jabatan, dan @sifat tidak tercetak (model خطة dosen)."""
-    judul_baris = ([b.strip() for b in meta["judul_sampul"].split("//") if b.strip()] if meta.get("judul_sampul")
+    judul_baris = ([PISAH_SUB.sub("", b).strip() for b in meta["judul_sampul"].split("//") if PISAH_SUB.sub("", b).strip()]
+                   if meta.get("judul_sampul")
                    else [sub.group(1).strip(), sub.group(2).strip()] if sub else [judul])
     musyrif = meta.get("musyrif", "")
     return {"lembaga": LEMBAGA_TENGAH,
-            "qism": [b.strip() for b in meta.get("qism", "").split("//") if b.strip()],
+            "qism": [b.strip() for b in meta.get("qism", "").split("//") if b.strip() not in ("", "-")],  # «-» = tanpa baris qism
             "judul": judul_baris,
             "nama": ("إعداد الطالبة: " if meta.get("thalibah") == "ya" else "إعداد الطالب: ") + meta.get("nama", ""),
             "musyrif": f"إشراف: {musyrif}" if musyrif and musyrif != "-" else ""}

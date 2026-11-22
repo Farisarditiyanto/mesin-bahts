@@ -68,6 +68,7 @@ $PUSTAKA_MUALLIF = $M.pustaka_gaya -eq 'muallif'   # القرآن الكريم b
 $KANAN = @($RENCANA.judul_kanan)         # judul #B/#M rata kanan
 $TJ = [string]$FMT.huruf_judul           # huruf judul (#K/#F/#B/#M/#S dan judul فهرس)
 $JARAK_P = [single]$FMT.jarak_paragraf   # pt sesudah paragraf matan
+$JARAK_J = [single]$FMT.jarak_judul      # pt sesudah judul #K/#F (baris keduanya kalau dua baris)
 $U_PUSTAKA = [single]$FMT.ukuran_pustaka   # ukuran huruf المصادر
 $FIHRIS_SAMBUNG = $M.fihris -eq 'sambung'  # فهرس sesudah yang pertama menyambung di halaman yang sama
 $TEPI_KANAN = [single]$FMT.tepi_kanan   # cm
@@ -266,20 +267,25 @@ try {
     $isi += , @($TG.nama, 6, '')
     if ($TG.musyrif) { $isi += , @($TG.musyrif, 6, '') }
     $isi += , @($TAHUN_CETAK, 6, '')
-    $pJudulT = @(); $celah = @()
+    # paragraf dicatat lewat nomornya: $doc.Paragraphs.Last menunjuk paragraf terakhir saat dibaca, bukan saat dicatat
+    $nJudul = @(); $nCelah = @()
     foreach ($b in $isi) {
         $selT.TypeParagraph(); BarisTengah $b[1]
         Huruf $selT.Font $TA 18 1
         $selT.TypeText([string]$b[0])
-        $p = $doc.Paragraphs.Last
-        if ($b[2] -eq 'judul') { $pJudulT += $p } elseif ($b[2] -eq 'celah') { $celah += $p }
+        $n = $doc.Paragraphs.Count
+        if ($b[2] -eq 'judul') { $nJudul += $n } elseif ($b[2] -eq 'celah') { $nCelah += $n }
     }
+    # Paragraph Word lewat pipa PowerShell diurai seperti koleksi (macet): ambil satu-satu dengan Item
+    $pJudulT = @(); foreach ($n in $nJudul) { $pJudulT += $doc.Paragraphs.Item($n) }
+    $celah = @(); foreach ($n in $nCelah) { $celah += $doc.Paragraphs.Item($n) }
     foreach ($p in $pJudulT) { Seimbang $p 18 16 }        # judul yang tidak muat satu baris: dikecilkan sampai 16, lalu diratakan
     # sampul tetap satu halaman: judul dikecilkan sampai 14, lalu celah lembaga/qism dipendekkan
     $doc.ActiveWindow.View.Type = 3
     $doc.Content.InsertParagraphAfter()
-    $uk = 18
-    while ($uk -gt 14 -and $doc.ComputeStatistics(2) -gt 1) { $uk--; foreach ($p in $pJudulT) { if ($p.Range.Font.SizeBi -gt $uk) { Huruf $p.Range.Font $null $uk } } }
+    $uk = 18; $kecil = $false
+    while ($uk -gt 14 -and $doc.ComputeStatistics(2) -gt 1) { $uk--; $kecil = $true; foreach ($p in $pJudulT) { if ($p.Range.Font.SizeBi -gt $uk) { Huruf $p.Range.Font $null $uk } } }
+    if ($kecil) { foreach ($p in $pJudulT) { $p.LeftIndent = 0; $p.RightIndent = 0; $u = $p.Range.Font.SizeBi; Seimbang $p $u $u } }   # baris berubah: ratakan lagi
     foreach ($p in $celah) { if ($doc.ComputeStatistics(2) -gt 1) { $p.SpaceBefore = 6 } }
     if ($doc.ComputeStatistics(2) -gt 1) {
         Write-Output "PERINGATAN: judul terlalu panjang untuk sampul tengah: sampulnya jadi dua halaman. Pendekkan @judul."
@@ -762,6 +768,7 @@ try {
             Tulis $kedua $TJ $(if ($k -in 'B', 'M') { $uJudulSub } else { $uJudul }) 1 0
             $sel.TypeParagraph()
         }
+        if ($k -in 'K', 'F' -and $JARAK_J) { $sel.Paragraphs(1).Previous(1).SpaceAfter = $JARAK_J }
     }
 
     $toc = New-Object System.Collections.ArrayList
@@ -952,8 +959,8 @@ try {
             Tulis $blk.judul $TJ $uJudulSub 1 0
             $sel.TypeParagraph()
         }
-        elseif ($i -in $RENCANA.ihda) {                   # @ihda: tengah = paragraf الإهداء rata tengah, tebal, berjarak, tanpa menjorok
-            Para 1 $RENCANA.jarak_ihda 0
+        elseif ($null -ne $RENCANA.ihda."$i") {           # @ihda: tengah = paragraf الإهداء rata tengah, tebal, berjarak, tanpa menjorok
+            Para 1 $RENCANA.ihda."$i" 0
             HalamanBaru $pb
             Runs $blk.runs $uMatan $true
             $sel.TypeParagraph()

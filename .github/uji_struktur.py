@@ -68,6 +68,8 @@ def utama():
         cek("sampul tengah tanpa @qism", "@sampul: tengah\n" + dasar, True, "data sampul belum diisi: @qism")
         cek("@judul_sampul beda kata dengan @judul", tengah + "@judul_sampul: مثال // توحيد الألوهية\n" + dasar, True,
             "@judul_sampul harus sama dengan @judul")
+        cek("@judul_sampul pindah baris di « - » sub-judul tanpa tandanya", tengah + "@judul_sampul: مثال // توحيد الربوبية\n"
+            + dasar.replace("@judul: مثال: توحيد الربوبية", "@judul: مثال - توحيد الربوبية"))
         cek("@judul_sampul bukan di sampul tengah", "@judul_sampul: مثال: // توحيد الربوبية\n" + dasar, True,
             "@judul_sampul hanya untuk @sampul: tengah")
         # @judul_fasl dan @ihda tanpa tempatnya = GAGAL, bukan diabaikan diam-diam
