@@ -612,6 +612,13 @@ class _PenguraiRumus:
             return self._skrip(dasar) if izin_skrip else dasar
         raise TandaRusak(f"tanda rumus tidak dikenal: {t}")
 
+    def urai(self):
+        isi = self._baca_deret()
+        sisa = self._intip()
+        if sisa is not None:
+            raise TandaRusak(f"sisa sintaks rumus tidak terbaca: «{sisa[1]}»")
+        return isi
+
 
 def konversi(latex, *, display=False, huruf_arab="Traditional Arabic", ukuran_latin=12, ukuran_arab=14):
     """Ubah ekspresi LaTeX menjadi (omml_xml, tag). Gagal -> TandaRusak.
@@ -621,9 +628,7 @@ def konversi(latex, *, display=False, huruf_arab="Traditional Arabic", ukuran_la
         raise TandaRusak("rumus kosong: tulis ekspresi LaTeX, mis. \\frac{a}{b}")
     p = _PenguraiRumus(latex.strip(), display=display, huruf_arab=huruf_arab,
                        ukuran_latin=ukuran_latin, ukuran_arab=ukuran_arab)
-    isi = p._baca_deret()
-    if p._intip() is not None:
-        raise TandaRusak(f"sisa sintaks rumus tidak terbaca: «{p._intip()[1]}»")
+    isi = p.urai()
     if not isi:
         raise TandaRusak("rumus tidak menghasilkan isi apa pun")
     omml = f"<m:oMath>{isi}</m:oMath>"

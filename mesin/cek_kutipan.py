@@ -114,7 +114,7 @@ def cek_pdf(folder, berkas, hal, kutipan, galat, perhatian, isi):
         return
     try:
         teks = sumber_pdf.halaman(p)
-    except Exception as e:  # pypdf: PDF rusak, bersandi, atau bentuk yang tidak dikenalnya
+    except Exception as e:  # noqa: BLE001 — pypdf: PDF rusak, bersandi, atau bentuk yang tidak dikenalnya
         perhatian.append(f"PDF «{berkas}» tidak bisa dibaca mesin ({type(e).__name__}): cocokkan sendiri lafaz dan "
                          f"halamannya{ekor(isi)}")
         return
@@ -671,7 +671,7 @@ def angka_kitab(t):
 def henti(r, n):
     """Teks asli matan rekaman r memuat tanda akhir kalimat (HENTI) tepat di letak `padat` n, yaitu sesudah kata yang
     berakhir di n. Kata nafi yang menutup kalimat sebelumnya («أو لا.»، «وإلا فلا، ولعله») tidak menafikan kutipan."""
-    teks, ruas = norma.ruas_halaman(r, "body")
+    _teks, ruas = norma.ruas_halaman(r, "body")
     for (a, b, _, _), (_, asli) in zip(ruas, norma.per_halaman(r, "body")):
         if a <= n <= b:
             for m in HENTI.finditer(asli):

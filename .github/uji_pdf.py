@@ -20,11 +20,13 @@ META = {"judul": "مثال: توحيد الربوبية", "nim": "000000000", "a
 LATIN = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
 
 
-def tulis(tujuan, tambahan={}, latin=False, gambar={}, halaman_baru=False):
+def tulis(tujuan, tambahan=None, latin=False, gambar=None, halaman_baru=False):
     """Salinan PDF contoh. tambahan = teks Helvetica {halaman (mulai 1): [(x, y, ukuran, teks)]}; latin = semua angka
     ٠-٩ tersalin 0-9, seperti PDF yang nomor halamannya tercetak 0123; gambar = {halaman: (x, y, lebar, tinggi)}
     satu gambar abu-abu 1×1 piksel yang direntang ke kotak itu (seperti #G); halaman_baru = satu halaman kosong
     seukuran isi di akhir (halaman 8) sebelum teks ditambahkan."""
+    tambahan = tambahan or {}
+    gambar = gambar or {}
     w = PdfWriter(clone_from=str(PDF))
     if halaman_baru:
         baru = w.add_blank_page(width=w.pages[1].mediabox.width, height=w.pages[1].mediabox.height)

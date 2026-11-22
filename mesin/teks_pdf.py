@@ -59,7 +59,7 @@ def _isi_glyph(basefont, daftar):
                 urut = {g: i for i, g in enumerate(t.getGlyphOrder())}
                 return {urut[g]: (next(iter(teks.get(g, ()))) if len(teks.get(g, ())) == 1 else None, kode.get(g))
                         for g in set(teks) | set(kode) if g in urut}
-        except Exception:
+        except Exception:  # noqa: BLE001, S112 — berkas huruf sistem ada yang cacat/bukan TrueType; lanjut calon berikutnya
             continue
     return {}
 
@@ -250,7 +250,7 @@ def periksa(pdf, bahan):
         elif any(x < BATAS_TEPI or x > lebar - BATAS_TEPI for _, x, _, _, _ in isi):
             meluap.append(i)
         besar = {}  # baris berhuruf lebih besar dari matan = judul
-        for y, x, u, t, _ in isi:
+        for y, _x, u, t, _ in isi:
             if u > float(fmt["matan"]) + 0.5:
                 besar.setdefault(round(y), []).append(t)
         if not belakang and any("".join(sorted(padat("".join(t)))) in judul_belakang for t in besar.values()):
@@ -318,7 +318,7 @@ def betulkan(pdf):
             gid = _gid(f)
             baru = {}
             for g, s in lama.items():
-                teks, kode = asli.get(gid(g), (None, None))
+                teks, _kode = asli.get(gid(g), (None, None))
                 # Word memetakan glyph menurut kemunculan pertamanya: ligatur «نا» bisa jadi «نًّ», syaddah jadi «ن».
                 # Huruf yang digambar glyph itu (dari font) menang kalau hurufnya (tanpa harakat) berbeda
                 if teks and ARAB.search(teks) and _dasar(teks) != _dasar(s):

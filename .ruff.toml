@@ -1,4 +1,17 @@
-# Gerbang CI "khusus bug" (dibaca sendiri oleh `ruff check` dari akar repo, juga di .github/workflows/tes.yml): nama tak terdefinisi, impor/variabel tak terpakai,
-# galat sintaks, galat pylint. Aturan gaya dan B023 sengaja mati: di repo ini kebanyakan alarm palsu.
+# Gerbang CI "khusus bug" + anti-kasus-khusus (dibaca sendiri oleh `ruff check` dari akar repo, juga di
+# .github/workflows/tes.yml): nama tak terdefinisi, impor/variabel tak terpakai, galat sintaks, galat pylint,
+# galat ditelan (BLE001/S110/S112), akses privat (SLF001), noqa telanjang (PGH004/RUF100), dan penjaga bug Python
+# nol-alarm-palsu. Aturan gaya dan B023 sengaja mati.
 [lint]
-select = ["F", "E9", "PLE"]
+select = [
+    "F", "E9", "PLE", "BLE001", "S110", "S112", "SLF001", "PGH004", "RUF100",
+    "B006", "B007", "B008", "B011", "B015", "B018", "B020", "B033",
+    "E711", "E712", "E721", "E722",
+    "PIE790", "PIE794", "PIE810",
+    "RUF006", "RUF013", "RUF034", "RUF059",
+    "T10", "A004", "ASYNC221",
+]
+
+[lint.per-file-ignores]
+# Tes putih-kotak boleh mengakses pembantu internal modul & pypdf.
+".github/uji_*.py" = ["SLF001"]

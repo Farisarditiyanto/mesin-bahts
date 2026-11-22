@@ -137,7 +137,7 @@ def utama():
             try:
                 fn()
                 print("lolos:", nama)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — pelari uji mengumpulkan semua skenario gagal tanpa berhenti di tengah
                 gagal.append(nama)
                 print("GAGAL:", nama, type(e).__name__, str(e)[-1000:])
 

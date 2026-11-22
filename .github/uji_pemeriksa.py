@@ -22,7 +22,7 @@ import argparse, json, os, re, shlex, shutil, statistics, subprocess, sys, tempf
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from bantu import REPO, bahts  # noqa: E402
+from bantu import REPO, bahts
 
 UJI = REPO / ".github" / "uji_pemeriksa"
 BAHTS = UJI / "khiyar"

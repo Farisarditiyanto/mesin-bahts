@@ -10,7 +10,7 @@ from pathlib import Path
 
 AKAR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(AKAR / "mesin"))
-import laporan  # noqa: E402  bentuk awal «baris …: » ditulis di satu tempat: laporan.pisah_baris
+import laporan  # bentuk awal «baris …: » ditulis di satu tempat: laporan.pisah_baris
 NASKAH = AKAR / "contoh" / "jebakan" / "naskah.txt"
 HARUS = {"GAGAL": (1, 0), "perhatian": (0, 1), "lolos": (0, 0)}  # (galat, perhatian) tiap baris
 

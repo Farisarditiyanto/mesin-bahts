@@ -81,7 +81,7 @@ def ayat_sama(spec, antara, rujukan):
     kalah = False
     for teks in tanda:
         b = norma.padat(teks)
-        for x, a in ((x, a) for x in spec for a in bentuk_ayat(ayat(x)[0])):
+        for x, a in ((s, a) for s in spec for a in bentuk_ayat(ayat(s)[0])):
             # «والليل إذا يسر» (89:4) imla'i, «وَٱلَّيۡلِ إِذَا يَسۡرِ» di mushaf: kerangkanya terlalu pendek untuk ditandingkan
             if b in a or tanpa_lam_sandang(b) in tanpa_lam_sandang(a):
                 return True
@@ -239,7 +239,7 @@ def _tanding(spec, b):
     bentuk = {}
     for k, x in _quran_padat_nomor():
         bentuk.setdefault(k, []).append(x)
-    jarak = lambda k: min(_jarak_ayat(x, b) for x in bentuk[k])  # noqa: E731
+    jarak = lambda k: min(_jarak_ayat(x, b) for x in bentuk[k])
     jauh = functools.cache(lambda: min(_jarak_ayat(x, b) for x in bentuk_ayat(ayat(nomor)[0])))  # huruf lengkap {Q:}
     for k, x in _quran_kerangka_nomor():
         for w in _calon(x, kb, beda) if k not in sendiri else ():

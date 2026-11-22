@@ -465,7 +465,7 @@ def utama():
         out = tahap()
         assert "NASKAH=GAGAL" in out and 'cek "bahts/ahmad/ikhlas"' in out and "HASIL=USANG" in out, out
         (ikhlas / "naskah.txt").write_text(dasar, encoding="utf8")
-        for nama, penanda, harus in ((".rakit-lama", None, "=ASING"), (".rakit-simpan", "JANGAN_DIHAPUS.txt", "=SIMPAN"),
+        for nama, penanda, _harus in ((".rakit-lama", None, "=ASING"), (".rakit-simpan", "JANGAN_DIHAPUS.txt", "=SIMPAN"),
                                      (".rakit-sisa", "rakit.sementara", "=SEMENTARA")):
             (ikhlas / nama).mkdir()
             if penanda:

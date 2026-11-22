@@ -298,7 +298,7 @@ def rakit(f, jalur, fasl=None):
     except PermissionError as e:  # hasil lama (atau yang baru) sedang dibuka aplikasi lain; hasil lama tetap utuh
         sys.exit(f"Perakitan GAGAL: {Path(e.filename or '').name or 'hasil'} sedang terbuka di aplikasi lain (Word "
                  f"atau pembaca PDF). Tutup dulu, lalu ulangi `rakit`. Hasil lama tidak berubah.")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — gerbang CLI teratas: lapor galat ringkas lalu keluar non-nol
         sys.exit(f"Perakitan GAGAL: {type(e).__name__}: {e}")
 
 
@@ -384,7 +384,7 @@ def _khulasah_pdf(salinan, tujuan, rentang):
         halaman.update(range(int(a), int(b or a) + 1))
     try:
         teks_pdf.betulkan(salinan)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — pembenahan ToUnicode opsional: PDF khulasah tetap terbit dengan peringatan
         print(f"PERINGATAN: PDF khulasah jadi, tetapi teks Arabnya belum dibetulkan: {type(e).__name__}: {e}")
     from pypdf import PdfReader, PdfWriter
     r, w = PdfReader(salinan), PdfWriter()
@@ -436,12 +436,12 @@ def _rakit_di(f, jalur, kerja, fasl):
         raise RuntimeError(_word_gagal(r.returncode, galat_ps))
     try:  # supaya teks Arab PDF tersalin dan tercari dengan benar; tampilannya tidak berubah
         teks_pdf.betulkan(pdf)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — pembenahan ToUnicode opsional: PDF utama tetap terbit dengan peringatan
         print(f"PERINGATAN: PDF jadi, tetapi teks Arabnya belum dibetulkan (salin/cari bisa terbalik): {type(e).__name__}: {e}")
     try:  # sampul, nomor halaman, dan pengantar «:» yang terpisah dari isinya; hasil tetap terbit
         for p in teks_pdf.periksa(pdf, d):
             print(f"PERINGATAN: {p}")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — pemeriksaan pasca-rakit opsional: PDF tetap terbit dengan peringatan
         print(f"PERINGATAN: PDF jadi, tetapi belum diperiksa (sampul, nomor halaman): {type(e).__name__}: {e}")
     with zipfile.ZipFile(docx) as z:
         if z.testzip() or not {"[Content_Types].xml", "word/document.xml"} <= set(z.namelist()):
