@@ -483,6 +483,29 @@ try {
             $r.InsertXML($pkg)
         }
     }
+    # Word membalik huruf Arab di dalam <m:f> (dan membalik urutan baris rumus kanan-ke-kiri) bila persamaan
+    # baris sendiri (#E) turun ke baris kedua. Perkecil huruf rumus bertahap sampai muat satu baris.
+    function MuatRumus($pRange, [string]$omml, [string]$tag = '') {
+        if (-not $pRange -or $pRange.OMaths.Count -eq 0 -or $omml -match '<m:(?:eqArr|m)>') { return }
+        $omR = $pRange.OMaths(1).Range
+        if ($omR.End -le $omR.Start) { return }
+        $ujung = $omR.End - 1
+        $turun = {
+            $a = $doc.Range($omR.Start, $omR.Start); $b = $doc.Range($ujung, $ujung)
+            ($a.Information(10) -ne $b.Information(10)) -or ($a.Information(3) -ne $b.Information(3))
+        }
+        if (-not (& $turun)) { return }
+        $ukuran = [int[]](($uMatan - 2)..11 | Where-Object { ($_ -eq 11) -or (([int]$uMatan - $_) % 2 -eq 0) })
+        foreach ($sz in $ukuran) {
+            $omR.Font.SizeBi = $sz
+            $omR.Font.Size = [Math]::Max(9, $sz - 2)
+            if (-not (& $turun)) { return }
+        }
+        if ($omml -match '<w:rtl/>') {
+            $ket = if ($tag) { " $tag" } else { '' }
+            Write-Output "PERINGATAN: persamaan Arab$ket tetap melebihi satu baris walau diperkecil: ringkas atau pecah rumus supaya hurufnya tidak terbalik di Word."
+        }
+    }
     # nomor catatan kaki = tanda buatan sendiri, bukan nomor otomatis Word: nomor otomatis Word selalu 0-9
     # (Options.ArabicNumeral tidak berlaku untuknya). Nomornya dibetulkan NomorCatatan sesudah halaman tersusun.
     $asalCatatan = New-Object System.Collections.ArrayList   # nomor urut Word -> indeks bahan (bukti diam/potongan bisa melompat)
@@ -777,7 +800,7 @@ try {
                 $tbl.TableDirection = 0; $tbl.Borders.Enable = 0; $tbl.Rows.Alignment = 1
                 $tbl.PreferredWidthType = 2; $tbl.PreferredWidth = 100
                 $tbl.Columns.PreferredWidthType = 2
-                $tbl.Columns(1).PreferredWidth = [single]12; $tbl.Columns(2).PreferredWidth = [single]76; $tbl.Columns(3).PreferredWidth = [single]12
+                $tbl.Columns(1).PreferredWidth = [single]8; $tbl.Columns(2).PreferredWidth = [single]84; $tbl.Columns(3).PreferredWidth = [single]8
                 foreach ($c in 1..3) { $tbl.Cell(1, $c).VerticalAlignment = 1 }
                 $rf = $tbl.Range.ParagraphFormat
                 $rf.FirstLineIndent = 0; $rf.LeftIndent = 0; $rf.RightIndent = 0
@@ -791,6 +814,7 @@ try {
                 if (-not ($tTag.StartsWith('(') -and $tTag.EndsWith(')'))) { $tTag = "($tTag)" }
                 $num.Text = $tTag
                 Huruf $num.Font $TA $uCatatan 0
+                MuatRumus $tbl.Cell(1, 2).Range.Paragraphs(1).Range $blk.omml $tTag
                 $doc.Range($tbl.Range.End, $tbl.Range.End).Select()
                 # pisahkan tabel nomor persamaan dari tabel #J atau #E bertag berikutnya supaya Word tidak menggabungkannya
                 if ($i + 1 -lt $DATA.blok.Count -and ($DATA.blok[$i + 1].k -eq 'J' -or ($DATA.blok[$i + 1].k -eq 'E' -and $DATA.blok[$i + 1].tag))) {
@@ -805,6 +829,7 @@ try {
                 $sel.TypeParagraph()
                 $r = $doc.Range($pos, $pos)
                 $r.InsertXML((PaketOmml $blk.omml))
+                MuatRumus $r.Paragraphs(1).Range $blk.omml
                 $akhir = $r.Paragraphs(1).Range.End
                 $doc.Range($akhir, $akhir).Select()
             }

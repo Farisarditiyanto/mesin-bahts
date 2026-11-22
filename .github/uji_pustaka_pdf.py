@@ -171,6 +171,19 @@ def utama():
         assert kartu_uji["wafat"] == "٧٢٨هـ" and "ههـ" not in kartu_uji["wafat"], kartu_uji
         assert "المتوف" not in kartu_uji["pengarang"] and "الشيخ" not in kartu_uji["pengarang"], kartu_uji
         assert kartu_uji["muhaqqiq"] == "عبد الله التركي", kartu_uji
+        # 2b. Kurung siku berisi tambahan judul («[العِبَر و] ديوان المبتدأ…») cocok dengan judul rapat («العبر وديوان المبتدأ…»),
+        #     dan kurung pengarang yang memuat tahun wafat («[الظاهري، ت ٤٥٦ هـ]») tidak menyisakan koma menggantung.
+        from cek_rujukan import bentuk_judul, judul_di_baris
+        b_khaldun = bentuk_judul({
+            "title_ar": "تاريخ ابن خلدون",
+            "betaka_text": "الكتاب: [العِبَر و] ديوان المبتدأ والخبر في تاريخ العرب والبربر\n",
+        })
+        assert judul_di_baris(b_khaldun, "**ابن خلدون**. __العبر وديوان المبتدأ والخبر في تاريخ العرب والبربر__. دار الفكر."), b_khaldun
+        kartu_hazm = pustaka._ekstrak_kartu({
+            "betaka_text": "الكتاب: المحلى بالآثار\nالمؤلف: أبو محمد، علي بن أحمد بن حزم [الظاهري، ت ٤٥٦ هـ]\n",
+            "title_ar": "المحلى بالآثار",
+        })
+        assert kartu_hazm["pengarang"].endswith("[الظاهري]") and "،]" not in kartu_hazm["pengarang"], kartu_hazm
 
         # 3. Pemulihan teks PDF Arab visual-reversed & ligatur Word (`sumber_pdf.pulihkan_arab` + end-to-end `bukti`)
         assert sumber_pdf.pulihkan_arab("(٢٠٠٥) روتسدلا يف ناسنإلا قوقح") == "حقوق الإنسان في الدستور (٢٠٠٥)"

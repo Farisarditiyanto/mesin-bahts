@@ -41,6 +41,8 @@ def utama():
             "#J العائد على الأصول | {E:ROA > 0} نص بعده و{E:P(A | B)} نهاية. | كفاءة الأصول\n"
             "وتُحسب الدرجة المعيارية بالمعادلة الآتية:\n"
             "#E Z = \\frac{\\bar{X} - \\mu}{\\sigma / \\sqrt{n}} \\tag{3}\n"
+            "ويُحسب الوعاء الزكوي للسهم بالمعادلة العربية الطويلة الآتية:\n"
+            "#E \\text{وعاء السهم الزكوي} = \\frac{\\text{الأصول المتداولة الزكوية} - \\text{الالتزامات المتداولة الحالة}}{\\text{إجمالي الأسهم المصدرة}} \\tag{4}\n"
             "#K الخاتمة\n"
             "أهم النتائج: نجح تركيب المعادلات الرياضية بنجاح.\n"
         )
@@ -59,9 +61,9 @@ def utama():
         omaths_doc = doc_xml.findall(".//m:oMath", ns)
         omaths_para = doc_xml.findall(".//m:oMathPara", ns)
         omaths_fn = fn_xml.findall(".//m:oMath", ns)
-        # 2 inline paragraf + 4 display #E + 2 inline di sel tabel #J = 8 di document.xml, + 2 di footnotes.xml
-        assert len(omaths_doc) == 8, f"oMath di document.xml: {len(omaths_doc)}"
-        assert len(omaths_para) >= 4, f"oMathPara di document.xml: {len(omaths_para)}"
+        # 2 inline paragraf + 5 display #E + 2 inline di sel tabel #J = 9 di document.xml, + 2 di footnotes.xml
+        assert len(omaths_doc) == 9, f"oMath di document.xml: {len(omaths_doc)}"
+        assert len(omaths_para) >= 5, f"oMathPara di document.xml: {len(omaths_para)}"
         assert len(omaths_fn) == 2, f"oMath di footnotes.xml: {len(omaths_fn)}"
         # Pastikan teks sesudah {E:…} di sel tabel #J tetap di luar <m:oMath> (tidak tersedot masuk zona rumus)
         teks_math = "".join("".join(o.itertext()) for o in omaths_doc)
@@ -80,6 +82,36 @@ def utama():
         hal2_teks = unicodedata.normalize("NFKC", pdf_reader.pages[1].extract_text() or "")
         assert "NPV" in hal1_teks and "NPV" not in hal2_teks, (hal1_teks, hal2_teks)
         assert "(٢)" not in hal1_teks and "(٢)" in hal2_teks and "Yi" in hal2_teks, (hal1_teks, hal2_teks)
+        # Rumus pecahan Arab panjang pada @format: imam_ayat16 (matan 18 pt) tidak boleh terlipat lalu dibalik
+        # huruf-per-huruf oleh Word («ةردصملا» alih-alih «المصدرة»); rumus yang lebih lebar lagi otomatis diperkecil
+        # sampai muat satu baris
+        arab_p = akar / "arab"
+        arab_p.mkdir()
+        (arab_p / "naskah.txt").write_text(
+            "@bentuk: kitab\n@format: imam_ayat16\n@judul: اختبار\n@berkas: arab\n#K المقدمة\n"
+            "وتُصاغ المعادلة العربية كما يأتي:\n"
+            "#E \\text{وعاء السهم الزكوي} = \\frac{\\text{الأصول المتداولة الزكوية} - \\text{الالتزامات المتداولة الحالة}}{\\text{إجمالي الأسهم المصدرة}} \\tag{1}\n"
+            "#E \\text{الوعاء الزكوي للسهم} = \\frac{\\text{النقدية} + \\text{المدينون} + \\text{المخزون السلعي} + \\text{الاستثمارات المتداولة} - \\text{الالتزامات الحالية}}{\\text{عدد الأسهم المصدرة}} \\tag{2}\n"
+            "#K الخاتمة\nأهم النتائج: نجح.\n", encoding="utf8")
+        ra = subprocess.run(
+            [sys.executable, str(akar / "mesin" / "bahts.py"), "rakit", "arab"],
+            cwd=akar, capture_output=True, encoding="utf8", timeout=1800,
+        )
+        assert ra.returncode == 0 and "PERINGATAN" not in ra.stdout, ra.stdout + ra.stderr
+        arab_teks = unicodedata.normalize("NFKC", "".join(p.extract_text() or "" for p in PdfReader(arab_p / "arab.pdf").pages))
+        assert "ةردصم" not in arab_teks and "ةيوكز" not in arab_teks and "ةيلاح" not in arab_teks, arab_teks
+        assert "السهم الزكوي" in arab_teks and "النقدية" in arab_teks and "صدرة" in arab_teks, arab_teks
+        with zipfile.ZipFile(arab_p / "arab.docx") as za:
+            arab_xml = ET.fromstring(za.read("word/document.xml"))
+        omaths_arab = arab_xml.findall(".//m:oMath", ns)
+        assert len(omaths_arab) == 2, len(omaths_arab)
+        sz_eq2 = {
+            int(el.get(f"{w}val"))
+            for tag in (f"{w}szCs", f"{w}sz")
+            for el in omaths_arab[1].iter(tag)
+            if el.get(f"{w}val")
+        }
+        assert sz_eq2 and max(sz_eq2) < 36, f"rumus panjang tidak diperkecil: {sz_eq2}"
         # Pecahan Arab di catatan kaki bukan rumus #E yang menyusul matan: pengantar berakhir «:» di ujung halaman
         # tetap diperingatkan
         ujung = akar / "ujung"

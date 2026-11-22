@@ -48,8 +48,11 @@ _MIRIP = 85  # rapidfuzz.fuzz.ratio: «مصفي»/«مصطفي» 89, «العل�
 _LABEL_JILID = re.compile(r"(?:^|(?<=،))\s*(?:ال)?ج(?:زء)?[\u0640\s.][^:]{0,30}:")
 
 
+_KOMA_TUTUP = re.compile(r"\s*[،,;:-]+\s*([)\]])")
+
+
 def _bersih(nilai):
-    return _KURUNG_KOSONG.sub("", nilai).strip().rstrip(" .،")
+    return _KOMA_TUTUP.sub(r"\1", _KURUNG_KOSONG.sub("", nilai)).strip().rstrip(" .،")
 
 
 def _label(baris):

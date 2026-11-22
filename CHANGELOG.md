@@ -6,6 +6,9 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Perbaikan: persamaan Arab baris sendiri (`#E`) yang lebar (terutama pecahan pada `@format: imam_ayat16`) kini memakai kolom rumus 84% (bukan 76%) dan otomatis diperkecil bertahap sampai muat satu baris, sehingga Word tidak melipatnya lalu membalik urutan huruf Arab di dalam pecahan; kalau tetap melebihi satu baris di 11 pt, `rakit` mencetak PERINGATAN.
+- Perbaikan: `dirasat-cek` tidak lagi mencampur tahun di matan atau catatan kaki kitab lain ke pemeriksaan penelitian di baris yang sama, memisahkan dua penelitian yang dipisah «؛» dalam satu catatan kaki, menerima rujukan ulang «المرجع السابق»/«المصدر السابق», mengabaikan perintah LaTeX di dalam `{E:…}`, dan menerima baris `#R` berpenulis Arab dengan judul Inggris di dalam kurung.
+- Perbaikan: pencocokan judul kitab di `pustaka`/`cek` kini mengenali judul katalog yang memakai kurung siku di bagian awal (mis. `[العِبَر و] ديوان المبتدأ…` ↔ `العبر وديوان المبتدأ…`), dan draf `#R` dari `pustaka` tidak lagi meninggalkan koma sebelum tanda tutup kurung sesudah tahun wafat dihapus (mis. `[الظاهري]`, bukan `[الظاهري،]`).
 - `cek` kini memberi perhatian untuk kitab yang dirujuk di catatan kaki (bukti Shamela, Waqfeya, atau PDF `<<luar>>`) tetapi tidak ditulis di المصادر والمراجع (`#R`), dan menyuruh menjalankan `pustaka <folder>`; `@tanpa: pustaka` tidak dinilai.
 - `rakit` dengan `@templat` mengganti penanda «عنوان البحث» di kepala halaman Word itu dengan judul bahts, dan memberi PERINGATAN kalau penanda itu masih tercetak.
 - Perbaikan: sampul `@templat` yang meluap ke halaman kedua sesudah diisi tidak lagi kehilangan baris akhirnya (mis. «العام الجامعي») diam-diam: sampul dipotong di pemisah halaman Word itu, dan `rakit` memberi PERINGATAN kalau sampulnya lebih dari satu halaman.
