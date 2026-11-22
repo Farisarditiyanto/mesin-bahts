@@ -228,7 +228,9 @@ def periksa(pdf, bahan):
     nomor, ujung, kosong, meluap, sisa = {}, [], [], [], []
     # judul bagian sesudah isi (المصادر, فهرس): halaman sejak judul pertamanya yang tanpa judul dan berisi sedikit kata
     # = lanjutan tabel/daftar halaman sebelumnya yang meluap beberapa baris
-    judul_belakang = {"".join(sorted(padat(b["judul"]))) for b in rencana.get("bagian") or () if b.get("judul")}
+    # فهرس الموضوعات di depan (@maudhuat_letak: awal) bukan bagian belakang: judulnya tidak memulai pemeriksaan ini
+    judul_belakang = {"".join(sorted(padat(b["judul"]))) for b in rencana.get("bagian") or ()
+                      if b.get("judul") and not b.get("awal")}
     belakang = False
     luap_mupdf = _halaman_meluap(pdf, awal)
     batas = (float(fmt["matan"]) + float(fmt["catatan"])) / 2   # matan dan judul; catatan kaki lebih kecil
