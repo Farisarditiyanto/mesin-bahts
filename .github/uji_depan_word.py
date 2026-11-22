@@ -106,10 +106,14 @@ def utama():
 
 
 def bait_menempel(akar):
-    """Bait #V menempel ke paragraf sesudahnya (KeepWithNext): bait di baris akhir halaman tidak terpisah dari
-    syarahnya. Dicek di XML .docx: paragraf bait ber-<w:keepNext/>, paragraf syarah sesudahnya tidak."""
-    isi = ISI.replace("#K الخاتمة\n", "وقال الشاعر في ذلك:\n#V يا دار عبلة بالجواء تكلمي ... وعمي صباحا دار عبلة واسلمي\n"
-                      "وهذا شرح البيت الذي يأتي بعده.\n#K الخاتمة\n")
+    """Bait #V terakhir dari deretan bait menempel ke paragraf sesudahnya (KeepWithNext): bait di baris akhir halaman
+    tidak terpisah dari syarahnya. Bait yang disusul bait lagi tidak menempel, supaya deretan panjang (النص) boleh
+    terpotong antarhalaman. Dicek di XML .docx: bait kedua ber-<w:keepNext/>, bait pertama dan syarah tidak."""
+    isi = ISI.replace("#K الخاتمة\n", "وقال الشاعر في ذلك:\n#V هل غادر الشعراء من متردم ... أم هل عرفت الدار بعد توهم\n"
+                      "#V يا دار عبلة بالجواء تكلمي ... وعمي صباحا دار عبلة واسلمي\n"
+                      "وهذا شرح البيت الذي يأتي بعده.\n"
+                      "وقال أيضًا:\n#V بيت ثالث للاختبار هنا ... وشطره الثاني هنا\n"
+                      "وقال في موضع آخر:\n#V بيت رابع للاختبار هنا ... وشطره الثاني هنا\nوهذا شرح أخير.\n#K الخاتمة\n")
     tulis(akar, "bait", KEPALA, isi)
     r = bahts(akar, "rakit", "bait", batas=1800)
     assert r.returncode == 0, r.stdout + r.stderr
@@ -120,7 +124,13 @@ def bait_menempel(akar):
     syarah = next(p for p in para if "شرح البيت" in teks(p))
     assert "<w:keepNext/>" in bait, "bait #V tidak menempel ke syarahnya (tanpa keepNext)"
     assert "<w:keepNext/>" not in syarah, "paragraf syarah ikut menempel ke paragraf sesudahnya"
-    print("lolos bait menempel: #V ber-keepNext, syarah sesudahnya tidak")
+    awal = next(p for p in para if "متردم" in teks(p))
+    assert "<w:keepNext/>" not in awal, "bait yang disusul bait lagi ikut menempel: deretan bait pindah utuh antarhalaman"
+    ketiga = next(p for p in para if "ثالث للاختبار" in teks(p))
+    keempat = next(p for p in para if "رابع للاختبار" in teks(p))
+    assert "<w:keepNext/>" not in ketiga, "bait yang disusul pengantar bait lain («…:») ikut menempel: poin-poin berbait jadi satu rantai"
+    assert "<w:keepNext/>" in keempat, "bait terakhir tidak menempel ke syarahnya"
+    print("lolos bait menempel: bait terakhir ber-keepNext, bait sebelumnya dan syarah tidak")
 
 
 def baris_pdf(hal):

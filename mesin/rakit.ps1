@@ -940,9 +940,13 @@ try {
             Para 1 2 0
             HalamanBaru $pb
             Runs $blk.runs $uMatan $false
-            # bait menempel ke paragraf sesudahnya (syarahnya, atau bait berikutnya): bait di baris akhir halaman
-            # dengan syarah di halaman berikutnya pindah bersama pengantarnya (yang berakhir «:» sudah menempel)
-            if (Menempel $i) { $sel.ParagraphFormat.KeepWithNext = -1 }
+            # bait terakhir dari deretan bait menempel ke paragraf sesudahnya (syarahnya): bait di baris akhir halaman
+            # dengan syarah di halaman berikutnya pindah bersama pengantarnya (yang berakhir «:» sudah menempel).
+            # Bait yang disusul bait lagi, atau pengantar bait lain («…:» atau label tebal seperti «الشرح»), tidak
+            # menempel: deretan panjang (mis. النص 15 bait, poin-poin «…:» + bait contoh) boleh terpotong
+            # antarhalaman, bukan pindah utuh sebagai satu rantai dan meninggalkan setengah halaman kosong
+            $nxV = $DATA.blok[$i + 1]
+            if ((Menempel $i) -and $nxV.k -ne 'V' -and -not (Pengantar $nxV)) { $sel.ParagraphFormat.KeepWithNext = -1 }
             $sel.TypeParagraph()
         }
         elseif ($blk.k -eq 'L') {                         # paragraf Latin: kiri ke kanan, rata kanan-kiri
