@@ -132,14 +132,14 @@ def tengah_baris(hal):
 def sampul_tengah(akar):
     """@sampul: tengah (logo berwarna dengan rasio gambarnya di tengah, baris rata tengah, @jenis/@nim tidak tercetak,
     judul panjang dikecilkan supaya sampul satu halaman), @judul_fasl: dua_baris (فهرس tetap satu baris), dan
-    @ihda: tengah (paragraf الإهداء tengah dan tebal)."""
+    @ihda: tengah (paragraf الإهداء tengah dan tebal), dan ﴿﴾ halaman @ayat_pembuka tidak terbalik."""
     png = zipfile.ZipFile(akar / "mesin" / "sampul_jakarta.docx").read("word/media/image2.png")
     lebar, tinggi = struct.unpack(">II", png[16:24])
     # « - » sub-judul di tempat pindah baris @judul_sampul tidak ditulis dan tidak tercetak
     tulis(akar, "tengah", "@judul: اختبار الغلاف الوسط - دراسة وصفية\n@judul_sampul: اختبار الغلاف الوسط // دراسة وصفية\n"
           "@sampul: tengah\n@qism: قسم اللغة العربية\n@nama: طالبة\n@thalibah: ya\n@jenis: بحث صفي للمستوى\n@nim: 4300123\n"
           "@musyrif: د. مشرف\n@tahun: ١٤٤٨ - ٢٠٢٦\n@berkas: uji\n@tanpa: hadits\n@minimal_halaman: 0\n"
-          "@judul_fasl: dua_baris\n@ihda: tengah\n@format: tatbiqi_16_berjarak\n")
+          "@judul_fasl: dua_baris\n@ihda: tengah\n@format: tatbiqi_16_berjarak\n@ayat_pembuka: 12:2\n")
     r = bahts(akar, "rakit", "tengah", batas=1800)
     assert r.returncode == 0 and "PERINGATAN" not in r.stdout, r.stdout + r.stderr
     with pymupdf.open(akar / "tengah" / "uji.pdf") as doc:  # ditutup juga kalau ada yang gagal: TEMP bisa dibuang
@@ -147,6 +147,10 @@ def sampul_tengah(akar):
         gambar = doc[0].get_image_info()
         pusat = tengah_baris(doc[0])
         hal = [baris_pdf(p) for p in doc]
+        kurung = {c["c"]: c["bbox"][0] for b in doc[1].get_text("rawdict")["blocks"] for ln in b.get("lines", [])
+                  for sp in ln["spans"] for c in sp["chars"] if c["c"] in "﴾﴿"}
+    # halaman ayat sesudah sampul tengah: ﴿ (pembuka) di kanan ayat, ﴾ di kirinya
+    assert len(kurung) == 2 and kurung["﴿"] > kurung["﴾"], f"kurung ayat halaman pembuka terbalik: {kurung}"
     assert len(gambar) == 1, gambar
     x0, y0, x1, y1 = gambar[0]["bbox"]
     assert abs((x1 - x0) / (y1 - y0) - lebar / tinggi) < 0.01, f"logo penyok: {(x1 - x0) / (y1 - y0):.3f} ≠ {lebar / tinggi:.3f}"
