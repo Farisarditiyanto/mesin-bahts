@@ -446,7 +446,7 @@ def _pdf_terbaca(berkas):
             if b"%%EOF" not in f.read():
                 return False
         return bool(len(PdfReader(berkas).pages))
-    except Exception:  # format rusak/bersandi tidak boleh dianggap unduhan yang selesai
+    except Exception:  # noqa: BLE001 — format rusak/bersandi tidak boleh dianggap unduhan yang selesai
         return False
 
 
@@ -643,7 +643,7 @@ def _tahun_berkas(berkas):
     logging.getLogger("pypdf").setLevel(logging.ERROR)  # keluhan pypdf soal PDF cacat bukan isi laporan
     try:
         isi = " ".join(p.extract_text() or "" for p in PdfReader(berkas).pages[:2])
-    except Exception:  # PDF hilang, rusak, atau bersandi: tahunnya tidak bisa dibaca, katalog tetap dibandingkan
+    except Exception:  # noqa: BLE001 — PDF hilang, rusak, atau bersandi: tahunnya tidak bisa dibaca, katalog tetap dibandingkan
         return frozenset()
     return frozenset(int(t) for baris in isi.translate(ANGKA_LATIN).splitlines() if KEPALA_TERBIT.search(baris)
                      and not TERIMA_NASKAH.search(baris) for t in re.findall(r"(?<!\d)(19\d\d|20\d\d)(?!\d)", baris))

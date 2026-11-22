@@ -40,7 +40,7 @@ HALAMAN = [
 SAMPUL = ["كتاب تجريبي تحقيق محقق تجريبي دار السلام المصرية\n"]  # berkas 2 «الواجهة» (sampul tersendiri)
 d = AKAR / "kitab" / "waqfeya" / W
 d.mkdir(parents=True)
-from pypdf import PdfWriter  # noqa: E402 (pypdf dari requirements.txt)
+from pypdf import PdfWriter  # (pypdf dari requirements.txt)
 for n, hh in ((1, HALAMAN), (2, SAMPUL)):
     with gzip.open(d / f"{n}.txt.gz", "wt", encoding="utf-8") as f:
         f.write("\nPAGE_SEPARATOR\n".join(hh))

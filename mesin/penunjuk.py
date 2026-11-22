@@ -50,7 +50,7 @@ def _penunjuk_pdf(folder, berkas, hal, kutipan):
         return f"PDF «{berkas}» tidak ada di folder bahts (lihat `cek`)"
     try:
         status, teks = sumber_pdf.cuplikan(p, hal, kutipan, SEKITAR)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — PDF rusak/bersandi dilaporkan sebagai catatan diagnostik untuk pemeriksa
         return f"PDF «{berkas}» hal {hal} tidak terbaca ({type(e).__name__}: {e})"
     if status == "scan":
         return f"{berkas} [PDF hal {hal}; halaman gambar/scan tanpa teks terbaca: buka PDF-nya langsung]"

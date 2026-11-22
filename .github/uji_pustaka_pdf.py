@@ -200,7 +200,7 @@ def utama():
             assert sumber_pdf.pulihkan_arab(normal) == normal, normal
 
         try:
-            import pymupdf  # noqa: F401
+            import pymupdf
         except ImportError:
             pymupdf = None
         if pymupdf is not None and (AKAR / "mesin" / "UthmanicHafs_V22.ttf").exists():

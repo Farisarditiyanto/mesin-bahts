@@ -134,7 +134,7 @@ def _periksa_langkah(isi, baris, perhatian):
             perhatian.append(f"{RISET} baris {n}: «{b.strip()[:50]}» tidak dikenal; {bentuk}")
             continue
         if kata_[0] == "cari":
-            istilah, pisah, catatan = " ".join(kata_[1:]).partition(CARI_PISAH)
+            istilah, _pisah, catatan = " ".join(kata_[1:]).partition(CARI_PISAH)
             if not norma.norm(istilah):
                 perhatian.append(f"{RISET} baris {n}: «{b.strip()[:50]}»: tulis istilah huruf Arab yang dicari sebelum "
                                  f"«{CARI_PISAH}», mis. «cari طمأنينة القلب {CARI_PISAH} 212 halaman»")

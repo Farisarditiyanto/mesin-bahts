@@ -77,9 +77,12 @@ def _di_shamela(b):
     return edisi.shamela_untuk_waqfeya(b)
 
 
-def _pokok(judul):
+def pokok(judul):
     """Judul Waqfeya tanpa kurung (pengarang, muhaqqiq) dan keterangan edisi sesudah « - »."""
     return re.split(r"\s+-\s+|---|\s+=\s+", re.sub(r"\(.*?\)|\[.*?\]", " ", judul))[0].strip()
+
+
+_pokok = pokok
 
 
 def _nama_kitab(b):

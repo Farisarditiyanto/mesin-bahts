@@ -411,7 +411,7 @@ def _kitab_bukti(kunci):
             return None
         d = waqfeya.data(kunci)
         nama, pengarang = d["judul"], [d.get("pengarang") or ""]
-        bentuk = [k for k in (kata_rujukan(waqfeya._pokok(d["judul"])), kata_rujukan(d["judul"])) if k]
+        bentuk = [k for k in (kata_rujukan(waqfeya.pokok(d["judul"])), kata_rujukan(d["judul"])) if k]
     ciri = _nama(pengarang)
     return f"«{nama}» (<<{kunci}|…>>)", bentuk, ciri
 
