@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Halaman depan lewat `cek`, `rakit`, dan Word asli: `@ayat_pembuka` (halaman ayat sesudah sampul, tanpa nomor),
-`@maudhuat_letak: awal` (فهرس الموضوعات sesudah الإهداء, tepat sebelum المقدمة, nomor halamannya benar), dan
-`@tanpa: anzhur` («انظر:» di catatan kaki tidak tercetak, naskah tetap menulisnya untuk `cek`). Bagian `cek` jalan di
+`@maudhuat_letak: awal` (فهرس الموضوعات sesudah الإهداء, tepat sebelum المقدمة, nomor halamannya benar),
+`@tanpa: anzhur` («انظر:» di catatan kaki tidak tercetak, naskah tetap menulisnya untuk `cek`), dan `@sampul: tengah`
+dengan `@judul_fasl: dua_baris` dan `@ihda: tengah`. Bagian `cek` jalan di
 mana saja; bagian Word dilewati di runner tanpa Word. Semua bahan di TEMP."""
-import re, sys, tempfile
+import re, struct, sys, tempfile, zipfile
 from pathlib import Path
 
 import pymupdf
@@ -100,6 +101,86 @@ def utama():
             i = next(k for k, h in enumerate(hal) if "فهرس الموضوعات" in h)
             assert "ويظهر للباحث" in hal[i + 1] and "فهرس" not in hal[i + 1], f"{nama}: halaman sesudah فهرس: {hal[i + 1][:200]!r}"
         print("lolos halaman depan Word: فهرس depan yang pas satu halaman tidak menyisakan halaman kosong (dengan/tanpa @nomor)")
+        sampul_tengah(akar)
+
+
+def baris_pdf(hal):
+    """Baris teks satu halaman PDF: (teks, tengah x, huruf span pertama), urut dari atas."""
+    hasil = []
+    for b in hal.get_text("dict")["blocks"]:
+        for ln in b.get("lines", []):
+            teks = "".join(s["text"] for s in ln["spans"]).strip()
+            if teks:
+                hasil.append((teks, (ln["bbox"][0] + ln["bbox"][2]) / 2, ln["spans"][0]["font"], ln["bbox"][1]))
+    return sorted(hasil, key=lambda x: x[3])
+
+
+def tengah_baris(hal):
+    """Tengah x tiap baris cetak satu halaman: span sebaris (garis dasar sama) digabung, karena pymupdf bisa memecah
+    satu baris kanan-ke-kiri jadi beberapa baris (mis. «م» di ujung tahun «١٤٤٨هـ – ٢٠٢٦م»)."""
+    rentang = {}
+    for b in hal.get_text("dict")["blocks"]:
+        for ln in b.get("lines", []):
+            for sp in ln["spans"]:
+                if sp["text"].strip():
+                    y = round(sp["origin"][1])
+                    a, z = rentang.get(y, (sp["bbox"][0], sp["bbox"][2]))
+                    rentang[y] = (min(a, sp["bbox"][0]), max(z, sp["bbox"][2]))
+    return {y: (a + z) / 2 for y, (a, z) in rentang.items()}
+
+
+def sampul_tengah(akar):
+    """@sampul: tengah (logo berwarna dengan rasio gambarnya di tengah, baris rata tengah, @jenis/@nim tidak tercetak,
+    judul panjang dikecilkan supaya sampul satu halaman), @judul_fasl: dua_baris (فهرس tetap satu baris), dan
+    @ihda: tengah (paragraf الإهداء tengah dan tebal)."""
+    png = zipfile.ZipFile(akar / "mesin" / "sampul_jakarta.docx").read("word/media/image2.png")
+    lebar, tinggi = struct.unpack(">II", png[16:24])
+    # « - » sub-judul di tempat pindah baris @judul_sampul tidak ditulis dan tidak tercetak
+    tulis(akar, "tengah", "@judul: اختبار الغلاف الوسط - دراسة وصفية\n@judul_sampul: اختبار الغلاف الوسط // دراسة وصفية\n"
+          "@sampul: tengah\n@qism: قسم اللغة العربية\n@nama: طالبة\n@thalibah: ya\n@jenis: بحث صفي للمستوى\n@nim: 4300123\n"
+          "@musyrif: د. مشرف\n@tahun: ١٤٤٨ - ٢٠٢٦\n@berkas: uji\n@tanpa: hadits\n@minimal_halaman: 0\n"
+          "@judul_fasl: dua_baris\n@ihda: tengah\n@format: tatbiqi_16_berjarak\n")
+    r = bahts(akar, "rakit", "tengah", batas=1800)
+    assert r.returncode == 0 and "PERINGATAN" not in r.stdout, r.stdout + r.stderr
+    with pymupdf.open(akar / "tengah" / "uji.pdf") as doc:  # ditutup juga kalau ada yang gagal: TEMP bisa dibuang
+        w = doc[0].rect.width
+        gambar = doc[0].get_image_info()
+        pusat = tengah_baris(doc[0])
+        hal = [baris_pdf(p) for p in doc]
+    assert len(gambar) == 1, gambar
+    x0, y0, x1, y1 = gambar[0]["bbox"]
+    assert abs((x1 - x0) / (y1 - y0) - lebar / tinggi) < 0.01, f"logo penyok: {(x1 - x0) / (y1 - y0):.3f} ≠ {lebar / tinggi:.3f}"
+    assert abs((x0 + x1) / 2 - w / 2) < 2, f"logo tidak di tengah: {gambar[0]['bbox']}"
+    assert len(pusat) == 7 and all(abs(x - w / 2) < 10 for x in pusat.values()), f"baris sampul tidak rata tengah: {pusat}"
+    teks = [t for t, *_ in hal[0]]
+    for t in ("معهد العلوم الإسلامية والعربية في إندونيسيا", "قسم اللغة العربية", "اختبار الغلاف الوسط", "دراسة وصفية",
+              "إعداد الطالبة: طالبة"):
+        assert t in teks, f"sampul tanpa baris «{t}»: {teks}"
+    assert teks.index("اختبار الغلاف الوسط") < teks.index("دراسة وصفية"), teks
+    semua = "".join(teks)
+    assert "مشرف" in semua and "بحث صفي" not in semua and not re.search("4300123|٤٣٠٠١٢٣|3210034|٣٢١٠٠٣٤", semua), teks
+    ihda = next(b for b in hal if any(t == "الإهداء" for t, *_ in b))
+    isi = [x for x in ihda if "الكريمين" in x[0]]
+    assert isi and "Bold" in isi[0][2] and abs(isi[0][1] - w / 2) < 30, f"paragraf الإهداء tidak tengah/tebal: {isi}"
+    fasl = next((b for b in hal if any(t == "الفصل الأول" for t, *_ in b)), None)
+    assert fasl and any(t == "الموضوع" for t, *_ in fasl), "judul فصل tidak dua baris («الفصل الأول» bukan baris sendiri)"
+    fihris = next(b for b in hal if any("فهرس الموضوعات" in t for t, *_ in b))
+    assert any("الفصل الأول" in t and "الموضوع" in t for t, *_ in fihris), f"judul فصل di فهرس tidak satu baris: {fihris}"
+    # judul sangat panjang: sampul tetap satu halaman, judulnya yang dikecilkan (bukan baris lain)
+    panjang = " ".join(["دراسة تحليلية وصفية مقارنة لأساليب المدح في شعر الشعراء العباسيين"] * 16)
+    tulis(akar, "panjang", f"@judul: {panjang}\n@sampul: tengah\n@qism: قسم اللغة العربية\n@nama: طالب\n@musyrif: د. مشرف\n"
+          "@berkas: uji\n@tanpa: hadits\n@minimal_halaman: 0\n")
+    r = bahts(akar, "rakit", "panjang", batas=1800)
+    assert r.returncode == 0 and "PERINGATAN" not in r.stdout, r.stdout + r.stderr
+    with pymupdf.open(akar / "panjang" / "uji.pdf") as doc:
+        sampul, kedua = [t for t, *_ in baris_pdf(doc[0])], doc[1].get_text()
+        ukuran = {round(s["size"]) for b in doc[0].get_text("dict")["blocks"] for ln in b.get("lines", [])
+                  for s in ln["spans"] if "الشعراء" in s["text"]}
+    assert "إعداد الطالب: طالب" in sampul and "مشرف" not in kedua, f"sampul judul panjang lebih dari satu halaman: {sampul}"
+    assert ukuran and max(ukuran) < 16, f"judul panjang tidak dikecilkan sampai muat: {ukuran}"
+    print(f"lolos sampul tengah Word: logo {x1 - x0:.0f}×{y1 - y0:.0f} pt (rasio gambar {lebar}×{tinggi}), baris tengah, "
+          f"@jenis/@nim tidak tercetak, judul panjang {max(ukuran)} pt satu halaman; judul فصل dua baris (فهرس satu baris); "
+          "الإهداء tengah tebal")
 
 
 if __name__ == "__main__":

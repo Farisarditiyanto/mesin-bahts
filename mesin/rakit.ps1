@@ -48,6 +48,12 @@ $JUDUL = $M.judul; $NAMA = $M.nama; $NIM = $M.nim
 $JUDUL1 = [string]$RENCANA.judul_sampul[0]; $JUDUL2 = [string]$RENCANA.judul_sampul[1]
 $MUSYRIF = if ($M.musyrif -and $M.musyrif -ne '-') { [string]$M.musyrif } else { '' }
 $JABATAN = if ($MUSYRIF -and $M.jabatan -and $M.jabatan -ne '-') { [string]$M.jabatan } else { '' }
+# tahun sampul (qism, jakarta, tengah). Bawaan = tahun hijriah saat tahun ajaran mulai (1 Agustus): satu tahun ajaran
+# tetap satu tahun walau 1 Muharram lewat di tengahnya (Juni 2027 = 1449, tahun ajarannya masih 1448)
+$awalAjaran = [datetime]::new((Get-Date).Year, 8, 1); if ((Get-Date) -lt $awalAjaran) { $awalAjaran = $awalAjaran.AddYears(-1) }
+$TAHUN = if ($M.tahun) { [string]$M.tahun } else { Angka ([Globalization.UmAlQuraCalendar]::new().GetYear($awalAjaran)) }
+# @tahun «١٤٤٨ - ٢٠٢٦» (hijriah - masehi) = «١٤٤٨هـ – ٢٠٢٦م»; satu tahun = «١٤٤٨ هـ» seperti model
+$TAHUN_CETAK = if ($TAHUN -match '^\s*(\S+?)\s*[-–]\s*(\S+?)\s*$') { "$($Matches[1])هـ – $($Matches[2])م" } else { "$TAHUN هـ" }
 $JENIS_BAGIAN = @($RENCANA.bagian | ForEach-Object { $_.jenis })   # المصادر dan فهرس yang dicetak (olah.bagian_akhir)
 $adaAy = $JENIS_BAGIAN -contains 'ayat'; $adaHd = $JENIS_BAGIAN -contains 'hadits'; $adaTo = $JENIS_BAGIAN -contains 'maudhuat'
 $KITAB = [bool]$RENCANA.kitab            # @bentuk: kitab = tanpa sampul bahts, judul di kepala halaman
@@ -62,6 +68,7 @@ $PUSTAKA_MUALLIF = $M.pustaka_gaya -eq 'muallif'   # القرآن الكريم b
 $KANAN = @($RENCANA.judul_kanan)         # judul #B/#M rata kanan
 $TJ = [string]$FMT.huruf_judul           # huruf judul (#K/#F/#B/#M/#S dan judul فهرس)
 $JARAK_P = [single]$FMT.jarak_paragraf   # pt sesudah paragraf matan
+$JARAK_J = [single]$FMT.jarak_judul      # pt sesudah judul #K/#F (baris keduanya kalau dua baris)
 $U_PUSTAKA = [single]$FMT.ukuran_pustaka   # ukuran huruf المصادر
 $FIHRIS_SAMBUNG = $M.fihris -eq 'sambung'  # فهرس sesudah yang pertama menyambung di halaman yang sama
 $TEPI_KANAN = [single]$FMT.tepi_kanan   # cm
@@ -132,6 +139,14 @@ try {
             if ($p.Range.ComputeStatistics(1) -gt $n) { $pf.LeftIndent = [single]($tepi - 6); $pf.RightIndent = [single]($tepi - 6); break }
         }
     }
+    # logo جامعة الإمام berwarna = gambar word/media/image2.png sampul_jakarta.docx (bytes PNG), dipakai @logo: berwarna dan
+    # @sampul: tengah (.github/uji_struktur.py menjaga gambarnya)
+    Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+    $LOGO = 'word/media/image2.png'
+    function LogoBerwarna {
+        $z = [IO.Compression.ZipFile]::OpenRead("$dir\sampul_jakarta.docx")
+        try { $s = $z.GetEntry($LOGO).Open(); $ms = New-Object IO.MemoryStream; $s.CopyTo($ms); $s.Dispose(); return , $ms.ToArray() } finally { $z.Dispose() }
+    }
     if ($KITAB) { $doc = $word.Documents.Add(); $doc.SaveAs2($tmp, 16); Draft }
     elseif ($RENCANA.sampul -in 'qism', 'jakarta') {
     # @sampul: qism = model قسم الشريعة (logo, judul dalam kurung, العام الجامعي): teks penanda diganti, bentuknya dari templat
@@ -141,10 +156,7 @@ try {
     # @logo: berwarna = salinan sampul_qism.docx yang gambar logonya (word/media/image2.png) diganti logo berwarna
     # sampul_jakarta.docx; kop, data, dan tata letak sampul qism tetap (.github/uji_struktur.py menjaga kedua gambarnya)
     if ($RENCANA.logo_berwarna) {
-        Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
-        $LOGO = 'word/media/image2.png'
-        $z = [IO.Compression.ZipFile]::OpenRead("$dir\sampul_jakarta.docx")
-        try { $s = $z.GetEntry($LOGO).Open(); $ms = New-Object IO.MemoryStream; $s.CopyTo($ms); $s.Dispose(); $warna = $ms.ToArray() } finally { $z.Dispose() }
+        $warna = LogoBerwarna
         $SAMPUL = Join-Path (Split-Path -Parent $tmp) 'sampul_logo_berwarna.docx'
         Copy-Item -LiteralPath "$dir\sampul_qism.docx" -Destination $SAMPUL -Force
         $z = [IO.Compression.ZipFile]::Open($SAMPUL, 'Update')
@@ -153,12 +165,6 @@ try {
     $doc = $word.Documents.Open($SAMPUL, $false, $true)
     $doc.SaveAs2($tmp, 16)
     Draft
-    # العام الجامعي bawaan = tahun hijriah saat tahun ajaran mulai (1 Agustus): satu tahun ajaran tetap satu tahun
-    # walau 1 Muharram lewat di tengahnya (Juni 2027 = 1449, tahun ajarannya masih 1448)
-    $awal = [datetime]::new((Get-Date).Year, 8, 1); if ((Get-Date) -lt $awal) { $awal = $awal.AddYears(-1) }
-    $TAHUN = if ($M.tahun) { [string]$M.tahun } else { Angka ([Globalization.UmAlQuraCalendar]::new().GetYear($awal)) }
-    # @tahun «١٤٤٨ - ٢٠٢٦» (hijriah - masehi) = «١٤٤٨هـ – ٢٠٢٦م»; satu tahun = «١٤٤٨ هـ» seperti model
-    $TAHUN_CETAK = if ($TAHUN -match '^\s*(\S+?)\s*[-–]\s*(\S+?)\s*$') { "$($Matches[1])هـ – $($Matches[2])م" } else { "$TAHUN هـ" }
     $pJudul = $null; $pSub = $null; $buang = @()
     foreach ($p in @($doc.Paragraphs)) {
         $t = $p.Range.Text.Trim()
@@ -225,6 +231,68 @@ try {
     }
     if ($doc.ComputeStatistics(2) -gt 1) {
         Write-Output "PERINGATAN: judul terlalu panjang untuk sampul qism: sampulnya jadi dua halaman. Pendekkan @judul."
+    }
+    [void]$doc.Paragraphs.Last.Range.Delete()
+    Draft
+    }
+    elseif ($RENCANA.sampul -eq 'tengah') {
+    # @sampul: tengah = model خطة dosen المعهد, disusun di sini tanpa templat: logo berwarna di tengah atas dengan rasio
+    # gambarnya sendiri, lalu baris-baris olah._sampul_tengah rata tengah, Traditional Arabic tebal 18, jarak antarbaris
+    # 6 pt; celah satu baris sesudah lembaga. Ukuran dan jarak diukur dari contoh PDF المعهد (A4)
+    $doc = $word.Documents.Add(); $doc.SaveAs2($tmp, 16); Draft
+    KosongkanKepalaKaki
+    $p1 = $doc.Sections(1).PageSetup; $p1.PaperSize = 7
+    $p1.TopMargin = $word.CentimetersToPoints(2.5); $p1.BottomMargin = $word.CentimetersToPoints(2.5)
+    $p1.LeftMargin = $word.CentimetersToPoints(2.5); $p1.RightMargin = $word.CentimetersToPoints(2.5)
+    $TG = $RENCANA.tengah
+    $png = Join-Path (Split-Path -Parent $tmp) 'logo_berwarna.png'
+    [IO.File]::WriteAllBytes($png, (LogoBerwarna))
+    $selT = $word.Selection
+    function BarisTengah($sebelum) {
+        $pf = $selT.ParagraphFormat
+        $pf.Reset(); $pf.ReadingOrder = 0; $pf.Alignment = 1; $pf.LineSpacingRule = 0
+        $pf.SpaceBefore = [single]$sebelum; $pf.SpaceAfter = 0; $pf.LeftIndent = 0; $pf.RightIndent = 0; $pf.FirstLineIndent = 0
+    }
+    BarisTengah 6                                        # logo 6 pt di bawah tepi atas 2,5 cm, seperti contoh
+    $logo = $selT.InlineShapes.AddPicture($png, $false, $true)
+    $logo.LockAspectRatio = -1
+    $logo.Width = [single]($logo.Width * 162 / $logo.Height)   # tinggi 162 pt (±5,7 cm) seperti contoh; lebar ikut rasio gambar
+    [void]$selT.EndKey(6)
+    # tiap baris: teks, jarak di atasnya (pt), jenis. Jarak baris ke baris di contoh 33,6 pt = tinggi baris TA 18 + 6 pt;
+    # celah = satu baris kosong lagi: di atas lembaga (di bawah logo) dan di atas baris sesudahnya (qism, atau judul
+    # kalau «@qism: -»); dua baris itu yang dipendekkan dulu kalau sampul meluap
+    $SATU = 33.6
+    $isi = @(, @($TG.lembaga, 39, ''))
+    foreach ($q in $TG.qism) { $isi += , @($q, 6, '') }
+    foreach ($j in $TG.judul) { $isi += , @($j, 6, 'judul') }
+    $isi += , @($TG.nama, 6, '')
+    if ($TG.musyrif) { $isi += , @($TG.musyrif, 6, '') }
+    $isi += , @($TAHUN_CETAK, 6, '')
+    $isi[1][1] = 6 + $SATU
+    # paragraf dicatat lewat nomornya: $doc.Paragraphs.Last menunjuk paragraf terakhir saat dibaca, bukan saat dicatat
+    $nJudul = @(); $nCelah = @()
+    for ($k = 0; $k -lt $isi.Count; $k++) {
+        $b = $isi[$k]
+        $selT.TypeParagraph(); BarisTengah $b[1]
+        Huruf $selT.Font $TA 18 1
+        $selT.TypeText([string]$b[0])
+        $n = $doc.Paragraphs.Count
+        if ($b[2] -eq 'judul') { $nJudul += $n }
+        if ($k -le 1) { $nCelah += $n }
+    }
+    # Paragraph Word lewat pipa PowerShell diurai seperti koleksi (macet): ambil satu-satu dengan Item
+    $pJudulT = @(); foreach ($n in $nJudul) { $pJudulT += $doc.Paragraphs.Item($n) }
+    $celah = @(); foreach ($n in $nCelah) { $celah += $doc.Paragraphs.Item($n) }
+    foreach ($p in $pJudulT) { Seimbang $p 18 16 }        # judul yang tidak muat satu baris: dikecilkan sampai 16, lalu diratakan
+    # sampul tetap satu halaman: judul dikecilkan sampai 14, lalu celah lembaga/qism dipendekkan
+    $doc.ActiveWindow.View.Type = 3
+    $doc.Content.InsertParagraphAfter()
+    $uk = 18; $kecil = $false
+    while ($uk -gt 14 -and $doc.ComputeStatistics(2) -gt 1) { $uk--; $kecil = $true; foreach ($p in $pJudulT) { if ($p.Range.Font.SizeBi -gt $uk) { Huruf $p.Range.Font $null $uk } } }
+    if ($kecil) { foreach ($p in $pJudulT) { $p.LeftIndent = 0; $p.RightIndent = 0; $u = $p.Range.Font.SizeBi; Seimbang $p $u $u } }   # baris berubah: ratakan lagi
+    foreach ($p in $celah) { if ($doc.ComputeStatistics(2) -gt 1) { $p.SpaceBefore = 6 } }
+    if ($doc.ComputeStatistics(2) -gt 1) {
+        Write-Output "PERINGATAN: judul terlalu panjang untuk sampul tengah: sampulnya jadi dua halaman. Pendekkan @judul."
     }
     [void]$doc.Paragraphs.Last.Range.Delete()
     Draft
@@ -683,7 +751,8 @@ try {
             }
         }
     }
-    function Judul($teks, $bm, $pb, $k = '') {
+    # $kedua = baris kedua judul (@judul_fasl: dua_baris): paragraf sendiri, rata dan ukuran sama, menempel ke baris pertama
+    function Judul($teks, $bm, $pb, $k = '', $kedua = '') {
         if ($pb -and $KITAB) {                           # bentuk kitab: judul halaman baru = bagian Word baru, judulnya jadi kepala halaman ganjil
             $sel.InsertBreak(2)
             $s = $doc.Sections($doc.Sections.Count)
@@ -697,6 +766,13 @@ try {
         if ($bm) { [void]$doc.Bookmarks.Add($bm, $sel.Range) }
         Tulis $teks $TJ $(if ($k -in 'B', 'M') { $uJudulSub } else { $uJudul }) 1 0
         $sel.TypeParagraph()
+        if ($kedua) {
+            Para $(if ($k -in $KANAN) { 3 } else { 1 }) 6 0
+            $sel.ParagraphFormat.KeepWithNext = -1
+            Tulis $kedua $TJ $(if ($k -in 'B', 'M') { $uJudulSub } else { $uJudul }) 1 0
+            $sel.TypeParagraph()
+        }
+        if ($k -in 'K', 'F' -and $JARAK_J) { $sel.Paragraphs(1).Previous(1).SpaceAfter = $JARAK_J }
     }
 
     $toc = New-Object System.Collections.ArrayList
@@ -744,7 +820,8 @@ try {
             $spasiAktif = if ($blk.k -eq 'K' -and $blk.judul -match '^(ال)?ملخص') { $SPASI_MULAKHAS } else { $SPASI }
             $nT++; $bm = "t_$nT"
             if ($i -eq $RENCANA.awal_isi) { $bmMuqaddimah = $bm }   # awal halaman isi (HALAMAN_ISI)
-            Judul $blk.judul $bm $pb $blk.k
+            $dua = $RENCANA.judul_dua_baris."$i"             # @judul_fasl: dua_baris (olah.judul_dua_baris); فهرس tetap $blk.judul
+            if ($dua) { Judul $dua[0] $bm $pb $blk.k $dua[1] } else { Judul $blk.judul $bm $pb $blk.k }
             $lvl = @{ K = 0; F = 0; B = 1; M = 2 }[$blk.k]
             [void]$toc.Add(@{ t = $blk.judul; bm = $bm; lvl = $lvl })
         }
@@ -884,6 +961,12 @@ try {
                 $nT++; [void]$doc.Bookmarks.Add("t_$nT", $sel.Range); [void]$toc.Add(@{ t = $blk.judul; bm = "t_$nT"; lvl = 1 })
             }
             Tulis $blk.judul $TJ $uJudulSub 1 0
+            $sel.TypeParagraph()
+        }
+        elseif ($null -ne $RENCANA.ihda."$i") {           # @ihda: tengah = paragraf الإهداء rata tengah, tebal, berjarak, tanpa menjorok
+            Para 1 $RENCANA.ihda."$i" 0
+            HalamanBaru $pb
+            Runs $blk.runs $uMatan $true
             $sel.TypeParagraph()
         }
         else {

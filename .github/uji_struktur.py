@@ -60,6 +60,24 @@ def utama():
         for sampul, pesan in (("@sampul: jakarta", "@sampul: jakarta memakai logonya sendiri"),
                               ("@sampul: mahad", "@sampul: mahad memakai logonya sendiri")):
             cek("logo berwarna bukan di sampul qism", f"@logo: berwarna\n{sampul}\n" + dasar, True, pesan)
+        cek("logo berwarna bukan di sampul qism", "@logo: berwarna\n@sampul: tengah\n@qism: قسم اللغة العربية\n" + dasar,
+            True, "@sampul: tengah memakai logonya sendiri")
+        # @sampul: tengah: @qism wajib; @judul_sampul = @judul persis + « // », hanya untuk sampul tengah
+        tengah = "@sampul: tengah\n@qism: قسم اللغة العربية\n"
+        cek("sampul tengah", tengah + "@judul_sampul: مثال: // توحيد  الربوبية\n" + dasar)
+        cek("sampul tengah tanpa @qism", "@sampul: tengah\n" + dasar, True, "data sampul belum diisi: @qism")
+        cek("@judul_sampul beda kata dengan @judul", tengah + "@judul_sampul: مثال // توحيد الألوهية\n" + dasar, True,
+            "@judul_sampul harus sama dengan @judul")
+        cek("@judul_sampul pindah baris di « - » sub-judul tanpa tandanya", tengah + "@judul_sampul: مثال // توحيد الربوبية\n"
+            + dasar.replace("@judul: مثال: توحيد الربوبية", "@judul: مثال - توحيد الربوبية"))
+        cek("@judul_sampul bukan di sampul tengah", "@judul_sampul: مثال: // توحيد الربوبية\n" + dasar, True,
+            "@judul_sampul hanya untuk @sampul: tengah")
+        # @judul_fasl dan @ihda tanpa tempatnya = GAGAL, bukan diabaikan diam-diam
+        cek("@judul_fasl: dua_baris dengan #F bertitik dua", "@judul_fasl: dua_baris\n" + dasar)
+        cek("@judul_fasl: dua_baris tanpa #F bertitik dua", "@judul_fasl: dua_baris\n"
+            + dasar.replace("#F المبحث الأول: تعريف", "#F المبحث الأول في تعريف"), True, "@judul_fasl: dua_baris memerlukan")
+        cek("@ihda: tengah", "@ihda: tengah\n" + dasar.replace("#K المقدمة", "#K الإهداء\nإلى والديّ الكريمين.\n#K المقدمة"))
+        cek("@ihda: tengah tanpa الإهداء", "@ihda: tengah\n" + dasar, True, "@ihda: tengah memerlukan «#K الإهداء»")
         logo = {n: zipfile.ZipFile(AKAR / "mesin" / f"sampul_{n}.docx").read("word/media/image2.png") for n in ("qism", "jakarta")}
         assert logo["qism"] != logo["jakarta"], "logo sampul qism dan jakarta sama: @logo: berwarna tidak mengubah apa pun"
         for n, b in logo.items():  # logo tegak (tinggi > lebar); gambar kop sampul melebar: urutan gambar templat tidak bergeser

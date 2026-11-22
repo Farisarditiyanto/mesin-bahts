@@ -6,6 +6,10 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Baru: `@sampul: tengah` mencetak sampul model خطة dosen معهد العلوم الإسلامية والعربية في إندونيسيا: logo berwarna di tengah atas dengan rasio aslinya, lalu nama المعهد, `@qism`, judul, «إعداد الطالب/الطالبة», «إشراف», dan tahun, semuanya rata tengah; `@judul_sampul` menentukan tempat judul pindah baris di sampul (kata-katanya harus sama dengan `@judul`).
+- Baru: `@judul_fasl: dua_baris` mencetak judul «#F الفصل الأول: المقدمة» dua baris di tengah («الفصل الأول» lalu «المقدمة»), sementara فهرس الموضوعات tetap satu baris; `@ihda: tengah` mencetak paragraf الإهداء rata tengah, tebal, berjarak, tanpa awal alinea menjorok.
+- Baru: `@format: tatbiqi_16_berjarak` = `tatbiqi_16` dengan matan satu spasi dan celah ±satu baris kosong sesudah tiap paragraf (30 pt) dan sesudah judul #K/#F (34 pt).
+
 ## 14.0.0 — 2026-11-22
 
 - Baru: `@ayat_pembuka: s:a` mencetak satu halaman ayat (rasm Utsmani, dengan «[السورة: a]») sesudah sampul, tanpa nomor halaman; `@maudhuat_letak: awal` menaruh فهرس الموضوعات di depan, sesudah الإهداء/الشكر dan tepat sebelum المقدمة; `@tanpa: anzhur` membuang «انظر:»/«ينظر:»/«راجع:» dari catatan kaki yang tercetak, sementara naskah tetap menulisnya untuk `cek`.
