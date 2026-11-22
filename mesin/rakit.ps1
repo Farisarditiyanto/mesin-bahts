@@ -418,6 +418,9 @@ try {
         $sel.TypeParagraph()
         $sel.ParagraphFormat.Alignment = 1; $sel.ParagraphFormat.LineSpacingRule = 0; $sel.ParagraphFormat.ReadingOrder = 0
         $sel.ParagraphFormat.LeftIndent = 0; $sel.ParagraphFormat.RightIndent = 0; $sel.ParagraphFormat.FirstLineIndent = 0
+        # ﴿﴾ diketik sebagai teks kanan-ke-kiri: di dokumen tanpa templat Arab (sampul tengah = Documents.Add) Word
+        # mengetiknya kiri-ke-kanan, jadi ﴿ tercetak di kiri ayat walau paragrafnya kanan-ke-kiri
+        $sel.RtlRun()
         Huruf $sel.Font $TA 28 0; $sel.TypeText('﴿')
         Huruf $sel.Font $QF 28 0; $sel.TypeText([string]$RENCANA.ayat_pembuka.t)
         Huruf $sel.Font $TA 28 0; $sel.TypeText('﴾')

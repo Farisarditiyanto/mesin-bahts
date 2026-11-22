@@ -136,7 +136,8 @@ def nomor_judul(judul):
     return semua.get(q, []), [s for j, ss in semua.items() if j != q and j.startswith(q) for s in ss]
 
 
-PENGARANG_SESUDAH = re.compile(r"^(?:للشيخ|للإمام|للعلامة|للحافظ|للقاضي|لابن|لأبي|لأبى)$")  # «المغني لابن قدامة»
+# «المغني لابن قدامة»; nisbah pengarang yang ditempel «الأعلام للزركلي» (لل + nisbah berakhir ي), bukan «المدخل للفقه»
+PENGARANG_SESUDAH = re.compile(r"^(?:للشيخ|للإمام|للعلامة|للحافظ|للقاضي|لابن|لأبي|لأبى|لل[ء-ي]{2,}ي)$")
 
 
 def kata_judul(judul):
