@@ -940,6 +940,9 @@ try {
             Para 1 2 0
             HalamanBaru $pb
             Runs $blk.runs $uMatan $false
+            # bait menempel ke paragraf sesudahnya (syarahnya, atau bait berikutnya): bait di baris akhir halaman
+            # dengan syarah di halaman berikutnya pindah bersama pengantarnya (yang berakhir «:» sudah menempel)
+            if (Menempel $i) { $sel.ParagraphFormat.KeepWithNext = -1 }
             $sel.TypeParagraph()
         }
         elseif ($blk.k -eq 'L') {                         # paragraf Latin: kiri ke kanan, rata kanan-kiri

@@ -102,6 +102,25 @@ def utama():
             assert "ويظهر للباحث" in hal[i + 1] and "فهرس" not in hal[i + 1], f"{nama}: halaman sesudah فهرس: {hal[i + 1][:200]!r}"
         print("lolos halaman depan Word: فهرس depan yang pas satu halaman tidak menyisakan halaman kosong (dengan/tanpa @nomor)")
         sampul_tengah(akar)
+        bait_menempel(akar)
+
+
+def bait_menempel(akar):
+    """Bait #V menempel ke paragraf sesudahnya (KeepWithNext): bait di baris akhir halaman tidak terpisah dari
+    syarahnya. Dicek di XML .docx: paragraf bait ber-<w:keepNext/>, paragraf syarah sesudahnya tidak."""
+    isi = ISI.replace("#K الخاتمة\n", "وقال الشاعر في ذلك:\n#V يا دار عبلة بالجواء تكلمي ... وعمي صباحا دار عبلة واسلمي\n"
+                      "وهذا شرح البيت الذي يأتي بعده.\n#K الخاتمة\n")
+    tulis(akar, "bait", KEPALA, isi)
+    r = bahts(akar, "rakit", "bait", batas=1800)
+    assert r.returncode == 0, r.stdout + r.stderr
+    xml = zipfile.ZipFile(akar / "bait" / "uji.docx").read("word/document.xml").decode("utf8")
+    para = re.findall(r"<w:p[ >].*?</w:p>", xml, re.S)
+    teks = lambda p: "".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", p))
+    bait = next(p for p in para if "بالجواء" in teks(p))
+    syarah = next(p for p in para if "شرح البيت" in teks(p))
+    assert "<w:keepNext/>" in bait, "bait #V tidak menempel ke syarahnya (tanpa keepNext)"
+    assert "<w:keepNext/>" not in syarah, "paragraf syarah ikut menempel ke paragraf sesudahnya"
+    print("lolos bait menempel: #V ber-keepNext, syarah sesudahnya tidak")
 
 
 def baris_pdf(hal):
