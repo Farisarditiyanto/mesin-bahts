@@ -526,6 +526,30 @@ TAHUN_DI_TEKS = re.compile(r"(?<!\d)(1[3-4]\d\d|19\d\d|20\d\d)(?!\d)(?:\s*(هـ|
 KATA_ABAI_LATIN = frozenset("the and for with from into this that study analysis research journal article review".split())
 KATA_NASAB = frozenset(norma.norm(k) for k in ("بن", "ابن", "بنت", "أبو", "أبي", "عبد"))
 JUDUL_RINGKAS = 4  # rujukan ringkas boleh memotong judul pokok; paling sedikit kata sebanyak ini (atau seluruhnya)
+RUJUK_ULANG_TEKS = re.compile(r"(?:المرجع|المصدر)\s+(?:السابق|نفسه)")
+TANDA_SEBARIS = re.compile(r"\{[QHNMAP]:[^{}]*\}")
+
+
+def _buang_tanda_rumus(teks):
+    """Buang tanda sebaris `{E:…}` (termasuk kurung kurawal bersarang seperti `\\text{…}`) dan `{Q:/{H:/…}` agar
+    perintah LaTeX (`\\text`, `\\times`) tidak dibaca sebagai kata Inggris atau tahun."""
+    teks = TANDA_SEBARIS.sub(" ", teks)
+    out, i, n = [], 0, len(teks)
+    while i < n:
+        if teks.startswith("{E:", i):
+            dalam, j = 1, i + 3
+            while j < n and dalam:
+                if teks[j] == "{":
+                    dalam += 1
+                elif teks[j] == "}":
+                    dalam -= 1
+                j += 1
+            out.append(" ")
+            i = j
+        else:
+            out.append(teks[i])
+            i += 1
+    return "".join(out)
 
 
 def _awal_hijriah_jdn(h):
@@ -637,7 +661,7 @@ def _banding_rujukan(konteks, w, ringkas=False, tercetak=frozenset):
     `tercetak()` = tahun yang tercetak di PDF penelitian itu (dibaca hanya kalau tahunnya beda): tahun naskah yang
     sama dengan cetakannya tidak dinilai salah walau katalog menulis tahun lain sampai dua tahun (terbit daring dan
     nomor cetak sering beda)."""
-    polos = ARAH.sub("", konteks).translate(ANGKA_LATIN)
+    polos = _buang_tanda_rumus(ARAH.sub("", konteks)).translate(ANGKA_LATIN)
     # Buang DOI/URL agar angka tahun di dalam string DOI (mis. 10.1234/2020.01) tidak dibaca sebagai tahun terbit.
     tanpa_url = re.sub(r"https?://\S+|10\.\d{4,}/\S+|<<[^<>]+>>", " ", polos)
     beda, belum = [], []
@@ -660,6 +684,8 @@ def _banding_rujukan(konteks, w, ringkas=False, tercetak=frozenset):
                 masehi & tercetak() for masehi in dekat):
             tertulis = "، ".join(f"{v}{t}" for v, t, _ in tahun_ada[:3])
             beda.append(f"tahun di naskah ({tertulis}) ≠ katalog ({tahun_rec})")
+    if ringkas and RUJUK_ULANG_TEKS.search(tanpa_url):
+        return beda, belum
     def arab(teks):
         return [k for k in norma.norm(teks).split() if not k.isdecimal()]
 
@@ -668,14 +694,19 @@ def _banding_rujukan(konteks, w, ringkas=False, tercetak=frozenset):
 
     judul = w.get("judul") or ""
     pasangan = [(urai(judul), urai(tanpa_url), urai(judul.split(":")[0])) for urai in (arab, _kata_latin)]
-    if any(kata and len(konteks) >= 2 for kata, konteks, _ in pasangan) and not any(
-            ada(kata, konteks) or ringkas and len(pokok) >= 2 and ada(pokok[:JUDUL_RINGKAS], konteks)
-            for kata, konteks, pokok in pasangan):
+    judul_cocok = any(
+        ada(kata, konteks) or ringkas and len(pokok) >= 2 and ada(pokok[:JUDUL_RINGKAS], konteks)
+        for kata, konteks, pokok in pasangan
+    )
+    if any(kata and len(konteks) >= 2 for kata, konteks, _ in pasangan) and not judul_cocok:
         belum.append("judul katalog belum terkonfirmasi di baris ini")
-    # Nama dibandingkan dalam tulisan yang sama: nama Latin di baris berhuruf Arab saja tidak bisa dinilai.
+    # Nama dibandingkan dalam tulisan yang sama: nama Latin di baris berhuruf Arab saja tidak bisa dinilai, termasuk
+    # baris #R Arab yang hanya menyertakan judul Inggris di dalam kurung (bukan nama peneliti Latin).
     kata_baris = _kata_nama_teks(tanpa_url)
+    judul_kata = _kata_nama_teks(judul)
+    sisa_baris = {tulisan: kata_baris[tulisan] - (judul_kata[tulisan] if judul_cocok else set()) for tulisan in kata_baris}
     nama = [(kata, kata_baris[tulisan]) for v in w.get("peneliti") or [] for tulisan, kata in _kata_nama(v).items()
-            if len(kata_baris[tulisan]) >= 2]
+            if len(kata_baris[tulisan]) >= 2 and (tulisan == "arab" or len(sisa_baris[tulisan]) >= 2 or not kata_baris["arab"])]
     if nama and not any(kata & ada_di for kata, ada_di in nama):
         belum.append("nama peneliti katalog belum terkonfirmasi di baris ini")
     return beda, belum
@@ -741,22 +772,49 @@ def _pengenal(teks):
     return list(ids)
 
 
+def _kata_catatan(teks):
+    """Kata bermakna di dalam potongan catatan kaki (di luar bukti, URL/DOI, «انظر», dan nomor halaman) untuk
+    membedakan catatan kaki yang menyebut sumber sendiri dari catatan kaki polos («انظر: ص2. <<luar|…>>»)."""
+    bersih = re.sub(r"https?://\S+|10\.\d{4,}/\S+|<<[^<>]+>>", " ", teks)
+    bersih = re.sub(r"\b(?:doi|pp?|vol|no)\b|انظر|ينظر|راجع|(?<![ء-ي])ص(?![ء-ي])", " ", bersih, flags=re.I)
+    return re.findall(r"[A-Za-z]{3,}|[ء-ي]{2,}", norma.norm(bersih) + " " + _huruf_latin(bersih))
+
+
+def _potong_catatan(isi_fn, sel):
+    """Bila satu catatan kaki menyebut beberapa sumber dipisah «؛», ambil potongan yang memuat `sel` saja."""
+    potong = [p for p in isi_fn.split("؛") if sel in _pengenal(p)]
+    return "؛ ".join(potong) if potong else isi_fn
+
+
 def _konteks_pengenal(baris, ids):
-    """{pengenal: (teks, pengenal di teks itu)}: baris tanpa catatan kaki yang hanya menyebut pengenal lain, supaya
-    satu baris yang merujuk dua penelitian di dua catatan kaki dinilai per penelitian."""
+    """{pengenal: (teks, pengenal di teks itu)}: isolasi catatan kaki agar tahun kejadian di matan dan catatan kaki
+    kitab lain tidak bocor ke penilaian penelitian ini. Bila pengenal hanya di catatan kaki dan catatan kaki itu sudah
+    menyebut sumbernya (bukan catatan kaki polos seperti «[^انظر: ص2 <<…>>]»), nilai potongan catatan kaki itu saja."""
     catatan, i = [], 0
     while (awal := baris.find("[^", i)) >= 0:
         try:
             i = akhir_catatan(baris, awal + 2) + 1
         except TandaRusak:
             break
-        catatan.append((awal, i, set(_pengenal(baris[awal:i]))))
+        isi_fn = baris[awal + 2:i - 1]
+        catatan.append((awal, i, isi_fn, set(_pengenal(isi_fn))))
+    matan = baris
+    for awal, akhir, _, _ in reversed(catatan):
+        matan = matan[:awal] + " " + matan[akhir:]
+    id_matan = set(_pengenal(matan))
     out = {}
     for sel in ids:
-        teks = baris
-        for awal, akhir, isi in reversed(catatan):
-            if isi and sel not in isi:
-                teks = teks[:awal] + " " + teks[akhir:]
+        fn_cocok = [_potong_catatan(isi_fn, sel) for _, _, isi_fn, s in catatan if sel in s]
+        gabung_fn = " ".join(fn_cocok)
+        if sel not in id_matan and fn_cocok and (RUJUK_ULANG_TEKS.search(gabung_fn) or len(_kata_catatan(gabung_fn)) >= 2):
+            teks = gabung_fn
+        else:
+            teks = baris
+            for awal, akhir, isi_fn, s in reversed(catatan):
+                if sel not in s:
+                    teks = teks[:awal] + " " + teks[akhir:]
+                elif len(s) > 1:
+                    teks = teks[:awal] + "[^" + _potong_catatan(isi_fn, sel) + "]" + teks[akhir:]
         out[sel] = (teks, _pengenal(teks))
     return out
 

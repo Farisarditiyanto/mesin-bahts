@@ -528,6 +528,23 @@ def utama():
                 kode, out_pertama, err = _cli("dirasat-cek", uji_dir.name)
                 assert "baris 1: PERIKSA METADATA (judul" in out_pertama, out_pertama
                 assert "! baris 2:" not in out_pertama and "1 perlu dicek" in out_pertama, out_pertama
+
+                # e) Tahun kejadian di matan dan catatan kaki kitab lain tidak bocor ke penilaian penelitian,
+                #    dua penelitian dipisah «؛» dalam satu catatan kaki dinilai masing-masing, «المرجع السابق»
+                #    di rujukan ulang diterima, rumus {E:…} tidak dianggap teks Inggris, dan baris #R berpenulis
+                #    Arab + judul Inggris di dalam kurung tidak menuntut nama peneliti Latin.
+                kasus.write_text(
+                    "دراسة الفقه المالي المعاصر، أحمد محمد، 2020م[^انظر: دراسة الفقه المالي المعاصر، أحمد محمد، ص1. <<luar|W2741809807.pdf|1>>].\n"
+                    "وقعت أحداث تاريخية عام 1990م وعام 2004م[^انظر: كتاب تراثي، 2001م. <<11223|-|4>>] ثم[^انظر: دراسة الفقه المالي المعاصر، أحمد محمد، ص5. <<luar|W2741809807.pdf|5>>].\n"
+                    "وتواصلت الأحداث عام 2014م[^انظر: المرجع السابق، ص9. <<luar|W2741809807.pdf|9>>].\n"
+                    "وفي المقارنة[^انظر: دراسة الفقه المالي المعاصر، أحمد محمد، ص3 <<luar|W2741809807.pdf|3>>؛ "
+                    "Hoo & Ibrahim, Biometric Attendance Tracking System for Education: A Survey on Hardware, 2019, p. 2 <<luar|W5000001.pdf|2>>.].\n"
+                    "#J النسبة | {E:\\text{الربح} \\times 10\\%} | قول معاصر[^انظر: دراسة عن الحوكمة المالية، علي حسن، ص4. <<luar|W6000001.pdf|4>>]\n"
+                    "**حسن**، علي. __حوكمة التمويل الإسلامي (Islamic Finance Governance)__. 2021م (DOI: 10.5555/cr1).\n",
+                    encoding="utf8",
+                )
+                kode, out_e, err = _cli("dirasat-cek", uji_dir.name)
+                assert kode == 0 and "0 perlu dicek" in out_e and "0 fatal" in out_e, out_e + err
             finally:
                 import shutil
                 shutil.rmtree(uji_dir, ignore_errors=True)

@@ -356,19 +356,27 @@ def _tanpa_judul(teks):
 
 
 def _judul_kartu(m):
-    """Isi baris «الكتاب:» kartu Shamela (judul cetak lengkap), atau ""."""
+    """Bentuk isi baris «الكتاب:» kartu Shamela (judul cetak lengkap): tanpa keterangan kurung siku, dan (bila ada
+    kurung siku seperti «[العِبَر و] ديوان المبتدأ…») juga bentuk tanpa tanda kurungnya dengan «و» tersambung."""
     for b in (m.get("betaka_text") or "").replace("\r", "\n").splitlines():
         label, titik, nilai = b.replace("：", ":").partition(":")
         if titik and norma.HARAKAT.sub("", label).strip() == "الكتاب":
-            return re.sub(r"\[[^\[\]]*\]", " ", nilai).strip()
-    return ""
+            tanpa = re.sub(r"\[[^\[\]]*\]", " ", nilai).strip()
+            if "[" not in nilai:
+                return [tanpa] if tanpa else []
+            buka = re.sub(r"(?<![ء-ي])و\s+(?=[ء-ي])", "و", nilai.replace("[", " ").replace("]", " ")).strip()
+            return [j for j in dict.fromkeys((tanpa, buka)) if j]
+    return []
 
 
 def bentuk_judul(m, tertulis=()):
     """Bentuk judul kitab Shamela `m` (hasil `kata_rujukan`) yang dicari di baris #R: judul katalog dan judul kartu
     (`judul_pokok`: tanpa keterangan edisi dan pengarang tempelan), dan judul seperti ditulis di catatan kakinya
     («الكشاف عن حقائق غوامض التنزيل» untuk kartu «… وعيون الأقاويل في وجوه التأويل»)."""
-    judul = shamela.judul_pokok(m.get("title_ar") or "") + shamela.judul_pokok(_judul_kartu(m)) + list(tertulis)
+    judul = shamela.judul_pokok(m.get("title_ar") or "")
+    for jk in _judul_kartu(m):
+        judul += shamela.judul_pokok(jk)
+    judul += list(tertulis)
     return [list(k) for k in dict.fromkeys(tuple(kata_rujukan(j)) for j in judul if j) if k]
 
 
