@@ -114,7 +114,8 @@ def bait_menempel(akar):
                       "#V يا دار عبلة بالجواء تكلمي ... وعمي صباحا دار عبلة واسلمي\n"
                       "وهذا شرح البيت الذي يأتي بعده.\n"
                       "وقال أيضًا:\n#V بيت ثالث للاختبار هنا ... وشطره الثاني هنا\n"
-                      "وقال في موضع آخر:\n#V بيت رابع للاختبار هنا ... وشطره الثاني هنا\nوهذا شرح أخير.\n#K الخاتمة\n")
+                      "وقال في موضع آخر:\n#V بيت رابع للاختبار هنا ... وشطره الثاني هنا\n"
+                      "الكلمة: معناها الأول.\nالأخرى: معناها الثاني، وقيل: غيره.\nوهذا شرح أخير.\n#K الخاتمة\n")
     tulis(akar, "bait", KEPALA, isi)
     r = bahts(akar, "rakit", "bait", batas=1800)
     assert r.returncode == 0, r.stdout + r.stderr
@@ -131,6 +132,10 @@ def bait_menempel(akar):
     keempat = next(p for p in para if "رابع للاختبار" in teks(p))
     assert "<w:keepNext/>" not in ketiga, "bait yang disusul pengantar bait lain («…:») ikut menempel: poin-poin berbait jadi satu rantai"
     assert "<w:keepNext/>" in keempat, "bait terakhir tidak menempel ke syarahnya"
+    # baris معاني المفردات sesudah bait menempel satu sama lain dan ke syarahnya; syarahnya sendiri tidak
+    for kata in ("معناها الأول", "معناها الثاني"):
+        assert "<w:keepNext/>" in next(p for p in para if kata in teks(p)), f"baris مفردات «{kata}» tidak menempel: daftar bisa terpotong"
+    assert "<w:keepNext/>" not in next(p for p in para if "شرح أخير" in teks(p)), "syarah sesudah مفردات ikut menempel"
     print("lolos bait menempel: bait terakhir ber-keepNext, bait sebelumnya dan syarah tidak")
 
 

@@ -992,6 +992,7 @@ try {
                 [void]$doc.Bookmarks.Add("garis_$($garis.Count + 1)", $doc.Range($awal, $sel.Start)); [void]$garis.Add($w[0])
             }
             if ((Pengantar $blk) -and (Menempel $i)) { $sel.ParagraphFormat.KeepWithNext = -1 }
+            if ($i -in @($RENCANA.mufradat)) { $sel.ParagraphFormat.KeepWithNext = -1 }   # baris مفردات (olah.baris_mufradat)
             $sel.TypeParagraph()
         }
     }
