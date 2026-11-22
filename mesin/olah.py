@@ -251,7 +251,7 @@ FORMAT = profil_format()  # huruf & ukuran tiap pedoman; dipilih dengan @format
 # Kunci profil yang boleh tidak ditulis di format.json: nilai bawaannya, atau (IKUT_FORMAT) kunci lain yang nilainya dipakai.
 # rakit.ps1 tidak punya bawaan sendiri: ia membaca profil yang sudah lengkap (format_cetak)
 BAWAAN_FORMAT = {"latin": 12, "spasi": 1, "mulakhas_berjarak": False, "jarak_paragraf": 0, "jarak_judul": 0, "tepi_kanan": 3.5,
-                 "jarak_kepala": 1.25}
+                 "jarak_kepala": 1.25, "jarak_sebelum_sub": 6}
 IKUT_FORMAT = {"judul_sub": "judul", "ayat": "matan", "huruf_judul": "huruf", "spasi_mulakhas": "spasi", "ukuran_pustaka": "matan"}
 # @sampul: model sampul bahts -> data yang wajib. mahad = mesin/sampul.doc (معهد، كلية الشريعة);
 # qism = mesin/sampul_qism.docx (قسم الشريعة: logo, judul besar, sub-judul dalam kurung kalau ada, العام الجامعي; jenis dan nim tercetak kalau diisi, fasl tidak)
@@ -1410,7 +1410,18 @@ def rencana_cetak(d):
             "tengah": _sampul_tengah(meta, sub, judul) if sampul == "tengah" else None,
             "judul_dua_baris": judul_dua_baris(blok) if meta.get("judul_fasl") == "dua_baris" else {},
             "ihda": _jarak_ihda(blok, fmt) if meta.get("ihda") == "tengah" else {},
+            "jarak_sub": _jarak_sub(blok, fmt),
             "bagian": bagian}
+
+
+def _jarak_sub(blok, fmt):
+    """{indeks judul #B/#M: jarak di atasnya (pt)} untuk judul yang menyusul isi (bukan langsung di bawah judul lain):
+    jarak_sebelum_sub profil, supaya mabhath baru tidak rapat dengan paragraf terakhir mabhath sebelumnya. Judul lain
+    (dan #B/#M tepat di bawah #K/#F/#B) memakai jarak bawaan 6 pt di rakit.ps1."""
+    if not fmt or fmt["jarak_sebelum_sub"] == BAWAAN_FORMAT["jarak_sebelum_sub"]:
+        return {}
+    return {str(i): fmt["jarak_sebelum_sub"] for i, b in enumerate(blok)
+            if b["k"] in ("B", "M") and i and blok[i - 1]["k"] not in ("K", "F", "B", "M")}
 
 
 def _jarak_ihda(blok, fmt):

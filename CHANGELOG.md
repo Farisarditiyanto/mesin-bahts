@@ -10,7 +10,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 - Perbaikan: catatan kaki gabungan beberapa kitab kini mengenali judul katalog yang ditempeli nisbah pengarang (mis. «الأعلام للزركلي» ditulis «الزركلي، الأعلام»), jadi halaman tiap kitab dicocokkan dengan buktinya sendiri.
 - Baru: `@sampul: tengah` mencetak sampul model خطة dosen معهد العلوم الإسلامية والعربية في إندونيسيا: logo berwarna di tengah atas dengan rasio aslinya, lalu nama المعهد, `@qism`, judul, «إعداد الطالب/الطالبة», «إشراف», dan tahun, semuanya rata tengah; `@judul_sampul` menentukan tempat judul pindah baris di sampul (kata-katanya harus sama dengan `@judul`).
 - Baru: `@judul_fasl: dua_baris` mencetak judul «#F الفصل الأول: المقدمة» dua baris di tengah («الفصل الأول» lalu «المقدمة»), sementara فهرس الموضوعات tetap satu baris; `@ihda: tengah` mencetak paragraf الإهداء rata tengah, tebal, berjarak, tanpa awal alinea menjorok.
-- Baru: `@format: tatbiqi_16_berjarak` = `tatbiqi_16` dengan matan satu spasi dan celah 6 pt sesudah tiap paragraf dan ±satu baris kosong (34 pt) sesudah judul #K/#F.
+- Baru: `@format: tatbiqi_16_berjarak` = `tatbiqi_16` dengan matan satu spasi dan celah 6 pt sesudah tiap paragraf, ±satu baris kosong (34 pt) sesudah judul #K/#F, dan celah 24 pt sebelum judul مبحث yang menyusul isi (kunci profil baru `jarak_sebelum_sub`).
 
 ## 14.0.0 — 2026-11-22
 
