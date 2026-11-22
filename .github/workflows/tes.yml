@@ -31,7 +31,7 @@ jobs:
       # 654/711 = سنن أبي داود/صحيح مسلم edisi pilihan layanan takhrij Shamela: jembatan nomor hadits ke 1726/1727 (uji_layanan);
       # 2170/1278 = الجرح والتعديل/تهذيب التهذيب: tempat ucapan جرح وتعديل `rawi` (uji_layanan)
       # (11797 = kitab yang bagiannya hanya bernama: المقدمة + الكتاب; 7283 القاموس المحيط = kamus yang dirujuk lewat «مادة»)
-      - run: python mesin/bahts.py ambil 11223 2348 1082 10649 1727 1681 9904 11825 1726 11797 7283 654 711 2170 1278
+      - run: python mesin/bahts.py ambil 11223 2348 1082 10649 1727 1681 9904 11825 1726 11797 7283 654 711 2170 1278 12286
       - run: python mesin/bahts.py cek contoh
       # contoh/jebakan/naskah.txt: tiap baris di bawah #S menghasilkan persis yang disebut judulnya
       - run: python .github/uji_jebakan.py
