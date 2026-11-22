@@ -63,6 +63,16 @@
     "catatan_ulang_tiap_halaman": true,
     "spasi": 1.5
   },
+  "tatbiqi_16_berjarak": {
+    "_sumber": "sama dengan «tatbiqi_16», kecuali matan satu spasi dengan celah ±satu baris kosong sesudah tiap paragraf (contoh البحث التطبيقي mahasiswi lain قسم اللغة العربية di المعهد)",
+    "huruf": "Traditional Arabic",
+    "matan": 16,
+    "catatan": 12,
+    "judul": 18,
+    "judul_sub": 16,
+    "catatan_ulang_tiap_halaman": true,
+    "jarak_paragraf": 30
+  },
   "dalil": {
     "_sumber": "دليل إعداد وكتابة الرسائل العلمية (ماجستير/دكتوراه) بجامعة الإمام، الطبعة الثانية — hanya huruf dan ukurannya; gaya rujukan tetap catatan kaki",
     "huruf": "Sakkal Majalla",
