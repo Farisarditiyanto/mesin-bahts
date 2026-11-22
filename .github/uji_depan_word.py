@@ -103,6 +103,7 @@ def utama():
         print("lolos halaman depan Word: فهرس depan yang pas satu halaman tidak menyisakan halaman kosong (dengan/tanpa @nomor)")
         sampul_tengah(akar)
         bait_menempel(akar)
+        jarak_mabhath(akar)
 
 
 def bait_menempel(akar):
@@ -131,6 +132,24 @@ def bait_menempel(akar):
     assert "<w:keepNext/>" not in ketiga, "bait yang disusul pengantar bait lain («…:») ikut menempel: poin-poin berbait jadi satu rantai"
     assert "<w:keepNext/>" in keempat, "bait terakhir tidak menempel ke syarahnya"
     print("lolos bait menempel: bait terakhir ber-keepNext, bait sebelumnya dan syarah tidak")
+
+
+
+def jarak_mabhath(akar):
+    """tatbiqi_16_berjarak: judul #B yang menyusul paragraf berjarak 24 pt di atasnya (mabhath baru tidak rapat dengan
+    paragraf sebelumnya); #B tepat di bawah #F tetap 6 pt. Dicek di XML .docx (w:spacing w:before, dalam 1/20 pt)."""
+    isi = ISI.replace("#K الخاتمة\n", "#F الفصل الثاني: الفصل للاختبار\n#B المبحث الأول: مبحث أول للاختبار\n"
+                      "وهذه فقرة في المبحث الأول.\n#B المبحث الثاني: مبحث ثان للاختبار\nوهذه فقرة في المبحث الثاني.\n#K الخاتمة\n")
+    tulis(akar, "mabhath", KEPALA + "@format: tatbiqi_16_berjarak\n", isi)
+    r = bahts(akar, "rakit", "mabhath", batas=1800)
+    assert r.returncode == 0, r.stdout + r.stderr
+    xml = zipfile.ZipFile(akar / "mabhath" / "uji.docx").read("word/document.xml").decode("utf8")
+    para = re.findall(r"<w:p[ >].*?</w:p>", xml, re.S)
+    teks = lambda p: "".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", p))
+    atas = lambda kata: int((re.search(r'<w:spacing[^>]*w:before="(\d+)"', next(p for p in para if kata in teks(p))) or [0, 0])[1])
+    assert atas("مبحث ثان للاختبار") == 480, f"jarak sebelum #B sesudah paragraf: {atas('مبحث ثان للاختبار') / 20} pt, harusnya 24"
+    assert atas("مبحث أول للاختبار") == 120, f"jarak sebelum #B di bawah #F: {atas('مبحث أول للاختبار') / 20} pt, harusnya 6"
+    print("lolos jarak mabhath: #B sesudah paragraf 24 pt, #B di bawah #F 6 pt")
 
 
 def baris_pdf(hal):

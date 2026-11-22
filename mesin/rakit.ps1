@@ -755,7 +755,7 @@ try {
         }
     }
     # $kedua = baris kedua judul (@judul_fasl: dua_baris): paragraf sendiri, rata dan ukuran sama, menempel ke baris pertama
-    function Judul($teks, $bm, $pb, $k = '', $kedua = '') {
+    function Judul($teks, $bm, $pb, $k = '', $kedua = '', $atas = 6) {
         if ($pb -and $KITAB) {                           # bentuk kitab: judul halaman baru = bagian Word baru, judulnya jadi kepala halaman ganjil
             $sel.InsertBreak(2)
             $s = $doc.Sections($doc.Sections.Count)
@@ -763,7 +763,7 @@ try {
             $s.Footers(1).PageNumbers.RestartNumberingAtSection = $false
             $pb = $false
         }
-        Para $(if ($k -in $KANAN) { 3 } else { 1 }) 6 0  # @judul_kanan: #B/#M rata kanan seperti #S
+        Para $(if ($k -in $KANAN) { 3 } else { 1 }) $atas 0  # @judul_kanan: #B/#M rata kanan seperti #S; $atas = olah._jarak_sub
         $sel.ParagraphFormat.KeepWithNext = -1
         if ($pb) { $sel.ParagraphFormat.PageBreakBefore = -1; $sel.ParagraphFormat.SpaceBefore = 0 }
         if ($bm) { [void]$doc.Bookmarks.Add($bm, $sel.Range) }
@@ -824,7 +824,8 @@ try {
             $nT++; $bm = "t_$nT"
             if ($i -eq $RENCANA.awal_isi) { $bmMuqaddimah = $bm }   # awal halaman isi (HALAMAN_ISI)
             $dua = $RENCANA.judul_dua_baris."$i"             # @judul_fasl: dua_baris (olah.judul_dua_baris); فهرس tetap $blk.judul
-            if ($dua) { Judul $dua[0] $bm $pb $blk.k $dua[1] } else { Judul $blk.judul $bm $pb $blk.k }
+            $atas = if ($null -ne $RENCANA.jarak_sub."$i") { [single]$RENCANA.jarak_sub."$i" } else { 6 }   # jarak_sebelum_sub profil
+            if ($dua) { Judul $dua[0] $bm $pb $blk.k $dua[1] $atas } else { Judul $blk.judul $bm $pb $blk.k '' $atas }
             $lvl = @{ K = 0; F = 0; B = 1; M = 2 }[$blk.k]
             [void]$toc.Add(@{ t = $blk.judul; bm = $bm; lvl = $lvl })
         }

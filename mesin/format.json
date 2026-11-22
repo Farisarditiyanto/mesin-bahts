@@ -64,7 +64,7 @@
     "spasi": 1.5
   },
   "tatbiqi_16_berjarak": {
-    "_sumber": "sama dengan «tatbiqi_16», kecuali matan satu spasi dengan celah 6 pt sesudah tiap paragraf (diukur di hlm 7-32 contoh: baris sesudah akhir paragraf 30 pt, baris biasa 24 pt) dan ±satu baris kosong sesudah judul #K/#F (contoh البحث التطبيقي mahasiswi lain قسم اللغة العربية di المعهد)",
+    "_sumber": "sama dengan «tatbiqi_16», kecuali matan satu spasi dengan celah 6 pt sesudah tiap paragraf (diukur di hlm 7-32 contoh: baris sesudah akhir paragraf 30 pt, baris biasa 24 pt) dan ±satu baris kosong sesudah judul #K/#F serta sebelum judul مبحث yang menyusul isi (contoh البحث التطبيقي mahasiswi lain قسم اللغة العربية di المعهد)",
     "huruf": "Traditional Arabic",
     "matan": 16,
     "catatan": 12,
@@ -72,7 +72,8 @@
     "judul_sub": 16,
     "catatan_ulang_tiap_halaman": true,
     "jarak_paragraf": 6,
-    "jarak_judul": 34
+    "jarak_judul": 34,
+    "jarak_sebelum_sub": 24
   },
   "dalil": {
     "_sumber": "دليل إعداد وكتابة الرسائل العلمية (ماجستير/دكتوراه) بجامعة الإمام، الطبعة الثانية — hanya huruf dan ukurannya; gaya rujukan tetap catatan kaki",
