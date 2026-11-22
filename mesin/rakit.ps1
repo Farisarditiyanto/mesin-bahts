@@ -259,22 +259,26 @@ try {
     $logo.Width = [single]($logo.Width * 162 / $logo.Height)   # tinggi 162 pt (±5,7 cm) seperti contoh; lebar ikut rasio gambar
     [void]$selT.EndKey(6)
     # tiap baris: teks, jarak di atasnya (pt), jenis. Jarak baris ke baris di contoh 33,6 pt = tinggi baris TA 18 + 6 pt;
-    # celah (lembaga, sebelum qism) = satu baris kosong lagi
+    # celah = satu baris kosong lagi: di atas lembaga (di bawah logo) dan di atas baris sesudahnya (qism, atau judul
+    # kalau «@qism: -»); dua baris itu yang dipendekkan dulu kalau sampul meluap
     $SATU = 33.6
-    $isi = @(, @($TG.lembaga, 39, 'celah'))
-    for ($k = 0; $k -lt @($TG.qism).Count; $k++) { $isi += , @($TG.qism[$k], $(if ($k) { 6 } else { 6 + $SATU }), $(if ($k) { '' } else { 'celah' })) }
+    $isi = @(, @($TG.lembaga, 39, ''))
+    foreach ($q in $TG.qism) { $isi += , @($q, 6, '') }
     foreach ($j in $TG.judul) { $isi += , @($j, 6, 'judul') }
     $isi += , @($TG.nama, 6, '')
     if ($TG.musyrif) { $isi += , @($TG.musyrif, 6, '') }
     $isi += , @($TAHUN_CETAK, 6, '')
+    $isi[1][1] = 6 + $SATU
     # paragraf dicatat lewat nomornya: $doc.Paragraphs.Last menunjuk paragraf terakhir saat dibaca, bukan saat dicatat
     $nJudul = @(); $nCelah = @()
-    foreach ($b in $isi) {
+    for ($k = 0; $k -lt $isi.Count; $k++) {
+        $b = $isi[$k]
         $selT.TypeParagraph(); BarisTengah $b[1]
         Huruf $selT.Font $TA 18 1
         $selT.TypeText([string]$b[0])
         $n = $doc.Paragraphs.Count
-        if ($b[2] -eq 'judul') { $nJudul += $n } elseif ($b[2] -eq 'celah') { $nCelah += $n }
+        if ($b[2] -eq 'judul') { $nJudul += $n }
+        if ($k -le 1) { $nCelah += $n }
     }
     # Paragraph Word lewat pipa PowerShell diurai seperti koleksi (macet): ambil satu-satu dengan Item
     $pJudulT = @(); foreach ($n in $nJudul) { $pJudulT += $doc.Paragraphs.Item($n) }
