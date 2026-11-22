@@ -1411,7 +1411,26 @@ def rencana_cetak(d):
             "judul_dua_baris": judul_dua_baris(blok) if meta.get("judul_fasl") == "dua_baris" else {},
             "ihda": _jarak_ihda(blok, fmt) if meta.get("ihda") == "tengah" else {},
             "jarak_sub": _jarak_sub(blok, fmt),
+            "mufradat": baris_mufradat(blok),
             "bagian": bagian}
+
+
+# baris معاني المفردات sesudah bait: «الكلمة: معناها.» — label pendek, makna pendek (boleh «وقيل: …»)
+MUFRADAT = re.compile(r"^[^:.،؛]{1,30}:\s*.{1,140}$")
+
+
+def baris_mufradat(blok):
+    """[indeks paragraf] baris معاني المفردات: paragraf pendek «الكلمة: معناها.» tepat sesudah bait #V atau sesudah baris
+    مفردات lain. rakit.ps1 menempelkannya ke paragraf sesudahnya (KeepWithNext), jadi bait, daftar مفردات-nya, dan awal
+    syarahnya tidak terpotong antarhalaman (butir terakhir daftar tidak tertinggal sendirian di halaman berikutnya)."""
+    hasil = []
+    for i, b in enumerate(blok):
+        if b["k"] != "P" or not i or not (blok[i - 1]["k"] == "V" or (hasil and hasil[-1] == i - 1)):
+            continue
+        teks = "".join(r.get("t", "") for r in b.get("runs", [])).strip()
+        if MUFRADAT.match(teks):
+            hasil.append(i)
+    return hasil
 
 
 def _jarak_sub(blok, fmt):
