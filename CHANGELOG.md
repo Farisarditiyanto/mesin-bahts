@@ -6,6 +6,8 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Baru: `@ayat_pembuka: s:a` mencetak satu halaman ayat (rasm Utsmani, dengan «[السورة: a]») sesudah sampul, tanpa nomor halaman; `@maudhuat_letak: awal` menaruh فهرس الموضوعات di depan, sesudah الإهداء/الشكر dan tepat sebelum المقدمة; `@tanpa: anzhur` membuang «انظر:»/«ينظر:»/«راجع:» dari catatan kaki yang tercetak, sementara naskah tetap menulisnya untuk `cek`.
+- `@tahun` kini menerima tahun hijriah dan masehi sekaligus («١٤٤٨ - ٢٠٢٦»), dicetak di sampul «١٤٤٨هـ – ٢٠٢٦م».
 - Perbaikan: persamaan Arab baris sendiri (`#E`) yang lebar (terutama pecahan pada `@format: imam_ayat16`) kini memakai kolom rumus 84% (bukan 76%) dan otomatis diperkecil bertahap sampai muat satu baris, sehingga Word tidak melipatnya lalu membalik urutan huruf Arab di dalam pecahan; kalau tetap melebihi satu baris di 11 pt, `rakit` mencetak PERINGATAN.
 - Perbaikan: `dirasat-cek` tidak lagi mencampur tahun di matan atau catatan kaki kitab lain ke pemeriksaan penelitian di baris yang sama, memisahkan dua penelitian yang dipisah «؛» dalam satu catatan kaki, menerima rujukan ulang «المرجع السابق»/«المصدر السابق», mengabaikan perintah LaTeX di dalam `{E:…}`, dan menerima baris `#R` berpenulis Arab dengan judul Inggris di dalam kurung.
 - Perbaikan: pencocokan judul kitab di `pustaka`/`cek` kini mengenali judul katalog yang memakai kurung siku di bagian awal (mis. `[العِبَر و] ديوان المبتدأ…` ↔ `العبر وديوان المبتدأ…`), dan draf `#R` dari `pustaka` tidak lagi meninggalkan koma sebelum tanda tutup kurung sesudah tahun wafat dihapus (mis. `[الظاهري]`, bukan `[الظاهري،]`).

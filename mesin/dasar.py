@@ -100,6 +100,16 @@ def tanpa_catatan(teks):
 
 AD = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
 MERUJUK_KATA = "[أا]نظر|ينظر|ي?راجع"  # tanda nukilan makna di catatan kaki (أبو سليمان، كتابة البحث العلمي، ص114)
+# @tanpa: anzhur: kata MERUJUK_KATA di awal catatan kaki, sesudah «؛»/titik, atau «، و…» tidak dicetak; pemisah dan
+# spasinya tetap. Rujukan silang «انظر: ص{P:…}» tetap: tanpa kata itu nomor halamannya tidak terbaca sebagai rujukan
+TANPA_ANZHUR = re.compile(rf"(?P<pra>^\s*|[؛.]\s*|،\s*(?=و))و?(?:{MERUJUK_KATA})\s*:(?!\s*ص\s*\{{P:)\s*")
+
+
+def daftar(meta, kunci):
+    """Butir @kunci yang nilainya daftar («ayat, hadits»: dipisah koma atau spasi)."""
+    return [t for t in re.split(r"[,، ]+", meta.get(kunci, "")) if t]
+
+
 TAKHRIJ_AWAL = re.compile(r"\s*و?(?:أخرج|رواه)")  # catatan kaki takhrij: «أخرجه …», «رواه …»
 BUKAN_RUJUKAN = ("سورة", "سبق تخريجه")
 TINGKAT_JUDUL = {"K": 0, "F": 0, "R": 0, "B": 1, "M": 2, "S": 3}

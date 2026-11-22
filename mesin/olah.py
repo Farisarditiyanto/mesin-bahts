@@ -11,11 +11,12 @@ import rumus
 from berkas import sementara
 from cek_seluruh import (KEPALA_PERHATIAN, RISET, periksa_dirasat, periksa_khatimah, periksa_muqaddimah, periksa_riset,
                          porsi_kutipan)
+from cek_ayat import ayat
 from cek_rujukan import kitab_tanpa_pustaka, rujukan_halaman
 from cek_sumber import standar_baris
 from cek_tautsiq import gelar
 from dasar import (AD, ANGKA_LATIN, BUKAN_RUJUKAN, HERE, HORMAT_CETAK, HURUF_LATIN, JUDUL_BAB, JUDUL_FIHRIS, JUDUL_ISI, KITAB,
-                   LUAR, SUBJUDUL, SURAH, TINGKAT_JUDUL, TandaRusak, akhir_catatan, akhir_rumus, bentuk_kitab, perintah,
+                   LUAR, SUBJUDUL, SURAH, TINGKAT_JUDUL, TandaRusak, akhir_catatan, akhir_rumus, bentuk_kitab, daftar, perintah,
                    profil_format)
 from laporan import gabung_kembar
 from naskah import FIHRIS_NAMA, Pemeriksaan, urai
@@ -24,9 +25,11 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
   @kunci: nilai       data sampul, di awal naskah; kunci tidak dikenal = GAGAL (salah ketik tidak diabaikan). Wajib: judul dan nama; @sampul: mahad juga jenis ("-" = tidak tercetak), nim, fasl.
                       Opsional: musyrif, jabatan (kosong atau "-" = tidak tercetak), thalibah (ya = sampul mencetak «اسم الطالبة»),
                       basmalah (ya = satu halaman ﷽ huruf Arabic Typesetting sesudah sampul; bawaan: tidak ada),
+                      ayat_pembuka (s:a atau s:a-b = satu halaman ayat itu, rasm Utsmani, dengan «[السورة: a]» di bawahnya,
+                      sesudah sampul (dan basmalah), tanpa nomor halaman, tidak masuk فهرس الآيات; mis. «@ayat_pembuka: 12:2»),
                       sampul (qism = model قسم الشريعة, bawaan: logo, judul besar, sub-judul « - …» dalam kurung kalau ada,
                       العام الجامعي; jenis dan nim tercetak kalau diisi, fasl tidak; mahad = sampul معهد، كلية الشريعة),
-                      tahun (العام الجامعي di sampul qism, mis. ١٤٤٨;
+                      tahun (العام الجامعي di sampul qism, mis. ١٤٤٨; «١٤٤٨ - ٢٠٢٦» tercetak «١٤٤٨هـ – ٢٠٢٦م»;
                       bawaan = tahun hijriah Umm al-Qura saat tahun ajaran mulai, 1 Agustus),
                       berkas (nama file hasil), format (profil di format.json; bawaan imam),
                       catatan_kaki (bersambung = nomor catatan kaki ١، ٢، ٣ … sampai akhir bahts; ulang = mulai ١ lagi tiap halaman)
@@ -37,7 +40,8 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       angka_ayat (bawaan = @angka): angka di catatan kaki rujukan ayat [^سورة …، آية: n.] saja,
                       mis. «@angka_ayat: latin» = nomor ayat di catatan kaki 0123, sisanya tetap ٠١٢٣
                       tanpa (yang tidak dicetak: فهرس ayat, hadits, alam, firaq, maudhuat, dan pustaka = المصادر والمراجع
-                      bila dosen minta sumber cukup di catatan kaki; mis. «@tanpa: ayat, hadits»).
+                      bila dosen minta sumber cukup di catatan kaki; mis. «@tanpa: ayat, hadits»; anzhur = «انظر:»، «ينظر:»،
+                      «راجع:» di awal catatan kaki (atau sesudah «؛») tidak dicetak, naskah tetap menulisnya untuk `cek`).
                       فهرس الآيات، فهرس الأحاديث، dan فهرس الأعلام yang kosong tidak dicetak dengan sendirinya
                       pustaka (akhir = urutan خطة yang menaruh فهرس المصادر والمراجع sesudah فهرس الأحاديث (dan فهرس الأعلام
                       kalau ada), dengan judul itu;
@@ -62,7 +66,8 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       judul pendek di situ, bawaan @judul), fihris_ayat (tabel | surah = السورة digabung per surat | الآية
                       «… الآية n» | الصفحة, berjudul فهرس الآيات الكريمة), fihris_hadits (tabel | ringkas = الأحاديث | الصفحة,
                       berjudul فهرس الأحاديث الشريفة), maudhuat (tabel | titik = baris bertitik-titik ke nomor halaman;
-                      #S «❖ …» ikut), pustaka_gaya (judul | muallif = القرآن الكريم ikut bernomor; **…** tebal, __…__ miring
+                      #S «❖ …» ikut), maudhuat_letak (akhir | awal = فهرس الموضوعات di depan, tepat sebelum المقدمة
+                      (atau #F pertama), sesudah الإهداء/الشكر; tidak memuat dirinya sendiri), pustaka_gaya (judul | muallif = القرآن الكريم ikut bernomor; **…** tebal, __…__ miring
                       di baris #R, mis. «**ابن كثير، إسماعيل بن عمر** (ت 774هـ). __تفسير القرآن العظيم__. …»),
                       judul_kanan (B, M, atau keduanya: judul itu rata kanan, bawaan di tengah), fihris (baru | sambung =
                       المصادر dan فهرس sesudah yang pertama menyambung di halaman yang sama), sifat (baris di bawah
@@ -239,6 +244,9 @@ IKUT_FORMAT = {"judul_sub": "judul", "ayat": "matan", "huruf_judul": "huruf", "s
 SAMPUL = {"qism": ("judul", "nama"), "mahad": ("judul", "jenis", "nama", "nim", "fasl"), "jakarta": ("judul", "nama")}
 HALAMAN_BARU = ("B", "M")  # judul yang bisa dibuat mulai halaman baru lewat @halaman_baru; K dan F selalu
 TANPA = ("ayat", "hadits", *(f.kunci for f in FIHRIS_NAMA), "maudhuat", "pustaka")  # فهرس dan المصادر yang boleh dibuang lewat @tanpa (bagian_akhir)
+# @tanpa yang bukan bagian: anzhur = «انظر:»/«ينظر:»/«راجع:» di catatan kaki tidak dicetak (dosen minta hasyiyah tanpa
+# kata itu; dasar.TANPA_ANZHUR). Naskah tetap menulisnya: `cek` membedakan nukilan makna lewat kata itu
+TANPA_CETAK = ("anzhur",)
 MUQADDIMAH = "المقدمة"  # judul persis awal halaman isi: HALAMAN_ISI dihitung dari sini, dan @nomor: mukadimah mulai ١ di sini
 # @angka: bawaannya hindi. Pedoman Jāmiʿat al-Imām tidak menyebut jenis angka; contoh resminya (pedoman 1443هـ,
 # مجلة العلوم الشرعية) memakai hindi di nomor halaman, catatan kaki, rujukan, tahun, ayat, dan فهرس
@@ -253,6 +261,7 @@ GAYA = {"kepala": ("-", "kotak"),            # kotak = judul kanan, nomor halama
         "fihris_ayat": ("tabel", "surah"),   # surah = kolom السورة (digabung per surat) | الآية «… الآية n» | الصفحة
         "fihris_hadits": ("tabel", "ringkas"),  # ringkas = الأحاديث | الصفحة, tanpa kolom الراوي
         "maudhuat": ("tabel", "titik"),      # titik = baris bertitik-titik ke nomor halaman, tanpa tabel; #S «❖ …» ikut
+        "maudhuat_letak": ("akhir", "awal"),  # awal = فهرس الموضوعات sesudah الإهداء/الشكر, tepat sebelum المقدمة (atau #F pertama)
         "pustaka_gaya": ("judul", "muallif"),  # muallif = القرآن الكريم ikut bernomor; **…** tebal dan __…__ miring di #R
         "judul_kanan": ("-", "B", "M", "B, M"),  # judul #B/#M rata kanan (bawaan: di tengah)
         "fihris": ("baru", "sambung"),  # sambung = المصادر/فهرس sesudah yang pertama menyambung di halaman yang sama
@@ -728,7 +737,7 @@ DATA = {
     "judul": TEKS, "jenis": TEKS, "nama": TEKS, "nim": TEKS, "fasl": TEKS, "musyrif": TEKS, "jabatan": TEKS,
     "thalibah": YA_TIDAK, "basmalah": YA_TIDAK,
     "sampul": Data(sah=tuple(SAMPUL), bawaan="qism", pisah="، ", baca=str.lower),
-    "tahun": TEKS, "berkas": Data(),
+    "tahun": TEKS, "berkas": Data(), "ayat_pembuka": Data(),
     "format": Data(sah=tuple(FORMAT), bawaan="imam", pisah="، ",
                    pesan="«{nilai}» tidak ada di mesin/format.json (yang ada: {ada})"),
     "angka": Data(sah=ANGKA, bawaan="hindi", pisah="، "), "angka_ayat": Data(sah=ANGKA, pisah="، "),  # bawaan = @angka
@@ -761,11 +770,6 @@ def _pilih(ctx, kunci):
         return nilai
     _tak_dikenal(ctx, kunci, nilai)
     return None
-
-
-def daftar(meta, kunci):
-    """Butir @kunci yang nilainya daftar («ayat, hadits»: dipisah koma atau spasi)."""
-    return [t for t in re.split(r"[,، ]+", meta.get(kunci, "")) if t]
 
 
 def _cek_sesudah_naskah(ctx):
@@ -995,7 +999,7 @@ def perkiraan_halaman(d):
     # الإهداء dst. sebelum المقدمة bukan halaman isi, dengan atau tanpa @nomor (sama dengan HALAMAN_ISI)
     mula = rencana["awal_isi"] or 0
     isi = halaman(blok[mula:])
-    rinci = {"sampul": 1 + rencana["basmalah"] if rencana["sampul"] and not rencana["buang_sampul"] else 0,
+    rinci = {"sampul": 1 + rencana["basmalah"] + bool(rencana["ayat_pembuka"]) if rencana["sampul"] and not rencana["buang_sampul"] else 0,
              "sebelum المقدمة": halaman(blok[:mula]) if mula else 0, "الملاحق": halaman(malahiq) if malahiq else 0}
     judul = sum(b["k"] in JUDUL_FIHRIS for b in blok)  # baris فهرس الموضوعات
     dicetak = {b["jenis"] for b in rencana["bagian"]}
@@ -1029,13 +1033,19 @@ def _cek_sampul(ctx):
         alasan = ("@templat membawa sampulnya sendiri" if meta.get("templat") else "@bentuk: kitab tanpa sampul"
                   if kitab else f"@sampul: {meta['sampul']} memakai logonya sendiri")
         galat.append(di("@logo") + f"@logo: berwarna hanya untuk sampul qism (bawaan): {alasan}")
-    if meta.get("tahun") and not re.fullmatch(r"[1١][34٣٤][0-9٠-٩]{2}", meta["tahun"]):
-        galat.append(di("@tahun") + f"@tahun: «{meta['tahun']}» bukan tahun hijriah 1300-1499 (mis. ١٤٤٨)")
+    if meta.get("ayat_pembuka"):  # «s:a» atau «s:a-b»: dicek di sini, teksnya diambil rencana_cetak
+        try:
+            ayat(meta["ayat_pembuka"].translate(ANGKA_LATIN))
+        except TandaRusak as e:
+            galat.append(di("@ayat_pembuka") + "@ayat_pembuka: " + re.sub(r"\{Q:([^}]*)\}", r"«\1»", str(e)))
+    if meta.get("tahun") and not re.fullmatch(r"[1١][34٣٤][0-9٠-٩]{2}(?:\s*[-–]\s*[12١٢][0-9٠-٩]{3})?", meta["tahun"]):
+        galat.append(di("@tahun") + f"@tahun: «{meta['tahun']}» bukan tahun hijriah 1300-1499 (mis. ١٤٤٨), atau hijriah - "
+                     "masehi (mis. «١٤٤٨ - ٢٠٢٦», tercetak «١٤٤٨هـ – ٢٠٢٦م»)")
     # @templat: sampul diambil apa adanya dari Word mahasiswa; @sampul salah ketik: data wajib model mana pun belum pasti
     wajib = ("judul",) if kitab or meta.get("templat") or not sampul else SAMPUL[sampul]
     galat += [di("@" + k) + f"data sampul belum diisi: @{k}" for k in wajib if not meta.get(k)]
     _pilih(ctx, "pustaka")
-    asing = [t for t in daftar(meta, "tanpa") if t not in TANPA]
+    asing = [t for t in daftar(meta, "tanpa") if t not in TANPA + TANPA_CETAK]
     if asing:
         _tak_dikenal(ctx, "tanpa", "، ".join(asing))
     if meta.get("templat"):  # Word mahasiswa: sampul dan kepala halaman diambil dari situ oleh rakit.ps1
@@ -1298,14 +1308,39 @@ def rencana_cetak(d):
     judul = meta.get("judul", "")
     sub = SUBJUDUL.match(judul)
     halaman_baru, nomor_satu = awal_halaman(blok, meta)
+    awal_isi = next((i for i, b in enumerate(blok) if b["k"] in JUDUL_FIHRIS and b["judul"] == MUQADDIMAH), None)
+    bagian = bagian_akhir(d)
+    # @maudhuat_letak: awal = فهرس الموضوعات ditulis tepat sebelum blok ini: المقدمة, atau #K مقدمة/تمهيد pertama, atau #F
+    # pertama, atau judul pertama. Hanya kalau فهرس itu memang dicetak (bukan @tanpa: maudhuat, bukan potongan --fasl
+    # yang tanpa فهرس), dan judul sesudahnya selalu mulai halaman baru
+    maudhuat_awal = None
+    if meta.get("maudhuat_letak") == "awal" and not kitab and any(b["jenis"] == "maudhuat" for b in bagian):
+        judul_i = [i for i, b in enumerate(blok) if b["k"] in JUDUL_FIHRIS]
+        maudhuat_awal = next(
+            (i for i in ([awal_isi] if awal_isi is not None else [])
+             + [i for i in judul_i if blok[i]["k"] == "K" and re.search(r"مقدم[ةه]|تمهيد", norma.HARAKAT.sub("", blok[i]["judul"]))]
+             + [i for i in judul_i if blok[i]["k"] == "F"] + judul_i), None)
+    if maudhuat_awal is not None:
+        bagian = [{**b, "awal": True} if b["jenis"] == "maudhuat" else b for b in bagian]
+        if maudhuat_awal != nomor_satu and maudhuat_awal not in halaman_baru:
+            halaman_baru = sorted([*halaman_baru, maudhuat_awal])
+        if awal_isi is None:  # halaman isi (HALAMAN_ISI) mulai sesudah فهرس itu, bukan dari halaman pertama
+            awal_isi = maudhuat_awal
+    pembuka = None  # @ayat_pembuka: satu halaman ayat sesudah sampul (dan sesudah basmalah), tanpa nomor
+    if meta.get("ayat_pembuka") and not kitab and not buang_sampul:
+        try:
+            t, s, a = ayat(meta["ayat_pembuka"].translate(ANGKA_LATIN))
+            pembuka = {"t": t, "rujukan": f"[{SURAH[s - 1]}: {a}]"}
+        except TandaRusak:  # sudah GAGAL di _cek_sampul
+            pass
     return {"format": format_cetak(d["format"]), "kitab": kitab, "sampul": sampul,
             "logo_berwarna": sampul == "qism" and not buang_sampul and meta.get("logo") == "berwarna",
             "judul_sampul": [sub.group(1).strip(), sub.group(2).strip()] if sub else [judul, ""],
             "buang_sampul": buang_sampul, "basmalah": meta.get("basmalah") == "ya" and not kitab and not buang_sampul,
             "abjad": meta.get("nomor") in ("abjad", "mukadimah"), "nomor_satu": nomor_satu, "halaman_baru": halaman_baru,
-            "awal_isi": next((i for i, b in enumerate(blok) if b["k"] in JUDUL_FIHRIS and b["judul"] == MUQADDIMAH), None),
+            "awal_isi": awal_isi, "maudhuat_awal": maudhuat_awal, "ayat_pembuka": pembuka,
             "judul_kanan": [t for t in daftar(meta, "judul_kanan") if t != GAYA["judul_kanan"][0]],
-            "bagian": bagian_akhir(d)}
+            "bagian": bagian}
 
 
 def _bahan(ctx, blok, profil, quran, sumber, sidik_naskah):

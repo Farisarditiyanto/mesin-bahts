@@ -157,6 +157,8 @@ try {
     # walau 1 Muharram lewat di tengahnya (Juni 2027 = 1449, tahun ajarannya masih 1448)
     $awal = [datetime]::new((Get-Date).Year, 8, 1); if ((Get-Date) -lt $awal) { $awal = $awal.AddYears(-1) }
     $TAHUN = if ($M.tahun) { [string]$M.tahun } else { Angka ([Globalization.UmAlQuraCalendar]::new().GetYear($awal)) }
+    # @tahun «١٤٤٨ - ٢٠٢٦» (hijriah - masehi) = «١٤٤٨هـ – ٢٠٢٦م»; satu tahun = «١٤٤٨ هـ» seperti model
+    $TAHUN_CETAK = if ($TAHUN -match '^\s*(\S+?)\s*[-–]\s*(\S+?)\s*$') { "$($Matches[1])هـ – $($Matches[2])م" } else { "$TAHUN هـ" }
     $pJudul = $null; $pSub = $null; $buang = @()
     foreach ($p in @($doc.Paragraphs)) {
         $t = $p.Range.Text.Trim()
@@ -173,7 +175,7 @@ try {
         elseif ($t -eq 'الدرجة العلمية للمشرف') { Ganti $p $JABATAN }
         elseif ($t -eq 'إعداد الطالب:') { if ($M.thalibah -eq 'ya') { Ganti $p 'إعداد الطالبة:' } }
         elseif ($t -eq 'اسم الطالب') { Ganti $p $NAMA }
-        elseif ($t -eq 'السنة الهجرية') { Ganti $p "$TAHUN هـ" }
+        elseif ($t -eq 'السنة الهجرية') { Ganti $p $TAHUN_CETAK }
         # @qism: baris qism model; « // » = pindah baris di paragraf yang sama (bentuk dan hurufnya tetap dari templat); di jakarta barisnya di sel tabel (teksnya berakhir tanda sel char 7)
         elseif ($M.qism -and $t.Trim([char]7, [char]13, ' ') -in 'قسم الشريعة', 'قسم الشريعة بجاكرتا') { Ganti $p (([string]$M.qism -split '\s*//\s*') -join [char]11) }
     }
@@ -185,7 +187,7 @@ try {
                 'المشرف' { 18, 1, $SM } { $_ -eq $MUSYRIF -and $MUSYRIF } { 18, 1, $SM } { $_ -eq $JABATAN -and $JABATAN } { 18, 0, $SM }
                 { $_ -in 'إعداد الطالب:', 'إعداد الطالبة:' } { 16, 1, $SM } $NAMA { 16, 1, $SM }
                 { $M.sifat -and $_ -eq [string]$M.sifat } { 16, 0, $SM } { $NIM -and $_ -eq (Angka $NIM) } { 18, 0, $TA }
-                'العام الجامعي' { 18, 0, $TA } "$TAHUN هـ" { 18, 0, $TA } 'قسم الشريعة بجاكرتا' { 16, 0, $TA }
+                'العام الجامعي' { 18, 0, $TA } $TAHUN_CETAK { 18, 0, $TA } 'قسم الشريعة بجاكرتا' { 16, 0, $TA }
             }
             if ($u) { Huruf $f ($u[2]) ($u[0]) ($u[1]); $p.LineSpacingRule = 0 }
         }
@@ -338,6 +340,22 @@ try {
         $sel.ParagraphFormat.Alignment = 1; $sel.ParagraphFormat.LineSpacingRule = 0
         Huruf $sel.Font $hB 72 0
         $sel.TypeText([string][char]0xFDFD)
+    }
+    if ($RENCANA.ayat_pembuka) {                         # @ayat_pembuka: satu halaman ayat sesudah sampul (dan basmalah), tanpa nomor
+        $sel.InsertBreak(7)
+        $sel.ClearFormatting()
+        $psS = $doc.Sections(1).PageSetup                # turun ke sepertiga bidang teks lewat satu paragraf kosong bertinggi pas (lihat basmalah)
+        $sel.ParagraphFormat.SpaceBefore = 0; $sel.ParagraphFormat.SpaceAfter = 0
+        $sel.ParagraphFormat.LineSpacingRule = 4; $sel.ParagraphFormat.LineSpacing = [single][Math]::Max(1, ($psS.PageHeight - $psS.TopMargin - $psS.BottomMargin) / 3)
+        $sel.TypeParagraph()
+        $sel.ParagraphFormat.Alignment = 1; $sel.ParagraphFormat.LineSpacingRule = 0; $sel.ParagraphFormat.ReadingOrder = 0
+        $sel.ParagraphFormat.LeftIndent = 0; $sel.ParagraphFormat.RightIndent = 0; $sel.ParagraphFormat.FirstLineIndent = 0
+        Huruf $sel.Font $TA 28 0; $sel.TypeText('﴿')
+        Huruf $sel.Font $QF 28 0; $sel.TypeText([string]$RENCANA.ayat_pembuka.t)
+        Huruf $sel.Font $TA 28 0; $sel.TypeText('﴾')
+        $sel.TypeParagraph()
+        $sel.ParagraphFormat.SpaceBefore = 12
+        Huruf $sel.Font $TA $uMatan 0; $sel.TypeText((Angka $RENCANA.ayat_pembuka.rujukan))
     }
     if (-not $KITAB) { $sel.InsertBreak(2) }             # section break (halaman baru) sesudah sampul
     # potongan `rakit --fasl` selain yang pertama: sampul (bagian Word pertama, berikut pemisahnya) dibuang; tata halaman isi
@@ -710,6 +728,10 @@ try {
         $blk = $DATA.blok[$i]
         if ($blk.k -eq 'R') { $iR = $i; break }
         if ($blk.k -eq 'H') { continue }                  # #H: blok sesudahnya mulai halaman baru (sudah masuk $RENCANA.halaman_baru)
+        if ($i -eq $RENCANA.maudhuat_awal) {              # @maudhuat_letak: awal — tempat فهرس الموضوعات, diisi sesudah semua judul ditulis (bagian 3)
+            Para 1 0 0; $sel.ParagraphFormat.PageBreakBefore = -1
+            [void]$doc.Bookmarks.Add('fihris_awal', $sel.Range); $sel.TypeParagraph()
+        }
         $pb = $i -in $RENCANA.halaman_baru                # blok ini diawali pindah halaman (olah.awal_halaman)
         if ($blk.k -in 'K', 'F', 'B', 'M') {
             if ($i -eq $RENCANA.nomor_satu) {             # @nomor: #F pertama (mukadimah: المقدمة) = bagian Word baru, nomor kembali ١
@@ -953,8 +975,14 @@ try {
         continue
     }
     $titik = $bg.jenis -eq 'maudhuat' -and $TO_TITIK     # @maudhuat: titik = «الموضوع ...... ص» per baris tanpa tabel, dan tanpa barisnya sendiri (seperti contoh)
+    $diAwal = $bg.awal -and $doc.Bookmarks.Exists('fihris_awal')   # @maudhuat_letak: awal: ditulis di tempat yang disiapkan sebelum المقدمة
+    if ($diAwal) {
+        $doc.Bookmarks.Item('fihris_awal').Range.Select(); $sel.Collapse(1)
+        Judul $bg.judul 't_maudhuat' $true                # tidak masuk فهرس-nya sendiri, dan tidak dihitung sebagai bagian sesudah isi
+    } else {
     $nT++; JudulFihris $bg.judul "t_$nT"
     if (-not $titik) { [void]$toc.Add(@{ t = $bg.judul; bm = "t_$nT"; lvl = 0 }) }
+    }
     if ($bg.jenis -eq 'pustaka') { Tulis-Pustaka }
     elseif ($bg.jenis -eq 'ayat') {
     $ay = @{}; $urut = New-Object System.Collections.ArrayList
@@ -1038,7 +1066,23 @@ try {
         $tN.Rows(1).HeadingFormat = -1                    # judul kolom diulang di halaman sambungan
         $fihrisNama += , @{ tbl = $tN; baris = $nm; jenis = $bg.jenis }
     }
-    if (-not $titik) { [void]$sel.EndKey(6) }
+    if ($diAwal) {   # sesudah فهرس depan hanya boleh ada judul sesudahnya, atau satu paragraf pemisah bagian Word (@nomor)
+        $ujung = if ($titik) { $sel.Start } else { $tTo.Range.End }
+        $p = $doc.Range($ujung, $ujung).Paragraphs(1); $kosong = @()
+        while ($p -and $p.Range.Text.Trim([char]13, [char]12, [char]32) -eq '') { $kosong += $p; $p = $p.Next(1) }
+        # paragraf kosong (sisa tempatnya) dibuang: yang tersisa tumpah ke halaman baru kalau فهرس pas satu halaman, dan judul
+        # sesudahnya mulai halaman baru lagi = halaman kosong. Paragraf pemisah bagian (@nomor) tetap, setinggi 1 pt
+        foreach ($k in $kosong) {
+            if ($k.Range.Text.Contains([string][char]12)) { $script:pFihrisEkor = $k; continue }
+            try { [void]$k.Range.Delete() } catch { $script:pFihrisEkor = $k }
+        }
+        if ($script:pFihrisEkor) {
+            $pe = $script:pFihrisEkor; Huruf $pe.Range.Font $null 1
+            $pe.SpaceBefore = 0; $pe.SpaceAfter = 0; $pe.LineSpacingRule = 4; $pe.LineSpacing = 1; $pe.PageBreakBefore = 0   # 4 = wdLineSpaceExactly
+        }
+        $script:fihrisAwal = @{ titik = $titik; tabel = $(if ($titik) { $null } else { $tTo }); ujung = $ujung; rapat = 1.0 }
+    }
+    if (-not $titik -or $diAwal) { [void]$sel.EndKey(6) }
     }
 
     # naskah tanpa catatan kaki tidak punya story catatan kaki
@@ -1108,8 +1152,21 @@ try {
     # tabel فهرس: angka asli («٢٤، ٣٠») bisa lebih lebar daripada '00', barisnya melipat, dan judul sesudahnya pindah halaman
     # (فهرس الموضوعات pernah mencetak 41 padahal judulnya di halaman 42): isi, Repaginate, ulangi sampai tidak ada yang berubah
     $isiLama = @{}
+    # فهرس depan yang baris terakhirnya hampir di dasar halaman: paragraf pemisah bagian (1 pt) sesudahnya tumpah ke halaman
+    # baru, lalu المقدمة mulai halaman baru lagi = halaman kosong. Barisnya dirapatkan sedikit (5% tiap putaran, paling banyak
+    # 20%) sampai paragraf itu muat di halaman terakhir فهرس
+    function RapatFihrisAwal {
+        $fa = $script:fihrisAwal; $pe = $script:pFihrisEkor
+        if (-not $fa -or -not $pe -or $fa.rapat -le 0.8) { return 0 }
+        $hAkhir = $doc.Range($pe.Range.Start - 1, $pe.Range.Start - 1).Information(3)
+        if ($pe.Range.Information(3) -le $hAkhir) { return 0 }
+        $fa.rapat -= 0.05
+        if ($fa.tabel) { $rf = $fa.tabel.Range.ParagraphFormat; $rf.LineSpacingRule = 5; $rf.LineSpacing = $word.LinesToPoints($fa.rapat) }
+        else { $doc.Range($doc.Bookmarks.Item('t_maudhuat').Range.End, $pe.Range.Start).ParagraphFormat.SpaceAfter = [single](6 * $fa.rapat - 2) }
+        return 1
+    }
     for ($putaran = 1; $putaran -le 5; $putaran++) {
-        $ubah = 0
+        $ubah = RapatFihrisAwal
         if ($adaAy) { $r = 1; foreach ($key in $urut) { $r++; $pg = Angka (($ay[$key].bm | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '); if ($isiLama["a$r"] -ne $pg) { $isiLama["a$r"] = $pg; $ubah++; Sel $tAy $r $cP $pg 1 ([int]$AYAT_SURAH) } } }
         if ($adaHd) { $r = 1; foreach ($h in $DATA.hadits) { $r++; $ks = @($h.k); if ($h.lagi) { $ks += $h.lagi }; $pg = Angka (($ks | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '); if ($isiLama["h$r"] -ne $pg) { $isiLama["h$r"] = $pg; $ubah++; Sel $tHd $r $cH $pg 1 ([int]$HADITS_RINGKAS) } } }
         foreach ($fNama in $fihrisNama) { $r = 1; foreach ($a in $fNama.baris) { $r++; $pg = Angka (Rentang @(@($a.k) | ForEach-Object { Hal $_ } | Select-Object -Unique)); $idIsi = "$($fNama.jenis)$r"; if ($isiLama[$idIsi] -ne $pg) { $isiLama[$idIsi] = $pg; $ubah++; Sel $fNama.tbl $r 2 $pg 1 0 } } }

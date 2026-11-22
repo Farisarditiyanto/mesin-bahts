@@ -14,7 +14,8 @@ from cek_naql import isyarat, panjang, salinan
 from cek_rujukan import cocok_halaman, judul_kitab, judul_shamela, kitab_lain, kitab_waqfeya, rujukan_halaman
 from cek_sumber import standar_sumber, urutan_sumber
 from cek_tautsiq import data_cetak, gelar, pemisah_sumber
-from dasar import ANGKA_LATIN, AYAT_DI_KUTIPAN, DIPOTONG, HURUF_LATIN, LUAR, SURAH, TandaRusak, WAQFEYA, WAQFEYA_BUKTI, akhir_catatan, akhir_rumus, ekor
+from dasar import (ANGKA_LATIN, AYAT_DI_KUTIPAN, DIPOTONG, HURUF_LATIN, LUAR, SURAH, TANPA_ANZHUR, TandaRusak, WAQFEYA, WAQFEYA_BUKTI,
+                   akhir_catatan, akhir_rumus, daftar, ekor)
 from kitab_lokal import Bukti, diunduh
 from petik import (
     diantar_qaul, kurung_akhir, kutipan_akhir, kutipan_pendek_diantar, kutipan_semua, luar_petik, seragam)
@@ -707,7 +708,10 @@ class Pengurai:
 
     def _pasang_catatan(self, c):
         """Catatan kaki jadi bahan rakit: diurai sendiri, rumuz-nya dicetak, nomornya dipasang di matan."""
-        sub = urai(c.isi, self.ctx, di_catatan=True)
+        isi = c.isi
+        if "anzhur" in daftar(self.ctx.meta, "tanpa"):  # @tanpa: anzhur: kata itu tidak dicetak, `cek` tetap membacanya
+            isi = TANPA_ANZHUR.sub(r"\g<pra>", isi)
+        sub = urai(isi, self.ctx, di_catatan=True)
         self.runs += [{"z": z} for z in c.zz]
         self.ctx.catatan.append({"runs": sub, "bukti": len(c.shamela), "luar": c.luar and not c.wq, "pdf": len(c.pdf),
                                  "wq": len(c.wq)})
