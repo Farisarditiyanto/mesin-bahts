@@ -797,19 +797,36 @@ def indeks_awal(sid):
     return _bangun_indeks(sid)[:2]
 
 
+_SIDIK_AWAL = b'{"sidik_isi":"'
+
+
 def _sidik_indeks(d):
     isi = {k: v for k, v in d.items() if k != "sidik_isi"}
     return hashlib.sha256(json.dumps(isi, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf8")).hexdigest()
 
 
+def _sidik_indeks_cocok(mentah, d):
+    sidik = d["sidik_isi"]
+    if (type(sidik) is str and len(sidik) == 64
+            and mentah.startswith(_SIDIK_AWAL) and len(mentah) > 80 and mentah[78:80] == b'",'
+            and mentah[14:78].decode("ascii", "ignore") == sidik
+            and b'"sidik_isi"' not in mentah[80:]):
+        h = hashlib.sha256(b"{")
+        h.update(memoryview(mentah)[80:])
+        if h.hexdigest() == sidik:
+            return True
+    return sidik == _sidik_indeks(d)
+
+
 def _baca_indeks(sid, sumber=None):
     """Isi indeks.json kitab sid kalau sah untuk berkas .gz-nya sekarang; None = rusak, lama, atau tidak ada."""
     try:
-        d = json.loads((folder(sid) / INDEKS).read_bytes())
+        mentah = (folder(sid) / INDEKS).read_bytes()
+        d = json.loads(mentah)
         kolom, awal, panjang = [d["juz"], d["hal"], d["akhir"], d["letak"]], d["awal"], d["panjang"]
         letak = kolom[3]
         if (d["versi"] == INDEKS_VERSI and d["sumber_gz"] == (_sidik(sid) if sumber is None else sumber)
-                and d["sidik_isi"] == _sidik_indeks(d)
+                and _sidik_indeks_cocok(mentah, d)
                 and type(panjang) is int
                 and all(type(x) is list and len(x) == len(awal) for x in kolom + [awal])
                 and set(map(type, awal)) <= {int, type(None)} and set(map(type, letak)) <= {int}
@@ -839,8 +856,9 @@ def _bangun_indeks(sid, sumber=None):
             with sementara(folder(sid) / INDEKS) as part:
                 kolom = dict(zip(("juz", "hal", "akhir", "letak"), map(list, zip(*isi)))) if isi else dict.fromkeys(("juz", "hal", "akhir", "letak"), [])
                 d = {"versi": INDEKS_VERSI, "sumber_gz": _sidik(sid) if sumber is None else sumber, "panjang": len(mentah), **kolom, "awal": awal, "sp": sp}
-                d["sidik_isi"] = _sidik_indeks(d)
-                part.write_text(json.dumps(d, ensure_ascii=False), encoding="utf8")
+                isi_bytes = json.dumps(d, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf8")
+                sidik_isi = hashlib.sha256(isi_bytes).hexdigest()
+                part.write_bytes(_SIDIK_AWAL + sidik_isi.encode("ascii") + b'",' + isi_bytes[1:])
         except OSError:
             pass
     return isi, awal, sp
@@ -957,6 +975,16 @@ def _potongan(sid, lain, frasa, perintah_, sebagian=False):
 
 CARI_SEMUA_MAKS = 40  # baris `cari semua` yang dicetak; frasa umum di ratusan kitab = ribuan baris
 CARI_SEMUA_PER_KITAB = 4
+CARI_SEMUA_PROSES = 64  # di bawah ini tetap utas agar pustaka kecil/uji tanpa biaya buat proses
+
+
+def _baris_cari(sid, p, bagian, tanda, c, h, q, konteks):
+    t = norm(p.get(bagian) or "")  # teks norm (untuk dicetak) hanya rekaman yang cocok
+    s = BUKAN_ABJAD.sub("", t)
+    j = c[0] if s[c[0]:c[1]] == q else s.find(q)
+    peta = [k for k, ch in enumerate(t) if "ء" <= ch <= "ي"]  # letak tiap huruf `padat` di t
+    i, akhir = peta[j], peta[j + len(q) - 1] + 1
+    return f"[{sid}] {letak(nama_juz(p.get('part')), h)}{tanda}: …{t[max(0, i - konteks): akhir + konteks]}…"
 
 
 def _cari_satu(sid, frasa, konteks, maks, potongan, sekilas=False, *, padat_=None, kena=None, rekaman_=None):
@@ -974,17 +1002,12 @@ def _cari_satu(sid, frasa, konteks, maks, potongan, sekilas=False, *, padat_=Non
         jumlah += 1
         if tampil < maks:
             tampil += 1
-            t = norm(p.get(bagian) or "")  # teks norm (untuk dicetak) hanya rekaman yang cocok
-            s = BUKAN_ABJAD.sub("", t)
-            j = c[0] if s[c[0]:c[1]] == q else s.find(q)
-            peta = [k for k, ch in enumerate(t) if "ء" <= ch <= "ي"]  # letak tiap huruf `padat` di t
-            i, akhir = peta[j], peta[j + len(q) - 1] + 1
-            print(f"[{sid}] {letak(nama_juz(p.get('part')), h)}{tanda}: …{t[max(0, i - konteks): akhir + konteks]}…")
+            print(_baris_cari(sid, p, bagian, tanda, c, h, q, konteks))
     return tampil, jumlah, lain, True
 
 
 def _scan_buku(sid, q, qb):
-    """Pindai satu kitab di utas pekerja: baca & sidik .gz sekali, cek padat sekali, muat letak indeks bila cocok."""
+    """Pindai satu kitab di pekerja: baca & sidik .gz sekali, cek padat sekali, muat letak indeks bila cocok."""
     gz_bytes = (folder(sid) / "pages.jsonl.gz").read_bytes()
     sumber = hashlib.sha256(gz_bytes).hexdigest()
     padat_, kena = _baca_padat_kena(sid, q, qb, sumber)
@@ -1003,9 +1026,112 @@ def _hitung_buku_siap(sid, frasa, konteks, potongan, gz_bytes, letak_, padat_, k
 
 
 def _hitung_buku(sid, frasa, konteks, q, qb, potongan):
-    """Pindai dan hitung satu kitab secara mandiri di utas pekerja (maks=0, tanpa cetak)."""
+    """Pindai dan hitung satu kitab secara mandiri di pekerja (maks=0, tanpa cetak)."""
     _, gz_bytes, letak_, padat_, kena = _scan_buku(sid, q, qb)
     return _hitung_buku_siap(sid, frasa, konteks, potongan, gz_bytes, letak_, padat_, kena)
+
+
+def _siap_pekerja_cari(root_str, baca_saja_):
+    global ROOT, _BACA_SAJA
+    ROOT = Path(root_str)
+    _BACA_SAJA = baca_saja_
+
+
+def _cari_kumpulan_baris(sids, frasa, konteks, q, qb, potongan):
+    """Pindai sekumpulan kitab di proses pekerja: kembalikan `(baris, lain_akhir, lain_sebelum)` untuk tiap kitab yang
+    punya kecocokan atau potongan, agar induk bisa memotong tepat ke kuota tersisa tanpa memindai ulang."""
+    out = []
+    for sid in sids:
+        _, gz_bytes, letak_, padat_, kena = _scan_buku(sid, q, qb)
+        if kena is None:
+            continue
+        baris_, lain_sebelum, jumlah, lain = [], [], 0, 0
+        for p, bagian, tanda, c, h, utuh in _temuan(
+            sid, frasa, potongan, padat_=padat_, rekaman_=_rekaman_maju(gz_bytes, letak_, kena)
+        ):
+            if not (utuh or potongan):
+                lain += 1
+                continue
+            if jumlah >= 1:
+                lain_sebelum.append(lain)
+            if jumlah >= CARI_SEMUA_PER_KITAB:
+                break
+            jumlah += 1
+            baris_.append(_baris_cari(sid, p, bagian, tanda, c, h, q, konteks))
+        if baris_ or lain:
+            out.append((baris_, lain, lain_sebelum))
+    return out
+
+
+def _cari_kumpulan_hitung(sids, frasa, konteks, q, qb, potongan):
+    """Pindai dan hitung sekumpulan kitab di proses pekerja sesudah kuota cetak penuh (maks=0, tanpa cetak)."""
+    kitab_n = lain_n = 0
+    lengkap = True
+    for sid in sids:
+        ada, lain, tuntas = _hitung_buku(sid, frasa, konteks, q, qb, potongan)
+        kitab_n += ada
+        lain_n += lain
+        lengkap = lengkap and tuntas
+    return kitab_n, lain_n, lengkap
+
+
+def _cari_semua_proses(semua, frasa, konteks, q, qb, potongan):
+    """Pindai pustaka besar lewat beberapa proses agar pemilahan batas kata dan indeks tidak tertahan GIL Python."""
+    import concurrent.futures
+    pekerja = min(10, os.cpu_count() or 4, len(semua))
+    potong_awal, potong_lanjut = 12, 24
+    tampil = kitab_n = lain_n = 0
+    lengkap = True
+    idx = 0
+    with concurrent.futures.ProcessPoolExecutor(
+        max_workers=pekerja, initializer=_siap_pekerja_cari, initargs=(str(ROOT), _BACA_SAJA)
+    ) as pool:
+        antre = collections.deque()
+        while idx < len(semua) and len(antre) < pekerja:
+            akhir = min(len(semua), idx + potong_awal)
+            antre.append(pool.submit(_cari_kumpulan_baris, semua[idx:akhir], frasa, konteks, q, qb, potongan))
+            idx = akhir
+        while antre and tampil < CARI_SEMUA_MAKS:
+            for baris_, lain_akhir, lain_sebelum in antre.popleft().result():
+                m = min(CARI_SEMUA_PER_KITAB, CARI_SEMUA_MAKS - tampil)
+                batas_henti = max(1, m) - 1
+                cetak = baris_[:m]
+                if cetak:
+                    print("\n".join(cetak))
+                    tampil += len(cetak)
+                if batas_henti < len(lain_sebelum):
+                    kitab_n += 1
+                    lain_n += lain_sebelum[batas_henti]
+                    lengkap = False
+                else:
+                    kitab_n += bool(baris_)
+                    lain_n += lain_akhir
+                    lengkap = lengkap and len(baris_) <= m
+            while tampil < CARI_SEMUA_MAKS and idx < len(semua) and len(antre) < pekerja * 2:
+                akhir = min(len(semua), idx + potong_lanjut)
+                antre.append(pool.submit(_cari_kumpulan_baris, semua[idx:akhir], frasa, konteks, q, qb, potongan))
+                idx = akhir
+        futs = []
+        while idx < len(semua):
+            akhir = min(len(semua), idx + potong_lanjut)
+            futs.append(pool.submit(_cari_kumpulan_hitung, semua[idx:akhir], frasa, konteks, q, qb, potongan))
+            idx = akhir
+        while antre:
+            for baris_, lain_akhir, lain_sebelum in antre.popleft().result():
+                if lain_sebelum:
+                    kitab_n += 1
+                    lain_n += lain_sebelum[0]
+                    lengkap = False
+                else:
+                    kitab_n += bool(baris_)
+                    lain_n += lain_akhir
+                    lengkap = lengkap and not baris_
+        for fut in concurrent.futures.as_completed(futs):
+            kn, ln, lk = fut.result()
+            kitab_n += kn
+            lain_n += ln
+            lengkap = lengkap and lk
+    return tampil, kitab_n, lain_n, lengkap
 
 
 def cari(sid, frasa, konteks=90, maks=15, potongan=False):
@@ -1019,7 +1145,14 @@ def cari(sid, frasa, konteks=90, maks=15, potongan=False):
         semua = punya()
         tampil = kitab_n = lain_n = 0
         lengkap = True  # semua tempat yang cocok sudah dicetak
-        if len(semua) <= 1:
+        if len(semua) >= CARI_SEMUA_PROSES:
+            import multiprocessing
+            pakai_proses = multiprocessing.current_process().name == "MainProcess"
+        else:
+            pakai_proses = False
+        if pakai_proses:
+            tampil, kitab_n, lain_n, lengkap = _cari_semua_proses(semua, frasa, konteks, q, qb, potongan)
+        elif len(semua) <= 1:
             for s in semua:
                 _, gz_bytes, letak_, padat_, kena = _scan_buku(s, q, qb)
                 if kena is not None:

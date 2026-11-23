@@ -22,11 +22,16 @@ def batas_kata(p, bagian):
     kunci = "_kata_" + bagian
     if kunci not in p:
         awal, akhir, n = set(), set(), 0
+        add_awal, add_akhir = awal.add, akhir.add
         for _, b in per_halaman(p, bagian):
             for w in norm(b).split():
-                w = BUKAN_ABJAD.sub("", w)
-                if w:
-                    awal.add(n); n += len(w); akhir.add(n)
+                if not w.isalpha():
+                    w = BUKAN_ABJAD.sub("", w)
+                    if not w:
+                        continue
+                add_awal(n)
+                n += len(w)
+                add_akhir(n)
         p[kunci] = awal, akhir
     return p[kunci]
 
@@ -47,11 +52,13 @@ def kata_dalam(teks):
     """Letak awal tiap kata kutipan (selain kata pertama) di teks `padat`-nya, dihitung seperti `batas_kata`."""
     out, n = set(), 0
     for w in norm(teks).split():
-        w = BUKAN_ABJAD.sub("", w)
-        if w:
-            if n:
-                out.add(n)
-            n += len(w)
+        if not w.isalpha():
+            w = BUKAN_ABJAD.sub("", w)
+            if not w:
+                continue
+        if n:
+            out.add(n)
+        n += len(w)
     return frozenset(out)
 
 
