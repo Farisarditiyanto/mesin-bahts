@@ -266,6 +266,12 @@ MAJALAH = "مجلة"  # judul jurnal: terbitannya belum tentu ada di Shamela, ja
 PENGARANG_SESUDAH = shamela.PENGARANG_SESUDAH  # «… للشيخ ابن عثيمين»
 
 
+@shamela.cache_kitab()
+def _lokal():
+    """Himpunan nomor kitab lokal; dikosongkan otomatis oleh `shamela.lepas`."""
+    return frozenset(shamela.punya())
+
+
 def judul_shamela(isi):
     """Judul kitab Shamela yang disebut di catatan kaki: (judul, nomor yang persis, nomor yang mirip).
     Persis = bagian pertama catatan kaki (sampai tanda baca; tempat judul) utuh sama dengan judul katalog, atau judul
@@ -280,8 +286,8 @@ def judul_shamela(isi):
             persis, mirip = shamela.nomor_judul(judul)
             # judul satu kata (السعادة، الخلافة) terlalu umum: buku luar bisa berjudul sama. Di bagian sesudah yang pertama
             # (mis. «ابن عثيمين، رسالة في القضاء والقدر») hanya judul kitab yang sudah diunduh: yang itu pasti bisa dicek
-            utuh = n >= 2 and (n == len(kata) or PENGARANG_SESUDAH.match(kata[n])) and (i == 0 or set(persis) & set(shamela.punya()))
-            if persis and utuh and not judul.startswith(MAJALAH):
+            utuh = persis and n >= 2 and (n == len(kata) or PENGARANG_SESUDAH.match(kata[n])) and (i == 0 or any(s in _lokal() for s in persis))
+            if utuh and not judul.startswith(MAJALAH):
                 return judul, persis, []
             if (persis or mirip) and not mirip_awal[0]:
                 mirip_awal = (judul, [], persis + mirip)

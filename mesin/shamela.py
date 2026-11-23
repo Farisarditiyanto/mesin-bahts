@@ -228,7 +228,16 @@ def letak(juz, h):
 
 def punya():
     """shamela_id semua kitab yang sudah diunduh."""
-    return sorted(int(d.name) for d in ROOT.glob("*") if (d / "pages.jsonl.gz").exists())
+    out = []
+    try:
+        with os.scandir(ROOT) as it:
+            for e in it:
+                if e.name.isdigit() and os.path.isfile(os.path.join(e.path, "pages.jsonl.gz")):
+                    out.append(int(e.name))
+    except (FileNotFoundError, NotADirectoryError):
+        return []
+    out.sort()
+    return out
 
 
 def nomor_kitab(sid):
@@ -257,18 +266,28 @@ def _belum(sid):
 @cache_kitab()  # `cek` membacanya untuk tiap bukti
 def info(sid):
     f = folder(sid) / "book_metadata.json"
-    if not f.exists():
-        raise _belum(sid)
-    return json.loads(f.read_text(encoding="utf8"))
+    try:
+        return json.loads(f.read_bytes())
+    except FileNotFoundError:
+        raise _belum(sid) from None
 
 
 def daftar():
-    if not punya():
+    semua = punya()
+    if not semua:
         print('Belum ada kitab yang diunduh. Cari nomornya dengan `katalog "<judul>"` atau `temukan "<frasa>"`, '
               "lalu: " + perintah("ambil <nomor>"))
-    for sid in punya():
-        m = info(sid)
-        print(f"{sid}\t{m['title_ar']}\t{m['main_author_name_ar']}")
+        return
+    root_str = str(ROOT)
+    baris = []
+    for sid in semua:
+        try:
+            with open(os.path.join(root_str, str(sid), "book_metadata.json"), "rb") as f:
+                m = json.loads(f.read())
+        except FileNotFoundError:
+            m = info(sid)
+        baris.append(f"{sid}\t{m['title_ar']}\t{m['main_author_name_ar']}")
+    sys.stdout.write("\n".join(baris) + "\n")
 
 
 def kartu(sid):

@@ -44,6 +44,15 @@ def siap():
     return all((ROOT / j).exists() for j in TABEL.values())
 
 
+def _baris_kunci(nama, kunci):
+    """[(kunci, shamela_id, shamela_page_id)] satu tabel layanan yang key_id-nya di `kunci`."""
+    siapkan(nama)
+    import pyarrow.parquet as pq
+    t = pq.read_table(ROOT / TABEL[nama], columns=["key_id", "book_id", "page_id"],
+                      filters=[("key_id", "in", sorted(kunci))]).to_pydict()
+    return list(zip(t["key_id"], t["book_id"], t["page_id"]))
+
+
 @functools.cache
 def _baris(nama):
     """[(kunci, shamela_id, shamela_page_id)] satu tabel layanan; diunduh dulu kalau belum ada."""
@@ -79,14 +88,29 @@ def _karya(sid):
     return _katalog().get(sid, {}).get("group_id") or sid
 
 
+@shamela.cache_kitab()
+def _punya_urut():
+    return tuple(shamela.punya())
+
+
+@shamela.cache_kitab()
 def _lokal():
     """Himpunan nomor kitab yang sudah diunduh."""
-    return set(shamela.punya())
+    return frozenset(_punya_urut())
+
+
+@shamela.cache_kitab()
+def _per_karya():
+    """{karya: [nomor kitab lokal urut naik]} untuk pencarian edisi lokal."""
+    out = {}
+    for e in _punya_urut():
+        out.setdefault(_karya(e), []).append(e)
+    return out
 
 
 def _edisi_lokal(sid):
     """Edisi lain kitab yang sama yang sudah diunduh."""
-    return [e for e in shamela.punya() if e != sid and _karya(e) == _karya(sid)]
+    return [e for e in _per_karya().get(_karya(sid), ()) if e != sid]
 
 
 def _tabel_kitab(nama):
@@ -232,9 +256,8 @@ def tafsir(rujukan):
         raise SystemExit(f"Ayat {rujukan} tidak ada di mushaf (surat {s} punya {sum(k.startswith(f'{s}:') for k in urut)} ayat).")
     kunci = {urut[f"{s}:{x}"] for x in range(a, z + 1)}
     per_kitab = {}
-    for k, sid, hal in _baris("tafsir"):
-        if k in kunci:
-            per_kitab.setdefault(sid, set()).add(hal)
+    for _, sid, hal in _baris_kunci("tafsir", kunci):
+        per_kitab.setdefault(sid, set()).add(hal)
     print(f"Tafsir {rujukan} di {len(per_kitab)} kitab (indeks layanan Shamela; urut dari pengarang yang lebih dulu wafat). "
           "Halaman = awal pembahasan ayat itu menurut Shamela: baca sampai ayat berikutnya, dan halaman sebelumnya kalau "
           "beberapa ayat ditafsirkan bersama. Penunjuk saja: yang dikutip tetap harus lolos `cek`.")
