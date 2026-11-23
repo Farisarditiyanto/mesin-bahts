@@ -12,6 +12,7 @@ bukti: teks PDF tidak bisa dipercaya seperti teks Shamela.
 """
 import functools, logging, re, unicodedata
 from collections import Counter
+from pathlib import Path
 
 from norma import HARAKAT, padat
 
@@ -102,20 +103,48 @@ def _ada(halaman, kutipan):
     return n > 0 and any(halaman[i:i + n] == kutipan for i in range(len(halaman) - n + 1))
 
 
+def _olah_halaman(halaman):
+    """(tuple sidik halaman (dipulihkan + urutan kata dibalik), jumlah huruf Arab) untuk satu halaman pypdf."""
+    mentah = unicodedata.normalize("NFKC", halaman.extract_text() or "")  # bentuk tampilan (ﻣﻠﻒ, ﳌ) -> huruf biasa
+    t = pulihkan_arab(mentah)
+    # Pemulihan satu baris tidak membuang pencocokan lama untuk baris lain di halaman yang sama.
+    ekstraksi = (t,) if t == mentah else (t, mentah)
+    varian = tuple(dict.fromkeys(s for teks in ekstraksi for s in (_sidik(teks), _sidik_urutan_balik(teks))))
+    return varian, len(ARAB.findall(t))
+
+
+class _DokPDF:
+    """Isi PDF yang diolah malas per halaman dan di-cache di memori."""
+
+    def __init__(self, berkas):
+        from pypdf import PdfReader
+        self.pages = PdfReader(berkas).pages
+        self._n = len(self.pages)
+        self._cache = {}
+
+    def __len__(self):
+        return self._n
+
+    def __getitem__(self, idx):
+        if idx < 0:
+            idx += self._n
+        if not 0 <= idx < self._n:
+            raise IndexError(idx)
+        hasil = self._cache.get(idx)
+        if hasil is None:
+            hasil = _olah_halaman(self.pages[idx])
+            self._cache[idx] = hasil
+        return hasil
+
+    def __iter__(self):
+        for i in range(self._n):
+            yield self[i]
+
+
 @functools.lru_cache(maxsize=None)
-def _baca(berkas, waktu):
-    """(tuple sidik halaman (dipulihkan + urutan kata dibalik), jumlah huruf Arab) tiap halaman.
-    `waktu` (saat berkas terakhir diubah) ikut kunci cache: PDF yang diganti dibaca ulang."""
-    from pypdf import PdfReader
-    hasil = []
-    for p in PdfReader(berkas).pages:
-        mentah = unicodedata.normalize("NFKC", p.extract_text() or "")  # bentuk tampilan (ﻣﻠﻒ, ﳌ) -> huruf biasa
-        t = pulihkan_arab(mentah)
-        # Pemulihan satu baris tidak membuang pencocokan lama untuk baris lain di halaman yang sama.
-        ekstraksi = (t,) if t == mentah else (t, mentah)
-        varian = tuple(dict.fromkeys(s for teks in ekstraksi for s in (_sidik(teks), _sidik_urutan_balik(teks))))
-        hasil.append((varian, len(ARAB.findall(t))))
-    return tuple(hasil)
+def _baca(berkas, mtime_ns, ukuran):
+    """`_DokPDF` malas per halaman; kunci cache (berkas, mtime_ns, ukuran): PDF yang diganti dibaca ulang."""
+    return _DokPDF(berkas)
 
 
 def _sidik_urutan_balik(teks):
@@ -123,14 +152,28 @@ def _sidik_urutan_balik(teks):
 
 
 def halaman(berkas):
-    """Isi PDF yang sudah diolah; berkas = Path. Galat pypdf (PDF rusak, bersandi) diteruskan ke pemanggil."""
-    return _baca(str(berkas), berkas.stat().st_mtime)
+    """Isi PDF yang diolah malas per halaman; berkas = Path. Galat pypdf (PDF rusak, bersandi) diteruskan ke pemanggil."""
+    st = berkas.stat()
+    return _baca(str(berkas), st.st_mtime_ns, st.st_size)
+
+
+def _cocok_halaman(varian, cari_):
+    return all(any(_ada(x, k) for x in varian) for k in cari_)
+
+
+def ada_di_rentang(isi, bagian, a, z):
+    """True bila ada halaman di rentang a..z (mulai 1, inklusif) yang memuat semua `bagian` kutipan."""
+    cari_ = [_sidik(b) for b in bagian]
+    for n in range(max(1, a), min(z, len(isi)) + 1):
+        if _cocok_halaman(isi[n - 1][0], cari_):
+            return True
+    return False
 
 
 def cari(isi, bagian):
     """Nomor halaman berkas (mulai 1) yang memuat semua `bagian` kutipan; isi = hasil `halaman`."""
     cari_ = [_sidik(b) for b in bagian]
-    return [n for n, (v, _) in enumerate(isi, 1) if all(any(_ada(x, k) for x in v) for k in cari_)]
+    return [n for n, (v, _) in enumerate(isi, 1) if _cocok_halaman(v, cari_)]
 
 
 def tanpa_teks(isi, n):
@@ -138,33 +181,44 @@ def tanpa_teks(isi, n):
     return isi[n - 1][1] < MIN_ARAB
 
 
-def _teks_rentang(berkas, a, z):
-    """(jumlah halaman total, [(nomor, teks bersih)]) halaman a..z (mulai 1)."""
-    pages = None
-    try:
-        import pymupdf
-        with pymupdf.open(berkas) as doc:
-            total = len(doc)
-            if z > total:
-                raise IndexError(f"PDF hanya {total} halaman")
-            baris = [(n, pulihkan_arab(doc[n - 1].get_text("text") or "")) for n in range(a, z + 1)]
-    except ImportError:
-        from pypdf import PdfReader
-        pages = PdfReader(berkas).pages
-        total = len(pages)
-        if z > total:
-            raise IndexError(f"PDF hanya {total} halaman")
-        baris = [(n, pulihkan_arab(pages[n - 1].extract_text() or "")) for n in range(a, z + 1)]
-    if any(HARAKAT_LEPAS.search(teks) for _, teks in baris):
-        from pypdf import PdfReader
+@functools.lru_cache(maxsize=16)
+def _buka_pymupdf(berkas, mtime_ns, ukuran):
+    """Buka PDF dari memori agar cache tidak menahan handle berkas di Windows."""
+    import pymupdf
+    return pymupdf.open(stream=Path(berkas).read_bytes(), filetype="pdf")
+
+
+@functools.lru_cache(maxsize=256)
+def _teks_halaman(berkas, mtime_ns, ukuran, n, pakai_pymupdf):
+    """Teks bersih satu halaman PDF (mulai 1), termasuk cadangan mode layout bila ada harakat lepas."""
+    if pakai_pymupdf:
+        teks = pulihkan_arab(_buka_pymupdf(berkas, mtime_ns, ukuran)[n - 1].get_text("text") or "")
+    else:
+        teks = pulihkan_arab(_baca(berkas, mtime_ns, ukuran).pages[n - 1].extract_text() or "")
+    if HARAKAT_LEPAS.search(teks):
         from pypdf.errors import PyPdfError
         try:
-            pages = PdfReader(berkas).pages if pages is None else pages
-            baris = [(n, _coba_tata_letak(pages[n - 1], teks) if HARAKAT_LEPAS.search(teks) else teks)
-                     for n, teks in baris]
+            pages = _baca(berkas, mtime_ns, ukuran).pages
+            teks = _coba_tata_letak(pages[n - 1], teks)
         except (OSError, PyPdfError, IndexError, TypeError, ValueError):
             pass  # pertahankan teks yang berhasil dibaca bila ekstraksi cadangan gagal
-    return total, baris
+    return teks
+
+
+def _teks_rentang(berkas, a, z):
+    """(jumlah halaman total, [(nomor, teks bersih)]) halaman a..z (mulai 1)."""
+    jalur = Path(berkas)
+    st = jalur.stat()
+    kunci = (str(jalur), st.st_mtime_ns, st.st_size)
+    try:
+        total = len(_buka_pymupdf(*kunci))
+        pakai_pymupdf = True
+    except ImportError:
+        total = len(_baca(*kunci))
+        pakai_pymupdf = False
+    if z > total:
+        raise IndexError(f"PDF hanya {total} halaman")
+    return total, [(n, _teks_halaman(*kunci, n, pakai_pymupdf)) for n in range(a, z + 1)]
 
 
 def _coba_tata_letak(halaman, teks):

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Uji `peta <folder>`, `edisi <kueri|id|w…>`, dan posisi rawi yang belum dikenal lewat pintu pemakai (`bahts.py`),
 100% offline dengan subset kitab CI."""
-import os, shutil, subprocess, sys, tempfile
+import json, os, shutil, subprocess, sys, tempfile, zlib
 from pathlib import Path
 from bantu import salin_mesin
 
@@ -32,6 +32,23 @@ def utama():
         assert kode == 0, out
         for harus in ("PETA BAHTS:", "[1] Struktur & Cakupan", "[2] Sijil Sumber", "11223]", "[3] Busur Argumen"):
             assert harus in out, (harus, out)
+
+        katalog = ("katalog", "رسالة في القضاء والقدر")
+        kode, bersih = jalan(*katalog)
+        assert kode == 0 and "11223" in bersih, bersih
+        (cache,) = (akar / "kitab" / "_meta").glob("katalog-*.bin")
+        kepala, _, payload = cache.read_bytes().partition(b"\n")
+        meta = json.loads(kepala)
+        n = meta["panjang"][0]
+        baris = json.loads(payload[:n])
+        baris[0][3] = {"judul": baris[0][3]}
+        rusak = json.dumps(baris, ensure_ascii=False).encode("utf8")
+        payload = rusak + payload[n:]
+        meta["panjang"][0] = len(rusak)
+        meta["crc32"] = zlib.crc32(payload)
+        cache.write_bytes(json.dumps(meta).encode("utf8") + b"\n" + payload)
+        kode, pulih = jalan(*katalog)
+        assert kode == 0 and pulih == bersih, pulih
 
         # 2. `peta` pada uji_pemeriksa/khiyar: cakupan mazhab kosong, kontradiksi tarjih vs khatimah, {H:}, `terima`
         shutil.copytree(AKAR / ".github" / "uji_pemeriksa" / "khiyar", akar / "khiyar")

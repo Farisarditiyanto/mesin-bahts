@@ -114,26 +114,28 @@ def cek_pdf(folder, berkas, hal, kutipan, galat, perhatian, isi):
         return
     try:
         teks = sumber_pdf.halaman(p)
+        if z > len(teks):
+            galat.append(f"{tanda}: PDF itu hanya {len(teks)} halaman (hal = urutan halaman di berkas, mulai 1){ekor(isi)}")
+            return
+        if kutipan is None:  # nukilan makna: berkas dan halaman tetap dicek, isi diperiksa orang
+            perhatian.append(f"nukilan tanpa tanda petik dari PDF ({berkas}): mesin tidak mengecek isinya; pastikan sendiri "
+                             f"maknanya ada di halaman itu{ekor(isi)}")
+            return
+        di_rentang = sumber_pdf.ada_di_rentang(teks, bagian, a, z)
+        ketemu = None if di_rentang else sumber_pdf.cari(teks, bagian)
+        scan = not di_rentang and not ketemu and all(sumber_pdf.tanpa_teks(teks, n) for n in range(a, z + 1))
     except Exception as e:  # noqa: BLE001 — pypdf: PDF rusak, bersandi, atau bentuk yang tidak dikenalnya
         perhatian.append(f"PDF «{berkas}» tidak bisa dibaca mesin ({type(e).__name__}): cocokkan sendiri lafaz dan "
                          f"halamannya{ekor(isi)}")
         return
-    if z > len(teks):
-        galat.append(f"{tanda}: PDF itu hanya {len(teks)} halaman (hal = urutan halaman di berkas, mulai 1){ekor(isi)}")
-        return
-    if kutipan is None:  # nukilan makna: berkas dan halaman tetap dicek, isi diperiksa orang
-        perhatian.append(f"nukilan tanpa tanda petik dari PDF ({berkas}): mesin tidak mengecek isinya; pastikan sendiri "
-                         f"maknanya ada di halaman itu{ekor(isi)}")
-        return
-    ketemu = sumber_pdf.cari(teks, bagian)
-    if any(a <= n <= z for n in ketemu):
+    if di_rentang:
         perhatian.append(f"kutipan «{kutipan[:30]}» ditemukan di halaman {hal} «{berkas}» (penunjuk, bukan bukti: teks PDF "
                          f"tidak dibaca persis; angka, urutan kata, dan huruf seperti العلم/العمل tidak dibedakan): buka "
                          f"halaman itu dan cocokkan sendiri lafaznya{ekor(isi)}")
     elif ketemu:
         galat.append(f"kutipan «{kutipan[:30]}» tidak ada di halaman berkas {hal} «{berkas}», tetapi ada di halaman "
                      f"{'، '.join(map(str, ketemu[:5]))}{ekor(isi)}")
-    elif all(sumber_pdf.tanpa_teks(teks, n) for n in range(a, z + 1)):
+    elif scan:
         perhatian.append(f"halaman {hal} «{berkas}» berupa gambar (scan), teksnya tidak terbaca mesin: cocokkan sendiri "
                          f"lafaz kutipan «{kutipan[:30]}»{ekor(isi)}")
     else:

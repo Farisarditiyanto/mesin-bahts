@@ -62,12 +62,33 @@ _NISBAH_UMUM = frozenset(norma.padat(x) for x in """الشافعي الحنبل�
 المدني الكوفي البصري الأندلسي المغربي القرشي الأنصاري النيسابوري الرازي المروزي التميمي السلمي الأزدي""".split())
 _KATA_FUNGSI = frozenset(norma.padat(x) for x in "في من على إلى عن مع بين حول عند لدى نحو تحت فوق أو و".split())
 _WAFAT_MAKS = 2000
+_KURUNG_EDISI = re.compile(r"\(((?:ط|ت)\s*[._:\s][^()]+|تحقيق[^()]+)\)")
+_AWAL_ABU = re.compile(r"^اب[ايو](?= )")
+_PISAH_JUDUL = re.compile(r"\s*=\s*|\s+المسمى\s+|\s+المسمّى\s+")
+_KURUNG_JUDUL = re.compile(r"\(([^()]{4,})\)")
+_AWAL_KURUNG_JUDUL = re.compile(r"^\s*(?:أو|تفسير|شرح|كتاب|مختصر|سنن|مسند|صحيح|جامع|مسائل)\s+")
+_AWAL_AW = re.compile(r"^\s*أو\s+")
+_HAPUS_KURUNG = re.compile(r"\([^()]*\)|\[[^\[\]]*\]")
+_PISAH_DASH = re.compile(r"\s+-\s+")
+_IBN_ABI = re.compile(r"(?<![ء-ي])ا?بن\s+أب[يو]")
+_KURUNG_PENGARANG = re.compile(r"\(([^()]*)\)")
+_KURUNG_CETAK = re.compile(r"\s*(?:ط|ت)\s*[._:]")
+# Huruf yang bisa muncul di hasil `norma.padat` dari huruf lain (SAMA, EJAAN, ﷽, شئ/شي): sisanya wajib ada di teks mentah
+_HURUF_BERUBAH = (
+    frozenset(ke for _, ke in norma.SAMA)
+    | frozenset("ءبسملرحني")
+    | frozenset(c for a, b in norma.EJAAN for c in (set(b) - set(a)))
+)
+
+
+def _huruf_wajib(kata_list):
+    return tuple(dict.fromkeys(c for k in kata_list for c in k if c not in _HURUF_BERUBAH))
 
 
 def ekstrak_ekor_edisi(judul):
     """Ambil keterangan cetak/edisi yang menempel di judul katalog (mis. `(ط. طيبة)`, `(ت_ الحويني)`, `- ت حلاق`)."""
     bag = []
-    for m in re.finditer(r"\(((?:ط|ت)\s*[._:\s][^()]+|تحقيق[^()]+)\)", judul or ""):
+    for m in _KURUNG_EDISI.finditer(judul or ""):
         bag.append(m.group(1).replace("_", ":").strip())
     if m := _EKOR_EDISI.search(judul or ""):
         bag.append(m.group(0).lstrip(" -–—").strip())
@@ -85,21 +106,24 @@ def _beda_riwayat(judul_a, judul_b):
     a, b = _riwayat(judul_a), _riwayat(judul_b)
     # «رواية يحيى» dan «رواية يحيى بن يحيى الليثي» dapat merujuk ke riwayat yang sama.
     def kata(nama):
-        return tuple(re.sub(r"^اب[ايو](?= )", "ابو", nama).split())
+        return tuple(_AWAL_ABU.sub("ابو", nama).split())
 
     a, b = sorted((kata(a), kata(b)), key=len)
     return bool(a and a != b[:len(a)])
 
 
-def _tanpa_ekor_pengarang(judul, pengarang):
+def _tanpa_ekor_pengarang(judul, pengarang, _kp=None):
     """Buang «لـ<pengarang>» di akhir judul («المحصول للرازي» -> «المحصول», «إعراب القرآن للنحاس» -> «إعراب القرآن»)
     hanya bila `pengarang` tersedia dan cocok dengan kata sesudah «لـ»."""
     kata = judul.split()
     if len(kata) < 2 or not pengarang:
         return judul
     akhir = kata[-1]
-    orang = "ال" + akhir[2:] if akhir.startswith("لل") else akhir[1:] if akhir.startswith("ل") else ""
-    if orang and (kata_nama(orang) & kata_nama(pengarang)):
+    if not akhir.startswith("ل"):
+        return judul
+    orang = "ال" + akhir[2:] if akhir.startswith("لل") else akhir[1:]
+    kp = kata_nama(pengarang) if _kp is None else _kp
+    if orang and (kata_nama(orang) & kp):
         sisa = " ".join(kata[:-1]).strip()
         if len(norma.padat(sisa)) >= 5:
             return sisa
@@ -109,35 +133,43 @@ def _tanpa_ekor_pengarang(judul, pengarang):
 def pecah_judul(judul, pengarang=""):
     """Daftar judul pokok dan judul alternatif bersih dari satu baris judul katalog (memisahkan `=`, `المسمى`,
     kurung judul alternatif seperti `(تفسير ابن كثير)`, membuang ekor edisi dan kitab gabungan `ويليه`/`ومعه`)."""
-    t = _SALINAN_DIGITAL.sub("", judul or "")
+    t = judul or ""
+    if "(" in t:
+        t = _SALINAN_DIGITAL.sub("", t)
     t = _GABUNG_KITAB.sub("", t)
     t = _EKOR_EDISI.sub("", t).strip()
     calon = []
-    for bag in re.split(r"\s*=\s*|\s+المسمى\s+|\s+المسمّى\s+", t):
+    bagian = _PISAH_JUDUL.split(t) if ("=" in t or "المسم" in t) else (t,)
+    for bag in bagian:
         # Judul masyhur di dalam kurung («تفسير القرآن العظيم (تفسير ابن كثير)») ikut diekstrak
-        for km in re.findall(r"\(([^()]{4,})\)", bag):
-            if re.match(r"^\s*(?:أو|تفسير|شرح|كتاب|مختصر|سنن|مسند|صحيح|جامع|مسائل)\s+", km):
-                calon.append(re.sub(r"^\s*أو\s+", "", km).strip())
+        if "(" in bag:
+            for km in _KURUNG_JUDUL.findall(bag):
+                if _AWAL_KURUNG_JUDUL.match(km):
+                    calon.append(_AWAL_AW.sub("", km).strip())
         # Potong ekor pengarang sesudah « - » («جمع القرآن - فهد الرومي») sebagai varian juga
-        bersih = re.sub(r"\([^()]*\)|\[[^\[\]]*\]", " ", bag).strip()
+        bersih = _HAPUS_KURUNG.sub(" ", bag).strip() if ("(" in bag or "[" in bag) else bag.strip()
         bersih = _EKOR_SEBARIS.sub("", bersih).strip()
-        kepala = re.split(r"\s+-\s+", bersih, maxsplit=1)[0].strip()
+        kepala = _PISAH_DASH.split(bersih, maxsplit=1)[0].strip() if "-" in bersih else bersih
         for k in (bersih, kepala):
             if k:
                 calon.append(k)
     out = []
+    kp = None
     for c in calon:
         c = _BUANG_DEPAN.sub("", c).strip(" -–—:،")
         if c and c not in out:
             out.append(c)
-        tanpa = _tanpa_ekor_pengarang(c, pengarang)
-        if tanpa and tanpa not in out:
-            out.append(tanpa)
+        if pengarang and c:
+            if kp is None and " ل" in c:
+                kp = kata_nama(pengarang)
+            tanpa = _tanpa_ekor_pengarang(c, pengarang, kp)
+            if tanpa and tanpa not in out:
+                out.append(tanpa)
     return out
 
 
 def _kata_judul(judul):
-    return [norma.padat(k) for k in judul.split() if len(norma.padat(k)) >= 2 and norma.padat(k) not in _KATA_FUNGSI]
+    return [p for k in judul.split() if len(p := norma.padat(k)) >= 2 and p not in _KATA_FUNGSI]
 
 
 def hubungan_judul(j1, j2):
@@ -206,8 +238,8 @@ def cocok_pengarang(nama_a, nama_b, wafat_a=None, wafat_b=None):
     if ka_a != ka_b:
         return "beda"
     # «ابن/بن أبي حاتم» bukan ayahnya «أبو حاتم»; mendukung «بن» maupun «ابن» («أبو بكر بن أبي شيبة» = «ابن أبي شيبة»)
-    ibn_abi_a = bool(re.search(r"(?<![ء-ي])ا?بن\s+أب[يو]", norma.HARAKAT.sub("", nama_a or "")))
-    ibn_abi_b = bool(re.search(r"(?<![ء-ي])ا?بن\s+أب[يو]", norma.HARAKAT.sub("", nama_b or "")))
+    ibn_abi_a = bool(_IBN_ABI.search(norma.HARAKAT.sub("", nama_a or "")))
+    ibn_abi_b = bool(_IBN_ABI.search(norma.HARAKAT.sub("", nama_b or "")))
     if ibn_abi_a != ibn_abi_b and ("أبو" in (nama_a or "") or "أبي" in (nama_a or "")) and ("أبو" in (nama_b or "") or "أبي" in (nama_b or "")):
         return "beda"
     kata_a, kata_b = kata_nama(nama_a), kata_nama(nama_b)
@@ -233,19 +265,30 @@ def _pengarang_terima(nama_a, nama_b, wafat_a=None, wafat_b=None):
 
 
 @functools.cache
-def _indeks_shamela():
-    """Indeks katalog Shamela: (by_id, by_padat, by_group)."""
+def _shamela_dasar():
+    """Indeks ringan katalog Shamela: (by_id, by_group) tanpa memecah semua judul."""
     try:
         daftar = shamela.isi_katalog()
     except SystemExit:
-        return {}, {}, {}
-    by_id, by_padat, by_group = {}, {}, {}
+        return {}, {}
+    by_id, by_group = {}, {}
     for r in daftar:
         sid = int(r["shamela_id"])
         by_id[sid] = r
         gid = r.get("group_id")
         if gid:
             by_group.setdefault(gid, []).append(sid)
+    return by_id, by_group
+
+
+@functools.cache
+def _indeks_shamela():
+    """Indeks katalog Shamela: (by_id, by_padat, by_group)."""
+    by_id, by_group = _shamela_dasar()
+    if not by_id:
+        return {}, {}, {}
+    by_padat = {}
+    for sid, r in by_id.items():
         for j in pecah_judul(r.get("title_ar") or "", r.get("main_author_name_ar") or ""):
             p = norma.padat(j)
             if len(p) >= 4:
@@ -268,7 +311,7 @@ def shamela_untuk_waqfeya(b):
     # Nama di dalam kurung judul Waqfeya hanya dipakai sebagai cadangan bila kolom pengarang tidak memuat kata khas
     # (mis. «محمد بن إسماعيل» pada «تفسير القرآن العظيم (تفسير ابن كثير)»), agar nama pengarang matan di dalam
     # judul syarah («صحيح مسلم بشرح النووي») tidak mencemari pencocokan pengarang syarahnya («النووي»).
-    kurung_p = " ".join(x for x in re.findall(r"\(([^()]*)\)", b["judul"]) if not re.match(r"\s*(?:ط|ت)\s*[._:]", x))
+    kurung_p = " ".join(x for x in _KURUNG_PENGARANG.findall(b["judul"]) if not _KURUNG_CETAK.match(x))
     peng_w_gab = peng_w if kata_nama(peng_w) else f"{peng_w} {kurung_p}".strip()
     hasil = []
     for sid in sorted(calon):
@@ -305,7 +348,7 @@ def _waqfeya_untuk_karya(judul_list, pengarang, wq, wafat=None):
     """(edisi_sama, karya_terkait) dari katalog Waqfeya (jika sudah terunduh) untuk satu karya."""
     if wq is None or not wq.KATALOG.exists():
         return [], []
-    wkat = wq.katalog()
+    wkat = wq.katalog_ringkas()
     kata_kunci = {k for j in judul_list for k in _kata_judul(j) if len(k) >= 3}
     sama, terkait = [], []
     for w, b in wkat.items():
@@ -335,12 +378,12 @@ def _baris_waqfeya(w, b, wq):
     ada = "ADA" if (wq is not None and wq.ada(w)) else "-"
     ekor = ekstrak_ekor_edisi(b["judul"])
     cat = f" | {ekor}" if ekor else ""
-    return f"  [{ada:3s}] Waqfeya {w} | {b['judul']} — {b['pengarang'] or '?'} ({b['halaman']} hal, {len(b['berkas'])} berkas){cat}"
+    return f"  [{ada:3s}] Waqfeya {w} | {b['judul']} — {b['pengarang'] or '?'} ({b['halaman']} hal, {b['jumlah_berkas']} berkas){cat}"
 
 
 def cetak(kueri, pengarang="", maks=15, wq=None):
     """`edisi <kueri|sid|w…> [pengarang]`: cari kandidat satu karya lintas Shamela dan Waqfeya (offline)."""
-    by_id, _, by_group = _indeks_shamela()
+    by_id, by_group = _shamela_dasar()
     lokal = set(shamela.punya())
     q = kueri.strip()
 
@@ -399,7 +442,7 @@ def cetak(kueri, pengarang="", maks=15, wq=None):
     if NOMOR_WAQFEYA.fullmatch(q):
         if wq is None or not wq.KATALOG.exists():
             raise SystemExit('Katalog Waqfeya belum diunduh; jalankan `waqfeya "<judul>"` sekali untuk mengunduhnya.')
-        b = wq.katalog().get(q)
+        b = wq.katalog_ringkas().get(q)
         if not b:
             raise SystemExit(f"Kitab Waqfeya {q} tidak ada di katalog.")
         judul_l = pecah_judul(b["judul"], b.get("pengarang") or "")
@@ -423,19 +466,34 @@ def cetak(kueri, pengarang="", maks=15, wq=None):
               for k in pengarang.split() if (p := norma.padat(k))]
     if not kata_q:
         raise SystemExit('Tulis judul kitab, nomor Shamela, atau nomor Waqfeya (mis. `edisi "تفسير القرطبي"`).')
+    wajib_q, wajib_p = _huruf_wajib(kata_q), _huruf_wajib(kata_p)
+    pres, padat = norma.PRESENTASI.search, norma.padat
     sh_hits = []
     for sid, r in by_id.items():
-        blob = norma.padat((r.get("title_ar") or "") + " " + (r.get("main_author_name_ar") or ""))
-        if all(k in blob for k in kata_q) and (not kata_p or all(k in norma.padat(r.get("main_author_name_ar") or "") for k in kata_p)):
+        peng_s = r.get("main_author_name_ar") or ""
+        if wajib_p and not (all(c in peng_s for c in wajib_p) or pres(peng_s)):
+            continue
+        raw = (r.get("title_ar") or "") + " " + peng_s
+        if wajib_q and not (all(c in raw for c in wajib_q) or pres(raw)):
+            continue
+        blob = padat(raw)
+        if all(k in blob for k in kata_q) and (not kata_p or all(k in padat(peng_s) for k in kata_p)):
             sh_hits.append((sid, r))
-    sh_hits.sort(key=lambda x: (not norma.padat(x[1].get("title_ar") or "").startswith("".join(kata_q)), len(x[1].get("title_ar") or ""), x[0]))
+    q_gabung = "".join(kata_q)
+    sh_hits.sort(key=lambda x: (not padat(x[1].get("title_ar") or "").startswith(q_gabung), len(x[1].get("title_ar") or ""), x[0]))
     wq_hits = []
     if wq is not None and wq.KATALOG.exists():
-        for w, b in wq.katalog().items():
-            blob = norma.padat(b["judul"] + " " + b["pengarang"])
-            if all(k in blob for k in kata_q) and (not kata_p or all(k in norma.padat(b["pengarang"]) for k in kata_p)):
+        for w, b in wq.katalog_ringkas().items():
+            peng_w = b["pengarang"]
+            if wajib_p and not (all(c in peng_w for c in wajib_p) or pres(peng_w)):
+                continue
+            raw = b["judul"] + " " + peng_w
+            if wajib_q and not (all(c in raw for c in wajib_q) or pres(raw)):
+                continue
+            blob = padat(raw)
+            if all(k in blob for k in kata_q) and (not kata_p or all(k in padat(peng_w) for k in kata_p)):
                 wq_hits.append((w, b))
-        wq_hits.sort(key=lambda x: (not norma.padat(x[1]["judul"]).startswith("".join(kata_q)), len(x[1]["judul"])))
+        wq_hits.sort(key=lambda x: (not padat(x[1]["judul"]).startswith(q_gabung), len(x[1]["judul"])))
     print(f"HASIL LINTAS-KATALOG «{q}»" + (f" ({pengarang})" if pengarang else "")
           + f": {len(sh_hits)} Shamela, {len(wq_hits)} Waqfeya")
     print("\nShamela (utamakan bila ada):")

@@ -14,15 +14,18 @@ Tafsir tidak bernomor, jadi edisi lain kitab tafsir hanya disebut.
 Penunjuk jalan saja: halaman yang ditunjuk tetap dibaca dengan `halaman`, dan yang dikutip tetap harus lolos `cek`.
 Tanpa internet sesudah tabelnya diunduh sekali (`siapkan`), jadi tidak berkuota seperti connector.
 """
-import bisect, functools, json, re
+import array, bisect, functools, json, re, sys, zlib
 
 import jaringan, norma, shamela
+from berkas import sementara
 from shamela import ROOT, RAW, TAGS
 from dasar import HALAMAN_MAKS, angka, mushaf, perintah
 from kitab_lokal import halaman_di, kepala_hadits, rangkaian_kitab
 
 TABEL = {"tafsir": "_meta/tafsir_xrefs.parquet", "hadits": "_meta/hadith_xrefs.parquet", "rawi": "_meta/narrators.parquet",
          "akar": "_meta/root_dictionary.parquet"}
+TAFSIR_VERSI = 1
+_TAFSIR_UKURAN = {j: array.array(j).itemsize for j in ("I", "q")}
 WAFAT_MAKS = 2000  # katalog menulis 99999 untuk pengarang yang masih hidup, kolektif, atau tidak diketahui
 SIRAP = 4  # kata berurutan yang dibandingkan antara dua edisi
 MIRIP_MIN = 0.5  # diukur pada 250 rekaman acak: أبو داود 654/1726 dan مسلم 711/1727 sebagian besar ≥0,7; الموطأ 28107/1699 (penomoran beda) ±0
@@ -37,6 +40,7 @@ def siapkan(*nama):
             print(f"layanan {n}: mengunduh …", flush=True)
             jaringan.unduh(f"{RAW}/{TABEL[n]}", f, jaringan.tulis_biner)
     if not nama:
+        _tafsir_indeks(ROOT / TABEL["tafsir"])
         print(f"layanan Shamela: {', '.join(TABEL)} siap")
 
 
@@ -44,10 +48,98 @@ def siap():
     return all((ROOT / j).exists() for j in TABEL.values())
 
 
+def _baca_tafsir_bin(f_cache, sumber):
+    """(key_id, book_id, page_id) sebagai memoryview deret terurut kalau cache tafsir_xrefs sah; None kalau tidak."""
+    try:
+        mentah = f_cache.read_bytes()
+        nl = mentah.find(b"\n", 0, 1 << 16)
+        if nl < 0:
+            return None
+        kepala = json.loads(mentah[:nl])
+        if not isinstance(kepala, dict):
+            return None
+        jenis = kepala.get("jenis")
+        panjang = kepala.get("panjang")
+        if (kepala.get("versi") != TAFSIR_VERSI or kepala.get("sumber") != sumber
+                or kepala.get("urutan") != sys.byteorder or jenis not in _TAFSIR_UKURAN
+                or type(panjang) is not list or len(panjang) != 3
+                or not all(type(n) is int and n >= 0 for n in panjang)
+                or not (panjang[0] == panjang[1] == panjang[2])
+                or panjang[0] % _TAFSIR_UKURAN[jenis]):
+            return None
+        awal = nl + 1
+        if len(mentah) - awal != sum(panjang):
+            return None
+        mv = memoryview(mentah)[awal:]
+        if zlib.crc32(mv) != kepala.get("crc32"):
+            return None
+        n = panjang[0]
+        return mv[:n].cast(jenis), mv[n:2 * n].cast(jenis), mv[2 * n:3 * n].cast(jenis)
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def _bangun_tafsir_bin(f_src, f_cache, sumber):
+    import pyarrow.parquet as pq
+    t = pq.read_table(f_src, columns=["key_id", "book_id", "page_id"]).to_pydict()
+    baris = sorted(zip(t["key_id"], t["book_id"], t["page_id"]))
+    kk = [r[0] for r in baris]
+    bb = [r[1] for r in baris]
+    pp = [r[2] for r in baris]
+    if not baris:
+        jenis = "I"
+    else:
+        lo = min(kk[0], min(bb), min(pp))
+        hi = max(kk[-1], max(bb), max(pp))
+        jenis = "I" if 0 <= lo and hi < (1 << 32) else "q" if -(1 << 63) <= lo and hi < (1 << 63) else None
+    if jenis is None:
+        return kk, bb, pp
+    ak, ab, ap = array.array(jenis, kk), array.array(jenis, bb), array.array(jenis, pp)
+    if not shamela.sedang_baca_saja():
+        isi = (ak.tobytes(), ab.tobytes(), ap.tobytes())
+        crc = 0
+        for x in isi:
+            crc = zlib.crc32(x, crc)
+        kepala = {"versi": TAFSIR_VERSI, "sumber": sumber, "urutan": sys.byteorder, "jenis": jenis,
+                  "panjang": [len(x) for x in isi], "crc32": crc}
+        try:
+            with sementara(f_cache) as part:
+                with open(part, "wb") as h:
+                    h.write(json.dumps(kepala, separators=(",", ":")).encode() + b"\n")
+                    h.writelines(isi)
+        except OSError:
+            pass
+    return ak, ab, ap
+
+
+@functools.cache
+def _tafsir_indeks(f_src):
+    sumber = norma.sidik(f_src)
+    f_cache = f_src.with_suffix(".bin")
+    hasil = _baca_tafsir_bin(f_cache, sumber)
+    if hasil is not None:
+        return hasil
+    return _bangun_tafsir_bin(f_src, f_cache, sumber)
+
+
+def _tafsir_kunci(kunci):
+    """[(kunci, shamela_id, shamela_page_id)] dari tabel layanan tafsir yang key_id-nya di `kunci`."""
+    siapkan("tafsir")
+    kk, bb, pp = _tafsir_indeks(ROOT / TABEL["tafsir"])
+    out = []
+    for k in sorted(kunci):
+        i = bisect.bisect_left(kk, k)
+        z = bisect.bisect_right(kk, k)
+        out.extend((kk[j], bb[j], pp[j]) for j in range(i, z))
+    return out
+
+
 @functools.cache
 def _baris(nama):
     """[(kunci, shamela_id, shamela_page_id)] satu tabel layanan; diunduh dulu kalau belum ada."""
     siapkan(nama)
+    if nama == "tafsir":
+        return list(zip(*_tafsir_indeks(ROOT / TABEL[nama])))
     import pyarrow.parquet as pq
     t = pq.read_table(ROOT / TABEL[nama], columns=["key_id", "book_id", "page_id"]).to_pydict()
     return list(zip(t["key_id"], t["book_id"], t["page_id"]))
@@ -79,14 +171,29 @@ def _karya(sid):
     return _katalog().get(sid, {}).get("group_id") or sid
 
 
+@shamela.cache_kitab()
+def _punya_urut():
+    return tuple(shamela.punya())
+
+
+@shamela.cache_kitab()
 def _lokal():
     """Himpunan nomor kitab yang sudah diunduh."""
-    return set(shamela.punya())
+    return frozenset(_punya_urut())
+
+
+@shamela.cache_kitab()
+def _per_karya():
+    """{karya: [nomor kitab lokal urut naik]} untuk pencarian edisi lokal."""
+    out = {}
+    for e in _punya_urut():
+        out.setdefault(_karya(e), []).append(e)
+    return out
 
 
 def _edisi_lokal(sid):
     """Edisi lain kitab yang sama yang sudah diunduh."""
-    return [e for e in shamela.punya() if e != sid and _karya(e) == _karya(sid)]
+    return [e for e in _per_karya().get(_karya(sid), ()) if e != sid]
 
 
 def _tabel_kitab(nama):
@@ -232,9 +339,8 @@ def tafsir(rujukan):
         raise SystemExit(f"Ayat {rujukan} tidak ada di mushaf (surat {s} punya {sum(k.startswith(f'{s}:') for k in urut)} ayat).")
     kunci = {urut[f"{s}:{x}"] for x in range(a, z + 1)}
     per_kitab = {}
-    for k, sid, hal in _baris("tafsir"):
-        if k in kunci:
-            per_kitab.setdefault(sid, set()).add(hal)
+    for _, sid, hal in _tafsir_kunci(kunci):
+        per_kitab.setdefault(sid, set()).add(hal)
     print(f"Tafsir {rujukan} di {len(per_kitab)} kitab (indeks layanan Shamela; urut dari pengarang yang lebih dulu wafat). "
           "Halaman = awal pembahasan ayat itu menurut Shamela: baca sampai ayat berikutnya, dan halaman sebelumnya kalau "
           "beberapa ayat ditafsirkan bersama. Penunjuk saja: yang dikutip tetap harus lolos `cek`.")

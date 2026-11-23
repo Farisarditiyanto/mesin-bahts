@@ -10,10 +10,10 @@ terbaca benar, tetapi kutipan 15 kata yang utuh persis hanya ±72%, dan salah hu
 halamannya (`halaman w… <berkas> <hal>` memotong halaman itu jadi PDF/PNG kecil). Bukti <<w…|berkas|hal>> di `cek`:
 GAGAL hanya untuk yang pasti salah (cek_kutipan.cek_waqfeya); lafaznya tidak dinilai `cek`, tetapi pemeriksa dari scan
 (`bukti` menunjuk halamannya), supaya salah huruf OCR tidak menggagalkan atau menimbun perhatian kutipan yang benar."""
-import ast, csv, difflib, functools, gzip, hashlib, json, re, urllib.parse
+import functools, hashlib, re
 from pathlib import Path
 
-import edisi, jaringan, norma, shamela
+import edisi, norma, shamela
 from dasar import ANGKA_LATIN, HALAMAN_MAKS, perintah
 from berkas import sementara
 
@@ -41,26 +41,121 @@ def nomor(baris):
 
 def _siapkan_katalog():
     if not KATALOG.exists():
+        import jaringan
         print("katalog Waqfeya: mengunduh (±17 MB, sekali saja) …", flush=True)
         jaringan.unduh(f"{RAW}/index.tsv", KATALOG, jaringan.tulis_biner)
+
+
+def _stem(p):
+    """Setara Path(p).stem tanpa membangun puluhan ribu objek Path."""
+    nama = p.rsplit("/", 1)[-1]
+    if "\\" in nama:
+        return Path(p).stem
+    i = nama.rfind(".")
+    return nama[:i] if i > 0 and nama[:i].strip(".") else nama
+
+
+def _baca_katalog(ringkas=False):
+    _siapkan_katalog()
+    blines = KATALOG.read_bytes().removeprefix(b"\xef\xbb\xbf").splitlines(keepends=True)
+    if not blines:
+        return {}
+    hdr_b = blines[0].rstrip(b"\r\n")
+    if b'"' in hdr_b:
+        import csv
+        hdr = [h.encode("utf-8") for h in next(csv.reader([blines[0].decode("utf-8")], delimiter="\t"))]
+    else:
+        hdr = hdr_b.split(b"\t")
+    i_title = hdr.index(b"title")
+    i_author = hdr.index(b"author")
+    i_cat = hdr.index(b"category")
+    i_pages = hdr.index(b"pages")
+    i_pdf = hdr.index(b"pdf_paths")
+    i_txt = hdr.index(b"txt_paths")
+    sha1 = hashlib.sha1
+    out = {}
+
+    def _tambah(judul, pengarang, kategori, halaman, pdf, txt):
+        if not pdf or len(pdf) != len(txt):
+            return
+        folder = pdf[0].rsplit("/", 1)[0]
+        w = "w" + sha1(folder.encode()).hexdigest()[:8]
+        if ringkas:
+            out[w] = {"judul": judul, "pengarang": pengarang, "kategori": kategori,
+                      "halaman": halaman, "folder": folder, "jumlah_berkas": len(pdf)}
+        else:
+            out[w] = {"judul": judul, "pengarang": pengarang, "kategori": kategori,
+                      "halaman": halaman, "folder": folder,
+                      "berkas": [{"nama": _stem(p), "pdf": p[2:], "txt": t[2:]} for p, t in zip(pdf, txt)]}
+
+    i, n = 1, len(blines)
+    while i < n:
+        ln = blines[i]
+        i += 1
+        if ln in (b"\n", b"\r\n", b"\r", b""):
+            continue
+        if b'"' in ln:
+            import ast, csv
+            csv.field_size_limit(1 << 30)
+            i -= 1
+
+            def _sisa():
+                nonlocal i
+                while i < n:
+                    s = blines[i].decode("utf-8")
+                    i += 1
+                    yield s
+
+            r = next(csv.reader(_sisa(), delimiter="\t"), None)
+            if r:
+                _tambah(r[i_title].strip(), r[i_author].strip(), r[i_cat].strip(), int(r[i_pages] or 0),
+                        ast.literal_eval(r[i_pdf]), ast.literal_eval(r[i_txt]))
+            continue
+        r = ln.rstrip(b"\r\n").split(b"\t")
+        sp, st = r[i_pdf], r[i_txt]
+        if sp == b"[]" or not sp:
+            continue
+        if (sp.startswith(b"['") and sp.endswith(b"']") and b"\\" not in sp
+                and st.startswith(b"['") and st.endswith(b"']") and b"\\" not in st):
+            n_pdf = sp.count(b"', '") + 1
+            n_txt = st.count(b"', '") + 1
+            if sp.count(b"'") == 2 * n_pdf and st.count(b"'") == 2 * n_txt:
+                if n_pdf != n_txt:
+                    continue
+                if ringkas:
+                    sep = sp.find(b"', '")
+                    first_pdf = sp[2:sep] if sep != -1 else sp[2:-2]
+                    folder_b = first_pdf.rsplit(b"/", 1)[0]
+                    w = "w" + sha1(folder_b).hexdigest()[:8]
+                    out[w] = {"judul": r[i_title].decode("utf-8").strip(),
+                              "pengarang": r[i_author].decode("utf-8").strip(),
+                              "kategori": r[i_cat].decode("utf-8").strip(),
+                              "halaman": int(r[i_pages] or b"0"),
+                              "folder": folder_b.decode("utf-8"),
+                              "jumlah_berkas": n_pdf}
+                else:
+                    pdf = sp[2:-2].decode("utf-8").split("', '")
+                    txt = st[2:-2].decode("utf-8").split("', '")
+                    _tambah(r[i_title].decode("utf-8").strip(), r[i_author].decode("utf-8").strip(),
+                            r[i_cat].decode("utf-8").strip(), int(r[i_pages] or b"0"), pdf, txt)
+                continue
+        import ast
+        _tambah(r[i_title].decode("utf-8").strip(), r[i_author].decode("utf-8").strip(),
+                r[i_cat].decode("utf-8").strip(), int(r[i_pages] or b"0"),
+                ast.literal_eval(sp.decode("utf-8")), ast.literal_eval(st.decode("utf-8")))
+    return out
 
 
 @functools.cache
 def katalog():
     """{nomor: baris} semua kitab Waqfeya yang punya PDF. Baris = judul, pengarang, kategori, halaman, berkas."""
-    _siapkan_katalog()
-    csv.field_size_limit(1 << 30)
-    out = {}
-    with open(KATALOG, encoding="utf-8", newline="") as f:
-        for r in csv.DictReader(f, delimiter="\t"):
-            pdf, txt = ast.literal_eval(r["pdf_paths"]), ast.literal_eval(r["txt_paths"])
-            if not pdf or len(pdf) != len(txt):
-                continue
-            b = {"judul": r["title"].strip(), "pengarang": r["author"].strip(), "kategori": r["category"].strip(),
-                 "halaman": int(r["pages"] or 0), "folder": pdf[0].rsplit("/", 1)[0],
-                 "berkas": [{"nama": Path(p).stem, "pdf": p[2:], "txt": t[2:]} for p, t in zip(pdf, txt)]}
-            out[nomor(b)] = b
-    return out
+    return _baca_katalog(ringkas=False)
+
+
+@functools.cache
+def katalog_ringkas():
+    """{nomor: baris} ringkas tanpa daftar `berkas` (hanya `jumlah_berkas` dan `folder`) untuk pencarian katalog."""
+    return _baca_katalog(ringkas=True)
 
 
 def rawan(b):
@@ -135,7 +230,7 @@ def cari_katalog(frasa, maks=20):
     kata = [norma.padat(w) for w in frasa.split() if norma.padat(w)]
     if not kata:
         raise ValueError("tulis kata dari judul atau nama pengarang")
-    hasil = [(w, b) for w, b in katalog().items()
+    hasil = [(w, b) for w, b in katalog_ringkas().items()
              if all(k in norma.padat(b["judul"] + " " + b["pengarang"]) for k in kata)]
     q = "".join(kata)
     hasil.sort(key=lambda x: (not norma.padat(x[1]["judul"]).startswith(q), len(x[1]["judul"])))
@@ -145,7 +240,7 @@ def cari_katalog(frasa, maks=20):
             catatan.append(f"judul ini ada di Shamela ({'، '.join(map(str, ada[:3]))}): pakai Shamela kalau edisinya sama")
         if rawan(b):
             catatan.append("kamus/berhamisy: OCR-nya kacau, baca dari scan saja")
-        print(f"{w}  {b['judul']} | {b['pengarang']} | {b['halaman']} hal, {len(b['berkas'])} berkas | {b['kategori']}"
+        print(f"{w}  {b['judul']} | {b['pengarang']} | {b['halaman']} hal, {b['jumlah_berkas']} berkas | {b['kategori']}"
               + ("" if not catatan else "  [" + "; ".join(catatan) + "]"))
     if len(hasil) > maks:
         print(f"… {len(hasil) - maks} lagi; persempit katanya atau naikkan maks")
@@ -168,6 +263,7 @@ def _isi(p):
 
 def _lokal(w):
     """Data kitab lokal kalau kitab.json terbaca dan tiap PDF/OCR-nya ada; None = belum (lengkap) diunduh."""
+    import json
     try:
         d = json.loads((folder(w) / DATA).read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -194,10 +290,13 @@ def data(w):
 
 def ambil(*ww):
     """Unduh OCR dan PDF tiap kitab Waqfeya. Kembalikan nomor yang gagal."""
+    import jaringan
     return jaringan.unduh_kitab(ww, _ambil)
 
 
 def _ambil(w):
+    import gzip, json, urllib.parse
+    import jaringan
     if not NOMOR.fullmatch(w):
         raise LookupError("bukan nomor kitab Waqfeya (bentuknya w + 8 huruf, dari `waqfeya \"<judul>\"`)")
     if ada(w):
@@ -224,6 +323,7 @@ def _ambil(w):
 @functools.lru_cache(maxsize=16)
 def ocr(w, n):
     """Teks OCR tiap halaman berkas n (mulai 1), urut halaman PDF."""
+    import gzip
     p = folder(w) / f"{n}.txt.gz"
     if not p.exists():
         raise SystemExit(f"Kitab Waqfeya {w} tidak punya berkas {n}; yang ada: " + _daftar_berkas(w))
@@ -420,6 +520,7 @@ def liputan(q, teks):
     huruf OCR. Pustaka bawaan Python saja, supaya putusan `cek` tidak bergantung pustaka opsional."""
     if not q:
         return 1.0
+    import difflib
     m = difflib.SequenceMatcher(None, q, teks, autojunk=False)
     return sum(b.size for b in m.get_matching_blocks() if b.size >= 3) / len(q)
 

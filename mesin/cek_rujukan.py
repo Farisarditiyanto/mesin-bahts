@@ -20,18 +20,23 @@ TAKHRIJ_OLEH = re.compile(r"(?<!\w)(?:أخرج|خرج|رو[ىا])(?:ه|ها|هم
                           + "|".join(re.escape(b) for bb in MUKHARRIJ for b in sorted(bb, key=len, reverse=True)) + r")(?!\w)")
 
 
+@shamela.cache_kitab()
+def _nama_kitab_pasangan(title, author):
+    judul, pengarang = [], []
+    for j in shamela.judul_pokok(title):
+        judul.append(" ".join(shamela.kata_judul(j)[:2]))
+    for p in author.split("،"):
+        pengarang += [p, p.split()[-1]] if p.split() else []
+    rapi = lambda xx: frozenset(x for x in map(norma.padat, xx) if len(x) >= 3)
+    return rapi(judul), rapi(pengarang)
+
+
 def _nama_kitab(m):
     """(judul, pengarang): bentuk `padat` yang menandai kitab bukti (metadata m) disebut di catatan kaki. Judul = dua kata
     awal tiap judulnya (judul katalog bisa «تفسير السعدي = تيسير الكريم الرحمن»; pengarang yang ditempel di judul
     dibuang; judul satu kata = kata itu). Pengarang = nama utuh dan kata terakhirnya (nisbah: «أبو إسحاق الشاطبي» ditulis
     «الشاطبي»)."""
-    judul, pengarang = [], []
-    for j in shamela.judul_pokok(m["title_ar"]):
-        judul.append(" ".join(shamela.kata_judul(j)[:2]))
-    for p in (m.get("main_author_name_ar") or "").split("،"):
-        pengarang += [p, p.split()[-1]] if p.split() else []
-    rapi = lambda xx: {x for x in map(norma.padat, xx) if len(x) >= 3}
-    return rapi(judul), rapi(pengarang)
+    return _nama_kitab_pasangan(m["title_ar"], m.get("main_author_name_ar") or "")
 
 
 SYARAH = re.compile(r"شرح|حاشي|تعليق|(?<!\w)على(?!\w)")  # judul kitab bukti yang memuat matan kitab lain
@@ -266,6 +271,12 @@ MAJALAH = "مجلة"  # judul jurnal: terbitannya belum tentu ada di Shamela, ja
 PENGARANG_SESUDAH = shamela.PENGARANG_SESUDAH  # «… للشيخ ابن عثيمين»
 
 
+@shamela.cache_kitab()
+def _lokal():
+    """Himpunan nomor kitab lokal; dikosongkan otomatis oleh `shamela.lepas`."""
+    return frozenset(shamela.punya())
+
+
 def judul_shamela(isi):
     """Judul kitab Shamela yang disebut di catatan kaki: (judul, nomor yang persis, nomor yang mirip).
     Persis = bagian pertama catatan kaki (sampai tanda baca; tempat judul) utuh sama dengan judul katalog, atau judul
@@ -280,8 +291,8 @@ def judul_shamela(isi):
             persis, mirip = shamela.nomor_judul(judul)
             # judul satu kata (السعادة، الخلافة) terlalu umum: buku luar bisa berjudul sama. Di bagian sesudah yang pertama
             # (mis. «ابن عثيمين، رسالة في القضاء والقدر») hanya judul kitab yang sudah diunduh: yang itu pasti bisa dicek
-            utuh = n >= 2 and (n == len(kata) or PENGARANG_SESUDAH.match(kata[n])) and (i == 0 or set(persis) & set(shamela.punya()))
-            if persis and utuh and not judul.startswith(MAJALAH):
+            utuh = persis and n >= 2 and (n == len(kata) or PENGARANG_SESUDAH.match(kata[n])) and (i == 0 or any(s in _lokal() for s in persis))
+            if utuh and not judul.startswith(MAJALAH):
                 return judul, persis, []
             if (persis or mirip) and not mirip_awal[0]:
                 mirip_awal = (judul, [], persis + mirip)
@@ -387,13 +398,16 @@ def judul_di_baris(bentuk, teks):
     return skor_judul(bentuk, teks) > 0
 
 
+def _skor_judul_siap(bentuk, kata, awal):
+    return max([len(j) for j in bentuk if termuat(j, kata)]
+               + [len(awal) - 0.5 for j in bentuk if len(awal) >= 2 and j[:len(awal)] == awal], default=0)
+
+
 def skor_judul(bentuk, teks):
     """Panjang padanan judul terbaik `bentuk` di `teks` (jumlah kata; 0 = tidak menyebut): bentuk yang termuat utuh,
     atau judul `teks` yang jadi awal sebuah bentuk (setengah kata lebih rendah: «معاني القرآن» lebih dekat ke kitab
     berjudul persis itu daripada ke «معاني القرآن وإعرابه»)."""
-    kata, awal = kata_rujukan(teks), _judul_baris(teks)
-    return max([len(j) for j in bentuk if termuat(j, kata)]
-               + [len(awal) - 0.5 for j in bentuk if len(awal) >= 2 and j[:len(awal)] == awal], default=0)
+    return _skor_judul_siap(bentuk, kata_rujukan(teks), _judul_baris(teks))
 
 
 def _kitab_bukti(kunci):
@@ -436,6 +450,7 @@ def kitab_tanpa_pustaka(penunjuk, pustaka_baris):
     (`judul_di_baris`), atau satu bagian catatan kakinya yang tiga kata atau lebih (judul penelitian, nama peneliti), di
     luar bagian milik kitab lain, termuat utuh di tepat satu baris #R."""
     baris = {n: kata_rujukan(t) for n, t in pustaka_baris}
+    awal_baris = {n: _judul_baris(t) for n, t in pustaka_baris}
     pengarang_baris = {n: _tanpa_al(_tanpa_judul(t)) for n, t in pustaka_baris}
     kitab, data = {}, {}  # kunci -> catatan kaki pertama, judul/pengarang tertulis, bagian; kunci -> _kitab_bukti
     for p in penunjuk:
@@ -453,10 +468,11 @@ def kitab_tanpa_pustaka(penunjuk, pustaka_baris):
         # tiap bagian milik kitab dengan padanan judul terpanjang; seri diputus pengarang katalog yang disebut bagian itu
         punya = {k: [] for k in semua}
         for b in bagian:
-            skor = {k: skor_judul(data[k][1], b) for k in semua if data[k]}
+            kb_b, aw_b = kata_rujukan(b), _judul_baris(b)
+            skor = {k: _skor_judul_siap(data[k][1], kb_b, aw_b) for k in semua if data[k]}
             puncak = [k for k, v in skor.items() if v and v == max(skor.values())]
             if len(puncak) > 1:
-                kb = _tanpa_al(kata_rujukan(b))
+                kb = _tanpa_al(kb_b)
                 puncak = [k for k in puncak if any(termuat(c, kb) for c in data[k][2])]
             if len(puncak) == 1:
                 punya[puncak[0]].append(b)
@@ -481,10 +497,10 @@ def kitab_tanpa_pustaka(penunjuk, pustaka_baris):
             k["nama"], bentuk, ciri[kunci] = data[kunci]
             bentuk = bentuk + [kb for kb in map(kata_rujukan, k["tertulis"]) if kb]
             ciri[kunci] = ciri[kunci] + _nama(k["pengarang"])
-            calon[kunci] = {n for n, t in pustaka_baris if judul_di_baris(bentuk, t)}
+            calon[kunci] = {n for n, _ in pustaka_baris if _skor_judul_siap(bentuk, baris[n], awal_baris[n]) > 0}
         elif kunci.startswith(f"{LUAR}|"):
             judul = [kb for kb in map(kata_rujukan, k["tertulis"]) if kb]
-            if sum(judul_di_baris(judul, t) for _, t in pustaka_baris) > 1:
+            if sum(_skor_judul_siap(judul, baris[n], awal_baris[n]) > 0 for n, _ in pustaka_baris) > 1:
                 judul = []  # «بنك إندونيسيا»: lembaga atau peneliti di tempat judul, disebut banyak baris
             bentuk = [kb for kb in map(kata_rujukan, k["bagian"]) if sum(not x.isdecimal() for x in kb) >= 3]
             if not judul and not bentuk:
@@ -492,7 +508,7 @@ def kitab_tanpa_pustaka(penunjuk, pustaka_baris):
             # bagian yang ada di banyak baris (penerbit, nama jurnal, kampus) tidak menunjuk satu sumber
             bentuk = [j for j in bentuk if sum(termuat(j, kb) for kb in baris.values()) == 1]
             k["nama"] = f"«{(k['tertulis'] or k['bagian'])[0]}» (<<{kunci}|…>>)"
-            calon[kunci] = {n for n, t in pustaka_baris if judul and judul_di_baris(judul, t)
+            calon[kunci] = {n for n, _ in pustaka_baris if judul and _skor_judul_siap(judul, baris[n], awal_baris[n]) > 0
                             or any(termuat(j, baris[n]) for j in bentuk)}
     hasil = []
     for kunci, nn in calon.items():
