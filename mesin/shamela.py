@@ -3,7 +3,7 @@
 AuthenticIlm/Shamela4_Full_DB ke folder kitab/, lalu cari kutipan secara offline
 (tanpa kredit, tanpa internet). Dipanggil lewat bahts.py.
 """
-import bisect, functools, gzip, hashlib, json, re, urllib.parse, zlib
+import array, bisect, collections, functools, gzip, hashlib, itertools, json, os, re, struct, sys, urllib.parse, zlib
 from pathlib import Path
 
 import cocok, gelar, norma
@@ -315,6 +315,106 @@ def ambil_satu(sid):
     print(f"{sid} OK  {r['title_ar']}  ({mb:.1f} MB)")
 
 
+_PADAT_UKURAN = {n: array.array(norma.Padat.JENIS[n]).itemsize for n in norma.Padat.DERET}
+_PADAT_STRUCT = {n: struct.Struct(norma.Padat.JENIS[n]) for n in ("mulai", "ruas")}
+
+
+def _kena_bagian(mentah, base, end, mulai, qb, j0):
+    """Indeks rekaman (urut naik) yang bagian ini memuat `qb` (tidak melintasi batas rekaman), mulai dari letak `j0`."""
+    qlen, j = len(qb), j0
+    while j >= 0:
+        rel = j - base
+        i = bisect.bisect_right(mulai, rel) - 1
+        batas = mulai[i + 1]
+        if rel + qlen <= batas:
+            yield i
+            j = mentah.find(qb, base + batas, end)
+        else:
+            j = mentah.find(qb, j + 1, end)
+
+
+def _kena_urut(mentah, awal_isi, teks_span, deret, qb, j_awal):
+    """Indeks rekaman (urut naik, unik) yang salah satu bagiannya memuat `qb`, dihitung malas (berhenti begitu cukup)."""
+    it = [iter(_kena_bagian(mentah, awal_isi + a, awal_isi + z, d["mulai"], qb, j0))
+          for (a, z), d, j0 in zip(teks_span, deret, j_awal) if j0 >= 0]
+    kepala = [next(g, None) for g in it]
+    while True:
+        pilih = None
+        for v in kepala:
+            if v is not None and (pilih is None or v < pilih):
+                pilih = v
+        if pilih is None:
+            return
+        yield pilih
+        for idx, v in enumerate(kepala):
+            if v == pilih:
+                kepala[idx] = next(it[idx], None)
+
+
+def _baca_padat_kena(sid, q, qb, sumber):
+    """Seperti `(padat_kitab(sid), iter(padat_.kena(q)))`, membaca `padat-*.bin` sekali dengan verifikasi penuh
+    (kepala, panjang, EOF, crc32, bentuk deret). Kitab yang tidak memuat `qb` langsung mengembalikan `(None, None)`
+    tanpa menyalin/mengurai deret; berkas rusak/usang/hilang jatuh kembali ke `norma.cache`."""
+    f = folder(sid) / f"padat-{norma.VERSI}.bin"
+    deret_nama, jenis = norma.Padat.DERET, norma.Padat.JENIS
+    try:
+        mentah = f.read_bytes()
+        nl = mentah.find(b"\n", 0, 1 << 16)
+        if nl < 0:
+            kepala = None
+        else:
+            kepala = json.loads(mentah[:nl])
+            panjang = kepala["panjang"]
+            if (kepala["sumber"] != sumber or kepala["urutan"] != sys.byteorder
+                    or len(panjang) != len(BAGIAN) * (1 + len(deret_nama))
+                    or not all(type(n) is int and n >= 0 for n in panjang)):
+                kepala = None
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        kepala = None
+    awal_isi = nl + 1 if kepala is not None else 0
+    if kepala is not None and len(mentah) - awal_isi == sum(panjang):
+        mv = memoryview(mentah)[awal_isi:]
+        if zlib.crc32(mv) == kepala.get("crc32"):
+            teks_span, deret_span, pos, k, n_rek_0, sah = [], [], 0, 0, None, True
+            for _ in BAGIAN:
+                t_len = panjang[k]; teks_span.append((pos, pos + t_len)); pos += t_len; k += 1
+                off, cnt = {}, {}
+                for n in deret_nama:
+                    d_len = panjang[k]
+                    if d_len % _PADAT_UKURAN[n]:
+                        sah = False
+                        break
+                    cnt[n] = d_len // _PADAT_UKURAN[n]
+                    off[n] = (pos, pos + d_len)
+                    pos += d_len; k += 1
+                if not sah:
+                    break
+                n_rek = cnt["mulai"]
+                if n_rek_0 is None:
+                    n_rek_0 = n_rek
+                if not (n_rek == cnt["ruas"] == n_rek_0 and n_rek
+                        and _PADAT_STRUCT["mulai"].unpack_from(mv, off["mulai"][1] - _PADAT_UKURAN["mulai"])[0] == t_len
+                        and _PADAT_STRUCT["ruas"].unpack_from(mv, off["ruas"][1] - _PADAT_UKURAN["ruas"])[0] == cnt["awal"]
+                        and all(cnt[x] == cnt["awal"] for x in ("akhir", "h1", "h2"))):
+                    sah = False
+                    break
+                deret_span.append(off)
+            if sah:
+                j_awal = [mentah.find(qb, awal_isi + a, awal_isi + z) for a, z in teks_span]
+                if all(j < 0 for j in j_awal):
+                    return None, None
+                teks_ = [mv[a:z] for a, z in teks_span]
+                deret = [{n: mv[a:z].cast(jenis[n]) for n, (a, z) in off.items()} for off in deret_span]
+                gen = _kena_urut(mentah, awal_isi, teks_span, deret, qb, j_awal)
+                pertama = next(gen, None)
+                if pertama is None:
+                    return None, None
+                return norma.Padat(teks_, deret), itertools.chain((pertama,), gen)
+    padat_ = norma.cache(folder(sid), sumber)
+    kena = padat_.kena(q)
+    return (padat_, iter(kena)) if kena else (None, None)
+
+
 def padat_kitab(sid):
     """`norma.Padat` kitab sid: teks `padat` seluruh kitab, dibaca dari berkasnya (atau dibuat sekali)."""
     return norma.cache(folder(sid), _sidik(sid))
@@ -347,17 +447,18 @@ class _Lompat:
     BLOK_MAKS = 32
     blok = {}  # (pembaca, nomor titik) -> isi blok itu, urut terakhir dipakai; bersama semua kitab
 
-    def __init__(self, f):
+    def __init__(self, f, blok=None):
         self.f = f
+        self._blok = self.blok if blok is None else blok
         self.titik = [(0, 0, zlib.decompressobj(31))]  # urut letak isi; titik terakhir = sejauh mana sudah dibaca
         self.ujung = False  # akhir berkas sudah tercapai
         self.utuh = None  # isi utuh, hanya untuk .gz beranggota banyak
 
     def _buka(self, k):
         """Isi dari titik k sampai titik k+1 (titik k+1 dibuat dulu kalau belum ada); b"" kalau k = akhir berkas."""
-        if (self, k) in self.blok:
-            self.blok[self, k] = self.blok.pop((self, k))
-            return self.blok[self, k]
+        if (self, k) in self._blok:
+            self._blok[self, k] = self._blok.pop((self, k))
+            return self._blok[self, k]
         isi, letak, z = self.titik[k]
         z, keluar, n = z.copy(), [], 0
         with open(self.f, "rb") as h:
@@ -378,9 +479,9 @@ class _Lompat:
                 if n:
                     self.titik.append((isi + n, letak, z.copy()))
         hasil = b"".join(keluar)
-        self.blok[self, k] = hasil
-        if len(self.blok) > self.BLOK_MAKS:
-            del self.blok[next(iter(self.blok))]
+        self._blok[self, k] = hasil
+        if len(self._blok) > self.BLOK_MAKS:
+            del self._blok[next(iter(self._blok))]
         return hasil
 
     def baca(self, a, z=None):
@@ -446,13 +547,14 @@ def _sidik_indeks(d):
     return hashlib.sha256(json.dumps(isi, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf8")).hexdigest()
 
 
-def _baca_indeks(sid):
+def _baca_indeks(sid, sumber=None):
     """Isi indeks.json kitab sid kalau sah untuk berkas .gz-nya sekarang; None = rusak, lama, atau tidak ada."""
     try:
-        d = json.loads((folder(sid) / INDEKS).read_text(encoding="utf8"))
+        d = json.loads((folder(sid) / INDEKS).read_bytes())
         kolom, awal, panjang = [d["juz"], d["hal"], d["akhir"], d["letak"]], d["awal"], d["panjang"]
         letak = kolom[3]
-        if (d["versi"] == INDEKS_VERSI and d["sumber_gz"] == _sidik(sid) and d["sidik_isi"] == _sidik_indeks(d)
+        if (d["versi"] == INDEKS_VERSI and d["sumber_gz"] == (_sidik(sid) if sumber is None else sumber)
+                and d["sidik_isi"] == _sidik_indeks(d)
                 and type(panjang) is int
                 and all(type(x) is list and len(x) == len(awal) for x in kolom + [awal])
                 and set(map(type, awal)) <= {int, type(None)} and set(map(type, letak)) <= {int}
@@ -463,7 +565,7 @@ def _baca_indeks(sid):
     return None
 
 
-def _bangun_indeks(sid):
+def _bangun_indeks(sid, sumber=None):
     """(indeks, awal, sp) dari seluruh isi kitab, lalu disimpan ke indeks.json. sp = shamela_page_id tiap rekaman
     (nomor halaman di layanan Shamela: tafsir per ayat dan takhrij silang menunjuk rekaman lewat nomor ini)."""
     mentah = _isi(sid)
@@ -480,12 +582,81 @@ def _bangun_indeks(sid):
     try:
         with sementara(folder(sid) / INDEKS) as part:
             kolom = dict(zip(("juz", "hal", "akhir", "letak"), map(list, zip(*isi)))) if isi else dict.fromkeys(("juz", "hal", "akhir", "letak"), [])
-            d = {"versi": INDEKS_VERSI, "sumber_gz": _sidik(sid), "panjang": len(mentah), **kolom, "awal": awal, "sp": sp}
+            d = {"versi": INDEKS_VERSI, "sumber_gz": _sidik(sid) if sumber is None else sumber, "panjang": len(mentah), **kolom, "awal": awal, "sp": sp}
             d["sidik_isi"] = _sidik_indeks(d)
             part.write_text(json.dumps(d, ensure_ascii=False), encoding="utf8")
     except OSError:
         pass
     return isi, awal, sp
+
+
+def _letak_lokal(sid, sumber):
+    """Daftar letak byte tiap rekaman kitab sid dengan `sumber` yang sudah dihitung, tanpa menyentuh cache bersama."""
+    d = _baca_indeks(sid, sumber)
+    if d is not None:
+        return d["letak"]
+    return [r[3] for r in _bangun_indeks(sid, sumber)[0]]
+
+
+def _rekaman_maju(gz_bytes, letak, urut):
+    """Hasilkan `(i, rekaman)` pada indeks `urut` (urut naik) dari isi .gz di memori sekali jalan tanpa membuka ulang berkas."""
+    zobj = zlib.decompressobj(31)
+    mv = memoryview(gz_bytes)
+    gz_len, gz_pos = len(gz_bytes), 0
+    buf, off, pos, utuh = b"", 0, 0, None  # isi tersisa = buf[off:] dimulai pada offset byte `pos`
+    for i in urut:
+        a = letak[i]
+        z = letak[i + 1] if i + 1 < len(letak) else None
+        if utuh is not None:
+            yield i, json.loads(utuh[a:z])
+            continue
+        sisa = len(buf) - off
+        while pos + sisa <= a and not zobj.eof and gz_pos < gz_len:
+            pos += sisa
+            jarak = a - pos
+            step = 1 << 18 if jarak > 200_000 else 1 << 15
+            akhir = min(gz_pos + step, gz_len)
+            buf = zobj.decompress(mv[gz_pos:akhir])
+            off, sisa = 0, len(buf)
+            gz_pos = akhir
+            if zobj.eof and (zobj.unused_data + gz_bytes[gz_pos:]).strip(b"\0"):
+                utuh = gzip.decompress(gz_bytes)
+                break
+        if utuh is not None:
+            yield i, json.loads(utuh[a:z])
+            continue
+        if a > pos:
+            off += a - pos
+            pos = a
+        if z is None:
+            bagian = [buf[off:]]
+            while not zobj.eof and gz_pos < gz_len:
+                akhir = min(gz_pos + (1 << 15), gz_len)
+                bagian.append(zobj.decompress(mv[gz_pos:akhir]))
+                gz_pos = akhir
+                if zobj.eof and (zobj.unused_data + gz_bytes[gz_pos:]).strip(b"\0"):
+                    utuh = gzip.decompress(gz_bytes)
+                    break
+            yield i, json.loads(utuh[a:z] if utuh is not None else b"".join(bagian))
+            continue
+        perlu = z - a
+        if len(buf) - off < perlu:
+            bagian, ada = [buf[off:]], len(buf) - off
+            while ada < perlu and not zobj.eof and gz_pos < gz_len:
+                akhir = min(gz_pos + (1 << 15), gz_len)
+                d = zobj.decompress(mv[gz_pos:akhir])
+                gz_pos = akhir
+                bagian.append(d); ada += len(d)
+                if zobj.eof and (zobj.unused_data + gz_bytes[gz_pos:]).strip(b"\0"):
+                    utuh = gzip.decompress(gz_bytes)
+                    break
+            if utuh is not None:
+                yield i, json.loads(utuh[a:z])
+                continue
+            buf, off = b"".join(bagian), 0
+        yield i, json.loads(buf[off:off + perlu])
+        off += perlu
+        pos = z
 
 
 @cache_kitab()
@@ -505,12 +676,12 @@ def nama_juz(part):
     return "-" if part is None else part
 
 
-def _temuan(sid, frasa, potongan=False):
+def _temuan(sid, frasa, potongan=False, *, padat_=None, kena=None, rekaman_=None):
     """Tiap tempat frasa di kitab sid, satu per bagian rekaman: (rekaman, bagian, tanda, letak (awal, akhir) di teks `padat`,
     halaman, kata utuh?). Letaknya kecocokan kata utuh (`cocok.frasa_utuh`) pertama; tidak ada → kecocokan pertama, utuh False.
     potongan=True: kecocokan pertama apa pun (perilaku lama, untuk mencari potongan kata)."""
     q, kata = cocok.kunci_frasa(frasa), cocok.kata_dalam(frasa)
-    for p in berisi(sid, q):
+    for p in berisi(sid, q, padat_=padat_, kena=kena, rekaman_=rekaman_):
         for bagian, tanda in BAGIAN:
             semua = list(cocok.semua_letak(p, q, bagian))
             if not semua:
@@ -532,13 +703,13 @@ CARI_SEMUA_MAKS = 40  # baris `cari semua` yang dicetak; frasa umum di ratusan k
 CARI_SEMUA_PER_KITAB = 4
 
 
-def _cari_satu(sid, frasa, konteks, maks, potongan, sekilas=False):
+def _cari_satu(sid, frasa, konteks, maks, potongan, sekilas=False, *, padat_=None, kena=None, rekaman_=None):
     """Cetak paling banyak maks tempat frasa di kitab sid; kembalikan (dicetak, tempat cocok, tempat potongan kata saja,
     seluruh kitab sudah dipilah?). sekilas=True (`cari semua`): berhenti begitu maks tempat (paling sedikit satu) dicetak,
     supaya kata umum di ratusan kitab tidak memilah ribuan rekaman; hitungannya lalu belum lengkap."""
     q = cocok.kunci_frasa(frasa)
     tampil = jumlah = lain = 0
-    for p, bagian, tanda, c, h, utuh in _temuan(sid, frasa, potongan):
+    for p, bagian, tanda, c, h, utuh in _temuan(sid, frasa, potongan, padat_=padat_, kena=kena, rekaman_=rekaman_):
         if not (utuh or potongan):
             lain += 1
             continue
@@ -556,6 +727,31 @@ def _cari_satu(sid, frasa, konteks, maks, potongan, sekilas=False):
     return tampil, jumlah, lain, True
 
 
+def _scan_buku(sid, q, qb):
+    """Pindai satu kitab di utas pekerja: baca & sidik .gz sekali, cek padat sekali, muat letak indeks bila cocok."""
+    gz_bytes = (folder(sid) / "pages.jsonl.gz").read_bytes()
+    sumber = hashlib.sha256(gz_bytes).hexdigest()
+    padat_, kena = _baca_padat_kena(sid, q, qb, sumber)
+    if kena is None:
+        return sid, None, None, None, None
+    return sid, gz_bytes, _letak_lokal(sid, sumber), padat_, kena
+
+
+def _hitung_buku_siap(sid, frasa, konteks, potongan, gz_bytes, letak_, padat_, kena):
+    """Hitung kecocokan satu kitab sesudah kuota cetak `cari semua` penuh (maks=0, tanpa cetak)."""
+    if kena is None:
+        return False, 0, True
+    _, c, lain, habis = _cari_satu(sid, frasa, konteks, 0, potongan, sekilas=True,
+                                   padat_=padat_, rekaman_=_rekaman_maju(gz_bytes, letak_, kena))
+    return bool(c), lain, habis and c == 0
+
+
+def _hitung_buku(sid, frasa, konteks, q, qb, potongan):
+    """Pindai dan hitung satu kitab secara mandiri di utas pekerja (maks=0, tanpa cetak)."""
+    _, gz_bytes, letak_, padat_, kena = _scan_buku(sid, q, qb)
+    return _hitung_buku_siap(sid, frasa, konteks, potongan, gz_bytes, letak_, padat_, kena)
+
+
 def cari(sid, frasa, konteks=90, maks=15, potongan=False):
     """Cari frasa di satu kitab; sid "semua" = di semua kitab yang sudah diunduh (paling banyak CARI_SEMUA_MAKS baris,
     lalu ringkasan jumlah kitab dan tempat yang cocok). Bawaan: frasa cocok sebagai kata utuh (`cocok.frasa_utuh`); tempat yang
@@ -563,14 +759,48 @@ def cari(sid, frasa, konteks=90, maks=15, potongan=False):
     Kembalikan jumlah tempat yang cocok."""
     if sid == "semua":
         q = cocok.kunci_frasa(frasa)
+        qb = norma.bait(q)
+        semua = punya()
         tampil = kitab_n = lain_n = 0
         lengkap = True  # semua tempat yang cocok sudah dicetak
-        for s in punya():
-            if padat_kitab(s).kena(q):  # saringan cepat; rekaman lain tidak dibaca
-                t, c, lain, habis = _cari_satu(s, frasa, konteks, min(CARI_SEMUA_PER_KITAB, CARI_SEMUA_MAKS - tampil),
-                                               potongan, sekilas=True)
-                tampil, kitab_n, lain_n, lengkap = tampil + t, kitab_n + bool(c), lain_n + lain, lengkap and habis and c == t
-            lepas()  # yang dibaca dari kitab yang sudah selesai tidak menumpuk
+        if len(semua) <= 1:
+            for s in semua:
+                _, gz_bytes, letak_, padat_, kena = _scan_buku(s, q, qb)
+                if kena is not None:
+                    t, c, lain, habis = _cari_satu(s, frasa, konteks, min(CARI_SEMUA_PER_KITAB, CARI_SEMUA_MAKS - tampil),
+                                                   potongan, sekilas=True, padat_=padat_,
+                                                   rekaman_=_rekaman_maju(gz_bytes, letak_, kena))
+                    tampil, kitab_n, lain_n, lengkap = tampil + t, kitab_n + bool(c), lain_n + lain, lengkap and habis and c == t
+        else:
+            import concurrent.futures
+            pekerja = min(8, os.cpu_count() or 4, len(semua))
+            jendela = pekerja * 2
+            with concurrent.futures.ThreadPoolExecutor(max_workers=pekerja) as pool:
+                antre = collections.deque(pool.submit(_scan_buku, s, q, qb) for s in semua[:jendela])
+                idx = jendela
+                while antre and tampil < CARI_SEMUA_MAKS:
+                    s, gz_bytes, letak_, padat_, kena = antre.popleft().result()
+                    if idx < len(semua):
+                        antre.append(pool.submit(_scan_buku, semua[idx], q, qb))
+                        idx += 1
+                    if kena is not None:
+                        t, c, lain, habis = _cari_satu(s, frasa, konteks, min(CARI_SEMUA_PER_KITAB, CARI_SEMUA_MAKS - tampil),
+                                                       potongan, sekilas=True, padat_=padat_,
+                                                       rekaman_=_rekaman_maju(gz_bytes, letak_, kena))
+                        tampil, kitab_n, lain_n, lengkap = tampil + t, kitab_n + bool(c), lain_n + lain, lengkap and habis and c == t
+                if antre or idx < len(semua):
+                    futs = []
+                    while antre:
+                        s, gz_bytes, letak_, padat_, kena = antre.popleft().result()
+                        if kena is not None:
+                            futs.append(pool.submit(_hitung_buku_siap, s, frasa, konteks, potongan, gz_bytes, letak_, padat_, kena))
+                    for s in semua[idx:]:
+                        futs.append(pool.submit(_hitung_buku, s, frasa, konteks, q, qb, potongan))
+                    for fut in concurrent.futures.as_completed(futs):
+                        ada, lain, tuntas = fut.result()
+                        kitab_n += ada
+                        lain_n += lain
+                        lengkap = lengkap and tuntas
         if not kitab_n:
             print("TIDAK KETEMU di kitab mana pun" + (" sebagai kata utuh" if lain_n else "") + ":", frasa)
         elif not lengkap:
@@ -733,17 +963,38 @@ OTOMATIS = re.compile("مرقمة? آليا|بترقيم الشاملة")
 def rekaman_di(sid, nomor):
     """Rekaman ke-n kitab sid untuk tiap n di `nomor` (urut berkas), dibaca bergeser maju di berkas .gz: kitab tidak
     dibuka utuh ke memori dan bacaan berhenti di rekaman terakhir yang diminta (satu halaman kitab besar: ±3 detik -> ±0,5)."""
+    urut = sorted(nomor)
+    if not urut:
+        return
     ix, isi = indeks(sid), _lompat(sid)
-    for i in sorted(nomor):
+    for i in urut:
         yield json.loads(isi.baca(ix[i][3], ix[i + 1][3] if i + 1 < len(ix) else None))
 
 
-def berisi(sid, q):
+def berisi(sid, q, *, padat_=None, kena=None, rekaman_=None):
     """Rekaman kitab sid yang memuat q (sudah `padat`), urut berkas, dengan cache `padat`-nya. Rekaman lain tidak diurai."""
-    if not (folder(sid) / "pages.jsonl.gz").exists():
-        raise _belum(sid)
-    padat_ = padat_kitab(sid)
-    kena = padat_.kena(q)
+    if rekaman_ is not None:
+        for i, p in rekaman_:
+            yield padat_.isi(p, i)
+        return
+    if padat_ is None and kena is None:
+        if not (folder(sid) / "pages.jsonl.gz").exists():
+            raise _belum(sid)
+        padat_, kena_it = _baca_padat_kena(sid, q, norma.bait(q), _sidik(sid))
+        if kena_it is None:
+            return
+        kena = list(kena_it)
+    else:
+        if padat_ is None:
+            if not (folder(sid) / "pages.jsonl.gz").exists():
+                raise _belum(sid)
+            padat_ = padat_kitab(sid)
+        if kena is None:
+            kena = padat_.kena(q)
+        else:
+            kena = list(kena)
+    if not kena:
+        return
     for i, p in zip(kena, rekaman_di(sid, kena)):
         yield padat_.isi(p, i)
 
