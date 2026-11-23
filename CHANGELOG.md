@@ -6,6 +6,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Performa: perintah rutin (`cek`, `bukti`, `tahap`, `tafsir`, `edisi`, `kitab`, dan `cari semua`) berjalan lebih cepat lewat pembacaan PDF per halaman, cache katalog dan indeks tafsir terverifikasi, pencarian biner katalog dan daftar isi, serta pemindaian pustaka lokal paralel tanpa mengubah hasil pemeriksaan.
 - Baru: `@tahun` menerima dua tahun hijriah satu tahun ajaran (mis. «١٤٤٨/١٤٤٩»), dicetak apa adanya dengan «هـ» di sampul.
 - Perbaikan: baris معاني المفردات sesudah bait («الكلمة: معناها.») menempel satu sama lain dan ke syarahnya, jadi daftar مفردات tidak terpotong antarhalaman.
 - Perbaikan: bait syair `#V` terakhir dari deretan bait menempel ke paragraf sesudahnya, jadi bait di baris akhir halaman tidak lagi terpisah dari syarahnya; deretan bait yang panjang tetap boleh terpotong antarhalaman.
