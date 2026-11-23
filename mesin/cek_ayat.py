@@ -23,6 +23,7 @@ AYAT_DARI_SURAH = re.compile(r"^(?:(?:انظر|ينظر)\s*:\s*)?(?:الآية|�
 SURAH_PADAT = {norma.padat(x) for x in SURAH}
 # huruf mushaf yang di ejaan imla'i jadi alif biasa: alif kecil («تَعَٰلَىٰ») dan alif wasl («ٱللَّهِ»)
 IMLAI = str.maketrans({"ٰ": "ا", "ٱ": "ا"})
+_IMLAI_POLOS = str.maketrans({**{chr(c): None for c in range(0x0600, 0x0700) if norma.HARAKAT.match(chr(c))}, "ٰ": "ا", "ٱ": "ا"})
 
 
 @functools.cache
@@ -34,9 +35,11 @@ def bentuk_ayat(teks):
     Kutipan kitab yang berhenti di tengah kalimat itu (39:67 sampai «سُبْحَانَهُ», الشرح الممتع ج3 ص23) tidak kehilangan
     apa pun, jadi cocok dengan teks utuhnya. Kalimat hormat dicari di ejaan imla'i-nya (huruf demi huruf sejajar dengan
     teks mushaf), lalu dibuang dari teks mushaf."""
+    polos = teks.translate(_IMLAI_POLOS)
+    if not norma.HORMAT.search(polos):
+        return (norma.padat(teks),)
     imlai = teks.translate(IMLAI)
     letak = [i for i, x in enumerate(imlai) if not norma.HARAKAT.match(x)]
-    polos = "".join(imlai[i] for i in letak)
     huruf = list(teks)
     for m in norma.HORMAT.finditer(polos):
         for i in letak[m.start():m.end()]:
@@ -219,7 +222,11 @@ def _tanding(spec, b):
     ("menang", None) kalau tidak ada. Potongan {Q:} diambil dari ayat utuhnya (kitab yang menambah satu huruf di depan
     potongan {Q:} yang pendek tidak boleh menang hanya karena potongannya pendek). Ayat {Q:} sendiri dan potongan
     yang kerangkanya sama dengan potongan {Q:} (ayat yang berulang) bukan saingan."""
-    nomor = ":".join(spec.split(":")[:2])
+    return _tanding_nomor(":".join(spec.split(":")[:2]), b)
+
+
+@functools.cache
+def _tanding_nomor(nomor, b):
     s, _, ayat_ = nomor.partition(":")
     x1, _, x2 = ayat_.partition("-")
     sendiri = {f"{s}:{n}" for n in range(int(x1), int(x2 or x1) + 1)}
@@ -236,11 +243,14 @@ def _tanding(spec, b):
             n = (Levenshtein.distance(w, kb, score_cutoff=milik[0] if milik else None), w)
             milik = min(milik, n) if milik else n
     beda, saingan = milik[0], None
-    bentuk = {}
-    for k, x in _quran_padat_nomor():
-        bentuk.setdefault(k, []).append(x)
+    bentuk = _quran_bentuk_map()
     jarak = lambda k: min(_jarak_ayat(x, b) for x in bentuk[k])
     jauh = functools.cache(lambda: min(_jarak_ayat(x, b) for x in bentuk_ayat(ayat(nomor)[0])))  # huruf lengkap {Q:}
+    if beda == 0:
+        for k, x in _quran_kerangka_nomor():
+            if k not in sendiri and kb in x and jarak(k) < jauh():
+                return "seri", k
+        return "menang", None
     for k, x in _quran_kerangka_nomor():
         for w in _calon(x, kb, beda) if k not in sendiri else ():
             if w == milik[1]:
@@ -271,6 +281,11 @@ def _jarak_ayat(a, b):
 
 
 @functools.cache
+def _quran_bentuk_map():
+    return {k: bentuk_ayat(v) for k, v in mushaf().items()}
+
+
+@functools.cache
 def _quran_kerangka_nomor():
     return [(k, kerangka(x)) for k, x in _quran_padat_nomor()]
 
@@ -283,7 +298,7 @@ def _quran_padat_nomor():
 def _di_quran(b):
     """Teks `padat` b termuat di salah satu ayat mushaf (juga tanpa alif, waw, ya, dan hamzah: ejaan imla'i)."""
     kb = kerangka(b)
-    return any(b in x or kb in kerangka(x) for _, x in _quran_padat_nomor())
+    return any(b in x for _, x in _quran_padat_nomor()) or any(kb in x for _, x in _quran_kerangka_nomor())
 
 
 def _kerangka_sama(a, b):

@@ -115,15 +115,35 @@ def katalog(pola):
 
 @functools.cache
 def _judul_padat():
-    """{judul `padat`: [nomor kitab]} dari katalog lokal; kosong kalau katalog atau pyarrow belum ada (cek tetap jalan)."""
+    """({judul `padat`: [nomor kitab]}, kunci terurut, [(urutan_katalog, [nomor kitab])]) dari katalog lokal;
+    kosong kalau katalog atau pyarrow belum ada (cek tetap jalan)."""
     try:
         daftar = isi_katalog()
     except SystemExit:
-        return {}
+        return {}, (), ()
     out = {}
     for r in daftar:
         out.setdefault(padat(r["title_ar"] or ""), []).append(int(r["shamela_id"]))
-    return out
+    urut = sorted(((j, idx, ss) for idx, (j, ss) in enumerate(out.items())), key=lambda t: t[0])
+    return out, tuple(t[0] for t in urut), tuple((t[1], t[2]) for t in urut)
+
+
+@functools.cache
+def _nomor_judul_padat(q):
+    semua, kunci, nilai = _judul_padat()
+    persis = semua.get(q, ())
+    if not kunci:
+        return tuple(persis), ()
+    i, n = bisect.bisect_left(kunci, q), len(kunci)
+    if i < n and kunci[i] == q:
+        i += 1
+    cocok_ = []
+    while i < n and kunci[i].startswith(q):
+        cocok_.append(nilai[i])
+        i += 1
+    if len(cocok_) > 1:
+        cocok_.sort()
+    return tuple(persis), tuple(s for _, ss in cocok_ for s in ss)
 
 
 def nomor_judul(judul):
@@ -132,27 +152,42 @@ def nomor_judul(judul):
     q = padat(judul)
     if len(q) < 6:
         return [], []
-    semua = _judul_padat()
-    return semua.get(q, []), [s for j, ss in semua.items() if j != q and j.startswith(q) for s in ss]
+    persis, mirip = _nomor_judul_padat(q)
+    return list(persis), list(mirip)
 
 
 # «المغني لابن قدامة»; nisbah pengarang yang ditempel «الأعلام للزركلي» (لل + nisbah berakhir ي), bukan «المدخل للفقه»
 PENGARANG_SESUDAH = re.compile(r"^(?:للشيخ|للإمام|للعلامة|للحافظ|للقاضي|لابن|لأبي|لأبى|لل[ء-ي]{2,}ي)$")
+_PISAH_STRIP = re.compile(r"\s+-\s+")
+_PISAH_SAMA = re.compile(r"\s+=\s+")
 
 
 def kata_judul(judul):
     """Kata judul sebelum pengarang tempelan («المغني لابن قدامة» -> [«المغني»])."""
     kata = judul.split()
-    return kata[:next((i for i, w in enumerate(kata) if i and PENGARANG_SESUDAH.match(w)), len(kata))]
+    for i in range(1, len(kata)):
+        w = kata[i]
+        if w[0] == "ل" and PENGARANG_SESUDAH.match(w):
+            return kata[:i]
+    return kata
 
 
 def judul_pokok(judul):
     """Judul katalog tanpa keterangan edisi sesudah « - » («صحيح مسلم - ت عبد الباقي»), dipecah di « = » (judul lain:
     «تفسير السعدي = تيسير الكريم الرحمن»), juga tanpa pengarang yang ditempel («المغني لابن قدامة» → «المغني»)."""
+    if not judul:
+        return []
+    utama = (_PISAH_STRIP.split(judul, 1)[0] if "-" in judul else judul).strip()
+    bagian = _PISAH_SAMA.split(utama) if "=" in utama else (utama,)
     out = []
-    for b in re.split(r"\s+=\s+", re.split(r"\s+-\s+", judul or "")[0].strip()):
-        out += [b, " ".join(kata_judul(b))]
-    return list(dict.fromkeys(x for x in out if x))
+    for b in bagian:
+        if not b:
+            continue
+        out.append(b)
+        kj = " ".join(kata_judul(b))
+        if kj and kj != b:
+            out.append(kj)
+    return list(dict.fromkeys(out)) if len(out) > 1 else out
 
 
 @functools.cache
@@ -162,37 +197,61 @@ def judul_pokok_padat():
         daftar = isi_katalog()
     except SystemExit:
         return {}
-    out = {}
+    out, pcache = {}, {}
     for r in daftar:
+        sid = int(r["shamela_id"])
         for b in judul_pokok(r["title_ar"]):
-            out.setdefault(padat(b), set()).add(int(r["shamela_id"]))
+            p = pcache.get(b)
+            if p is None:
+                p = pcache[b] = padat(b)
+            out.setdefault(p, set()).add(sid)
     return out
+
+
+@functools.cache
+def _nomor_pengarang_norm(awal):
+    out, kunci, nilai = _pengarang_kata()
+    if not awal or " " not in awal:
+        return frozenset(out.get(awal, ())) if awal.startswith("ال") and len(awal) >= 5 else frozenset()
+    hasil = set(out.get(awal, ()))
+    awalan = awal + " "
+    i, n = bisect.bisect_left(kunci, awalan), len(kunci)
+    while i < n and kunci[i].startswith(awalan):
+        hasil.update(nilai[i])
+        i += 1
+    return frozenset(hasil)
 
 
 def nomor_pengarang(nama):
     """main_author_id pengarang katalog yang namanya `nama`, atau diawali `nama` utuh sekata («ابن حجر» = ابن حجر
     العسقلاني dan ابن حجر الهيتمي). Nama satu kata hanya nisbah ber-«ال» yang persis sama («النووي»): «مسلم», «مالك»,
     «أحمد» juga kata biasa, dan satu kata tidak boleh jadi awalan nama orang lain."""
-    awal = norm(nama)
-    if not awal or " " not in awal:
-        return set(_pengarang_kata().get(awal, ())) if awal.startswith("ال") and len(awal) >= 5 else set()
-    return {i for j, ii in _pengarang_kata().items() if j == awal or j.startswith(awal + " ") for i in ii}
+    return set(_nomor_pengarang_norm(norm(nama)))
 
 
 @functools.cache
 def _pengarang_kata():
-    """{nama pengarang `norm` (berspasi, supaya «ابن حجر» tidak cocok dengan «ابن حجرة»): {main_author_id}}."""
+    """({nama pengarang `norm`: {main_author_id}}, kunci terurut, [{main_author_id}]) dari katalog lokal."""
     try:
         daftar = isi_katalog()
     except SystemExit:
-        return {}
-    out = {}
+        return {}, (), ()
+    out, norm_cache = {}, {}
     for r in daftar:
         nama = r["main_author_name_ar"] or ""
-        for b in {nama, *nama.split("،")}:
-            if norm(b):
-                out.setdefault(norm(b), set()).add(str(r["main_author_id"]))
-    return out
+        if not nama:
+            continue
+        aid = str(r["main_author_id"])
+        kunci_nama = norm_cache.get(nama)
+        if kunci_nama is None:
+            bagian = [norm(nama)]
+            if "،" in nama:
+                bagian += [norm(b) for b in nama.split("،")]
+            kunci_nama = norm_cache[nama] = tuple(dict.fromkeys(x for x in bagian if x))
+        for nb in kunci_nama:
+            out.setdefault(nb, set()).add(aid)
+    kunci = tuple(sorted(out))
+    return out, kunci, tuple(out[k] for k in kunci)
 
 
 @functools.cache
@@ -209,10 +268,15 @@ def asal(sid):
     return _asal().get(int(sid), (None, None))
 
 
+@functools.cache
+def _nomor_judul_pokok_padat(q):
+    return tuple(sorted(judul_pokok_padat().get(q, ())))
+
+
 def nomor_judul_pokok(judul):
     """Nomor kitab yang salah satu judul_pokok-nya persis `judul` («صحيح البخاري», «تيسير الكريم الرحمن»)."""
     q = padat(judul)
-    return sorted(judul_pokok_padat().get(q, ())) if len(q) >= 6 else []
+    return list(_nomor_judul_pokok_padat(q)) if len(q) >= 6 else []
 
 
 def letak(juz, h):
