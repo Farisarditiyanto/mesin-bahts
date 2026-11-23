@@ -46,6 +46,10 @@ def utama():
         assert r.returncode == 0 and "GAGAL: 0" in r.stdout, r.stdout + r.stderr
         assert "sampul 2" in r.stdout, r.stdout   # perkiraan halaman: sampul + halaman ayat
         print("lolos cek halaman depan: naskah dengan ketiga kunci lolos, halaman ayat ikut perkiraan")
+        tulis(akar, "tahun_dua", KEPALA + "@tahun: ١٤٤٨/١٤٤٩\n")  # dua tahun hijriah satu tahun ajaran
+        r = bahts(akar, "cek", "tahun_dua")
+        assert "@tahun" not in r.stdout, r.stdout + r.stderr
+        print("lolos cek halaman depan: @tahun dua tahun hijriah «١٤٤٨/١٤٤٩»")
         if alasan := tanpa_word():
             print("lewati uji halaman depan Word: " + alasan)
             return
