@@ -38,7 +38,7 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       sampul, mis. «المدح في العصر العباسي // لامية مروان بن أبي حفصة في مدح المهدي»; kata yang beda
                       dari @judul = GAGAL; « - » sub-judul di tempat pindah baris boleh dibuang, tidak tercetak di ujung
                       baris; tanpa barisnya judul dipecah di « - » saja; «@qism: -» = tanpa baris qism),
-                      tahun (العام الجامعي di sampul qism dan tahun sampul tengah, mis. ١٤٤٨; «١٤٤٨ - ٢٠٢٦» tercetak «١٤٤٨هـ – ٢٠٢٦م»;
+                      tahun (العام الجامعي di sampul qism dan tahun sampul tengah, mis. ١٤٤٨; «١٤٤٨/١٤٤٩» tercetak «١٤٤٨/١٤٤٩ هـ»; «١٤٤٨ - ٢٠٢٦» tercetak «١٤٤٨هـ – ٢٠٢٦م»;
                       bawaan = tahun hijriah Umm al-Qura saat tahun ajaran mulai, 1 Agustus),
                       berkas (nama file hasil), format (profil di format.json; bawaan imam),
                       catatan_kaki (bersambung = nomor catatan kaki ١، ٢، ٣ … sampai akhir bahts; ulang = mulai ١ lagi tiap halaman)
@@ -1104,9 +1104,9 @@ def _cek_sampul(ctx):
             ayat(meta["ayat_pembuka"].translate(ANGKA_LATIN))
         except TandaRusak as e:
             galat.append(di("@ayat_pembuka") + "@ayat_pembuka: " + re.sub(r"\{Q:([^}]*)\}", r"«\1»", str(e)))
-    if meta.get("tahun") and not re.fullmatch(r"[1١][34٣٤][0-9٠-٩]{2}(?:\s*[-–]\s*[12١٢][0-9٠-٩]{3})?", meta["tahun"]):
-        galat.append(di("@tahun") + f"@tahun: «{meta['tahun']}» bukan tahun hijriah 1300-1499 (mis. ١٤٤٨), atau hijriah - "
-                     "masehi (mis. «١٤٤٨ - ٢٠٢٦», tercetak «١٤٤٨هـ – ٢٠٢٦م»)")
+    if meta.get("tahun") and not re.fullmatch(r"[1١][34٣٤][0-9٠-٩]{2}(?:\s*[-–]\s*[12١٢][0-9٠-٩]{3}|\s*/\s*[1١][34٣٤][0-9٠-٩]{2})?", meta["tahun"]):
+        galat.append(di("@tahun") + f"@tahun: «{meta['tahun']}» bukan tahun hijriah 1300-1499 (mis. ١٤٤٨), dua tahun hijriah "
+                     "(mis. «١٤٤٨/١٤٤٩»), atau hijriah - masehi (mis. «١٤٤٨ - ٢٠٢٦», tercetak «١٤٤٨هـ – ٢٠٢٦م»)")
     # @templat: sampul diambil apa adanya dari Word mahasiswa; @sampul salah ketik: data wajib model mana pun belum pasti
     wajib = ("judul",) if kitab or meta.get("templat") or not sampul else SAMPUL[sampul]
     galat += [di("@" + k) + f"data sampul belum diisi: @{k}" for k in wajib if not meta.get(k)]
