@@ -102,20 +102,48 @@ def _ada(halaman, kutipan):
     return n > 0 and any(halaman[i:i + n] == kutipan for i in range(len(halaman) - n + 1))
 
 
+def _olah_halaman(halaman):
+    """(tuple sidik halaman (dipulihkan + urutan kata dibalik), jumlah huruf Arab) untuk satu halaman pypdf."""
+    mentah = unicodedata.normalize("NFKC", halaman.extract_text() or "")  # bentuk tampilan (ﻣﻠﻒ, ﳌ) -> huruf biasa
+    t = pulihkan_arab(mentah)
+    # Pemulihan satu baris tidak membuang pencocokan lama untuk baris lain di halaman yang sama.
+    ekstraksi = (t,) if t == mentah else (t, mentah)
+    varian = tuple(dict.fromkeys(s for teks in ekstraksi for s in (_sidik(teks), _sidik_urutan_balik(teks))))
+    return varian, len(ARAB.findall(t))
+
+
+class _DokPDF:
+    """Isi PDF yang diolah malas per halaman dan di-cache di memori."""
+
+    def __init__(self, berkas):
+        from pypdf import PdfReader
+        self._pages = PdfReader(berkas).pages
+        self._n = len(self._pages)
+        self._cache = {}
+
+    def __len__(self):
+        return self._n
+
+    def __getitem__(self, idx):
+        if idx < 0:
+            idx += self._n
+        if not 0 <= idx < self._n:
+            raise IndexError(idx)
+        hasil = self._cache.get(idx)
+        if hasil is None:
+            hasil = _olah_halaman(self._pages[idx])
+            self._cache[idx] = hasil
+        return hasil
+
+    def __iter__(self):
+        for i in range(self._n):
+            yield self[i]
+
+
 @functools.lru_cache(maxsize=None)
-def _baca(berkas, waktu):
-    """(tuple sidik halaman (dipulihkan + urutan kata dibalik), jumlah huruf Arab) tiap halaman.
-    `waktu` (saat berkas terakhir diubah) ikut kunci cache: PDF yang diganti dibaca ulang."""
-    from pypdf import PdfReader
-    hasil = []
-    for p in PdfReader(berkas).pages:
-        mentah = unicodedata.normalize("NFKC", p.extract_text() or "")  # bentuk tampilan (ﻣﻠﻒ, ﳌ) -> huruf biasa
-        t = pulihkan_arab(mentah)
-        # Pemulihan satu baris tidak membuang pencocokan lama untuk baris lain di halaman yang sama.
-        ekstraksi = (t,) if t == mentah else (t, mentah)
-        varian = tuple(dict.fromkeys(s for teks in ekstraksi for s in (_sidik(teks), _sidik_urutan_balik(teks))))
-        hasil.append((varian, len(ARAB.findall(t))))
-    return tuple(hasil)
+def _baca(berkas, mtime_ns, ukuran):
+    """`_DokPDF` malas per halaman; kunci cache (berkas, mtime_ns, ukuran): PDF yang diganti dibaca ulang."""
+    return _DokPDF(berkas)
 
 
 def _sidik_urutan_balik(teks):
@@ -123,14 +151,28 @@ def _sidik_urutan_balik(teks):
 
 
 def halaman(berkas):
-    """Isi PDF yang sudah diolah; berkas = Path. Galat pypdf (PDF rusak, bersandi) diteruskan ke pemanggil."""
-    return _baca(str(berkas), berkas.stat().st_mtime)
+    """Isi PDF yang diolah malas per halaman; berkas = Path. Galat pypdf (PDF rusak, bersandi) diteruskan ke pemanggil."""
+    st = berkas.stat()
+    return _baca(str(berkas), st.st_mtime_ns, st.st_size)
+
+
+def _cocok_halaman(varian, cari_):
+    return all(any(_ada(x, k) for x in varian) for k in cari_)
+
+
+def ada_di_rentang(isi, bagian, a, z):
+    """True bila ada halaman di rentang a..z (mulai 1, inklusif) yang memuat semua `bagian` kutipan."""
+    cari_ = [_sidik(b) for b in bagian]
+    for n in range(max(1, a), min(z, len(isi)) + 1):
+        if _cocok_halaman(isi[n - 1][0], cari_):
+            return True
+    return False
 
 
 def cari(isi, bagian):
     """Nomor halaman berkas (mulai 1) yang memuat semua `bagian` kutipan; isi = hasil `halaman`."""
     cari_ = [_sidik(b) for b in bagian]
-    return [n for n, (v, _) in enumerate(isi, 1) if all(any(_ada(x, k) for x in v) for k in cari_)]
+    return [n for n, (v, _) in enumerate(isi, 1) if _cocok_halaman(v, cari_)]
 
 
 def tanpa_teks(isi, n):
