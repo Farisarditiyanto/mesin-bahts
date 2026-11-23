@@ -12,6 +12,7 @@ bukti: teks PDF tidak bisa dipercaya seperti teks Shamela.
 """
 import functools, logging, re, unicodedata
 from collections import Counter
+from pathlib import Path
 
 from norma import HARAKAT, padat
 
@@ -117,8 +118,8 @@ class _DokPDF:
 
     def __init__(self, berkas):
         from pypdf import PdfReader
-        self._pages = PdfReader(berkas).pages
-        self._n = len(self._pages)
+        self.pages = PdfReader(berkas).pages
+        self._n = len(self.pages)
         self._cache = {}
 
     def __len__(self):
@@ -131,7 +132,7 @@ class _DokPDF:
             raise IndexError(idx)
         hasil = self._cache.get(idx)
         if hasil is None:
-            hasil = _olah_halaman(self._pages[idx])
+            hasil = _olah_halaman(self.pages[idx])
             self._cache[idx] = hasil
         return hasil
 
@@ -180,33 +181,44 @@ def tanpa_teks(isi, n):
     return isi[n - 1][1] < MIN_ARAB
 
 
-def _teks_rentang(berkas, a, z):
-    """(jumlah halaman total, [(nomor, teks bersih)]) halaman a..z (mulai 1)."""
-    pages = None
-    try:
-        import pymupdf
-        with pymupdf.open(berkas) as doc:
-            total = len(doc)
-            if z > total:
-                raise IndexError(f"PDF hanya {total} halaman")
-            baris = [(n, pulihkan_arab(doc[n - 1].get_text("text") or "")) for n in range(a, z + 1)]
-    except ImportError:
-        from pypdf import PdfReader
-        pages = PdfReader(berkas).pages
-        total = len(pages)
-        if z > total:
-            raise IndexError(f"PDF hanya {total} halaman")
-        baris = [(n, pulihkan_arab(pages[n - 1].extract_text() or "")) for n in range(a, z + 1)]
-    if any(HARAKAT_LEPAS.search(teks) for _, teks in baris):
-        from pypdf import PdfReader
+@functools.lru_cache(maxsize=16)
+def _buka_pymupdf(berkas, mtime_ns, ukuran):
+    """Buka PDF dari memori agar cache tidak menahan handle berkas di Windows."""
+    import pymupdf
+    return pymupdf.open(stream=Path(berkas).read_bytes(), filetype="pdf")
+
+
+@functools.lru_cache(maxsize=256)
+def _teks_halaman(berkas, mtime_ns, ukuran, n, pakai_pymupdf):
+    """Teks bersih satu halaman PDF (mulai 1), termasuk cadangan mode layout bila ada harakat lepas."""
+    if pakai_pymupdf:
+        teks = pulihkan_arab(_buka_pymupdf(berkas, mtime_ns, ukuran)[n - 1].get_text("text") or "")
+    else:
+        teks = pulihkan_arab(_baca(berkas, mtime_ns, ukuran).pages[n - 1].extract_text() or "")
+    if HARAKAT_LEPAS.search(teks):
         from pypdf.errors import PyPdfError
         try:
-            pages = PdfReader(berkas).pages if pages is None else pages
-            baris = [(n, _coba_tata_letak(pages[n - 1], teks) if HARAKAT_LEPAS.search(teks) else teks)
-                     for n, teks in baris]
+            pages = _baca(berkas, mtime_ns, ukuran).pages
+            teks = _coba_tata_letak(pages[n - 1], teks)
         except (OSError, PyPdfError, IndexError, TypeError, ValueError):
             pass  # pertahankan teks yang berhasil dibaca bila ekstraksi cadangan gagal
-    return total, baris
+    return teks
+
+
+def _teks_rentang(berkas, a, z):
+    """(jumlah halaman total, [(nomor, teks bersih)]) halaman a..z (mulai 1)."""
+    jalur = Path(berkas)
+    st = jalur.stat()
+    kunci = (str(jalur), st.st_mtime_ns, st.st_size)
+    try:
+        total = len(_buka_pymupdf(*kunci))
+        pakai_pymupdf = True
+    except ImportError:
+        total = len(_baca(*kunci))
+        pakai_pymupdf = False
+    if z > total:
+        raise IndexError(f"PDF hanya {total} halaman")
+    return total, [(n, _teks_halaman(*kunci, n, pakai_pymupdf)) for n in range(a, z + 1)]
 
 
 def _coba_tata_letak(halaman, teks):

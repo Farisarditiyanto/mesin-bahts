@@ -3,7 +3,7 @@
 AuthenticIlm/Shamela4_Full_DB ke folder kitab/, lalu cari kutipan secara offline
 (tanpa kredit, tanpa internet). Dipanggil lewat bahts.py.
 """
-import array, bisect, collections, functools, gzip, hashlib, itertools, json, os, re, struct, sys, urllib.parse, zlib
+import array, bisect, collections, functools, gzip, hashlib, itertools, json, operator, os, re, struct, sys, urllib.parse, zlib
 from pathlib import Path
 
 import cocok, gelar, norma
@@ -924,17 +924,20 @@ def teks(sid, frasa, lebar=260, maks=3, potongan=False):
 JUDUL = re.compile(r'data-type="?title"?\s+id="?toc-(\d+)')  # tanda judul di matan; nomornya = shamela_title_id di toc
 
 
-def judul_calon(p, toc, c, h, bagian):
+def judul_calon(p, toc, c, h, bagian, page_ids=None):
     """Judul toc yang menaungi letak c (dari `cocok.letak_pertama`) di rekaman p. Satu judul = pasti; lebih = ragu.
     Satu rekaman bisa memuat beberapa judul: letaknya dari tanda judul di matan, atau dari tulisan judulnya."""
-    sebelum, di_sini = None, []
-    for t in toc:  # toc urut page_id, lalu urutan judul
-        if t["page_id"] < p["page_id"]:
-            sebelum = t
-        elif t["page_id"] == p["page_id"]:
-            di_sini.append(t)
-        else:
-            break
+    pid = p["page_id"]
+    if page_ids is not None:
+        lo = bisect.bisect_left(page_ids, pid)
+        hi = bisect.bisect_right(page_ids, pid, lo)
+    else:
+        lo = bisect.bisect_left(toc, pid, key=operator.itemgetter("page_id"))
+        hi = bisect.bisect_right(toc, pid, lo, key=operator.itemgetter("page_id"))
+    sebelum = toc[lo - 1] if lo > 0 else None
+    di_sini = toc[lo:hi]
+    if not di_sini:
+        return [sebelum]
     teks, batas = ruas_halaman(p, "body")
     body = p.get("body") or ""
     span = {int(m.group(1)): m.start() for m in JUDUL.finditer(body)}
@@ -964,18 +967,47 @@ def judul_calon(p, toc, c, h, bagian):
 def daftar_isi(sid):
     """(judul toc urut page_id lalu title_id, {title_id: judul}); kitab tanpa toc.jsonl.gz = kosong."""
     try:
-        with gzip.open(folder(sid) / "toc.jsonl.gz", "rt", encoding="utf8") as f:
-            toc = [json.loads(x) for x in f]
+        mentah = gzip.decompress((folder(sid) / "toc.jsonl.gz").read_bytes()).strip()
     except OSError:
+        mentah = b""
+    if not mentah:
         toc = []
-    return sorted(toc, key=lambda t: (t["page_id"], t["title_id"])), {t["title_id"]: t for t in toc}
+    else:
+        try:
+            toc = json.loads(b"[" + mentah.replace(b"\n", b",") + b"]")
+        except json.JSONDecodeError:
+            toc = [json.loads(x) for x in mentah.splitlines() if x.strip()]
+    return sorted(toc, key=operator.itemgetter("page_id", "title_id")), {t["title_id"]: t for t in toc}
+
+
+@cache_kitab()
+def _toc_page_ids(sid):
+    """Daftar `page_id` terurut milik `daftar_isi(sid)[0]` untuk pencarian biner `judul_calon`."""
+    return [t["page_id"] for t in daftar_isi(sid)[0]]
+
+
+@cache_kitab()
+def _rantai_id(sid, tid):
+    byid, r = daftar_isi(sid)[1], []
+    t = byid.get(tid)
+    while t and len(r) < 50:  # toc rusak yang induknya berputar tidak membuat macet
+        r.append(" ".join(HARAKAT.sub("", t["title_text"]).split()))
+        t = byid.get(t.get("parent_id"))
+    return tuple(r)
 
 
 def rantai_judul(sid, t):
     """Judul t lalu induk-induknya (tanpa harakat, spasi dirapikan), dari yang terdalam."""
-    byid, r = daftar_isi(sid)[1], []
+    if not t:
+        return []
+    byid = daftar_isi(sid)[1]
+    tid = t.get("title_id")
+    if tid is not None and byid.get(tid) is t:
+        return list(_rantai_id(sid, tid))
+    r = []
     while t and len(r) < 50:  # toc rusak yang induknya berputar tidak membuat macet
-        r.append(" ".join(HARAKAT.sub("", t["title_text"]).split())); t = byid.get(t.get("parent_id"))
+        r.append(" ".join(HARAKAT.sub("", t["title_text"]).split()))
+        t = byid.get(t.get("parent_id"))
     return r
 
 
@@ -997,15 +1029,16 @@ def judul_rekaman(sid):
 def rantai_calon(sid, p, c, h, bagian):
     """Rantai judul (kitab > bab) tiap judul yang mungkin menaungi letak c (`padat`) di rekaman p: satu = pasti, lebih = ragu."""
     return [" < ".join(rantai_judul(sid, t)[:3]) or "(sebelum judul pertama)"
-            for t in judul_calon(p, daftar_isi(sid)[0], c, h, bagian)]
+            for t in judul_calon(p, daftar_isi(sid)[0], c, h, bagian, _toc_page_ids(sid))]
 
 
 def judul_naung(sid, p, c):
     """Judul toc yang menaungi letak c (dari `cocok.letak_pertama`, di matan) rekaman p, atau None (sebelum judul pertama, kitab
     tanpa toc, atau rekaman tanpa page_id)."""
-    if not daftar_isi(sid)[0] or p.get("page_id") is None:
+    toc = daftar_isi(sid)[0]
+    if not toc or p.get("page_id") is None:
         return None
-    return judul_calon(p | {"page_id": int(p["page_id"])}, daftar_isi(sid)[0], c, None, "body")[0]
+    return judul_calon(p | {"page_id": int(p["page_id"])}, toc, c, None, "body", _toc_page_ids(sid))[0]
 
 
 def bagian_halaman(sid, p1, p2):
