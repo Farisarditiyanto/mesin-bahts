@@ -296,10 +296,6 @@ def _indeks_shamela():
     return by_id, by_padat, by_group
 
 
-def _katalog_wq(wq):
-    return wq.katalog_ringkas() if hasattr(wq, "katalog_ringkas") else wq.katalog()
-
-
 def shamela_untuk_waqfeya(b):
     """Nomor kitab Shamela yang setara dengan entri Waqfeya `b` (judul pokok/alternatif + kecocokan pengarang
     anti-kerabat/nisbah). Dipakai `waqfeya._di_shamela` dan `edisi`."""
@@ -352,7 +348,7 @@ def _waqfeya_untuk_karya(judul_list, pengarang, wq, wafat=None):
     """(edisi_sama, karya_terkait) dari katalog Waqfeya (jika sudah terunduh) untuk satu karya."""
     if wq is None or not wq.KATALOG.exists():
         return [], []
-    wkat = _katalog_wq(wq)
+    wkat = wq.katalog_ringkas()
     kata_kunci = {k for j in judul_list for k in _kata_judul(j) if len(k) >= 3}
     sama, terkait = [], []
     for w, b in wkat.items():
@@ -382,8 +378,7 @@ def _baris_waqfeya(w, b, wq):
     ada = "ADA" if (wq is not None and wq.ada(w)) else "-"
     ekor = ekstrak_ekor_edisi(b["judul"])
     cat = f" | {ekor}" if ekor else ""
-    n_berkas = b["jumlah_berkas"] if "jumlah_berkas" in b else len(b["berkas"])
-    return f"  [{ada:3s}] Waqfeya {w} | {b['judul']} — {b['pengarang'] or '?'} ({b['halaman']} hal, {n_berkas} berkas){cat}"
+    return f"  [{ada:3s}] Waqfeya {w} | {b['judul']} — {b['pengarang'] or '?'} ({b['halaman']} hal, {b['jumlah_berkas']} berkas){cat}"
 
 
 def cetak(kueri, pengarang="", maks=15, wq=None):
@@ -447,7 +442,7 @@ def cetak(kueri, pengarang="", maks=15, wq=None):
     if NOMOR_WAQFEYA.fullmatch(q):
         if wq is None or not wq.KATALOG.exists():
             raise SystemExit('Katalog Waqfeya belum diunduh; jalankan `waqfeya "<judul>"` sekali untuk mengunduhnya.')
-        b = _katalog_wq(wq).get(q)
+        b = wq.katalog_ringkas().get(q)
         if not b:
             raise SystemExit(f"Kitab Waqfeya {q} tidak ada di katalog.")
         judul_l = pecah_judul(b["judul"], b.get("pengarang") or "")
@@ -488,7 +483,7 @@ def cetak(kueri, pengarang="", maks=15, wq=None):
     sh_hits.sort(key=lambda x: (not padat(x[1].get("title_ar") or "").startswith(q_gabung), len(x[1].get("title_ar") or ""), x[0]))
     wq_hits = []
     if wq is not None and wq.KATALOG.exists():
-        for w, b in _katalog_wq(wq).items():
+        for w, b in wq.katalog_ringkas().items():
             peng_w = b["pengarang"]
             if wajib_p and not (all(c in peng_w for c in wajib_p) or pres(peng_w)):
                 continue

@@ -132,6 +132,24 @@ def utama():
             assert kunci.read_bytes() == data, "tahap mengubah metadata kunci"
         uji("tahap mengamati tanpa menulis kunci", pantau)
 
+        def tahap_cache_kosong():
+            kitab = akar / "kitab" / "11223"
+            meta = akar / "kitab" / "_meta"
+            (kitab / "indeks.json").unlink(missing_ok=True)
+            for cache in (*kitab.glob("padat-*.bin"), *meta.glob("katalog-*.bin")):
+                cache.unlink()
+            teks = dasar.replace("#K الخاتمة", "وقيل: «هذا النص المفتعل لا يوجد في الكتاب»"
+                                 "[^رسالة في القضاء والقدر، ص5. <<11223|-|5>>].\n#K الخاتمة")
+            sebelum = {p for d in (kitab, meta) for p in d.iterdir()}
+            r = jalan("tahap", teks)
+            assert r.returncode == 0 and "NASKAH=GAGAL" in r.stdout, r.stdout + r.stderr
+            sesudah = {p for d in (kitab, meta) for p in d.iterdir()}
+            assert sebelum == sesudah, [p.name for p in sebelum ^ sesudah]
+            r = jalan("cek", teks)
+            assert r.returncode == 1 and "teks TIDAK KETEMU" in r.stdout, r.stdout + r.stderr
+            assert list(kitab.glob("padat-*.bin")), "cek tidak mencapai jalur yang membuat cache padat"
+        uji("tahap dengan kutipan salah tidak membuat cache kitab", tahap_cache_kosong)
+
         def hasil_rusak():
             (f / "uji.pdf").write_bytes(b"%PDF")
             rng = random.Random(154155)
