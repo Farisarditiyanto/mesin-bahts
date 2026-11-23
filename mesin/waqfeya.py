@@ -57,14 +57,15 @@ def _stem(p):
 
 def _baca_katalog(ringkas=False):
     _siapkan_katalog()
-    blines = KATALOG.read_bytes().removeprefix(b"\xef\xbb\xbf").splitlines()
+    blines = KATALOG.read_bytes().removeprefix(b"\xef\xbb\xbf").splitlines(keepends=True)
     if not blines:
         return {}
-    if b'"' in blines[0]:
+    hdr_b = blines[0].rstrip(b"\r\n")
+    if b'"' in hdr_b:
         import csv
         hdr = [h.encode("utf-8") for h in next(csv.reader([blines[0].decode("utf-8")], delimiter="\t"))]
     else:
-        hdr = blines[0].split(b"\t")
+        hdr = hdr_b.split(b"\t")
     i_title = hdr.index(b"title")
     i_author = hdr.index(b"author")
     i_cat = hdr.index(b"category")
@@ -91,25 +92,26 @@ def _baca_katalog(ringkas=False):
     while i < n:
         ln = blines[i]
         i += 1
-        if not ln:
+        if ln in (b"\n", b"\r\n", b"\r", b""):
             continue
         if b'"' in ln:
             import ast, csv
             csv.field_size_limit(1 << 30)
-            buf = [ln]
-            qc = ln.count(b'"')
-            if qc % 2 == 1 and (ln.startswith(b'"') or b'\t"' in ln):
-                while qc % 2 == 1 and i < n:
-                    buf.append(blines[i])
-                    qc += blines[i].count(b'"')
+            i -= 1
+
+            def _sisa():
+                nonlocal i
+                while i < n:
+                    s = blines[i].decode("utf-8")
                     i += 1
-            for r in csv.reader([b"\n".join(buf).decode("utf-8")], delimiter="\t"):
-                if not r:
-                    continue
+                    yield s
+
+            r = next(csv.reader(_sisa(), delimiter="\t"), None)
+            if r:
                 _tambah(r[i_title].strip(), r[i_author].strip(), r[i_cat].strip(), int(r[i_pages] or 0),
                         ast.literal_eval(r[i_pdf]), ast.literal_eval(r[i_txt]))
             continue
-        r = ln.split(b"\t")
+        r = ln.rstrip(b"\r\n").split(b"\t")
         sp, st = r[i_pdf], r[i_txt]
         if sp == b"[]" or not sp:
             continue

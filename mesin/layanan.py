@@ -122,21 +122,16 @@ def _tafsir_indeks(f_src):
     return _bangun_tafsir_bin(f_src, f_cache, sumber)
 
 
-def _baris_kunci(nama, kunci):
-    """[(kunci, shamela_id, shamela_page_id)] satu tabel layanan yang key_id-nya di `kunci`."""
-    siapkan(nama)
-    if nama == "tafsir":
-        kk, bb, pp = _tafsir_indeks(ROOT / TABEL[nama])
-        out = []
-        for k in sorted(kunci):
-            i = bisect.bisect_left(kk, k)
-            z = bisect.bisect_right(kk, k)
-            out.extend((kk[j], bb[j], pp[j]) for j in range(i, z))
-        return out
-    import pyarrow.parquet as pq
-    t = pq.read_table(ROOT / TABEL[nama], columns=["key_id", "book_id", "page_id"],
-                      filters=[("key_id", "in", sorted(kunci))]).to_pydict()
-    return list(zip(t["key_id"], t["book_id"], t["page_id"]))
+def _tafsir_kunci(kunci):
+    """[(kunci, shamela_id, shamela_page_id)] dari tabel layanan tafsir yang key_id-nya di `kunci`."""
+    siapkan("tafsir")
+    kk, bb, pp = _tafsir_indeks(ROOT / TABEL["tafsir"])
+    out = []
+    for k in sorted(kunci):
+        i = bisect.bisect_left(kk, k)
+        z = bisect.bisect_right(kk, k)
+        out.extend((kk[j], bb[j], pp[j]) for j in range(i, z))
+    return out
 
 
 @functools.cache
@@ -344,7 +339,7 @@ def tafsir(rujukan):
         raise SystemExit(f"Ayat {rujukan} tidak ada di mushaf (surat {s} punya {sum(k.startswith(f'{s}:') for k in urut)} ayat).")
     kunci = {urut[f"{s}:{x}"] for x in range(a, z + 1)}
     per_kitab = {}
-    for _, sid, hal in _baris_kunci("tafsir", kunci):
+    for _, sid, hal in _tafsir_kunci(kunci):
         per_kitab.setdefault(sid, set()).add(hal)
     print(f"Tafsir {rujukan} di {len(per_kitab)} kitab (indeks layanan Shamela; urut dari pengarang yang lebih dulu wafat). "
           "Halaman = awal pembahasan ayat itu menurut Shamela: baca sampai ayat berikutnya, dan halaman sebelumnya kalau "

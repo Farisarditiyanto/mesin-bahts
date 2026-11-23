@@ -702,18 +702,17 @@ class _Lompat:
     BLOK_MAKS = 32
     blok = {}  # (pembaca, nomor titik) -> isi blok itu, urut terakhir dipakai; bersama semua kitab
 
-    def __init__(self, f, blok=None):
+    def __init__(self, f):
         self.f = f
-        self._blok = self.blok if blok is None else blok
         self.titik = [(0, 0, zlib.decompressobj(31))]  # urut letak isi; titik terakhir = sejauh mana sudah dibaca
         self.ujung = False  # akhir berkas sudah tercapai
         self.utuh = None  # isi utuh, hanya untuk .gz beranggota banyak
 
     def _buka(self, k):
         """Isi dari titik k sampai titik k+1 (titik k+1 dibuat dulu kalau belum ada); b"" kalau k = akhir berkas."""
-        if (self, k) in self._blok:
-            self._blok[self, k] = self._blok.pop((self, k))
-            return self._blok[self, k]
+        if (self, k) in self.blok:
+            self.blok[self, k] = self.blok.pop((self, k))
+            return self.blok[self, k]
         isi, letak, z = self.titik[k]
         z, keluar, n = z.copy(), [], 0
         with open(self.f, "rb") as h:
@@ -734,9 +733,9 @@ class _Lompat:
                 if n:
                     self.titik.append((isi + n, letak, z.copy()))
         hasil = b"".join(keluar)
-        self._blok[self, k] = hasil
-        if len(self._blok) > self.BLOK_MAKS:
-            del self._blok[next(iter(self._blok))]
+        self.blok[self, k] = hasil
+        if len(self.blok) > self.BLOK_MAKS:
+            del self.blok[next(iter(self.blok))]
         return hasil
 
     def baca(self, a, z=None):
@@ -950,12 +949,12 @@ def nama_juz(part):
     return "-" if part is None else part
 
 
-def _temuan(sid, frasa, potongan=False, *, padat_=None, kena=None, rekaman_=None):
+def _temuan(sid, frasa, potongan=False, *, padat_=None, rekaman_=None):
     """Tiap tempat frasa di kitab sid, satu per bagian rekaman: (rekaman, bagian, tanda, letak (awal, akhir) di teks `padat`,
     halaman, kata utuh?). Letaknya kecocokan kata utuh (`cocok.frasa_utuh`) pertama; tidak ada → kecocokan pertama, utuh False.
     potongan=True: kecocokan pertama apa pun (perilaku lama, untuk mencari potongan kata)."""
     q, kata = cocok.kunci_frasa(frasa), cocok.kata_dalam(frasa)
-    for p in berisi(sid, q, padat_=padat_, kena=kena, rekaman_=rekaman_):
+    for p in berisi(sid, q, padat_=padat_, rekaman_=rekaman_):
         for bagian, tanda in BAGIAN:
             semua = list(cocok.semua_letak(p, q, bagian))
             if not semua:
@@ -987,13 +986,13 @@ def _baris_cari(sid, p, bagian, tanda, c, h, q, konteks):
     return f"[{sid}] {letak(nama_juz(p.get('part')), h)}{tanda}: …{t[max(0, i - konteks): akhir + konteks]}…"
 
 
-def _cari_satu(sid, frasa, konteks, maks, potongan, sekilas=False, *, padat_=None, kena=None, rekaman_=None):
+def _cari_satu(sid, frasa, konteks, maks, potongan, sekilas=False, *, padat_=None, rekaman_=None):
     """Cetak paling banyak maks tempat frasa di kitab sid; kembalikan (dicetak, tempat cocok, tempat potongan kata saja,
     seluruh kitab sudah dipilah?). sekilas=True (`cari semua`): berhenti begitu maks tempat (paling sedikit satu) dicetak,
     supaya kata umum di ratusan kitab tidak memilah ribuan rekaman; hitungannya lalu belum lengkap."""
     q = cocok.kunci_frasa(frasa)
     tampil = jumlah = lain = 0
-    for p, bagian, tanda, c, h, utuh in _temuan(sid, frasa, potongan, padat_=padat_, kena=kena, rekaman_=rekaman_):
+    for p, bagian, tanda, c, h, utuh in _temuan(sid, frasa, potongan, padat_=padat_, rekaman_=rekaman_):
         if not (utuh or potongan):
             lain += 1
             continue
@@ -1393,28 +1392,18 @@ def rekaman_di(sid, nomor):
         yield json.loads(isi.baca(ix[i][3], ix[i + 1][3] if i + 1 < len(ix) else None))
 
 
-def berisi(sid, q, *, padat_=None, kena=None, rekaman_=None):
+def berisi(sid, q, *, padat_=None, rekaman_=None):
     """Rekaman kitab sid yang memuat q (sudah `padat`), urut berkas, dengan cache `padat`-nya. Rekaman lain tidak diurai."""
     if rekaman_ is not None:
         for i, p in rekaman_:
             yield padat_.isi(p, i)
         return
-    if padat_ is None and kena is None:
-        if not (folder(sid) / "pages.jsonl.gz").exists():
-            raise _belum(sid)
-        padat_, kena_it = _baca_padat_kena(sid, q, norma.bait(q), _sidik(sid))
-        if kena_it is None:
-            return
-        kena = list(kena_it)
-    else:
-        if padat_ is None:
-            if not (folder(sid) / "pages.jsonl.gz").exists():
-                raise _belum(sid)
-            padat_ = padat_kitab(sid)
-        if kena is None:
-            kena = padat_.kena(q)
-        else:
-            kena = list(kena)
+    if not (folder(sid) / "pages.jsonl.gz").exists():
+        raise _belum(sid)
+    padat_, kena_it = _baca_padat_kena(sid, q, norma.bait(q), _sidik(sid))
+    if kena_it is None:
+        return
+    kena = list(kena_it)
     if not kena:
         return
     for i, p in zip(kena, rekaman_di(sid, kena)):
