@@ -24,6 +24,7 @@ from pathlib import Path
 
 import olah
 import produk
+import shamela
 from dasar import perintah
 from rakit import PEKERJAAN, FolderKerja, cadangan_tertinggal, lihat_kunci, milik, ps_yatim
 
@@ -133,7 +134,8 @@ def baca(folder, jalur):
     folder = Path(folder)
     pemegang = lihat_kunci(PEKERJAAN)
     rakit = Rakit.JALAN if pemegang is not None else Rakit.YATIM if ps_yatim() else Rakit.BEBAS
-    cek = olah.periksa(folder)
+    with shamela.baca_saja():
+        cek = olah.periksa(folder)
     ctx = cek.ctx
     return Keadaan(jalur=jalur, naskah=naskah(ctx.galat, ctx.perhatian), galat=len(ctx.galat),
                    perhatian=len(ctx.perhatian), diterima=len(ctx.diterima), tertolak=bool(ctx.tertolak),

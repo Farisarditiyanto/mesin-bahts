@@ -3,7 +3,7 @@
 AuthenticIlm/Shamela4_Full_DB ke folder kitab/, lalu cari kutipan secara offline
 (tanpa kredit, tanpa internet). Dipanggil lewat bahts.py.
 """
-import array, bisect, collections, functools, gzip, hashlib, itertools, json, operator, os, re, struct, sys, urllib.parse, zlib
+import array, bisect, collections, contextlib, functools, gzip, hashlib, itertools, json, operator, os, re, struct, sys, urllib.parse, zlib
 from pathlib import Path
 
 import cocok, gelar, norma
@@ -46,6 +46,29 @@ def cache_kitab(maxsize=None):
 
 
 KATALOG = "_meta/book_metadata.parquet"
+KATALOG_VERSI = 1
+KATALOG_KOLOM = ("shamela_id", "book_id", "category_id", "title_ar", "main_author_id",
+                 "main_author_name_ar", "main_author_death_hijri", "category_name_ar",
+                 "has_multi_part", "group_id")
+_KATALOG_BAGIAN = ("baris", "judul_padat", "judul_pokok", "pengarang", "asal")
+_BACA_SAJA = False
+
+
+def sedang_baca_saja():
+    """Apakah mode baca-saja (`baca_saja()`) sedang aktif."""
+    return _BACA_SAJA
+
+
+@contextlib.contextmanager
+def baca_saja():
+    """Hentikan penulisan berkas cache turunan selama aktif (untuk perintah baca-saja seperti `tahap`)."""
+    global _BACA_SAJA
+    lama = _BACA_SAJA
+    _BACA_SAJA = True
+    try:
+        yield
+    finally:
+        _BACA_SAJA = lama
 
 
 def siapkan():
@@ -58,18 +81,197 @@ def siapkan():
     print(f"katalog kitab: {len(isi_katalog())} judul")
 
 
-@functools.cache
-def isi_katalog():
-    if not (ROOT / KATALOG).exists():
-        raise SystemExit("Katalog kitab belum ada: " + perintah("siapkan"))
+def _baca_katalog_parquet(f):
     try:
         import pyarrow.parquet as pq
     except ImportError:
         raise SystemExit("Pustaka Python belum terpasang; cara memasangnya disebut oleh: " + perintah("periksa"))
     # Katalog hanya perlu kolom ini; kartu lengkap dibaca dari kitab lokal.
-    with pq.ParquetFile(ROOT / KATALOG) as f:
-        return f.read(columns=["shamela_id", "book_id", "category_id", "title_ar", "main_author_id", "main_author_name_ar",
-                               "main_author_death_hijri", "category_name_ar", "has_multi_part", "group_id"]).to_pylist()
+    with pq.ParquetFile(f) as h:
+        return h.read(columns=list(KATALOG_KOLOM)).to_pylist()
+
+
+def _hitung_judul_padat(daftar):
+    out = {}
+    for r in daftar:
+        out.setdefault(padat(r["title_ar"] or ""), []).append(int(r["shamela_id"]))
+    urut = sorted(((j, idx, ss) for idx, (j, ss) in enumerate(out.items())), key=lambda t: t[0])
+    return out, tuple(t[0] for t in urut), tuple((t[1], t[2]) for t in urut)
+
+
+def _hitung_judul_pokok(daftar):
+    out, pcache = {}, {}
+    for r in daftar:
+        sid = int(r["shamela_id"])
+        for b in judul_pokok(r["title_ar"]):
+            p = pcache.get(b)
+            if p is None:
+                p = pcache[b] = padat(b)
+            out.setdefault(p, set()).add(sid)
+    return out
+
+
+def _hitung_pengarang_kata(daftar):
+    out, norm_cache = {}, {}
+    for r in daftar:
+        nama = r["main_author_name_ar"] or ""
+        if not nama:
+            continue
+        aid = str(r["main_author_id"])
+        kunci_nama = norm_cache.get(nama)
+        if kunci_nama is None:
+            bagian = [norm(nama)]
+            if "،" in nama:
+                bagian += [norm(b) for b in nama.split("،")]
+            kunci_nama = norm_cache[nama] = tuple(dict.fromkeys(x for x in bagian if x))
+        for nb in kunci_nama:
+            out.setdefault(nb, set()).add(aid)
+    kunci = tuple(sorted(out))
+    return out, kunci, tuple(out[k] for k in kunci)
+
+
+def _hitung_asal(daftar):
+    return {int(r["shamela_id"]): (str(r["main_author_id"]), r["group_id"]) for r in daftar}
+
+
+def _baca_katalog_bin(f_cache, sumber):
+    """Potongan byte cache katalog kalau sidik parquet, versi, panjang, dan crc32 utuh; None kalau tidak."""
+    try:
+        mentah = f_cache.read_bytes()
+        nl = mentah.find(b"\n", 0, 1 << 16)
+        if nl < 0:
+            return None
+        kepala = json.loads(mentah[:nl])
+        if not isinstance(kepala, dict):
+            return None
+        panjang = kepala.get("panjang")
+        if (kepala.get("versi") != KATALOG_VERSI or kepala.get("norma_versi") != norma.VERSI
+                or kepala.get("sumber") != sumber
+                or type(panjang) is not list or len(panjang) != len(_KATALOG_BAGIAN)
+                or not all(type(n) is int and n >= 0 for n in panjang)):
+            return None
+        awal = nl + 1
+        if len(mentah) - awal != sum(panjang):
+            return None
+        if zlib.crc32(memoryview(mentah)[awal:]) != kepala.get("crc32"):
+            return None
+        potong, pos = {}, awal
+        for nama, n in zip(_KATALOG_BAGIAN, panjang):
+            potong[nama] = mentah[pos:pos + n]
+            pos += n
+        return potong
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def _tulis_katalog_bin(f_cache, sumber, daftar, jp, jpp, pk, asal_):
+    """Simpan cache katalog terverifikasi (satu baris kepala JSON + potongan JSON tiap tabel) secara atomik."""
+    enc = lambda obj: json.dumps(obj, ensure_ascii=False, separators=(",", ":")).encode("utf8")
+    isi = (
+        enc([[r[c] for c in KATALOG_KOLOM] for r in daftar]),
+        enc([list(jp[1]), [i for i, _ in jp[2]], [ss for _, ss in jp[2]]]),
+        enc([[k, sorted(v)] for k, v in jpp.items()]),
+        enc([list(pk[1]), [sorted(v) for v in pk[2]]]),
+        enc([[sid, aid, gid] for sid, (aid, gid) in asal_.items()]),
+    )
+    crc = 0
+    for x in isi:
+        crc = zlib.crc32(x, crc)
+    kepala = {"versi": KATALOG_VERSI, "norma_versi": norma.VERSI, "sumber": sumber,
+              "panjang": [len(x) for x in isi], "crc32": crc}
+    try:
+        with sementara(f_cache) as part:
+            with open(part, "wb") as h:
+                h.write(json.dumps(kepala, separators=(",", ":")).encode() + b"\n")
+                h.writelines(isi)
+        for lama in f_cache.parent.glob("katalog-*.bin"):
+            if lama != f_cache:
+                try:
+                    lama.unlink(missing_ok=True)
+                except OSError:
+                    pass
+    except OSError:
+        pass
+
+
+@functools.cache
+def _katalog_sumber(root):
+    f_src = root / KATALOG
+    if not f_src.exists():
+        raise SystemExit("Katalog kitab belum ada: " + perintah("siapkan"))
+    sumber = norma.sidik(f_src)
+    f_cache = root / "_meta" / f"katalog-{norma.VERSI}.bin"
+    potong = _baca_katalog_bin(f_cache, sumber)
+    if potong is not None:
+        return "bin", f_src, f_cache, sumber, potong
+    daftar = _baca_katalog_parquet(f_src)
+    if _BACA_SAJA:
+        return "daftar", daftar
+    jp = _hitung_judul_padat(daftar)
+    jpp = _hitung_judul_pokok(daftar)
+    pk = _hitung_pengarang_kata(daftar)
+    asal_ = _hitung_asal(daftar)
+    _tulis_katalog_bin(f_cache, sumber, daftar, jp, jpp, pk, asal_)
+    return "siap", {"baris": daftar, "judul_padat": jp, "judul_pokok": jpp, "pengarang": pk, "asal": asal_}
+
+
+def _ambil_katalog(bagian, urai, hitung):
+    s = _katalog_sumber(ROOT)
+    if s[0] == "siap":
+        return s[1][bagian]
+    if s[0] == "daftar":
+        return s[1] if bagian == "baris" else hitung(s[1])
+    try:
+        return urai(json.loads(s[4][bagian]))
+    except (ValueError, KeyError, TypeError):
+        daftar = _baca_katalog_parquet(s[1])
+        if not _BACA_SAJA:
+            jp = _hitung_judul_padat(daftar)
+            jpp = _hitung_judul_pokok(daftar)
+            pk = _hitung_pengarang_kata(daftar)
+            asal_ = _hitung_asal(daftar)
+            _tulis_katalog_bin(s[2], s[3], daftar, jp, jpp, pk, asal_)
+        return daftar if bagian == "baris" else hitung(daftar)
+
+
+def _urai_baris(raw):
+    if type(raw) is not list or not all(type(r) is list and len(r) == len(KATALOG_KOLOM) for r in raw):
+        raise ValueError("baris katalog rusak")
+    return [dict(zip(KATALOG_KOLOM, r)) for r in raw]
+
+
+def _urai_judul_padat(raw):
+    if not (type(raw) is list and len(raw) == 3 and all(type(x) is list for x in raw)
+            and len(raw[0]) == len(raw[1]) == len(raw[2])):
+        raise ValueError("judul_padat katalog rusak")
+    kunci = tuple(raw[0])
+    return dict(zip(kunci, raw[2])), kunci, tuple(zip(raw[1], raw[2]))
+
+
+def _urai_judul_pokok(raw):
+    if type(raw) is not list or not all(type(x) is list and len(x) == 2 and type(x[1]) is list for x in raw):
+        raise ValueError("judul_pokok katalog rusak")
+    return {k: set(v) for k, v in raw}
+
+
+def _urai_pengarang(raw):
+    if not (type(raw) is list and len(raw) == 2 and type(raw[0]) is list and type(raw[1]) is list
+            and len(raw[0]) == len(raw[1])):
+        raise ValueError("pengarang katalog rusak")
+    kunci = tuple(raw[0])
+    nilai = tuple(set(v) for v in raw[1])
+    return dict(zip(kunci, nilai)), kunci, nilai
+
+
+def _urai_asal(raw):
+    if type(raw) is not list or not all(type(x) is list and len(x) == 3 for x in raw):
+        raise ValueError("asal katalog rusak")
+    return {sid: (aid, gid) for sid, aid, gid in raw}
+
+
+@functools.cache
+def isi_katalog():
+    return _ambil_katalog("baris", _urai_baris, None)
 
 
 def ada_keterangan():
@@ -118,14 +320,9 @@ def _judul_padat():
     """({judul `padat`: [nomor kitab]}, kunci terurut, [(urutan_katalog, [nomor kitab])]) dari katalog lokal;
     kosong kalau katalog atau pyarrow belum ada (cek tetap jalan)."""
     try:
-        daftar = isi_katalog()
+        return _ambil_katalog("judul_padat", _urai_judul_padat, _hitung_judul_padat)
     except SystemExit:
         return {}, (), ()
-    out = {}
-    for r in daftar:
-        out.setdefault(padat(r["title_ar"] or ""), []).append(int(r["shamela_id"]))
-    urut = sorted(((j, idx, ss) for idx, (j, ss) in enumerate(out.items())), key=lambda t: t[0])
-    return out, tuple(t[0] for t in urut), tuple((t[1], t[2]) for t in urut)
 
 
 @functools.cache
@@ -194,18 +391,9 @@ def judul_pokok(judul):
 def judul_pokok_padat():
     """{judul_pokok `padat`: {nomor kitab}}: «صحيح مسلم» = semua edisinya."""
     try:
-        daftar = isi_katalog()
+        return _ambil_katalog("judul_pokok", _urai_judul_pokok, _hitung_judul_pokok)
     except SystemExit:
         return {}
-    out, pcache = {}, {}
-    for r in daftar:
-        sid = int(r["shamela_id"])
-        for b in judul_pokok(r["title_ar"]):
-            p = pcache.get(b)
-            if p is None:
-                p = pcache[b] = padat(b)
-            out.setdefault(p, set()).add(sid)
-    return out
 
 
 @functools.cache
@@ -233,32 +421,16 @@ def nomor_pengarang(nama):
 def _pengarang_kata():
     """({nama pengarang `norm`: {main_author_id}}, kunci terurut, [{main_author_id}]) dari katalog lokal."""
     try:
-        daftar = isi_katalog()
+        return _ambil_katalog("pengarang", _urai_pengarang, _hitung_pengarang_kata)
     except SystemExit:
         return {}, (), ()
-    out, norm_cache = {}, {}
-    for r in daftar:
-        nama = r["main_author_name_ar"] or ""
-        if not nama:
-            continue
-        aid = str(r["main_author_id"])
-        kunci_nama = norm_cache.get(nama)
-        if kunci_nama is None:
-            bagian = [norm(nama)]
-            if "،" in nama:
-                bagian += [norm(b) for b in nama.split("،")]
-            kunci_nama = norm_cache[nama] = tuple(dict.fromkeys(x for x in bagian if x))
-        for nb in kunci_nama:
-            out.setdefault(nb, set()).add(aid)
-    kunci = tuple(sorted(out))
-    return out, kunci, tuple(out[k] for k in kunci)
 
 
 @functools.cache
 def _asal():
     """{nomor kitab: (main_author_id, group_id)} dari katalog; group_id menyatukan edisi dan ringkasan satu kitab."""
     try:
-        return {int(r["shamela_id"]): (str(r["main_author_id"]), r["group_id"]) for r in isi_katalog()}
+        return _ambil_katalog("asal", _urai_asal, _hitung_asal)
     except SystemExit:
         return {}
 
@@ -662,14 +834,15 @@ def _bangun_indeks(sid, sumber=None):
             s = r.get("shamela_page_id")
             sp.append(int(s) if str(s).isdigit() else None)
         letak += len(baris)
-    try:
-        with sementara(folder(sid) / INDEKS) as part:
-            kolom = dict(zip(("juz", "hal", "akhir", "letak"), map(list, zip(*isi)))) if isi else dict.fromkeys(("juz", "hal", "akhir", "letak"), [])
-            d = {"versi": INDEKS_VERSI, "sumber_gz": _sidik(sid) if sumber is None else sumber, "panjang": len(mentah), **kolom, "awal": awal, "sp": sp}
-            d["sidik_isi"] = _sidik_indeks(d)
-            part.write_text(json.dumps(d, ensure_ascii=False), encoding="utf8")
-    except OSError:
-        pass
+    if not _BACA_SAJA:
+        try:
+            with sementara(folder(sid) / INDEKS) as part:
+                kolom = dict(zip(("juz", "hal", "akhir", "letak"), map(list, zip(*isi)))) if isi else dict.fromkeys(("juz", "hal", "akhir", "letak"), [])
+                d = {"versi": INDEKS_VERSI, "sumber_gz": _sidik(sid) if sumber is None else sumber, "panjang": len(mentah), **kolom, "awal": awal, "sp": sp}
+                d["sidik_isi"] = _sidik_indeks(d)
+                part.write_text(json.dumps(d, ensure_ascii=False), encoding="utf8")
+        except OSError:
+            pass
     return isi, awal, sp
 
 
