@@ -71,6 +71,7 @@ jobs:
       - run: python .github/uji_rumus_word.py
       # `pratinjau`: PDF -> grid PNG 2×2 dan 1 halaman di TEMP tanpa mengotori folder bahts; rentang salah ditolak.
       - run: python .github/uji_pratinjau.py
+      - run: python .github/uji_muqorror.py
       # Isi tiap catatan kaki tetap miliknya saat nomor diulang per halaman, juga di potongan --fasl; tanpa Word = lewati.
       - run: python .github/uji_catatan_word.py
       # Bahts tanpa المصادر/فهرس yang isinya pas memenuhi halaman tidak berakhir dengan halaman kosong; tanpa Word = lewati.

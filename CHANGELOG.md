@@ -6,6 +6,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Baru: `muqorror` menyusun PDF dari halaman kitab asli pilihan dan lembar catatan kelas bergaya tulisan tangan, dengan daftar bagian dan tautan ke daftar sumber.
 - Performa: perintah rutin (`cek`, `bukti`, `tahap`, `tafsir`, `edisi`, `kitab`, dan `cari semua`) berjalan lebih cepat lewat pembacaan PDF per halaman, cache katalog dan indeks tafsir terverifikasi, pencarian biner katalog dan daftar isi, serta pemindaian pustaka lokal paralel tanpa mengubah hasil pemeriksaan.
 - Perbaikan: `tahap` tetap baca-saja meski kutipan salah dan cache kitab belum ada. Cache katalog dengan data rusak dibaca ulang dari katalog asli.
 - Baru: `@tahun` menerima dua tahun hijriah satu tahun ajaran (mis. «١٤٤٨/١٤٤٩»), dicetak apa adanya dengan «هـ» di sampul.

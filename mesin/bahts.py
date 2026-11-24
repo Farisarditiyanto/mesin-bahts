@@ -538,6 +538,10 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
     Perintah("pratinjau <folder> [halaman]", "halaman PDF hasil `rakit` jadi gambar PNG grid 2×2 di TEMP (atau 1 halaman penuh,\n"
              "mis. «1» atau «1-4»), untuk pemeriksaan tata letak visual (sampul, tabel #J, gambar #G, rumus #E)",
              perintah_pratinjau, 1, 2),
+    "Muqorror kelas:",
+    Perintah("muqorror <rencana.json> <hasil.pdf>", "salin halaman kitab yang dipilih dan sisipkan catatan kelas dari rencana JSON\n"
+             "(tanpa Word atau internet; bentuk rencana: dok/muqorror.md)",
+             lambda a: _mod("muqorror").rakit(Path(a[0]), Path(a[1])), 2, 2),
     "Kitab (perpustakaan Shamela lokal, dipakai semua bahts):",
     Perintah("kitab", "daftar kitab yang sudah diunduh",
              lambda a: _mod("shamela").daftar(), 0, 0),
