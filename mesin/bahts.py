@@ -539,8 +539,9 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
              "mis. «1» atau «1-4»), untuk pemeriksaan tata letak visual (sampul, tabel #J, gambar #G, rumus #E)",
              perintah_pratinjau, 1, 2),
     "Muqorror kelas:",
-    Perintah("muqorror <rencana.json> <hasil.pdf>", "salin halaman kitab yang dipilih dan sisipkan catatan kelas dari rencana JSON\n"
-             "(tanpa Word atau internet; bentuk rencana: dok/muqorror.md)",
+    Perintah("muqorror <rencana.json> <hasil.pdf>", "tata ulang bab kitab muqorror bergaya klasik dengan anotasi tulisan tangan, diagram,\n"
+             "daftar isi, dan tautan sumber dari rencana JSON (butuh Chrome/Edge + pymupdf, tanpa Word/internet;\n"
+             "bentuk rencana: dok/muqorror.md)",
              lambda a: _mod("muqorror").rakit(Path(a[0]), Path(a[1])), 2, 2),
     "Kitab (perpustakaan Shamela lokal, dipakai semua bahts):",
     Perintah("kitab", "daftar kitab yang sudah diunduh",

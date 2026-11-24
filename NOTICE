@@ -53,7 +53,8 @@ It does NOT cover the following. Their rights stay with their owners.
    user's computer from the Hugging Face dataset AuthenticIlm/Shamela4_Full_DB
    (an extraction of المكتبة الشاملة, https://shamela.ws).
 
-5. Kalam and Aref Ruqaa are bundled in mesin/font_muqorror/ under the SIL Open
-   Font License 1.1. The license files in that directory carry their copyright
-   notices. Upstream: https://github.com/google/fonts/tree/main/ofl/kalam and
-   https://github.com/google/fonts/tree/main/ofl/arefruqaa.
+5. Amiri and Playpen Sans Arabic are bundled in mesin/font_muqorror/ under the
+   SIL Open Font License 1.1. The license files in that directory carry their
+   copyright notices. Upstream:
+   https://github.com/google/fonts/tree/main/ofl/amiri and
+   https://github.com/google/fonts/tree/main/ofl/playpensansarabic.
