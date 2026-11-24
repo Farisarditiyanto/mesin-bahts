@@ -6,7 +6,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
-- Baru: `muqorror` menata ulang bab kitab pilihan bergaya klasik (`Amiri`) lengkap dengan anotasi tulisan tangan (`Playpen Sans Arabic`) langsung di halaman yang sama (stabilo, garis bawah, lingkar, catatan margin, kotak sela, diagram pohon/alur/tabel), lembar ringkasan, daftar isi Arab bernomor halaman nyata, bookmark PDF, dan halaman tautan sumber kuliah.
+- Baru: `muqorror` menata ulang bab kitab pilihan bergaya klasik (`Amiri`) selebar halaman kitab asli dengan anotasi tulisan tangan (`Playpen Sans Arabic`) langsung di halaman yang sama (stabilo, garis bawah, lingkar, kartu catatan di bawah teks, kotak sela, diagram pohon/alur/tabel selebar penuh), lembar ringkasan, daftar isi Arab bernomor halaman nyata, bookmark PDF, dan halaman tautan sumber kuliah.
 - Performa: perintah rutin (`cek`, `bukti`, `tahap`, `tafsir`, `edisi`, `kitab`, dan `cari semua`) berjalan lebih cepat lewat pembacaan PDF per halaman, cache katalog dan indeks tafsir terverifikasi, pencarian biner katalog dan daftar isi, serta pemindaian pustaka lokal paralel tanpa mengubah hasil pemeriksaan.
 - Perbaikan: `tahap` tetap baca-saja meski kutipan salah dan cache kitab belum ada. Cache katalog dengan data rusak dibaca ulang dari katalog asli.
 - Baru: `@tahun` menerima dua tahun hijriah satu tahun ajaran (mis. «١٤٤٨/١٤٤٩»), dicetak apa adanya dengan «هـ» di sampul.

@@ -55,7 +55,7 @@ class Sumber:
 
 
 @dataclass(frozen=True)
-class Margin:
+class Catatan:
     isi: str
     label: str = ""
     warna: str = "biru"
@@ -79,13 +79,13 @@ class BlokBait:
     kiri: str
     nomor: str = ""
     gaya: str = "alfiyah"
-    margin: tuple[Margin, ...] = ()
+    catatan: tuple[Catatan, ...] = ()
 
 
 @dataclass(frozen=True)
 class BlokMatan:
     teks: str
-    margin: tuple[Margin, ...] = ()
+    catatan: tuple[Catatan, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -95,7 +95,7 @@ class BlokSela:
     sumber: tuple[str, ...] = ()
     isi: str = ""
     butir: tuple[str, ...] = ()
-    margin: tuple[Margin, ...] = ()
+    catatan: tuple[Catatan, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -146,7 +146,7 @@ class BlokDiagram:
     judul: str
     isi: DiagramPohon | DiagramAlur | DiagramTabel
     sumber: tuple[str, ...] = ()
-    margin: tuple[Margin, ...] = ()
+    catatan: tuple[Catatan, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -231,24 +231,24 @@ def _kode_sumber(data, sumber, letak):
     return kode
 
 
-def _urai_margin_satu(nilai, sumber, letak):
+def _urai_catatan_satu(nilai, sumber, letak):
     data = _objek(nilai, letak, ("isi",), ("label", "warna", "sumber"))
     isi = _teks(data["isi"], f"{letak}.isi")
     label = _teks_opsional(data, "label", letak)
     warna = _pilihan(data["warna"], WARNA_CATATAN, f"{letak}.warna") if "warna" in data else "biru"
     kode = _kode_sumber(data, sumber, letak)
-    return Margin(isi=isi, label=label, warna=warna, sumber=kode)
+    return Catatan(isi=isi, label=label, warna=warna, sumber=kode)
 
 
-def _urai_margin(data, sumber, letak):
-    if "margin" not in data:
+def _urai_catatan(data, sumber, letak):
+    if "catatan" not in data:
         return ()
-    nilai = data["margin"]
+    nilai = data["catatan"]
     if isinstance(nilai, dict):
-        return (_urai_margin_satu(nilai, sumber, f"{letak}.margin"),)
+        return (_urai_catatan_satu(nilai, sumber, f"{letak}.catatan"),)
     if isinstance(nilai, list):
-        return tuple(_urai_margin_satu(m, sumber, f"{letak}.margin {i}") for i, m in enumerate(nilai, 1))
-    raise ValueError(f"{letak}.margin harus berupa objek atau daftar objek")
+        return tuple(_urai_catatan_satu(m, sumber, f"{letak}.catatan {i}") for i, m in enumerate(nilai, 1))
+    raise ValueError(f"{letak}.catatan harus berupa objek atau daftar objek")
 
 
 def _urai_sumber(daftar):
@@ -280,21 +280,21 @@ def _urai_subjudul(data, sumber, letak):
 
 
 def _urai_bait(data, sumber, letak):
-    _objek(data, letak, ("jenis", "kanan", "kiri"), ("nomor", "gaya", "margin"))
+    _objek(data, letak, ("jenis", "kanan", "kiri"), ("nomor", "gaya", "catatan"))
     kanan = _teks(data["kanan"], f"{letak}.kanan")
     kiri = _teks(data["kiri"], f"{letak}.kiri")
     nomor = _teks_opsional(data, "nomor", letak)
     gaya = _pilihan(data["gaya"], GAYA_BAIT, f"{letak}.gaya") if "gaya" in data else "alfiyah"
-    return BlokBait(kanan=kanan, kiri=kiri, nomor=nomor, gaya=gaya, margin=_urai_margin(data, sumber, letak))
+    return BlokBait(kanan=kanan, kiri=kiri, nomor=nomor, gaya=gaya, catatan=_urai_catatan(data, sumber, letak))
 
 
 def _urai_matan(data, sumber, letak):
-    _objek(data, letak, ("jenis", "teks"), ("margin",))
-    return BlokMatan(teks=_teks(data["teks"], f"{letak}.teks"), margin=_urai_margin(data, sumber, letak))
+    _objek(data, letak, ("jenis", "teks"), ("catatan",))
+    return BlokMatan(teks=_teks(data["teks"], f"{letak}.teks"), catatan=_urai_catatan(data, sumber, letak))
 
 
 def _urai_sela(data, sumber, letak):
-    _objek(data, letak, ("jenis",), ("label", "warna", "sumber", "isi", "butir", "margin"))
+    _objek(data, letak, ("jenis",), ("label", "warna", "sumber", "isi", "butir", "catatan"))
     label = _teks_opsional(data, "label", letak)
     warna = _pilihan(data["warna"], WARNA_CATATAN, f"{letak}.warna") if "warna" in data else "biru"
     kode = _kode_sumber(data, sumber, letak)
@@ -302,7 +302,7 @@ def _urai_sela(data, sumber, letak):
     butir = tuple(_teks(b, f"{letak}.butir {i}") for i, b in enumerate(_daftar(data["butir"], f"{letak}.butir"), 1)) if "butir" in data else ()
     if not isi and not butir:
         raise ValueError(f"{letak} harus mengisi isi atau butir")
-    return BlokSela(label=label, warna=warna, sumber=kode, isi=isi, butir=butir, margin=_urai_margin(data, sumber, letak))
+    return BlokSela(label=label, warna=warna, sumber=kode, isi=isi, butir=butir, catatan=_urai_catatan(data, sumber, letak))
 
 
 def _urai_hasyiah(data, _sumber, letak):
@@ -319,7 +319,7 @@ def _urai_hasyiah(data, _sumber, letak):
 
 
 def _urai_diagram_pohon(data, letak):
-    _objek(data, letak, ("jenis", "judul", "tipe", "akar", "cabang"), ("sumber", "margin"))
+    _objek(data, letak, ("jenis", "judul", "tipe", "akar", "cabang"), ("sumber", "catatan"))
     akar = _teks(data["akar"], f"{letak}.akar")
     mentah = _daftar(data["cabang"], f"{letak}.cabang")
     if not 2 <= len(mentah) <= 4:
@@ -336,7 +336,7 @@ def _urai_diagram_pohon(data, letak):
 
 
 def _urai_diagram_alur(data, letak):
-    _objek(data, letak, ("jenis", "judul", "tipe", "langkah"), ("sumber", "margin"))
+    _objek(data, letak, ("jenis", "judul", "tipe", "langkah"), ("sumber", "catatan"))
     mentah = _daftar(data["langkah"], f"{letak}.langkah")
     if not 2 <= len(mentah) <= 5:
         raise ValueError(f"{letak}.langkah harus berisi 2 sampai 5 langkah")
@@ -352,7 +352,7 @@ def _urai_diagram_alur(data, letak):
 
 
 def _urai_diagram_tabel(data, letak):
-    _objek(data, letak, ("jenis", "judul", "tipe", "kolom", "baris"), ("sumber", "margin"))
+    _objek(data, letak, ("jenis", "judul", "tipe", "kolom", "baris"), ("sumber", "catatan"))
     kolom = tuple(_teks(k, f"{letak}.kolom {i}") for i, k in enumerate(_daftar(data["kolom"], f"{letak}.kolom"), 1))
     if not 2 <= len(kolom) <= 5:
         raise ValueError(f"{letak}.kolom harus berisi 2 sampai 5 kolom")
@@ -387,7 +387,7 @@ def _urai_diagram(data, sumber, letak):
     tipe = _pilihan(data["tipe"], TIPE_DIAGRAM, f"{letak}.tipe")
     isi = PENGURAI_DIAGRAM[tipe](data, letak)
     judul = _teks(data["judul"], f"{letak}.judul")
-    return BlokDiagram(judul=judul, isi=isi, sumber=_kode_sumber(data, sumber, letak), margin=_urai_margin(data, sumber, letak))
+    return BlokDiagram(judul=judul, isi=isi, sumber=_kode_sumber(data, sumber, letak), catatan=_urai_catatan(data, sumber, letak))
 
 
 def _urai_halaman_baru(data, _sumber, letak):
@@ -585,28 +585,28 @@ def _render_tspan(segmen: list[tuple[str, str]]) -> str:
 
 
 def _svg_pohon(pohon: DiagramPohon, id_prefix: str) -> str:
-    lebar = 540
+    lebar = 700
     n = len(pohon.cabang)
     pad_x = 8
-    gap = 12
+    gap = 14
     box_w = (lebar - 2 * pad_x - (n - 1) * gap) / n
 
-    akar_fs = 13.5
+    akar_fs = 15.0
     akar_polos = POLA_ANOTASI.sub(r"\2", pohon.akar)
-    akar_w = min(380, max(190, int(_panjang_visual(akar_polos) * 9.5) + 46))
-    akar_maks = max(14, int((akar_w - 30) / 9.2))
+    akar_w = min(500, max(230, int(_panjang_visual(akar_polos) * 10.2) + 54))
+    akar_maks = max(16, int((akar_w - 34) / 10.0))
     akar_baris = _bungkus_segmen(pohon.akar, akar_maks)
-    akar_lh = 20
-    akar_h = 18 + len(akar_baris) * akar_lh
+    akar_lh = 23
+    akar_h = 20 + len(akar_baris) * akar_lh
     akar_x = (lebar - akar_w) / 2
     akar_y = 10
 
-    judul_fs = 12.0 if n <= 3 else 10.6
-    isi_fs = 10.6 if n <= 3 else 9.4
-    judul_lh = 18 if n <= 3 else 16
-    isi_lh = 17 if n <= 3 else 15
-    judul_maks = max(8, int((box_w - 20) / (judul_fs * 0.72)))
-    isi_maks = max(8, int((box_w - 24) / (isi_fs * 0.72)))
+    judul_fs = 13.5 if n <= 3 else 12.0
+    isi_fs = 12.0 if n <= 3 else 10.8
+    judul_lh = 21 if n <= 3 else 19
+    isi_lh = 19.5 if n <= 3 else 17.5
+    judul_maks = max(10, int((box_w - 22) / (judul_fs * 0.70)))
+    isi_maks = max(10, int((box_w - 26) / (isi_fs * 0.70)))
 
     susunan = []
     for c in pohon.cabang:
@@ -614,11 +614,11 @@ def _svg_pohon(pohon: DiagramPohon, id_prefix: str) -> str:
         b_baris: list[list[tuple[str, str]]] = []
         for item in c.isi:
             b_baris.extend(_bungkus_segmen(item, isi_maks, awalan="•"))
-        kepala_h = 12 + len(j_baris) * judul_lh
-        badan_h = (10 + len(b_baris) * isi_lh + 8) if b_baris else 10
+        kepala_h = 14 + len(j_baris) * judul_lh
+        badan_h = (12 + len(b_baris) * isi_lh + 8) if b_baris else 10
         susunan.append((c, j_baris, b_baris, kepala_h, kepala_h + badan_h))
 
-    cabang_y = akar_y + akar_h + 36
+    cabang_y = akar_y + akar_h + 40
     cabang_h = max(x[4] for x in susunan)
     tinggi = int(cabang_y + cabang_h + 12)
 
@@ -626,7 +626,7 @@ def _svg_pohon(pohon: DiagramPohon, id_prefix: str) -> str:
     panah = []
     kotak = []
     rx, ry = lebar / 2, akar_y + akar_h
-    mid_y = ry + 18
+    mid_y = ry + 20
 
     for idx, (c, j_baris, b_baris, kepala_h, _tinggi_c) in enumerate(susunan):
         tinta, tepi, latar, kepala_bg = PALET[c.warna]
@@ -634,14 +634,14 @@ def _svg_pohon(pohon: DiagramPohon, id_prefix: str) -> str:
         cx = bx + box_w / 2
         m_id = f"arr-{id_prefix}-{idx}"
         defs.append(
-            f'<marker id="{m_id}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto">'
+            f'<marker id="{m_id}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto">'
             f'<path d="M 1 1 L 8 5 L 1 9 z" fill="{tepi}"/></marker>'
         )
         panah.append(
             f'<path d="M {rx:.1f} {ry:.1f} C {rx:.1f} {mid_y:.1f}, {cx:.1f} {mid_y:.1f}, {cx:.1f} {cabang_y - 3:.1f}" '
-            f'fill="none" stroke="{tepi}" stroke-width="1.5" marker-end="url(#{m_id})"/>'
+            f'fill="none" stroke="{tepi}" stroke-width="1.7" marker-end="url(#{m_id})"/>'
         )
-        r = 7
+        r = 8
         kepala_path = (
             f"M {bx:.1f} {cabang_y + r:.1f} Q {bx:.1f} {cabang_y:.1f} {bx + r:.1f} {cabang_y:.1f} "
             f"L {bx + box_w - r:.1f} {cabang_y:.1f} Q {bx + box_w:.1f} {cabang_y:.1f} {bx + box_w:.1f} {cabang_y + r:.1f} "
@@ -649,21 +649,21 @@ def _svg_pohon(pohon: DiagramPohon, id_prefix: str) -> str:
         )
         elemen = [
             f'<rect x="{bx:.1f}" y="{cabang_y:.1f}" width="{box_w:.1f}" height="{cabang_h:.1f}" rx="{r}" '
-            f'fill="{latar}" stroke="{tepi}" stroke-width="1.3"/>',
+            f'fill="{latar}" stroke="{tepi}" stroke-width="1.4"/>',
             f'<path d="{kepala_path}" fill="{kepala_bg}"/>',
             f'<line x1="{bx:.1f}" y1="{cabang_y + kepala_h:.1f}" x2="{bx + box_w:.1f}" y2="{cabang_y + kepala_h:.1f}" '
-            f'stroke="{tepi}" stroke-width="0.9" stroke-opacity="0.55"/>',
+            f'stroke="{tepi}" stroke-width="1.0" stroke-opacity="0.55"/>',
         ]
         for li, seg_j in enumerate(j_baris):
-            ty = cabang_y + 18 + li * judul_lh
+            ty = cabang_y + 21 + li * judul_lh
             elemen.append(
                 f'<text x="{cx:.1f}" y="{ty:.1f}" text-anchor="middle" direction="rtl" '
                 f'font-family="Playpen Sans Arabic" font-weight="600" font-size="{judul_fs}" fill="{tinta}">'
                 f"{_render_tspan(seg_j)}</text>"
             )
-        teks_x = bx + box_w - 9
+        teks_x = bx + box_w - 11
         for li, seg_b in enumerate(b_baris):
-            ty = cabang_y + kepala_h + 18 + li * isi_lh
+            ty = cabang_y + kepala_h + 20 + li * isi_lh
             elemen.append(
                 f'<text x="{teks_x:.1f}" y="{ty:.1f}" text-anchor="start" direction="rtl" '
                 f'font-family="Playpen Sans Arabic" font-weight="400" font-size="{isi_fs}" fill="#1f2328">'
@@ -673,7 +673,7 @@ def _svg_pohon(pohon: DiagramPohon, id_prefix: str) -> str:
 
     akar_teks = []
     for li, seg_a in enumerate(akar_baris):
-        ty = akar_y + 22 + li * akar_lh
+        ty = akar_y + 25 + li * akar_lh
         akar_teks.append(
             f'<text x="{rx:.1f}" y="{ty:.1f}" text-anchor="middle" direction="rtl" '
             f'font-family="Playpen Sans Arabic" font-weight="600" font-size="{akar_fs}" fill="#9e2932">'
@@ -684,8 +684,8 @@ def _svg_pohon(pohon: DiagramPohon, id_prefix: str) -> str:
         f'<svg class="svg-pohon" viewBox="0 0 {lebar} {tinggi}" xmlns="http://www.w3.org/2000/svg">'
         f"<defs>{''.join(defs)}</defs>"
         f"{''.join(panah)}"
-        f'<rect x="{akar_x:.1f}" y="{akar_y:.1f}" width="{akar_w:.1f}" height="{akar_h:.1f}" rx="8" '
-        f'fill="#faf3d8" stroke="#9e2932" stroke-width="1.6"/>'
+        f'<rect x="{akar_x:.1f}" y="{akar_y:.1f}" width="{akar_w:.1f}" height="{akar_h:.1f}" rx="9" '
+        f'fill="#faf3d8" stroke="#9e2932" stroke-width="1.7"/>'
         f"{''.join(akar_teks)}"
         f"{''.join(kotak)}"
         "</svg>"
@@ -694,16 +694,16 @@ def _svg_pohon(pohon: DiagramPohon, id_prefix: str) -> str:
 
 def _html_alur(alur: DiagramAlur, _id_prefix: str) -> str:
     padat = len(alur.langkah) >= 5
-    panah_w = 14 if padat else 20
+    panah_w = 16 if padat else 22
     potongan = []
     for i, lk in enumerate(alur.langkah, 1):
         tinta, tepi, latar, kepala_bg = PALET[lk.warna]
         if i > 1:
             potongan.append(
                 '<div class="alur-panah" aria-hidden="true">'
-                f'<svg viewBox="0 0 24 16" width="{panah_w}" height="14" xmlns="http://www.w3.org/2000/svg">'
-                '<line x1="22" y1="8" x2="5" y2="8" stroke="#6b5e50" stroke-width="1.7"/>'
-                '<path d="M 9 3 L 2 8 L 9 13" fill="none" stroke="#6b5e50" stroke-width="1.7" '
+                f'<svg viewBox="0 0 24 16" width="{panah_w}" height="15" xmlns="http://www.w3.org/2000/svg">'
+                '<line x1="22" y1="8" x2="5" y2="8" stroke="#6b5e50" stroke-width="1.8"/>'
+                '<path d="M 9 3 L 2 8 L 9 13" fill="none" stroke="#6b5e50" stroke-width="1.8" '
                 'stroke-linecap="round" stroke-linejoin="round"/>'
                 "</svg></div>"
             )
@@ -735,41 +735,37 @@ PERENDER_DIAGRAM = {
 }
 
 
-def _render_margin(daftar: tuple[Margin, ...], jangkar_sumber: dict[str, str]) -> str:
+def _render_catatan(daftar: tuple[Catatan, ...], jangkar_sumber: dict[str, str]) -> str:
     if not daftar:
         return ""
     kartu = []
-    for m in daftar:
-        label = f'<div class="m-label">{escape(m.label)}</div>' if m.label else ""
-        src = _tautan_sumber(m.sumber, jangkar_sumber, "src-chip src-mini")
-        src_html = f'<div class="m-src">{src}</div>' if src else ""
+    for c in daftar:
+        src = _tautan_sumber(c.sumber, jangkar_sumber, "src-chip src-mini")
+        if c.label or src:
+            label_html = f'<span class="catatan-label">{escape(c.label)}</span>' if c.label else "<span></span>"
+            kepala = f'<div class="catatan-kepala">{label_html}{src}</div>'
+        else:
+            kepala = ""
         kartu.append(
-            f'<aside class="margin-note warna-{m.warna}">'
-            f"{label}"
-            f'<div class="m-isi">{_format_teks(m.isi)}</div>'
-            f"{src_html}</aside>"
+            f'<aside class="catatan-kartu warna-{c.warna}">'
+            f"{kepala}"
+            f'<div class="catatan-isi">{_format_teks(c.isi)}</div>'
+            "</aside>"
         )
-    return "".join(kartu)
+    tata = "catatan-ganda" if len(daftar) >= 2 else "catatan-tunggal"
+    return f'<div class="catatan-bawah {tata}">{"".join(kartu)}</div>'
 
 
-def _bungkus_baris_kitab(utama_html: str, margin: tuple[Margin, ...], jangkar_sumber: dict[str, str],
-                         mode_kitab: bool, ekstra_kelas: str = "") -> str:
-    margin_html = _render_margin(margin, jangkar_sumber)
-    if mode_kitab or margin_html:
-        kelas = f"baris-dua {ekstra_kelas}".strip()
-        return (
-            f'<div class="{kelas}">'
-            f'<div class="kol-utama">{utama_html}</div>'
-            f'<div class="kol-margin">{margin_html}</div>'
-            "</div>"
-        )
-    kelas = f"baris-satu {ekstra_kelas}".strip()
-    return f'<div class="{kelas}">{utama_html}</div>'
+def _bungkus_baris(utama_html: str, catatan: tuple[Catatan, ...], jangkar_sumber: dict[str, str],
+                   ekstra_kelas: str = "") -> str:
+    catatan_html = _render_catatan(catatan, jangkar_sumber)
+    kelas = f"baris {ekstra_kelas}".strip()
+    return f'<div class="{kelas}">{utama_html}{catatan_html}</div>'
 
 
 def _render_hal(blok: BlokHal, ctx: dict) -> str:
     utama = f'<div class="hal-penanda"><span>ص {escape(blok.nomor)}</span></div>'
-    return _bungkus_baris_kitab(utama, (), ctx["jangkar_sumber"], ctx["mode_kitab"], "tahan-sesudah")
+    return _bungkus_baris(utama, (), ctx["jangkar_sumber"], "tahan-sesudah")
 
 
 def _render_subjudul(blok: BlokSubjudul, ctx: dict) -> str:
@@ -777,7 +773,7 @@ def _render_subjudul(blok: BlokSubjudul, ctx: dict) -> str:
     ctx["tanda"].append((sub_id, blok.teks))
     src = _tautan_sumber(blok.sumber, ctx["jangkar_sumber"])
     utama = f'<h3 class="subjudul" id="{sub_id}"><span>{_format_teks(blok.teks)}</span>{src}</h3>'
-    return _bungkus_baris_kitab(utama, (), ctx["jangkar_sumber"], ctx["mode_kitab"], "tahan-sesudah")
+    return _bungkus_baris(utama, (), ctx["jangkar_sumber"], "tahan-sesudah")
 
 
 def _render_bait(blok: BlokBait, ctx: dict) -> str:
@@ -790,14 +786,14 @@ def _render_bait(blok: BlokBait, ctx: dict) -> str:
         "</div>"
     )
     kelas = "tahan-dalam tahan-sesudah" if blok.gaya == "alfiyah" else "tahan-dalam"
-    return _bungkus_baris_kitab(utama, blok.margin, ctx["jangkar_sumber"], ctx["mode_kitab"], kelas)
+    return _bungkus_baris(utama, blok.catatan, ctx["jangkar_sumber"], kelas)
 
 
 def _render_matan(blok: BlokMatan, ctx: dict) -> str:
     kelas_p = "matan" if ctx["mode_kitab"] else "matan-lembar"
     utama = f'<p class="{kelas_p}">{_format_teks(blok.teks)}</p>'
-    tahan = "tahan-dalam" if blok.margin and len(blok.teks) < 520 else ""
-    return _bungkus_baris_kitab(utama, blok.margin, ctx["jangkar_sumber"], ctx["mode_kitab"], tahan)
+    tahan = "tahan-dalam" if blok.catatan and len(blok.teks) < 420 else ""
+    return _bungkus_baris(utama, blok.catatan, ctx["jangkar_sumber"], tahan)
 
 
 def _render_sela(blok: BlokSela, ctx: dict) -> str:
@@ -812,7 +808,7 @@ def _render_sela(blok: BlokSela, ctx: dict) -> str:
         item = "".join(f"<li>{_format_teks(b)}</li>" for b in blok.butir)
         butir_html = f'<ul class="sela-butir">{item}</ul>'
     utama = f'<div class="sela warna-{blok.warna}">{kepala}{isi_html}{butir_html}</div>'
-    return _bungkus_baris_kitab(utama, blok.margin, ctx["jangkar_sumber"], ctx["mode_kitab"], "tahan-dalam")
+    return _bungkus_baris(utama, blok.catatan, ctx["jangkar_sumber"], "tahan-dalam")
 
 
 def _render_hasyiah(blok: BlokHasyiah, ctx: dict) -> str:
@@ -822,7 +818,7 @@ def _render_hasyiah(blok: BlokHasyiah, ctx: dict) -> str:
     )
     pangkas = f'<p class="hasyiah-pangkas">{_format_teks(blok.catatan_pangkas)}</p>' if blok.catatan_pangkas else ""
     utama = f'<div class="hasyiah"><div class="hasyiah-garis"></div>{item}{pangkas}</div>'
-    return _bungkus_baris_kitab(utama, (), ctx["jangkar_sumber"], ctx["mode_kitab"], "tahan-dalam")
+    return _bungkus_baris(utama, (), ctx["jangkar_sumber"], "tahan-dalam")
 
 
 def _render_diagram(blok: BlokDiagram, ctx: dict) -> str:
@@ -836,7 +832,7 @@ def _render_diagram(blok: BlokDiagram, ctx: dict) -> str:
         f'<div class="diagram-isi">{badan}</div>'
         "</figure>"
     )
-    return _bungkus_baris_kitab(utama, blok.margin, ctx["jangkar_sumber"], ctx["mode_kitab"], "tahan-dalam")
+    return _bungkus_baris(utama, blok.catatan, ctx["jangkar_sumber"], "tahan-dalam")
 
 
 def _render_halaman_baru(_blok: BlokHalamanBaru, _ctx: dict) -> str:
@@ -874,7 +870,7 @@ def _css_halaman(rencana: Rencana) -> str:
         """
 @page {
   size: A4;
-  margin: 22.5mm 14mm 19mm 14mm;
+  margin: 22.5mm 15.5mm 18.5mm 15.5mm;
 }
 @page fihris {
   margin: 18mm 16mm 18mm 16mm;
@@ -1176,23 +1172,8 @@ a { text-decoration: none; color: inherit; }
   color: #465a73;
 }
 
-/* Grid 2 kolom kitab */
-.baris-dua {
-  display: grid;
-  grid-template-columns: 1fr 48mm;
-  gap: 5.5mm;
-  align-items: start;
-  padding-top: 3pt;
-  margin-bottom: 3pt;
-}
-.baris-satu { padding-top: 3pt; margin-bottom: 5pt; }
-.kol-utama { min-width: 0; }
-.kol-margin {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
+/* Alur satu kolom penuh selebar kitab asli */
+.baris { padding-top: 3pt; margin-bottom: 4pt; }
 .tahan-dalam { break-inside: avoid; }
 .tahan-sesudah { break-after: avoid; }
 .grup-jaga { break-inside: avoid; }
@@ -1248,7 +1229,7 @@ a { text-decoration: none; color: inherit; }
 }
 .bait-alfiyah {
   font-family: 'Amiri', serif;
-  font-size: 13.5pt;
+  font-size: 14pt;
   font-weight: 700;
   color: #9e2932;
   background: #fdf9f0;
@@ -1256,15 +1237,15 @@ a { text-decoration: none; color: inherit; }
 }
 .bait-syahid {
   font-family: 'Amiri', serif;
-  font-size: 12.2pt;
+  font-size: 12.6pt;
   font-weight: 400;
   color: #222222;
-  margin-inline: 10px;
+  margin-inline: 18px;
   background: #f9f8f6;
   border-right: 2px solid #9e8a6b;
 }
 .bait-no {
-  font-size: 9.5pt;
+  font-size: 9.8pt;
   color: #7c6855;
   font-weight: 700;
   white-space: nowrap;
@@ -1278,10 +1259,10 @@ a { text-decoration: none; color: inherit; }
   padding-top: 4pt;
   padding-bottom: 2pt;
   font-family: 'Amiri', serif;
-  font-size: 13.5pt;
+  font-size: 14pt;
   line-height: 1.85;
   text-align: justify;
-  text-indent: 16px;
+  text-indent: 18px;
   color: #1b1917;
   orphans: 2;
   widows: 2;
@@ -1291,7 +1272,7 @@ a { text-decoration: none; color: inherit; }
   padding-top: 3pt;
   padding-bottom: 2pt;
   font-family: 'Playpen Sans Arabic', sans-serif;
-  font-size: 10.4pt;
+  font-size: 10.6pt;
   line-height: 1.75;
   color: #1f2328;
   orphans: 2;
@@ -1310,20 +1291,38 @@ a { text-decoration: none; color: inherit; }
 }
 .fn { color: #9e2932; font-size: 0.72em; font-weight: 700; vertical-align: super; padding: 0 1px; }
 
-/* Catatan margin */
-.margin-note {
+/* Catatan coretan tangan langsung di bawah blok */
+.catatan-bawah {
+  margin-top: 6px;
+}
+.catatan-ganda {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  align-items: stretch;
+}
+.catatan-ganda > .catatan-kartu:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+.catatan-kartu {
   font-family: 'Playpen Sans Arabic', sans-serif;
-  font-size: 9.2pt;
-  line-height: 1.55;
-  padding: 5px 7px;
-  border-radius: 4px;
-  border: 0.7px solid transparent;
-  border-right-width: 2.6px;
+  font-size: 9.8pt;
+  line-height: 1.62;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 0.8px solid transparent;
+  border-right-width: 3px;
   break-inside: avoid;
 }
-.m-label { font-weight: 600; margin-bottom: 2px; font-size: 9pt; }
-.m-isi { color: #1f2328; }
-.m-src { margin-top: 4px; }
+.catatan-kepala {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+.catatan-label { font-weight: 600; font-size: 9.8pt; }
+.catatan-isi { color: #1f2328; }
 
 /* Kotak sela */
 .sela {
@@ -1391,11 +1390,11 @@ a { text-decoration: none; color: inherit; }
 
 /* Diagram */
 .diagram-kartu {
-  margin: 4px 0;
-  padding: 8px 10px;
+  margin: 6px 0;
+  padding: 10px 12px;
   background: #ffffff;
   border: 1px solid #d5cfc2;
-  border-radius: 7px;
+  border-radius: 8px;
   break-inside: avoid;
 }
 .diagram-kepala {
@@ -1403,11 +1402,11 @@ a { text-decoration: none; color: inherit; }
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  margin-bottom: 7px;
-  padding-bottom: 4px;
+  margin-bottom: 8px;
+  padding-bottom: 5px;
   border-bottom: 0.8px dashed #d5cfc2;
   font-family: 'Playpen Sans Arabic', sans-serif;
-  font-size: 10.4pt;
+  font-size: 11.2pt;
   font-weight: 600;
   color: #184a8c;
 }
@@ -1419,13 +1418,13 @@ a { text-decoration: none; color: inherit; }
   flex-wrap: nowrap;
   align-items: stretch;
   justify-content: center;
-  gap: 4px;
+  gap: 5px;
 }
 .alur-langkah {
   flex: 1 1 0;
   min-width: 0;
-  border: 1.2px solid;
-  border-radius: 6px;
+  border: 1.3px solid;
+  border-radius: 7px;
   overflow: hidden;
   font-family: 'Playpen Sans Arabic', sans-serif;
   overflow-wrap: anywhere;
@@ -1434,11 +1433,11 @@ a { text-decoration: none; color: inherit; }
 .alur-kepala {
   display: flex;
   align-items: flex-start;
-  gap: 5px;
-  padding: 4px 6px;
-  font-size: 9.2pt;
+  gap: 6px;
+  padding: 6px 8px;
+  font-size: 10.4pt;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 .alur-judul {
   min-width: 0;
@@ -1449,26 +1448,26 @@ a { text-decoration: none; color: inherit; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 16px;
-  height: 16px;
+  min-width: 18px;
+  height: 18px;
   margin-top: 2px;
   border-radius: 50%;
   color: #ffffff;
-  font-size: 8.2pt;
+  font-size: 9pt;
   flex-shrink: 0;
 }
 .alur-isi {
-  padding: 5px 7px;
-  font-size: 8.8pt;
-  line-height: 1.5;
+  padding: 7px 9px;
+  font-size: 9.6pt;
+  line-height: 1.55;
   color: #1f2328;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
-.alur-padat { gap: 2px; }
-.alur-padat .alur-kepala { padding: 3px 4px; font-size: 8.2pt; gap: 3px; }
-.alur-padat .alur-no { min-width: 14px; height: 14px; font-size: 7.4pt; }
-.alur-padat .alur-isi { padding: 4px 5px; font-size: 7.9pt; line-height: 1.45; }
+.alur-padat { gap: 3px; }
+.alur-padat .alur-kepala { padding: 4px 6px; font-size: 9.4pt; gap: 4px; }
+.alur-padat .alur-no { min-width: 16px; height: 16px; font-size: 8.2pt; }
+.alur-padat .alur-isi { padding: 5px 7px; font-size: 8.8pt; line-height: 1.5; }
 .alur-panah {
   display: flex;
   align-items: center;
@@ -1482,24 +1481,24 @@ a { text-decoration: none; color: inherit; }
   border-collapse: separate;
   border-spacing: 0;
   font-family: 'Playpen Sans Arabic', sans-serif;
-  font-size: 9.4pt;
-  line-height: 1.55;
+  font-size: 10.2pt;
+  line-height: 1.6;
   border: 1.1px solid #9eb2c9;
-  border-radius: 6px;
+  border-radius: 7px;
   overflow: hidden;
 }
 .diag-tabel th {
   background: #e8f0fa;
   color: #184a8c;
   font-weight: 600;
-  padding: 5px 8px;
+  padding: 6px 10px;
   text-align: right;
   border-bottom: 1.1px solid #9eb2c9;
   border-left: 0.7px solid #c9d8e8;
 }
 .diag-tabel th:last-child, .diag-tabel td:last-child { border-left: none; }
 .diag-tabel td {
-  padding: 5px 8px;
+  padding: 6px 10px;
   text-align: right;
   color: #1f2328;
   border-bottom: 0.7px dashed #d2dce8;
@@ -1819,7 +1818,7 @@ def _hiaskan_dan_daftar_isi(doc, rencana: Rencana, semua_tanda: list[list[tuple[
     biru = (39 / 255, 100 / 255, 179 / 255)
     bawah = (201 / 255, 189 / 255, 168 / 255)
     krem = (1.0, 0.992, 0.968)
-    margin_x = 39.7  # 14mm
+    margin_x = 43.9  # 15.5mm
 
     def gambar_kotak_hal(hal, warna_tepi, warna_isi=None):
         zona = hal.rect.__class__(margin_x - 2, 16, margin_x + 70, 56)

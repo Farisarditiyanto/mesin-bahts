@@ -34,12 +34,12 @@ Simpan rencana sebagai JSON UTF-8. Semua kunci asing, karakter kontrol, ID sumbe
           "kanan": "المَصْدَرُ اسْمُ مَا سِوَى الزَّمَانِ مِنْ",
           "kiri": "مَدْلُولَيِ الفِعْلِ كَأَمْنٍ مِنْ أَمِنْ",
           "gaya": "alfiyah",
-          "margin": {"label": "مفتاح", "warna": "biru", "isi": "الحدث المجرّد عن الزمان."}
+          "catatan": {"label": "مفتاح", "warna": "biru", "isi": "الحدث المجرّد عن الزمان."}
         },
         {
           "jenis": "matan",
           "teks": "الفعل يدلّ على شيئين: {hl:حدث وزمان}؛ فـ{o:قام} يدلّ على {ul:قيام في زمن ماض}{fn:١}.",
-          "margin": [{"label": "تنبيه", "warna": "merah", "isi": "القيام هو الحدث.", "sumber": ["م١"]}]
+          "catatan": [{"label": "تنبيه", "warna": "merah", "isi": "القيام هو الحدث.", "sumber": ["م١"]}]
         },
         {
           "jenis": "sela",
@@ -78,7 +78,7 @@ Simpan rencana sebagai JSON UTF-8. Semua kunci asing, karakter kontrol, ID sumbe
 - `sumber` (wajib, boleh `[]`): daftar `{id, judul, tautan?}` dengan `id` unik; `tautan` harus URL `http` atau `https`.
 - `bagian` (wajib, tidak kosong): daftar bab/lembar:
   - `judul` (wajib), `blok` (wajib, tidak kosong).
-  - `jenis` (opsional, bawaan `"kitab"`): `"kitab"` (tata letak dua kolom kitab + margin catatan) atau `"lembar"` (lembar ringkasan berlatar kertas krem).
+  - `jenis` (opsional, bawaan `"kitab"`): `"kitab"` (tata letak satu kolom selebar kitab asli dengan catatan langsung di bawah blok terkait) atau `"lembar"` (lembar ringkasan berlatar kertas krem).
   - `hal_kitab`, `catatan_pangkas`, `sumber` (opsional; setiap ID `sumber` harus terdaftar).
 
 ### Jenis blok (`blok[].jenis`)
@@ -87,16 +87,16 @@ Simpan rencana sebagai JSON UTF-8. Semua kunci asing, karakter kontrol, ID sumbe
 | --- | --- | --- | --- |
 | `hal` | `nomor` | — | Lencana halaman kitab asli (`ص ١٤١`). |
 | `subjudul` | `teks` | `sumber` | Subjudul bab; ikut masuk bookmark PDF tingkat 2. |
-| `bait` | `kanan`, `kiri` | `nomor`, `gaya` (`alfiyah`/`syahid`), `margin` | Bait dua syatr (`alfiyah` marun tebal, `syahid` hitam rapat). |
-| `matan` | `teks` | `margin` | Paragraf matan kitab; mendukung marka anotasi sebaris. |
-| `sela` | `isi` dan/atau `butir` | `label`, `warna` (`biru`/`merah`/`hijau`), `sumber`, `margin` | Kotak catatan kuliah sebaris bergaya tulisan tangan. |
+| `bait` | `kanan`, `kiri` | `nomor`, `gaya` (`alfiyah`/`syahid`), `catatan` | Bait dua syatr (`alfiyah` marun tebal, `syahid` hitam rapat). |
+| `matan` | `teks` | `catatan` | Paragraf matan kitab; mendukung marka anotasi sebaris. |
+| `sela` | `isi` dan/atau `butir` | `label`, `warna` (`biru`/`merah`/`hijau`), `sumber`, `catatan` | Kotak catatan kuliah sebaris bergaya tulisan tangan. |
 | `hasyiah` | `butir` (`[{nomor, teks}]`) | `catatan_pangkas` | Catatan kaki kitab yang sudah diringkas. |
-| `diagram` | `judul`, `tipe`, kunci tipe | `sumber`, `margin` | Diagram pohon, alur, atau tabel perbandingan; ikut bookmark tingkat 2. |
+| `diagram` | `judul`, `tipe`, kunci tipe | `sumber`, `catatan` | Diagram pohon, alur, atau tabel perbandingan selebar penuh; ikut bookmark tingkat 2. |
 | `halaman_baru` | — | — | Pindah halaman paksa. |
 
-### Catatan `margin`
+### Kartu `catatan` di bawah blok
 
-Diperbolehkan pada `bait`, `matan`, `sela`, dan `diagram`, berupa satu objek atau daftar objek: `{isi, label?, warna?, sumber?}` dengan `warna` salah satu dari `"biru"` (bawaan), `"merah"`, `"hijau"`.
+Diperbolehkan pada `bait`, `matan`, `sela`, dan `diagram`, berupa satu objek (tampil selebar penuh tepat di bawah blok) atau daftar objek (tampil berdampingan dua kolom di bawah blok): `{isi, label?, warna?, sumber?}` dengan `warna` salah satu dari `"biru"` (bawaan), `"merah"`, `"hijau"`.
 
 ### Marka anotasi sebaris
 
