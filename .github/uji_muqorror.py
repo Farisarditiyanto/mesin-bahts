@@ -194,7 +194,7 @@ def utama(folder: Path) -> None:
         assert p_sub2 == p_sub1 + 1, (p_sub1, p_sub2)
         assert "تدريبات" in doc[p_sub2].get_text() and "تدريبات" not in doc[p_sub1].get_text()
 
-        # Cek teks kitab, anotasi (tanpa bocor marka mentah), margin, sela, diagram, hasyiah, lembar
+        # Cek teks kitab, anotasi (tanpa bocor marka mentah), catatan, sela, diagram, hasyiah, lembar
         teks_bab1 = "\n".join(doc[i].get_text() for i in range(p_bab1, p_bab2))
         for wajib in (
             "١٤١", "تعريف المصدر", "مدلولي الفعل", "مفتاح البيت",

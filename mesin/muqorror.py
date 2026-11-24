@@ -591,22 +591,22 @@ def _svg_pohon(pohon: DiagramPohon, id_prefix: str) -> str:
     gap = 14
     box_w = (lebar - 2 * pad_x - (n - 1) * gap) / n
 
-    akar_fs = 15.0
+    akar_fs = 16.5
     akar_polos = POLA_ANOTASI.sub(r"\2", pohon.akar)
-    akar_w = min(500, max(230, int(_panjang_visual(akar_polos) * 10.2) + 54))
-    akar_maks = max(16, int((akar_w - 34) / 10.0))
+    akar_w = min(540, max(250, int(_panjang_visual(akar_polos) * 11.2) + 58))
+    akar_maks = max(16, int((akar_w - 36) / 11.0))
     akar_baris = _bungkus_segmen(pohon.akar, akar_maks)
-    akar_lh = 23
-    akar_h = 20 + len(akar_baris) * akar_lh
+    akar_lh = 24
+    akar_h = 22 + len(akar_baris) * akar_lh
     akar_x = (lebar - akar_w) / 2
     akar_y = 10
 
-    judul_fs = 13.5 if n <= 3 else 12.0
-    isi_fs = 12.0 if n <= 3 else 10.8
-    judul_lh = 21 if n <= 3 else 19
-    isi_lh = 19.5 if n <= 3 else 17.5
-    judul_maks = max(10, int((box_w - 22) / (judul_fs * 0.70)))
-    isi_maks = max(10, int((box_w - 26) / (isi_fs * 0.70)))
+    judul_fs = 15.0 if n <= 3 else 13.6
+    isi_fs = 13.8 if n <= 3 else 12.8
+    judul_lh = 22 if n <= 3 else 20
+    isi_lh = 21.5 if n <= 3 else 19.5
+    judul_maks = max(9, int((box_w - 22) / (judul_fs * 0.72)))
+    isi_maks = max(9, int((box_w - 24) / (isi_fs * 0.72)))
 
     susunan = []
     for c in pohon.cabang:
@@ -614,8 +614,8 @@ def _svg_pohon(pohon: DiagramPohon, id_prefix: str) -> str:
         b_baris: list[list[tuple[str, str]]] = []
         for item in c.isi:
             b_baris.extend(_bungkus_segmen(item, isi_maks, awalan="•"))
-        kepala_h = 14 + len(j_baris) * judul_lh
-        badan_h = (12 + len(b_baris) * isi_lh + 8) if b_baris else 10
+        kepala_h = 15 + len(j_baris) * judul_lh
+        badan_h = (13 + len(b_baris) * isi_lh + 9) if b_baris else 10
         susunan.append((c, j_baris, b_baris, kepala_h, kepala_h + badan_h))
 
     cabang_y = akar_y + akar_h + 40
@@ -655,7 +655,7 @@ def _svg_pohon(pohon: DiagramPohon, id_prefix: str) -> str:
             f'stroke="{tepi}" stroke-width="1.0" stroke-opacity="0.55"/>',
         ]
         for li, seg_j in enumerate(j_baris):
-            ty = cabang_y + 21 + li * judul_lh
+            ty = cabang_y + 22 + li * judul_lh
             elemen.append(
                 f'<text x="{cx:.1f}" y="{ty:.1f}" text-anchor="middle" direction="rtl" '
                 f'font-family="Playpen Sans Arabic" font-weight="600" font-size="{judul_fs}" fill="{tinta}">'
@@ -663,7 +663,7 @@ def _svg_pohon(pohon: DiagramPohon, id_prefix: str) -> str:
             )
         teks_x = bx + box_w - 11
         for li, seg_b in enumerate(b_baris):
-            ty = cabang_y + kepala_h + 20 + li * isi_lh
+            ty = cabang_y + kepala_h + 22 + li * isi_lh
             elemen.append(
                 f'<text x="{teks_x:.1f}" y="{ty:.1f}" text-anchor="start" direction="rtl" '
                 f'font-family="Playpen Sans Arabic" font-weight="400" font-size="{isi_fs}" fill="#1f2328">'
@@ -673,7 +673,7 @@ def _svg_pohon(pohon: DiagramPohon, id_prefix: str) -> str:
 
     akar_teks = []
     for li, seg_a in enumerate(akar_baris):
-        ty = akar_y + 25 + li * akar_lh
+        ty = akar_y + 27 + li * akar_lh
         akar_teks.append(
             f'<text x="{rx:.1f}" y="{ty:.1f}" text-anchor="middle" direction="rtl" '
             f'font-family="Playpen Sans Arabic" font-weight="600" font-size="{akar_fs}" fill="#9e2932">'
@@ -735,6 +735,27 @@ PERENDER_DIAGRAM = {
 }
 
 
+def _format_blok_catatan(teks: str) -> str:
+    baris_list = [b.strip() for b in teks.replace("\r\n", "\n").replace("\r", "\n").split("\n") if b.strip()]
+    bagian: list[str] = []
+    butir_aktif: list[str] = []
+
+    def tutup_butir() -> None:
+        if butir_aktif:
+            isi = "".join(f"<li>{_format_teks(x)}</li>" for x in butir_aktif)
+            bagian.append(f'<ul class="catatan-butir">{isi}</ul>')
+            butir_aktif.clear()
+
+    for b in baris_list:
+        if b.startswith(("• ", "- ", "– ")):
+            butir_aktif.append(b[2:].strip())
+        else:
+            tutup_butir()
+            bagian.append(f'<p class="catatan-p">{_format_teks(b)}</p>')
+    tutup_butir()
+    return "".join(bagian)
+
+
 def _render_catatan(daftar: tuple[Catatan, ...], jangkar_sumber: dict[str, str]) -> str:
     if not daftar:
         return ""
@@ -749,7 +770,7 @@ def _render_catatan(daftar: tuple[Catatan, ...], jangkar_sumber: dict[str, str])
         kartu.append(
             f'<aside class="catatan-kartu warna-{c.warna}">'
             f"{kepala}"
-            f'<div class="catatan-isi">{_format_teks(c.isi)}</div>'
+            f'<div class="catatan-isi">{_format_blok_catatan(c.isi)}</div>'
             "</aside>"
         )
     tata = "catatan-ganda" if len(daftar) >= 2 else "catatan-tunggal"
@@ -1272,8 +1293,8 @@ a { text-decoration: none; color: inherit; }
   padding-top: 3pt;
   padding-bottom: 2pt;
   font-family: 'Playpen Sans Arabic', sans-serif;
-  font-size: 10.6pt;
-  line-height: 1.75;
+  font-size: 11.4pt;
+  line-height: 1.8;
   color: #1f2328;
   orphans: 2;
   widows: 2;
@@ -1306,9 +1327,9 @@ a { text-decoration: none; color: inherit; }
 }
 .catatan-kartu {
   font-family: 'Playpen Sans Arabic', sans-serif;
-  font-size: 9.8pt;
-  line-height: 1.62;
-  padding: 6px 10px;
+  font-size: 10.8pt;
+  line-height: 1.7;
+  padding: 7px 12px;
   border-radius: 6px;
   border: 0.8px solid transparent;
   border-right-width: 3px;
@@ -1319,17 +1340,23 @@ a { text-decoration: none; color: inherit; }
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  margin-bottom: 3px;
+  margin-bottom: 4px;
 }
-.catatan-label { font-weight: 600; font-size: 9.8pt; }
+.catatan-label { font-weight: 600; font-size: 11pt; }
 .catatan-isi { color: #1f2328; }
+.catatan-p { margin: 0 0 3px; }
+.catatan-p:last-child { margin-bottom: 0; }
+.catatan-butir { margin: 2px 0 3px; padding: 0 17px 0 0; }
+.catatan-butir:last-child { margin-bottom: 0; }
+.catatan-butir li { margin-bottom: 3px; }
+.catatan-butir li:last-child { margin-bottom: 0; }
 
 /* Kotak sela */
 .sela {
   font-family: 'Playpen Sans Arabic', sans-serif;
-  font-size: 10pt;
-  line-height: 1.7;
-  padding: 8px 11px;
+  font-size: 11.2pt;
+  line-height: 1.75;
+  padding: 9px 13px;
   border-radius: 6px;
   border: 0.9px solid transparent;
   border-right-width: 3.2px;
@@ -1340,17 +1367,25 @@ a { text-decoration: none; color: inherit; }
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
-.sela-label { font-weight: 600; font-size: 10.2pt; }
+.sela-label { font-weight: 600; font-size: 11.6pt; }
 .sela-isi { margin: 0; color: #1f2328; }
-.sela-butir { margin: 4px 0 0; padding: 0 18px 0 0; color: #1f2328; }
-.sela-butir li { margin-bottom: 2px; }
+.sela-butir { margin: 4px 0 0; padding: 0 19px 0 0; color: #1f2328; }
+.sela-butir li {
+  margin-bottom: 6px;
+  padding-bottom: 5px;
+  border-bottom: 0.6px dashed rgba(24, 40, 64, 0.12);
+}
+.sela-butir li:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
 
 /* Warna catatan */
 .warna-biru { background: #f0f5fc; border-color: #c5d9f1; border-right-color: #184a8c; color: #184a8c; }
+.warna-biru strong { color: #113463; font-weight: 600; }
 .warna-merah { background: #fdf2f3; border-color: #f0c9cd; border-right-color: #8f1d28; color: #8f1d28; }
+.warna-merah strong { color: #75151f; font-weight: 600; }
 .warna-hijau { background: #eff8f4; border-color: #bfe3d3; border-right-color: #165541; color: #165541; }
+.warna-hijau strong { color: #0f4534; font-weight: 600; }
 
 /* Chip sumber */
 .src-list { display: inline-flex; flex-wrap: wrap; gap: 4px; }
@@ -1406,7 +1441,7 @@ a { text-decoration: none; color: inherit; }
   padding-bottom: 5px;
   border-bottom: 0.8px dashed #d5cfc2;
   font-family: 'Playpen Sans Arabic', sans-serif;
-  font-size: 11.2pt;
+  font-size: 11.8pt;
   font-weight: 600;
   color: #184a8c;
 }
@@ -1435,7 +1470,7 @@ a { text-decoration: none; color: inherit; }
   align-items: flex-start;
   gap: 6px;
   padding: 6px 8px;
-  font-size: 10.4pt;
+  font-size: 10.8pt;
   font-weight: 600;
   line-height: 1.45;
 }
@@ -1448,26 +1483,26 @@ a { text-decoration: none; color: inherit; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 18px;
-  height: 18px;
+  min-width: 19px;
+  height: 19px;
   margin-top: 2px;
   border-radius: 50%;
   color: #ffffff;
-  font-size: 9pt;
+  font-size: 9.2pt;
   flex-shrink: 0;
 }
 .alur-isi {
   padding: 7px 9px;
-  font-size: 9.6pt;
-  line-height: 1.55;
+  font-size: 10.4pt;
+  line-height: 1.6;
   color: #1f2328;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 .alur-padat { gap: 3px; }
-.alur-padat .alur-kepala { padding: 4px 6px; font-size: 9.4pt; gap: 4px; }
-.alur-padat .alur-no { min-width: 16px; height: 16px; font-size: 8.2pt; }
-.alur-padat .alur-isi { padding: 5px 7px; font-size: 8.8pt; line-height: 1.5; }
+.alur-padat .alur-kepala { padding: 4px 6px; font-size: 9.8pt; gap: 4px; }
+.alur-padat .alur-no { min-width: 17px; height: 17px; font-size: 8.4pt; }
+.alur-padat .alur-isi { padding: 5px 7px; font-size: 9.3pt; line-height: 1.52; }
 .alur-panah {
   display: flex;
   align-items: center;
@@ -1481,8 +1516,8 @@ a { text-decoration: none; color: inherit; }
   border-collapse: separate;
   border-spacing: 0;
   font-family: 'Playpen Sans Arabic', sans-serif;
-  font-size: 10.2pt;
-  line-height: 1.6;
+  font-size: 11pt;
+  line-height: 1.65;
   border: 1.1px solid #9eb2c9;
   border-radius: 7px;
   overflow: hidden;
@@ -1490,15 +1525,16 @@ a { text-decoration: none; color: inherit; }
 .diag-tabel th {
   background: #e8f0fa;
   color: #184a8c;
+  font-size: 11.2pt;
   font-weight: 600;
-  padding: 6px 10px;
+  padding: 7px 11px;
   text-align: right;
   border-bottom: 1.1px solid #9eb2c9;
   border-left: 0.7px solid #c9d8e8;
 }
 .diag-tabel th:last-child, .diag-tabel td:last-child { border-left: none; }
 .diag-tabel td {
-  padding: 6px 10px;
+  padding: 7px 11px;
   text-align: right;
   color: #1f2328;
   border-bottom: 0.7px dashed #d2dce8;
@@ -1509,52 +1545,43 @@ a { text-decoration: none; color: inherit; }
 .diag-tabel tbody tr:nth-child(even) td { background: #f8fbff; }
 .diag-tabel tbody tr:last-child td { border-bottom: none; }
 
-/* Sumber */
+/* Sumber (ringkas muat 1 halaman tanpa URL mentah) */
 .hal-sumber { page: sumber; break-before: page; }
 .sumber-judul {
-  margin: 0 0 12px;
-  padding-bottom: 5px;
+  margin: 0 0 9px;
+  padding-bottom: 4px;
   border-bottom: 2px double #9e2932;
-  font-size: 16pt;
+  font-size: 15pt;
   font-weight: 700;
   color: #9e2932;
 }
-.sumber-daftar { display: flex; flex-direction: column; gap: 8px; }
+.sumber-daftar { display: flex; flex-direction: column; gap: 4px; }
 .sumber-item {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding: 8px 12px;
+  align-items: center;
+  gap: 9px;
+  padding: 4.5px 10px;
   background: #fffdf8;
-  border: 0.8px solid #dfd5c5;
+  border: 0.7px solid #e3dacc;
   border-right: 3px solid #9e2932;
-  border-radius: 6px;
+  border-radius: 5px;
   break-inside: avoid;
 }
 .sumber-kode {
   font-family: 'Playpen Sans Arabic', sans-serif;
-  font-size: 9pt;
+  font-size: 8.8pt;
   font-weight: 600;
   color: #9e2932;
   background: #faf3d8;
   border: 0.7px solid #d5c198;
   border-radius: 4px;
-  padding: 1px 7px;
+  padding: 0 6px;
+  min-width: 28px;
+  text-align: center;
   white-space: nowrap;
 }
 .sumber-badan { flex: 1; min-width: 0; }
-.sumber-nama { font-size: 12.5pt; font-weight: 700; color: #1b1917; }
-.sumber-tautan {
-  display: block;
-  margin-top: 2px;
-  font-family: sans-serif;
-  font-size: 8.8pt;
-  color: #184a8c;
-  text-decoration: underline;
-  direction: ltr;
-  text-align: right;
-  word-break: break-all;
-}
+.sumber-nama { font-size: 11.4pt; font-weight: 700; color: #1b1917; line-height: 1.45; }
 
 /* Probe khusus putaran pertama untuk menangkap halaman semua jangkar */
 .probe-jangkar { break-before: page; font-size: 8pt; }
@@ -1587,7 +1614,7 @@ def _render_fihris(rencana: Rencana, nomor_halaman: dict[str, int]) -> str:
             '<a class="fihris-baris" href="#sumber">'
             '<span class="fihris-no"><span class="fihris-ikon"></span></span>'
             '<span class="fihris-teks">مصادر المحاضرات</span>'
-            '<span class="fihris-tag fihris-tag-sumber">روابط ومراجع</span>'
+            '<span class="fihris-tag fihris-tag-sumber">فهرس المحاضرات</span>'
             '<span class="fihris-titik"></span>'
             f'<span class="fihris-hal">{hal_s}</span>'
             "</a>"
@@ -1694,14 +1721,12 @@ def _render_sumber(sumber: dict[str, Sumber], jangkar_sumber: dict[str, str]) ->
         if data.tautan:
             tautan_esc = escape(data.tautan, quote=True)
             nama = f'<a class="sumber-nama" href="{tautan_esc}">{_format_teks(data.judul)}</a>'
-            link = f'<a class="sumber-tautan" href="{tautan_esc}">{escape(data.tautan)}</a>'
         else:
             nama = f'<div class="sumber-nama">{_format_teks(data.judul)}</div>'
-            link = ""
         butir.append(
             f'<div class="sumber-item" id="{jangkar_sumber[kode]}">'
             f'<span class="sumber-kode">{escape(kode)}</span>'
-            f'<div class="sumber-badan">{nama}{link}</div>'
+            f'<div class="sumber-badan">{nama}</div>'
             "</div>"
         )
     return (
