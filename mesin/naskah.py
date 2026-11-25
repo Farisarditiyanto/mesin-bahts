@@ -172,7 +172,7 @@ class Pengurai:
         self.seg_h = len(ctx.hadits_idx)  # {H:} pertama sesudah catatan kaki terakhir
         self.matn = set()  # letak kurung buka lafaz matn ((…)) di polos: bukan kurung kutipan
         self.h_pos = None  # letak {H:} terakhir di polos: (…) tepat sesudahnya = matan hadits yang dikutip
-        self.diam_rentang = []  # rentang indeks polos milik paragraf salinan @rumuz (sudah dicek ke kitab)
+        self.diam_rentang = []
 
     @property
     def galat(self):

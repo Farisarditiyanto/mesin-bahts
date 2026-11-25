@@ -1,11 +1,4 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Penjaga struktural dokumentasi dan konfigurasi:
-1. `dok/mutamad.md` terurai lengkap oleh `cek_sumber.mutamad()` untuk keempat mazhab, dan cocok dengan tabel bagiannya;
-2. Seluruh tautan markdown dan path repo ber-backtick (`dok/…`, `.github/…`, `mesin/…`, `contoh/…`) di `AGENTS.md`,
-   `dok/*.md`, dan `README*.md` menunjuk berkas/folder yang benar-benar ada;
-3. Seluruh profil di `mesin/format.json` hanya memakai kunci yang dikenal `olah.py` (`BAWAAN_FORMAT`, `IKUT_FORMAT`,
-   `_sumber`) dengan tipe dan nilai yang sah.
-"""
 import json, re, sys
 from pathlib import Path
 

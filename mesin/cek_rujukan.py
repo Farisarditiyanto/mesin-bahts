@@ -204,7 +204,6 @@ class SalahHalaman(typing.NamedTuple):
 
 
 def _saring_klausa_luar(isi):
-    """Buang klausa berpemisah «؛» yang hanya merujuk <<luar>> (tanpa sid Shamela) sebelum halaman dicocokkan."""
     if "<<" not in isi:
         return isi
     klausa = [k for k in re.split(r"[؛;]", isi)

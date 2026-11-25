@@ -140,9 +140,8 @@ try {
             if ($p.Range.ComputeStatistics(1) -gt $n) { $pf.LeftIndent = [single]($tepi - 6); $pf.RightIndent = [single]($tepi - 6); break }
         }
     }
-    # judul sangat panjang: sampul tetap satu halaman, judul dan sub-judul dikecilkan sampai 14 lalu diratakan lagi;
-    # jarak dihitung di Print Layout dengan satu paragraf sementara untuk baris pemisah bagian sesudah sampul
     function MuatSampul($judulPars, $ukAwal, $rapat) {
+        # ComputeStatistics(2) requires Print Layout view; Draft view suppresses pagination.
         $doc.ActiveWindow.View.Type = 3
         $doc.Content.InsertParagraphAfter()
         $uk = $ukAwal; $kecil = $false
@@ -152,7 +151,7 @@ try {
                 if ($q -and $q.Range.Font.SizeBi -gt $uk) { Huruf $q.Range.Font $null $uk }
             }
         }
-        if ($kecil) {                                    # baris berubah sesudah dikecilkan: ratakan lagi
+        if ($kecil) {
             foreach ($q in @($judulPars)) { if ($q) { $q.LeftIndent = 0; $q.RightIndent = 0; $u = $q.Range.Font.SizeBi; Seimbang $q $u $u } }
         }
         & $rapat
@@ -231,7 +230,6 @@ try {
     Seimbang $pJudul $(if ($JAKARTA) { 22 } else { 24 }) 18   # judul 24 seperti model (jakarta 22), dikecilkan sampai 18 supaya muat satu baris
     if ($JUDUL2) { Seimbang $pSub 18 16 }
     else { Huruf $pSub.Range.Font $null 2; $pSub.SpaceBefore = 0 }   # tanpa sub-judul: tanpa celah
-    # masih dua halaman sesudah dikecilkan sampai 14: jarak di atas «العام الجامعي» dipendekkan, lalu jarak antarbagian lain
     MuatSampul @($pJudul, $pSub) $pJudul.Range.Font.SizeBi {
         $pTahun = @($doc.Paragraphs) | Where-Object { $_.Range.Text.Trim() -eq 'العام الجامعي' } | Select-Object -First 1
         while ($pTahun -and $doc.ComputeStatistics(2) -gt 1 -and $pTahun.SpaceBefore -gt 0) { $pTahun.SpaceBefore = [Math]::Max(0, $pTahun.SpaceBefore - 10) }

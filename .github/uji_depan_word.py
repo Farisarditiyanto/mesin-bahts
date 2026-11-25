@@ -246,12 +246,9 @@ def sampul_tengah(akar):
 
 
 def jakarta_mahad_dan_mulakhas(akar):
-    """@model: jakarta + @sampul: jakarta (sel tabel 'قسم الشريعة بجاكرتا' tetap terformat 16 pt & kepala_kotak),
-    @sampul: mahad, dan #K المُلَخَّص berharakat di bawah @format: tatbiqi_mulakhas."""
     from xml.etree import ElementTree as ET
     ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
     w = "{" + ns["w"] + "}"
-    # 1) @model: jakarta + @sampul: jakarta
     tulis(akar, "jakarta",
           "@model: jakarta\n@judul: اختبار نموذج جاكرتا\n@nama: طالب\n@sifat: طالب مقيد\n@nim: 4300123\n"
           "@musyrif: د. مشرف\n@jabatan: أستاذ مشارك\n@berkas: uji\n@tanpa: hadits\n@minimal_halaman: 0\n",
@@ -266,7 +263,6 @@ def jakarta_mahad_dan_mulakhas(akar):
                    for ln in b.get("lines", []) for s in ln["spans"] if s["text"].strip()]
     qism_spans = [(f, u, t) for f, u, t in spans_j if "قسم الشريعة بجاكرتا" in t]
     assert qism_spans and all("Traditional" in f and 15.5 <= u <= 16.5 for f, u, _ in qism_spans), qism_spans
-    # 2) @sampul: mahad + @format: tatbiqi_mulakhas + #K المُلَخَّص berharakat
     tulis(akar, "mahad",
           "@sampul: mahad\n@format: tatbiqi_mulakhas\n@judul: اختبار غلاف المعهد\n@jenis: بحث صفي للمستوى الثامن\n"
           "@nama: طالب\n@nim: 4300123\n@fasl: الفصل الدراسي الأول\n@musyrif: د. مشرف\n@berkas: uji\n"
@@ -281,7 +277,6 @@ def jakarta_mahad_dan_mulakhas(akar):
     paras = { "".join(p.itertext()).strip(): p for p in doc_m.findall(".//w:body/w:p", ns) if "".join(p.itertext()).strip() }
     sp = lambda key: paras[key].find("w:pPr/w:spacing", ns)
     ind = lambda key: paras[key].find("w:pPr/w:ind", ns)
-    # #K المُلَخَّص: spasi 1.5 (line=360), mulakhas_berjarak (par 2 before=120, tanpa firstLine)
     assert sp("الفقرة الأولى من الملخص العربي.").attrib.get(f"{w}line") == "360", ET.tostring(paras["الفقرة الأولى من الملخص العربي."], encoding="unicode")
     assert sp("الفقرة الثانية من الملخص العربي.").attrib.get(f"{w}before") == "120", ET.tostring(paras["الفقرة الثانية من الملخص العربي."], encoding="unicode")
     assert (ind("الفقرة الثانية من الملخص العربي.") is None or ind("الفقرة الثانية من الملخص العربي.").attrib.get(f"{w}firstLine", "0") == "0")

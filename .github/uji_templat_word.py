@@ -29,7 +29,6 @@ def paragraf(teks, ukuran=32):
 
 
 def _tulis_docx(tujuan, badan, headers):
-    """Tulis berkas .docx minimal dengan `badan` (isi <w:body>) dan `headers` = [(rId, nama_berkas, isi_xml)]."""
     ov = "".join(
         f'<Override PartName="/word/{nama}" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>'
         for _, nama, _ in headers
@@ -106,11 +105,9 @@ def utama():
 
 
 def multi_dan_judul_panjang(akar):
-    """Multi-section @templat (Section 1 header kosong -> jatuh ke Section 2), @judul >255 aksara tanpa batas Find.Execute,
-    dan RtlRun pada kotak teks kepala hanya untuk kotak ber-PAGE (kotak Latin tanpa PAGE tidak terbalik)."""
     import subprocess
     from xml.etree import ElementTree as ET
-    judul_panjang = " ".join(["دراسة فقهية تحليلية مقارنة"] * 12)   # >255 aksara
+    judul_panjang = " ".join(["دراسة فقهية تحليلية مقارنة"] * 12)
     assert len(judul_panjang) > 255
     f = akar / "multi"
     f.mkdir()

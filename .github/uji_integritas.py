@@ -112,12 +112,14 @@ if mode == "ps-yatim":  # rakit.ps1 yang Python-nya dimatikan masih hidup dan me
                               "'OpenOrCreate', 'ReadWrite', 'None'); 'pegang'; Start-Sleep 60"],
                              stdout=subprocess.PIPE, text=True)
     assert yatim.stdout.readline().strip() == "pegang"
+    a_r, k_r = bahts.pisah(argumen, bahts.PERINTAH["rakit"].bendera)
     try:
-        bahts.perintah_rakit(argumen)
+        bahts.PERINTAH["rakit"].jalankan(a_r, **k_r)
     finally:
         yatim.kill()
 else:
-    bahts.perintah_rakit(argumen)
+    a_r, k_r = bahts.pisah(argumen, bahts.PERINTAH["rakit"].bendera)
+    bahts.PERINTAH["rakit"].jalankan(a_r, **k_r)
 '''
 
 

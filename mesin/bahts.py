@@ -504,14 +504,6 @@ def _rakit(nama, fasl=None):
     _mod("rakit").rakit(folder_bahts(nama), jalur_ketik(nama), fasl)
 
 
-def perintah_rakit(a):
-    """Dipakai `.github/uji_integritas.py` untuk menguji alur `rakit` langsung."""
-    a, k = pisah(a, (FASL,))
-    if len(a) != 1 or a[0].startswith("--"):
-        raise ValueError(f"argumen tidak dikenal atau berlebih: {a}")
-    _rakit(a[0], k.get("fasl"))
-
-
 def perintah_pratinjau(a):
     """`pratinjau <folder> [halaman]`: halaman PDF hasil `rakit` jadi gambar PNG grid 2×2 di TEMP, untuk pemeriksa."""
     import pratinjau
@@ -719,7 +711,6 @@ if __name__ == "__main__":
         if len(a) < p.paling_sedikit:
             sys.exit(f"Perintah «{cmd}» kurang argumen. Bentuknya:\n{bentuk}")
         if p.paling_banyak is not None and (len(a) > p.paling_banyak or any(x.startswith("--") for x in a)):
-            # argumen berlebih atau bendera asing ditolak, bukan ditelan: `halaman 1679 - 8 9` atau `cek --salah`
             bendera = [x for x in a if x.startswith("--")]
             lebih = a[p.paling_banyak:] if len(a) > p.paling_banyak else bendera
             sys.exit(f"Argumen perintah «{cmd}» tidak dikenal atau berlebih: {lebih}"

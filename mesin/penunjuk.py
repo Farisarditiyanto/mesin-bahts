@@ -4,8 +4,6 @@ kutipannya, tiap {Q:} dengan teks ayatnya, dan tiap paragraf isi tanpa catatan k
 import re
 from pathlib import Path
 
-from rapidfuzz import fuzz
-
 import cocok
 import norma
 import shamela
@@ -17,8 +15,8 @@ from kitab_lokal import Bukti, akhir_rekaman, rekaman
 from olah import periksa
 
 SEKITAR = 300  # huruf teks kitab yang dicetak `bukti` sebelum dan sesudah letak kutipan
-AMBANG_KUTIPAN = 65  # skor minimum rapidfuzz untuk kutipan yang meleset (di atas kebetulan ~51% antarhalaman)
-AMBANG_PARAFRASE = 60  # skor minimum rapidfuzz untuk melokalkan parafrase tanpa tanda petik
+AMBANG_KUTIPAN = 65
+AMBANG_PARAFRASE = 60
 KECUALI_KITAB = frozenset({"الا", "غير", "سوي"})
 
 
@@ -26,30 +24,7 @@ def _rekaman_urut(sid, juz, p1, p2):
     return sorted(rekaman(sid, juz, p1, p2), key=lambda r: (r.get("page_num") or 0, r.get("page_id") or 0))
 
 
-def _cari_jendela(raw, target, ambang):
-    """(skor, awal, akhir) posisi terbaik `target` pada jendela geser token `raw` via `rapidfuzz`, atau None."""
-    kata_q = [norma.padat(w) for w in target.split() if norma.padat(w)]
-    if len(kata_q) < 4:
-        return None
-    toks = [(m.start(), m.end(), p) for m in re.finditer(r"\S+", raw) if (p := norma.padat(m.group()))]
-    if len(toks) < 3:
-        return None
-    win = max(4, min(len(kata_q) + 2, 24))
-    step = max(1, win // 4)
-    q_str = " ".join(kata_q)
-    q_khas = {w for w in kata_q if len(w) >= 3}
-    terbaik = (0, 0, 0)
-    for idx in range(0, max(1, len(toks) - win + 1), step):
-        pot = toks[idx:idx + win]
-        skor = fuzz.token_set_ratio(q_str, " ".join(x[2] for x in pot))
-        sama = len(q_khas & {x[2] for x in pot})
-        if skor >= ambang and sama >= min(3, len(q_khas)) and skor > terbaik[0]:
-            terbaik = (round(skor), pot[0][0], pot[-1][1])
-    return terbaik if terbaik[0] else None
-
-
 def _konteks_kitab(raw, a_off, z_off):
-    """Isyarat nafi, pengantar penutur lain, dan pengecualian tepat di sekitar letak kutipan pada teks kitab."""
     isyarat = []
     pra = raw[:a_off]
     if m_pra := list(HENTI.finditer(pra)):
@@ -136,6 +111,30 @@ def _penunjuk_waqfeya(w, n, hal, kutipan):
             f"{perintah(f'halaman {w} {n} {hal}')} (lafaz dan nomor halaman cetak dinilai dari scan)")
 
 
+def _lokalkan_perkiraan(teks, bagian_q, klausa, juz, hal):
+    target, ambang, label = (bagian_q[0], AMBANG_KUTIPAN, "perkiraan letak") if bagian_q else ("", 0, "")
+    if not target and klausa:
+        kl = re.split(r"[.\n؛؟!]+", re.sub(r"﴿[^﴾]*﴾", " ", klausa).strip())[-1].strip()
+        target, ambang, label = (kl or klausa, AMBANG_PARAFRASE, "perkiraan letak parafrase")
+    if not target:
+        return []
+    terbaik = None
+    for bagian, tanda in norma.BAGIAN:
+        raw = teks[bagian]
+        temu = sumber_pdf.cari_jendela(raw, target, ambang, max_win=24, step_div=4)
+        if temu and (terbaik is None or temu.skor > terbaik[0].skor):
+            terbaik = (temu, tanda, raw)
+    if not terbaik:
+        return []
+    temu, tanda, raw = terbaik
+    h = ([x[1] for x in re.finditer(r"⦗([\d-]+)⦘", raw[:temu.awal + 1])] or [hal])[-1]
+    a, z = max(0, temu.awal - SEKITAR), temu.akhir + SEKITAR
+    out = [f"{shamela.letak(juz, h)}{tanda} ({label} ~{temu.skor}%): {'…' * (a > 0)}{raw[a:z]}{'…' * (z < len(raw))}"]
+    if isy := _konteks_kitab(raw, temu.awal, temu.akhir):
+        out.append(isy)
+    return out
+
+
 def _penunjuk_bukti(b, kutipan, klausa=None):
     """Baris `bukti` untuk satu bukti Shamela b: nama kitab, rantai judul, dan teks halaman itu di sekitar kutipan."""
     e = b.salah()
@@ -180,26 +179,8 @@ def _penunjuk_bukti(b, kutipan, klausa=None):
             if isy := _konteks_kitab(raw, i, min(len(raw), i + len(kutipan))):
                 hasil.append(isy)
             return hasil
-    # pelokalan jendela geser untuk kutipan yang meleset di awal/tengah atau parafrase tanpa tanda petik
-    target, ambang, label = (bagian_q[0], AMBANG_KUTIPAN, "perkiraan letak") if bagian_q else ("", 0, "")
-    if not target and klausa:
-        kl = re.split(r"[.\n؛؟!]+", re.sub(r"﴿[^﴾]*﴾", " ", klausa).strip())[-1].strip()
-        target, ambang, label = (kl or klausa, AMBANG_PARAFRASE, "perkiraan letak parafrase")
-    if target:
-        terbaik = None
-        for bagian, tanda in norma.BAGIAN:
-            raw = teks[bagian]
-            temu = _cari_jendela(raw, target, ambang)
-            if temu and (terbaik is None or temu[0] > terbaik[0]):
-                terbaik = (*temu, bagian, tanda, raw)
-        if terbaik:
-            skor, a_off, z_off, _, tanda, raw = terbaik
-            h = ([x[1] for x in re.finditer(r"⦗([\d-]+)⦘", raw[:a_off + 1])] or [hal])[-1]
-            a, z = max(0, a_off - SEKITAR), z_off + SEKITAR
-            hasil.append(f"{shamela.letak(juz, h)}{tanda} ({label} ~{skor}%): {'…' * (a > 0)}{raw[a:z]}{'…' * (z < len(raw))}")
-            if isy := _konteks_kitab(raw, a_off, z_off):
-                hasil.append(isy)
-            return hasil
+    if perkiraan := _lokalkan_perkiraan(teks, bagian_q, klausa, juz, hal):
+        return hasil + perkiraan
     raw = teks["body"]
     if not raw:
         return hasil + [f"{shamela.letak(juz, (p1, p2))}: halaman itu tidak ada di kitab {sid} juz {juz}"]

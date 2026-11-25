@@ -382,7 +382,6 @@ def _baris_waqfeya(w, b, wq):
 
 
 def _cari_katalog(item_iter, ambil_judul, ambil_peng, wajib_q, wajib_p, kata_q, kata_p):
-    """Filter entri katalog (Shamela atau Waqfeya) yang memuat seluruh kata judul dan pengarang."""
     pres, padat = norma.PRESENTASI.search, norma.padat
     hasil = []
     for key, val in item_iter:

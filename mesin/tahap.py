@@ -109,10 +109,12 @@ class Keadaan:
     diterima: int = 0  # perhatian yang diterima lewat «terima» di riset.txt
 
 
-def hasil_rakit(folder, cek):
+def hasil_rakit(folder, cek=None, berkas=None):
     """[Produk] hasil `rakit` di folder menurut naskah sekarang (cek = olah.periksa): seluruh naskah dulu, lalu tiap
     potongan --fasl urut nomornya."""
-    sidik, cetak, berkas = cek.sidik_naskah, cek.sidik_cetak, cek.ctx.meta["berkas"]
+    sidik = cek.sidik_naskah if cek else ""
+    cetak = cek.sidik_cetak if cek else ""
+    berkas = berkas if berkas is not None else cek.ctx.meta["berkas"]
     pdf, laporan = folder / produk.pdf(berkas), folder / produk.laporan()
     ada = [Produk(laporan, hasil(pdf, laporan, sidik, cetak), pdf)]
     for fasl, laporan in produk.potongan(folder):  # nama yang bukan --fasl sah dilewati: jangan menyarankan perintah palsu

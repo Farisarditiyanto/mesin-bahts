@@ -255,7 +255,6 @@ class _PenguraiRumus:
         return f"<m:r><m:rPr><m:nor/></m:rPr>{self._rpr_math(bold=bold, italic=italic)}<m:t{sp}>{escape(teks)}</m:t></m:r>"
 
     def _isi_teks(self, perintah, bold=False, italic=False):
-        """Urai isi satu grup {…} teks biasa (`\\text`, `\\textbf`, …) menjadi [(teks, bold, italic)]."""
         self._lewati_sp()
         if self.i >= len(self.tok) or self.tok[self.i][0] != "lbrace":
             raise TandaRusak(f"\\{perintah} memerlukan argumen dalam kurung kurawal {{…}}")
@@ -290,7 +289,6 @@ class _PenguraiRumus:
             self.dalam -= 1
 
     def _baca_teks(self, perintah):
-        """Isi perintah GAYA_TEKS sebagai rangkaian `<m:r>` (mendukung perintah bersarang seperti `\\textbf{…}`)."""
         gabung = []
         for teks, b, it in self._isi_teks(perintah, bold=(perintah == "textbf"), italic=(perintah == "textit")):
             if not teks:
@@ -306,7 +304,6 @@ class _PenguraiRumus:
         return "".join(reversed(runs) if (self.rtl or arab_murni) else runs)
 
     def _baca_mentah(self, perintah):
-        """Baca isi satu grup { ... } sebagai string teks biasa (untuk \\tag, \\begin, \\end)."""
         self._lewati_sp()
         if self.i >= len(self.tok) or self.tok[self.i][0] != "lbrace":
             raise TandaRusak(f"\\{perintah} memerlukan argumen dalam kurung kurawal {{…}}")

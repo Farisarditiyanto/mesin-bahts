@@ -409,7 +409,6 @@ def _kata_quran(w):
 
 
 def _kata_prosa(teks):
-    """[(kata bentuk mushaf tanpa lam sandang, potongan asli)] di luar petik dan tanda naskah."""
     bersih = luar_petik(_TANDA_LUAR_PROSA.sub(" ", teks))
     out = []
     for w in bersih.split():

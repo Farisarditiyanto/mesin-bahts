@@ -2,7 +2,7 @@
 """`pratinjau <folder> [halaman]`: halaman PDF hasil `rakit` yang terakhir (seluruh naskah atau potongan --fasl) jadi
 gambar PNG di folder baru di TEMP: grid 2×2 (urut kanan-ke-kiri), atau satu halaman penuh kalau satu nomor diminta.
 Untuk pemeriksa langkah 5 menilai tata letak (sampul, tepi, tabel #J, gambar #G, rumus #E, halaman hampir kosong)."""
-import contextlib, re, shutil, sys, tempfile, time, types
+import contextlib, re, shutil, sys, tempfile, time
 from pathlib import Path
 
 import tahap
@@ -13,11 +13,10 @@ KEPALA = 22  # pt: ruang label «hal N / total» di atas tiap halaman
 SKALA_GRID = 1.6  # ±115 DPI per halaman A4: matan masih terbaca, berkasnya ringan
 SKALA_SATU = 2.0  # ±144 DPI untuk satu halaman penuh
 POSISI = ((1, 0), (0, 0), (1, 1), (0, 1))  # (kolom, baris) halaman ke-1..4 di grid: mulai kanan atas
-UMUR_PRATINJAU = 3600  # detik: bersihkan folder pratinjau lama di TEMP agar tidak menumpuk
+UMUR_PRATINJAU_DETIK = 3600
 
 
 def _berkas(folder):
-    """Baca @berkas dari kepala naskah tanpa memeriksa kitab Shamela atau menulis cache."""
     try:
         teks = (folder / "naskah.txt").read_text(encoding="utf-8-sig")
     except UnicodeDecodeError:
@@ -31,8 +30,7 @@ def _berkas(folder):
     return berkas or folder.name
 
 
-def _bersihkan_lama(induk, awalan, umur=UMUR_PRATINJAU):
-    """Hapus folder sementara pratinjau yang lebih tua dari `umur` detik tanpa menyentuh sesi aktif."""
+def _bersihkan_lama(induk, awalan, umur=UMUR_PRATINJAU_DETIK):
     batas = time.time() - umur
     try:
         calon = [p for p in induk.iterdir() if p.name.startswith(awalan) and p.is_dir() and not p.is_symlink()]
@@ -65,8 +63,7 @@ def render(folder, jalur, rentang=None):
         import pymupdf
     except ImportError:
         sys.exit(f"`pratinjau` butuh pustaka pymupdf: jalankan `{perintah('periksa')}`")
-    cek = types.SimpleNamespace(sidik_naskah="", sidik_cetak="", ctx=types.SimpleNamespace(meta={"berkas": _berkas(folder)}))
-    pdf = tahap.terakhir(tahap.hasil_rakit(folder, cek)).pdf
+    pdf = tahap.terakhir(tahap.hasil_rakit(folder, berkas=_berkas(folder))).pdf
     if pdf is None or not pdf.is_file():
         sys.exit(f"PDF hasil rakit belum ada di folder ini: jalankan `{perintah(f'rakit "{jalur}"')}` dulu")
     awalan = f"bahts-pratinjau-{folder.name}-"

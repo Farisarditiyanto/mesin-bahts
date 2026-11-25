@@ -136,8 +136,6 @@ def _hitung_asal(daftar):
 
 
 def _baca_biner(f, n_bagian, **syarat):
-    """Baca berkas cache biner (kepala JSON satu baris + muatan byte): kembalikan `(mentah, awal_isi, panjang)` bila
-    kepala, syarat nilai, panjang muatan, dan CRC32 sah; None kalau hilang, usang, atau rusak."""
     try:
         mentah = f.read_bytes()
         nl = mentah.find(b"\n", 0, 1 << 16)
@@ -160,7 +158,6 @@ def _baca_biner(f, n_bagian, **syarat):
 
 
 def _baca_katalog_bin(f_cache, sumber):
-    """Potongan byte cache katalog kalau sidik parquet, versi, panjang, dan crc32 utuh; None kalau tidak."""
     hasil = _baca_biner(f_cache, len(_KATALOG_BAGIAN), versi=KATALOG_VERSI, norma_versi=norma.VERSI, sumber=sumber)
     if hasil is None:
         return None

@@ -220,7 +220,6 @@ def utama():
             assert "(٢٠٢١)" in out_b, out_b
             assert KETERANGAN_PDF in out_b, out_b
 
-            # 3b. Pre-NFKC lam-alif ligature reversal (`ولا` vs `وال`) dan multi-kolom RTL XY-cut + buang header berulang >=4 halaman
             assert sumber_pdf.pulihkan_arab("ينغي ﻻو يداشرإ ليلدلا اذه") == "هذا الدليل إرشادي ولا يغني"
             assert sumber_pdf.pulihkan_arab("مﻻسﻹا يف") == "في الإسلام"
             doc_2col = pymupdf.open()

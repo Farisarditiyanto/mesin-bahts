@@ -168,7 +168,6 @@ def utama():
     assert kode == 0 and "kutipan TIDAK ditemukan di teks PDF, awal halaman" in keluar.splitlines()[-1], keluar
     print("lolos: bukti PDF <<luar|berkas.pdf|hal>> mencetak cuplikan teks utuh (tanpa memotong kutipan) dan menandai halaman scan")
 
-    # Pelokalan parafrase tanpa tanda petik (`ambang 60%`) tetap menunjuk letak pada halaman bukti (dan tetap menjaga `11223|-|6` gagal)
     paraf = "والمراد بتوحيد الربوبية عند أهل السنة هو إفراد الله سبحانه بالخلق والملك والتدبير وحده[^انظر: رسالة في القضاء والقدر، ص5. <<11223|-|5>>]."
     naskah.write_text(asli.replace(_BARIS[B_KUTIP - 1], paraf), encoding="utf-8")
     kode, keluar = jalan("bukti", "contoh", str(B_KUTIP))

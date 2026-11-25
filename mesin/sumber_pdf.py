@@ -10,7 +10,7 @@ bukti: teks PDF tidak bisa dipercaya seperti teks Shamela.
   dibalik; akibatnya kutipan yang urutan katanya dibalik bisa ikut cocok.
 - Angka tidak dicocokkan (`padat` membuangnya). Halaman hasil scan (gambar tanpa teks) tidak bisa dibaca mesin.
 """
-import functools, logging, math, re, unicodedata
+import functools, logging, math, re, typing, unicodedata
 from collections import Counter
 from pathlib import Path
 
@@ -18,6 +18,42 @@ from rapidfuzz import fuzz
 
 from dasar import ARAH
 from norma import HARAKAT, PEMBENTUK_HARAKAT, padat
+
+
+class Segmen(typing.NamedTuple):
+    x0: float
+    y0: float
+    x1: float
+    y1: float
+    teks: str
+
+
+class TemuanJendela(typing.NamedTuple):
+    skor: int
+    awal: int
+    akhir: int
+
+
+def cari_jendela(raw, target, ambang, max_win=20, step_div=3):
+    """Posisi terbaik `target` pada jendela geser kata `raw` via `rapidfuzz`, atau None."""
+    kata_q = [padat(w) for w in target.split() if padat(w)]
+    if len(kata_q) < 4:
+        return None
+    toks = [(m.start(), m.end(), p) for m in re.finditer(r"\S+", raw) if (p := padat(m.group()))]
+    if len(toks) < 3:
+        return None
+    win = max(4, min(len(kata_q) + 2, max_win))
+    step = max(1, win // step_div)
+    q_str = " ".join(kata_q)
+    q_khas = {w for w in kata_q if len(w) >= 3}
+    terbaik = None
+    for idx in range(0, max(1, len(toks) - win + 1), step):
+        pot = toks[idx:idx + win]
+        skor = fuzz.token_set_ratio(q_str, " ".join(x[2] for x in pot))
+        sama = len(q_khas & {x[2] for x in pot})
+        if skor >= ambang and sama >= min(3, len(q_khas)) and (terbaik is None or skor > terbaik[0]):
+            terbaik = (skor, round(skor), pot[0][0], pot[-1][1])
+    return TemuanJendela(terbaik[1], terbaik[2], terbaik[3]) if terbaik else None
 
 ARAB = re.compile(r"[؀-ۿ]")
 KATA_ARAB = re.compile(r"[ء-ي]+")
@@ -112,7 +148,6 @@ def _ada(halaman, kutipan):
 
 
 def _olah_teks(raw):
-    """(tuple sidik halaman, jumlah huruf Arab) dari teks halaman pre-NFKC `raw`."""
     raw = raw or ""
     t = pulihkan_arab(raw)
     nfkc = _normal_tanpa_spasi_harakat(raw)
@@ -127,7 +162,7 @@ def _kunci_tepi(teks):
 
 
 def _garis_halaman_pymupdf(page):
-    """[(x0, y0, x1, y1, teks)] tiap baris/segmen teks terpisah di halaman PyMuPDF."""
+    """([Segmen], tinggi_halaman) tiap segmen teks terpisah di halaman PyMuPDF."""
     items = []
     d = page.get_text("dict")
     for b in d.get("blocks", ()):
@@ -149,49 +184,45 @@ def _garis_halaman_pymupdf(page):
             for g in grup:
                 t = "".join(s["text"] for s in g).strip()
                 if t:
-                    items.append((min(s["bbox"][0] for s in g), min(s["bbox"][1] for s in g),
-                                  max(s["bbox"][2] for s in g), max(s["bbox"][3] for s in g), t))
+                    items.append(Segmen(min(s["bbox"][0] for s in g), min(s["bbox"][1] for s in g),
+                                        max(s["bbox"][2] for s in g), max(s["bbox"][3] for s in g), t))
     return items, d.get("height") or page.rect.height
 
 
 def _xy_cut_rtl(items):
-    """Urutkan segmen teks PDF secara rekursif: kolom kanan-ke-kiri (gutter X >= 12pt bila bertumpuk vertikal),
-    lalu baris atas-ke-bawah, lalu kanan-ke-kiri dalam baris yang sama."""
     if len(items) <= 1:
         return items
-    urut_x = sorted(items, key=lambda it: (it[0], it[1]))
-    x_grup, cur_x1 = [[urut_x[0]]], urut_x[0][2]
+    urut_x = sorted(items, key=lambda it: (it.x0, it.y0))
+    x_grup, cur_x1 = [[urut_x[0]]], urut_x[0].x1
     for it in urut_x[1:]:
-        if it[0] - cur_x1 >= 12.0:
+        if it.x0 - cur_x1 >= 12.0:
             x_grup.append([it])
-            cur_x1 = it[2]
+            cur_x1 = it.x1
         else:
             x_grup[-1].append(it)
-            cur_x1 = max(cur_x1, it[2])
+            cur_x1 = max(cur_x1, it.x1)
     if len(x_grup) >= 2:
-        y_span = [(min(x[1] for x in g), max(x[3] for x in g)) for g in x_grup]
+        y_span = [(min(s.y0 for s in g), max(s.y1 for s in g)) for g in x_grup]
         tumpuk = any(min(a[1], b[1]) - max(a[0], b[0]) > 2.0
                      for i, a in enumerate(y_span) for b in y_span[i + 1:])
         if tumpuk:
-            # Kolom RTL: paling kanan lebih dulu.
-            x_grup.sort(key=lambda g: -max(x[2] for x in g))
+            x_grup.sort(key=lambda g: -max(s.x1 for s in g))
             return [x for g in x_grup for x in _xy_cut_rtl(g)]
-    urut_y = sorted(items, key=lambda it: (it[1], -it[2]))
-    y_grup, cur_y1 = [[urut_y[0]]], urut_y[0][3]
+    urut_y = sorted(items, key=lambda it: (it.y0, -it.x1))
+    y_grup, cur_y1 = [[urut_y[0]]], urut_y[0].y1
     for it in urut_y[1:]:
-        if it[1] > cur_y1 - 2.0:
+        if it.y0 > cur_y1 - 2.0:
             y_grup.append([it])
-            cur_y1 = it[3]
+            cur_y1 = it.y1
         else:
             y_grup[-1].append(it)
-            cur_y1 = max(cur_y1, it[3])
+            cur_y1 = max(cur_y1, it.y1)
     if len(y_grup) >= 2:
         return [x for g in y_grup for x in _xy_cut_rtl(g)]
-    return sorted(items, key=lambda it: (-it[2], it[0]))
+    return sorted(items, key=lambda it: (-it.x1, it.x0))
 
 
 def _tepi_berulang(doc):
-    """Kunci teks header/footer berulang (>=60% halaman contoh) untuk PDF >= 4 halaman."""
     n = len(doc)
     if n < 4:
         return frozenset()
@@ -201,9 +232,9 @@ def _tepi_berulang(doc):
     for idx in sample:
         items, h = _garis_halaman_pymupdf(doc[idx])
         seen = set()
-        for _, y0, _, y1, teks in items:
-            if h and (y1 <= h * 0.12 or y0 >= h * 0.88):
-                k = _kunci_tepi(teks)
+        for seg in items:
+            if h and (seg.y1 <= h * 0.12 or seg.y0 >= h * 0.88):
+                k = _kunci_tepi(seg.teks)
                 if len(k) >= 4:
                     seen.add(k)
         hitung.update(seen)
@@ -214,12 +245,11 @@ def _tepi_berulang(doc):
 def _teks_pymupdf_halaman(doc, idx, tepi_ulang):
     items, h = _garis_halaman_pymupdf(doc[idx])
     if tepi_ulang and h:
-        items = [it for it in items if not ((it[3] <= h * 0.12 or it[1] >= h * 0.88) and _kunci_tepi(it[4]) in tepi_ulang)]
-    return "\n".join(it[4] for it in _xy_cut_rtl(items))
+        items = [s for s in items if not ((s.y1 <= h * 0.12 or s.y0 >= h * 0.88) and _kunci_tepi(s.teks) in tepi_ulang)]
+    return "\n".join(s.teks for s in _xy_cut_rtl(items))
 
 
 class _DokPDF:
-    """Isi PDF yang diolah malas per halaman (utama PyMuPDF RTL XY-cut, cadangan pypdf) dan di-cache di memori."""
 
     def __init__(self, berkas):
         self.berkas = Path(berkas)
@@ -245,7 +275,6 @@ class _DokPDF:
         return self._pypdf_pages
 
     def teks_halaman(self, idx):
-        """Teks bersih satu halaman indeks 0, termasuk cadangan pypdf layout bila ada harakat lepas."""
         if self._doc is not None:
             raw = _teks_pymupdf_halaman(self._doc, idx, self._tepi)
         else:
@@ -383,25 +412,9 @@ def cuplikan(berkas, hal, kutipan=None, sekitar=300):
                     i = cocok.letak_asli(gabung, qk)
                     mulai, akhir = max(0, i - sekitar), i + len(kutipan) + sekitar
                     return "terbaca", f"{'…' * (mulai > 0)}{gabung[mulai:akhir]}{'…' * (akhir < len(gabung))}"
-        # fallback sliding window `rapidfuzz` untuk kutipan panjang yang meleset di tengah/awal pada OCR/PDF
-        kata_q = [padat(w) for w in kutipan.split() if padat(w)]
-        if len(kata_q) >= 4:
-            toks = [(m.start(), m.end(), p) for m in re.finditer(r"\S+", gabung) if (p := padat(m.group()))]
-            win = max(4, min(len(kata_q), 20))
-            if len(toks) >= 3:
-                q_str = " ".join(kata_q)
-                q_khas = {w for w in kata_q if len(w) >= 3}
-                terbaik = (0, 0, 0)
-                for idx in range(0, max(1, len(toks) - win + 1), max(1, win // 3)):
-                    pot_toks = toks[idx:idx + win]
-                    w_str = " ".join(x[2] for x in pot_toks)
-                    skor = fuzz.token_set_ratio(q_str, w_str)
-                    sama = len(q_khas & {x[2] for x in pot_toks})
-                    if skor >= 68 and sama >= min(3, len(q_khas)) and skor > terbaik[0]:
-                        terbaik = (skor, pot_toks[0][0], pot_toks[-1][1])
-                if terbaik[0]:
-                    mulai, akhir = max(0, terbaik[1] - sekitar), terbaik[2] + sekitar
-                    return "terbaca", f"{'…' * (mulai > 0)}{gabung[mulai:akhir]}{'…' * (akhir < len(gabung))}"
+        if temu := cari_jendela(gabung, kutipan, 68):
+            mulai, akhir = max(0, temu.awal - sekitar), temu.akhir + sekitar
+            return "terbaca", f"{'…' * (mulai > 0)}{gabung[mulai:akhir]}{'…' * (akhir < len(gabung))}"
         # fallback untuk kutipan Latin (padat hanya menyimpan huruf Arab)
         pot = re.sub(r"\s+", " ", kutipan).strip()
         if pot:
