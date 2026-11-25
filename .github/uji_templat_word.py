@@ -28,6 +28,35 @@ def paragraf(teks, ukuran=32):
             f'<w:szCs w:val="{ukuran}"/></w:rPr><w:t xml:space="preserve">{teks}</w:t></w:r></w:p>')
 
 
+def _tulis_docx(tujuan, badan, headers):
+    """Tulis berkas .docx minimal dengan `badan` (isi <w:body>) dan `headers` = [(rId, nama_berkas, isi_xml)]."""
+    ov = "".join(
+        f'<Override PartName="/word/{nama}" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>'
+        for _, nama, _ in headers
+    )
+    rels = "".join(
+        f'<Relationship Id="{rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="{nama}"/>'
+        for rid, nama, _ in headers
+    )
+    with zipfile.ZipFile(tujuan, "w") as z:
+        z.writestr("[Content_Types].xml",
+                   '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                   '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+                   '<Default Extension="xml" ContentType="application/xml"/>'
+                   '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+                   f'{ov}</Types>')
+        z.writestr("_rels/.rels",
+                   '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                   '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
+                   '</Relationships>')
+        z.writestr("word/_rels/document.xml.rels",
+                   '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                   f'{rels}</Relationships>')
+        z.writestr("word/document.xml", f'<?xml version="1.0" encoding="UTF-8"?><w:document {W}><w:body>{badan}</w:body></w:document>')
+        for _, nama, isi in headers:
+            z.writestr(f"word/{nama}", isi)
+
+
 def templat(tujuan, baris_sampul):
     """Word templat: `baris_sampul` paragraf sampul berhuruf 16 pt (plus judul dan baris akhir), pemisah halaman, satu
     halaman contoh; kepala halaman = «(عنوان البحث)»."""
@@ -36,24 +65,7 @@ def templat(tujuan, baris_sampul):
              + '<w:sectPr><w:headerReference w:type="default" r:id="rIdK"/><w:pgSz w:w="11906" w:h="16838"/>'
                '<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="708" w:footer="708" w:gutter="0"/>'
                '<w:bidi/></w:sectPr>')
-    with zipfile.ZipFile(tujuan, "w") as z:
-        z.writestr("[Content_Types].xml",
-                   '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
-                   '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
-                   '<Default Extension="xml" ContentType="application/xml"/>'
-                   '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
-                   '<Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>'
-                   '</Types>')
-        z.writestr("_rels/.rels",
-                   '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-                   '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
-                   '</Relationships>')
-        z.writestr("word/_rels/document.xml.rels",
-                   '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-                   '<Relationship Id="rIdK" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>'
-                   '</Relationships>')
-        z.writestr("word/document.xml", f'<?xml version="1.0" encoding="UTF-8"?><w:document {W}><w:body>{badan}</w:body></w:document>')
-        z.writestr("word/header1.xml", f'<?xml version="1.0" encoding="UTF-8"?><w:hdr {W}>{paragraf("(عنوان البحث)", 24)}</w:hdr>')
+    _tulis_docx(tujuan, badan, [("rIdK", "header1.xml", f'<?xml version="1.0" encoding="UTF-8"?><w:hdr {W}>{paragraf("(عنوان البحث)", 24)}</w:hdr>')])
 
 
 def rakit(akar, nama, baris_sampul):
@@ -90,6 +102,65 @@ def utama():
         assert any(AKHIR_SAMPUL in h for h in hal[:3]), "baris akhir sampul yang meluap hilang dari PDF"
         assert not any(CONTOH in h for h in hal), "halaman contoh templat ikut dicetak"
         print("ok: sampul @templat yang meluap tetap utuh di PDF dan diberi PERINGATAN")
+        multi_dan_judul_panjang(akar)
+
+
+def multi_dan_judul_panjang(akar):
+    """Multi-section @templat (Section 1 header kosong -> jatuh ke Section 2), @judul >255 aksara tanpa batas Find.Execute,
+    dan RtlRun pada kotak teks kepala hanya untuk kotak ber-PAGE (kotak Latin tanpa PAGE tidak terbalik)."""
+    import subprocess
+    from xml.etree import ElementTree as ET
+    judul_panjang = " ".join(["دراسة فقهية تحليلية مقارنة"] * 12)   # >255 aksara
+    assert len(judul_panjang) > 255
+    f = akar / "multi"
+    f.mkdir()
+    tpl = f / "templat.docx"
+    ps = (
+        "$ErrorActionPreference = 'Stop'\n"
+        "$w = New-Object -ComObject Word.Application\n"
+        "try {\n"
+        "    $d = $w.Documents.Add()\n"
+        f"    $d.Content.Text = '{judul_panjang}'\n"
+        "    $d.Content.Font.Size = 10; $d.Content.Font.SizeBi = 10\n"
+        "    $d.Content.InsertBreak(2)\n"
+        "    $d.Sections(2).Range.Text = '" + CONTOH + "'\n"
+        "    $h2 = $d.Sections(2).Headers(1); $h2.LinkToPrevious = $false\n"
+        "    $h2.Range.Text = '(عنوان البحث)'\n"
+        "    $s1 = $h2.Shapes.AddTextbox(1, 50, 20, 60, 24)\n"
+        "    [void]$s1.TextFrame.TextRange.Fields.Add($s1.TextFrame.TextRange, 33)\n"
+        "    $s2 = $h2.Shapes.AddTextbox(1, 200, 20, 80, 24)\n"
+        "    $s2.TextFrame.TextRange.Text = 'HeaderNote'\n"
+        f"    $d.SaveAs2('{tpl}', 16)\n"
+        "    $d.Close(0)\n"
+        "} finally {\n"
+        "    try { $w.Quit([ref]0) } catch {}\n"
+        "}\n"
+    )
+    subprocess.run(["powershell", "-NoProfile", "-Command", ps], check=True)
+    (f / "naskah.txt").write_text(KEPALA.replace(JUDUL, judul_panjang), encoding="utf8")
+    r = bahts(akar, "rakit", "multi", batas=1800)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "PERINGATAN: kepala halaman" not in r.stdout, r.stdout
+    w_ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+    txbx_page, txbx_note = [], []
+    with zipfile.ZipFile(f / "uji.docx") as z:
+        kepala_xmls = [z.read(n).decode("utf8") for n in z.namelist() if re.fullmatch(r"word/header\d+\.xml", n)]
+        for x in kepala_xmls:
+            for bx in ET.fromstring(x).findall(".//w:txbxContent", w_ns):
+                isi = "".join(bx.itertext())
+                ada_rtl = bool(bx.findall(".//w:rtl", w_ns))
+                if "HeaderNote" in isi:
+                    txbx_note.append(ada_rtl)
+                elif bx.findall(".//w:instrText", w_ns) or bx.findall(".//w:fldSimple", w_ns):
+                    txbx_page.append(ada_rtl)
+    kepala_teks = " ".join("".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", x)) for x in kepala_xmls)
+    assert judul_panjang in kepala_teks and "عنوان البحث" not in kepala_teks, kepala_teks
+    assert txbx_page and all(txbx_page), txbx_page
+    assert txbx_note and not any(txbx_note), txbx_note
+    with pymupdf.open(f / "uji.pdf") as doc:
+        hal = [h.get_text() for h in doc]
+    assert not any(CONTOH in h for h in hal), hal
+    print(f"ok: @templat multi-section + @judul {len(judul_panjang)} aksara + RtlRun hanya pada kotak PAGE")
 
 
 if __name__ == "__main__":
