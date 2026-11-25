@@ -1,10 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """CLI diagram menjaga PNG lama ketika renderer gagal dan melanjutkan diagram lain."""
-import contextlib
-import io
 import os
 from pathlib import Path
-import runpy
 import shutil
 import subprocess
 import sys
@@ -12,7 +9,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-REPO = Path(__file__).resolve().parent.parent
+from bantu import REPO, cli_dalam_proses
+
 sys.path.insert(0, str(REPO / 'mesin'))
 import diagram
 
@@ -39,22 +37,11 @@ class DiagramCLI(unittest.TestCase):
         return mmd
 
     def cli(self, renderer):
-        class Keluaran(io.StringIO):
-            def reconfigure(self, **kw):
-                pass
-        out, err = Keluaran(), Keluaran()
-        skrip = self.root / 'mesin/bahts.py'
-        with patch.object(sys, 'argv', [str(skrip), 'diagram', str(self.folder)]), \
-                patch.object(diagram.shutil, 'which', return_value='npx-tiruan'), \
+        with patch.object(diagram.shutil, 'which', return_value='npx-tiruan'), \
                 patch.object(diagram, 'browser', return_value='chromium-tiruan'), \
-                patch.object(diagram.subprocess, 'run', side_effect=renderer), \
-                contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            try:
-                runpy.run_path(str(skrip), run_name='__main__')
-                kode = 0
-            except SystemExit as e:
-                kode = e.code or 0
-        return kode, out.getvalue() + err.getvalue()
+                patch.object(diagram.subprocess, 'run', side_effect=renderer):
+            kode, out, err = cli_dalam_proses(self.root, 'diagram', self.folder)
+        return kode, out + err
 
     def test_renderer_gagal_menjaga_png_lama_dan_melanjutkan(self):
         self.sumber('b')

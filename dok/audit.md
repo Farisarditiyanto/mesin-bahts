@@ -9,8 +9,7 @@ Panduan ringkas ini melengkapi `AGENTS.md` (Alur kerja langkah 2 dan 5) untuk mo
    - **Inventaris sumber dan kitab mazhab**: tiap kitab Shamela/Waqfeya/PDF/`<<luar>>` berbukti urut dari pengarang tertua (`ت …هـ`), penanda `[معتمد]`/`[معاصر]`, dan perbandingan mazhab yang disebut di matan terhadap jumlah bukti kitab mazhabnya sendiri di seluruh naskah. Buka bukti tiap masalah untuk menilai cakupan klaimnya.
    - **Busur argumen**: baris rencana/pertanyaan di `المقدمة`, baris `القول الأول/الثاني`/`إجماع`/`الراجح` di isi, dan baris hasil di `الخاتمة` berdampingan untuk menangkap kontradiksi isi↔kesimpulan dan pertanyaan yang belum terjawab (*qaws maftuh*).
    - **Daftar `{H:…}` dan `terima` di `riset.txt`**: semua hadits bertanda, halaman bukti Shamela yang diperiksa, dan semua perhatian yang ditutup `terima` terkumpul di satu layar untuk diperiksa satu per satu.
-2. **`python mesin/bahts.py bukti <folder> [awal-akhir]`** — baca teks kitab di sekitar tiap catatan kaki, ayat `{Q:}`, bukti Waqfeya/PDF, dan tiap paragraf isi tanpa catatan kaki.
-3. **`python mesin/bahts.py pratinjau <folder> [halaman]`** — periksa tata letak visual PDF sesudah `rakit` (fokus B terpisah dari fokus A Isi & Sumber).
+2. **`bukti <folder> [awal-akhir]`** dan **`pratinjau <folder> [halaman]`** — prosedur lengkap pemeriksaan bukti kitab/PDF/paragraf polos (Fokus A) dan pratinjau visual PDF hasil `rakit` (Fokus B) lihat `dok/pemeriksaan.md`.
 
 ## 2. Prinsip Audit Berbasis Disiplin (Paradigm-First)
 
