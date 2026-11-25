@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Pencocok kutipan per kata di teks `padat` satu rekaman kitab: letak kutipan, batas kata kitab, halaman cetaknya,
 dan matan atau حاشية. Dipakai `cek` (kutipan harus utuh per kata) dan `cari`/`teks`/`bab` (frasa sebagai kata utuh)."""
-import re
+import bisect, re
 
-from norma import BUKAN_ABJAD, PENANDA, TAGS, per_halaman, ruas_halaman, norm, padat
+from norma import BUKAN_ABJAD, PENANDA, TAGS, per_halaman, ruas_halaman, norm, padat, padat_peta
 
 SAMBUNG = "وفبلك"  # huruf sambung di depan kata: kutipan boleh mulai sesudahnya («و"الإحياء"» = «والإحياء»)
 NAFI_SAMBUNG = {"ما", "لا", "لم", "لن", "ليس"}  # kutipan tidak boleh mulai dengan kata ini kalau di kitab ia didahului ب/ل
@@ -194,21 +194,15 @@ def frasa_utuh(p, bagian, j, k, kata):
 
 
 def letak_asli(raw, q, ke=0):
-    """Awal kata tempat q (sudah `padat`) yang ke-`ke` (mulai 0) mulai di teks asli raw. Dicari lewat panjang `padat` tiap
-    awalan, karena norm() mengubah panjang teks (kalimat hormat dibuang, tanda baca jadi spasi)."""
-    pr, j = padat(raw), -1
+    """Awal kata tempat q (sudah `padat`) yang ke-`ke` (mulai 0) mulai di teks asli raw."""
+    pr, posisi, _ = padat_peta(raw)
+    j = -1
     for _ in range(ke + 1):
         j = pr.find(q, j + 1)
     if j < 0:  # bacaan raw berbeda dari teks `padat` rekaman: kembali ke yang pertama
         j = pr.find(q)
     awal = [m.start() for m in re.finditer(r"\S+", raw)]
-    if j <= 0 or not awal:
+    if not q or j < 0 or not awal or not posisi:
         return 0
-    lo, hi = 0, len(awal) - 1
-    while lo < hi:
-        mid = (lo + hi + 1) // 2
-        if len(padat(raw[:awal[mid]])) <= j:
-            lo = mid
-        else:
-            hi = mid - 1
-    return awal[lo]
+    idx = bisect.bisect_right(awal, posisi[j]) - 1
+    return awal[max(0, idx)]

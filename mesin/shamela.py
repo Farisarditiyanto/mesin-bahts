@@ -554,6 +554,8 @@ def kartu(sid):
     """Data cetak kitab (pengarang, muhaqqiq, penerbit, cetakan) untuk rujukan pertama dan daftar pustaka, lalu satu
     baris bentuk bukti <<…>> kitab itu (contoh_bukti). Gelar di nama muhaqqiq/penyusun dibuang (gelar.buang_gelar):
     data ini disalin apa adanya ke catatan kaki dan المصادر."""
+    if not (folder(sid) / "pages.jsonl.gz").exists():
+        raise _belum(sid)
     print("\n".join(gelar.buang_gelar(b) for b in info(sid)["betaka_text"].replace("\r", "\n").rstrip("\n").split("\n")))
     print(contoh_bukti(sid))
 
@@ -1259,7 +1261,8 @@ def teks(sid, frasa, lebar=260, maks=3, potongan=False):
     return n
 
 
-JUDUL = re.compile(r'data-type="?title"?\s+id="?toc-(\d+)')  # tanda judul di matan; nomornya = shamela_title_id di toc
+JUDUL = re.compile(r"""<span\b(?=[^>]*\bdata-type\s*=\s*(?:"title"|'title'))
+    (?=[^>]*\bid\s*=\s*["']?toc-(?P<nomor>\d+)\b)[^>]*>(?P<teks>.*?)</span>""", re.S | re.X)  # tanda judul di matan; nomornya = shamela_title_id di toc
 
 
 def judul_calon(p, toc, c, h, bagian, page_ids=None):
@@ -1278,7 +1281,7 @@ def judul_calon(p, toc, c, h, bagian, page_ids=None):
         return [sebelum]
     teks, batas = ruas_halaman(p, "body")
     body = p.get("body") or ""
-    span = {int(m.group(1)): m.start() for m in JUDUL.finditer(body)}
+    span = {int(m["nomor"]): m.start() for m in JUDUL.finditer(body)}
     letak_judul, mulai = [], 0  # letak judul yang tidak terbaca = None; letaknya tetap sesudah judul sebelumnya
     for t in di_sini:
         if t.get("shamela_title_id") in span:
@@ -1324,14 +1327,18 @@ def _toc_page_ids(sid):
     return [t["page_id"] for t in daftar_isi(sid)[0]]
 
 
-@cache_kitab()
-def _rantai_id(sid, tid):
-    byid, r = daftar_isi(sid)[1], []
-    t = byid.get(tid)
+def _rantai_telusur(byid, t):
+    r = []
     while t and len(r) < 50:  # toc rusak yang induknya berputar tidak membuat macet
         r.append(" ".join(HARAKAT.sub("", t["title_text"]).split()))
         t = byid.get(t.get("parent_id"))
-    return tuple(r)
+    return r
+
+
+@cache_kitab()
+def _rantai_id(sid, tid):
+    byid = daftar_isi(sid)[1]
+    return tuple(_rantai_telusur(byid, byid.get(tid)))
 
 
 def rantai_judul(sid, t):
@@ -1342,11 +1349,7 @@ def rantai_judul(sid, t):
     tid = t.get("title_id")
     if tid is not None and byid.get(tid) is t:
         return list(_rantai_id(sid, tid))
-    r = []
-    while t and len(r) < 50:  # toc rusak yang induknya berputar tidak membuat macet
-        r.append(" ".join(HARAKAT.sub("", t["title_text"]).split()))
-        t = byid.get(t.get("parent_id"))
-    return r
+    return _rantai_telusur(byid, t)
 
 
 def rekaman(sid):

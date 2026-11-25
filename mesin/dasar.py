@@ -99,7 +99,11 @@ def tanpa_catatan(teks):
 
 
 AD = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
+ARAH = re.compile(r"[\u200e\u200f\u202a-\u202e\u2066-\u2069]")
 MERUJUK_KATA = "[أا]نظر|ينظر|ي?راجع"  # tanda nukilan makna di catatan kaki (أبو سليمان، كتابة البحث العلمي، ص114)
+MERUJUK_AWAL = re.compile(rf"^(?:{MERUJUK_KATA})(?![ء-ي])")
+RUJUK_ULANG = re.compile(r"(?:المرجع|المصدر)\s+(?:السابق|نفسه)")
+NASAB = frozenset("بن ابن بنت ابو ابي ابا ام عبد".split())
 # @tanpa: anzhur: kata MERUJUK_KATA di awal catatan kaki, sesudah «؛»/titik, atau «، و…» tidak dicetak; pemisah dan
 # spasinya tetap. Rujukan silang «انظر: ص{P:…}» tetap: tanpa kata itu nomor halamannya tidak terbaca sebagai rujukan
 TANPA_ANZHUR = re.compile(rf"(?P<pra>^\s*|[؛.]\s*|،\s*(?=و))و?(?:{MERUJUK_KATA})\s*:(?!\s*ص\s*\{{P:)\s*")
@@ -128,8 +132,9 @@ ELIPSIS = re.compile(f"{DIPOTONG.pattern}|{AYAT_DI_KUTIPAN.pattern}")  # pemisah
 AYAT_KITAB = re.compile(r"﴿[^﴾]*﴾|\{[^{}]*\}")  # ayat bertanda di teks kitab Shamela
 RUJUKAN_AYAT = re.compile(r"\[[^\]\n]*[ء-ي][^\]\n]*[0-9٠-٩][^\]\n]*\]")  # «[التكوير:٢٨]», «[آل عمران ١٥٢]»
 LUAR = "luar"  # <<luar>>: sumbernya bukan kitab Shamela (jurnal, PDF penelitian, kamus); tidak bisa dicek mesin
+WAQFEYA_ID = re.compile(r"w[0-9a-f]{8}")
 WAQFEYA = re.compile(r"[wW][0-9a-zA-Z]*\|")  # bukti kitab Waqfeya <<w…|…>> (bentuknya diperiksa WAQFEYA_BUKTI)
-WAQFEYA_BUKTI = re.compile(r"(w[0-9a-f]{8})\|(\d+)\|(\d+(?:-\d+)?)")  # <<w…|berkas|hal PDF>>
+WAQFEYA_BUKTI = re.compile(rf"({WAQFEYA_ID.pattern})\|(\d+)\|(\d+(?:-\d+)?)")  # <<w…|berkas|hal PDF>>
 TIDAK_KETEMU = "teks TIDAK KETEMU di kitab {}"
 RENTANG_MAKS = 50  # halaman paling banyak satu bukti (dan satu rentang tercetak)
 HALAMAN_MAKS = 20  # halaman paling banyak sekali panggil `halaman` dan `takhrij`

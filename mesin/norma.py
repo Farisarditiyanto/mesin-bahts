@@ -21,7 +21,7 @@ LIGATUR_HORMAT = re.compile(r"[﵀-﵏﷾﷿]")
 # variasi ejaannya ditangani di EJAAN
 SAMA = (("إ", "ا"), ("أ", "ا"), ("آ", "ا"), ("ٱ", "ا"), ("ٲ", "ا"), ("ٳ", "ا"), ("ى", "ي"), ("ة", "ه"), ("ؤ", "و"), ("ئ", "ي"),
         ("ی", "ي"), ("ے", "ي"), ("ۓ", "ي"), ("ک", "ك"), ("ڪ", "ك"), ("ە", "ه"), ("ھ", "ه"), ("ۀ", "ه"), ("ہ", "ه"), ("ۃ", "ه"),
-        ("ں", "ن"), ("ٮ", "ب"))
+        ("\u06c2", "ه"), ("\u06cd", "ي"), ("ں", "ن"), ("ٮ", "ب"))
 # Pasangan ejaan yang diterima sesudah SAMA; penggantian ini juga berlaku di dalam kata berimbuhan.
 # Jangan menyamakan bentuk kata yang berbeda: تساءل (kata kerja) dan تساؤل (kata benda),
 # juga مائة/مئة karena «مائه» dapat berarti «airnya».
@@ -33,6 +33,15 @@ EJAAN = (("سماوات", "سموات"), ("اسحاق", "اسحق"), ("داوو�
 BUKAN_HURUF = re.compile(r"[^ء-ي0-9]+")
 BUKAN_ABJAD = re.compile(r"[^ء-ي]+")
 PRESENTASI = re.compile(r"[\u0675-\u0678\ufb50-\ufdfc\ufe70-\ufefc]")  # bentuk presentasi yang dipecah NFKC (﷽ ﷾ ﷿ tidak)
+# Bentuk sajian harakat terpisah/tengah (U+FE70..FE7F, U+FC5E..FC63, U+FCF2..FCF4) menjadi spasi/tatwil + harakat
+# saat dinormalisasi NFKC; dibersihkan menjadi harakat sambung murni agar tidak menyisipkan spasi di tengah kata.
+PEMBENTUK_HARAKAT = str.maketrans({
+    cp: unicodedata.normalize("NFKC", chr(cp)).lstrip(" \u0640")
+    for lo, hi in ((0xFE70, 0xFE80), (0xFC5E, 0xFC64), (0xFCF2, 0xFCF5))
+    for cp in range(lo, hi)
+    if unicodedata.normalize("NFKC", chr(cp)).startswith((" ", "\u0640"))
+})
+SAMA_TABEL = str.maketrans(dict(SAMA))
 SYAI = re.compile(r"شئ(?![ء-ي])")
 SYAI_TANPA_HAMZAH = re.compile(r"(?<![ء-ي])([وفبلك]{0,2}(?:ال)?)شي(?![ء-ي])")  # «شي» = «شيء»; «يمشي», «شيئا» tidak
 IBNU = re.compile(r"(?<![ء-ي])ابن(?![ء-ي])")
@@ -50,14 +59,13 @@ def norm(s):
     if "﷽" in s:  # ligatur basmalah: dijabarkan, bukan dibuang (NFKC tidak memecahnya)
         s = s.replace("﷽", " بسم الله الرحمن الرحيم ")
     if PRESENTASI.search(s):
-        s = unicodedata.normalize("NFKC", s)
+        s = unicodedata.normalize("NFKC", s.translate(PEMBENTUK_HARAKAT))
     s = HORMAT.sub(" ", HARAKAT.sub("", TAGS.sub("", s)))
     if "شئ" in s:  # ejaan lama «شئ» = «شيء»; «شئت» (kehendak) tidak ikut
         s = SYAI.sub("شيء", s)
     if "شي" in s:  # ketikan Shamela tanpa hamzah: «كل شي» = «كل شيء»
         s = SYAI_TANPA_HAMZAH.sub(r"\1شيء", s)
-    for dari, ke in SAMA:
-        s = s.replace(dari, ke)  # str.replace jauh lebih cepat daripada regex untuk ganti satu huruf
+    s = s.translate(SAMA_TABEL)
     for dari, ke in EJAAN:
         if dari in s:
             s = s.replace(dari, ke)
@@ -82,6 +90,61 @@ def padat(s):
     """Huruf Arab saja, tanpa spasi dan angka: bentuk yang dicocokkan `cari`, `teks`, `bab`, dan `cek`.
     Spasi diabaikan supaya «و "الإحياء"» tetap ketemu dengan «والإحياء»."""
     return BUKAN_ABJAD.sub("", norm(s))
+
+
+def padat_peta(raw):
+    """(teks `padat`, awal_di_raw, akhir_di_raw) untuk memetakan posisi `padat` kembali ke teks asli `raw` secara monoton."""
+    if not raw:
+        return "", [], []
+    sp = [(i, i + 1) for i in range(len(raw))]
+
+    def ganti(s, sp_in, pola, repl_fn):
+        out, sp_out, pos = [], [], 0
+        for m in pola.finditer(s):
+            a, b = m.span()
+            if a > pos:
+                out.append(s[pos:a]); sp_out.extend(sp_in[pos:a])
+            rep = repl_fn(m) if callable(repl_fn) else repl_fn
+            if rep:
+                rentang = (sp_in[a][0], sp_in[b - 1][1]) if a < b else (sp_in[a][0], sp_in[a][0])
+                out.append(rep); sp_out.extend([rentang] * len(rep))
+            pos = b
+        if pos < len(s):
+            out.append(s[pos:]); sp_out.extend(sp_in[pos:])
+        return "".join(out), sp_out
+
+    s = raw
+    s, sp = ganti(s, sp, re.compile(r"[ﷺﷻ]|" + LIGATUR_HORMAT.pattern), " ")
+    if "﷽" in s:
+        s, sp = ganti(s, sp, re.compile("﷽"), " بسم الله الرحمن الرحيم ")
+    if PRESENTASI.search(s):
+        out, sp_out = [], []
+        for ch, r in zip(s, sp):
+            if ord(ch) in PEMBENTUK_HARAKAT:
+                rep = PEMBENTUK_HARAKAT[ord(ch)]
+                if rep:
+                    out.append(rep); sp_out.extend([r] * len(rep))
+            elif PRESENTASI.match(ch):
+                nf = unicodedata.normalize("NFKC", ch)
+                if nf:
+                    out.append(nf); sp_out.extend([r] * len(nf))
+            else:
+                out.append(ch); sp_out.append(r)
+        s, sp = "".join(out), sp_out
+    for pola, rep in ((TAGS, ""), (HARAKAT, ""), (HORMAT, " ")):
+        s, sp = ganti(s, sp, pola, rep)
+    if "شئ" in s:
+        s, sp = ganti(s, sp, SYAI, "شيء")
+    if "شي" in s:
+        s, sp = ganti(s, sp, SYAI_TANPA_HAMZAH, lambda m: m.group(1) + "شيء")
+    s = s.translate(SAMA_TABEL)
+    for dari, ke in EJAAN:
+        if dari in s:
+            s, sp = ganti(s, sp, re.compile(re.escape(dari)), ke)
+    if "ابن" in s:
+        s, sp = ganti(s, sp, IBNU, "بن")
+    jaga = [i for i, ch in enumerate(s) if "ء" <= ch <= "ي"]
+    return "".join(s[i] for i in jaga), [sp[i][0] for i in jaga], [sp[i][1] for i in jaga]
 
 
 def ruas_halaman(p, bagian):
