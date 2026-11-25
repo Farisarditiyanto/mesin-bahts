@@ -140,6 +140,145 @@ for k, n, harus in (("صحيح البخاري", 1, "edisi lokal 1681: 1/6"), ("�
 if "SUDAH DIUNDUH" in lokal("مسند أحمد", 1) or "edisi lain" not in keluar.getvalue():
     gagal.append(f"hadits: kitab yang belum diunduh ditandai, atau peringatan edisi lain hilang: {keluar.getvalue()[-600:]!r}")
 
+# `tahap --json` & `cek --json` (ensure_ascii=False), penolakan bendera duplikat/tak-dikenal, `baru` perangkat Windows, `--fasl --fasl`, `kartu` putus
+uji_json = AKAR / "uji-json"
+uji_json.mkdir()
+dasar_contoh = (REPO / "contoh" / "naskah.txt").read_text(encoding="utf8")
+(uji_json / "naskah.txt").write_text(dasar_contoh, encoding="utf8")
+(uji_json / "riset.txt").write_text("tafsir 1:2\ncari توحيد الربوبية\n", encoding="utf8")
+
+kode, out, err = jalankan("tahap", "uji-json", "--json")
+if kode or err.strip():
+    gagal.append(f"tahap --json gagal: kode {kode}, err {err[:120]!r}")
+else:
+    tj = json.loads(out)
+    if (tj["naskah"]["status"] != "LOLOS" or tj["hasil"][0]["status"] != "BELUM"
+            or tj["rakit"]["status"] != "BEBAS" or 'rakit "uji-json"' not in tj["berikutnya"]["perintah"]):
+        gagal.append(f"tahap --json isi salah: {tj!r}")
+
+kode, out, err = jalankan("cek", "uji-json", "--json")
+if kode or err.strip():
+    gagal.append(f"cek --json gagal: kode {kode}, err {err[:120]!r}")
+else:
+    cj = json.loads(out)
+    if (cj["status"] != "LOLOS" or cj["ringkasan"]["gagal"] != 0 or not cj["naskah_sha256"]
+            or not cj["cetak_sha256"] or cj["perkiraan_halaman"]["isi"] < 1):
+        gagal.append(f"cek --json isi salah: {cj!r}")
+
+(uji_json / "naskah.txt").write_text(
+    dasar_contoh.replace("#K الخاتمة", 'قال: «نص مختلق لا وجود له في الكتاب»[^رسالة، ص5. <<11223|-|5>>].\n#K الخاتمة'),
+    encoding="utf8",
+)
+kode, out, err = jalankan("cek", "uji-json", "--jejak", "--json")
+if kode != 1 or err.strip():
+    gagal.append(f"cek --jejak --json harus keluar 1: kode {kode}, err {err[:120]!r}")
+else:
+    cj2 = json.loads(out)
+    if cj2["status"] != "GAGAL" or cj2["ringkasan"]["gagal"] < 1 or not cj2["jejak"]:
+        gagal.append(f"cek --jejak --json isi salah: {cj2!r}")
+
+for cmd_salah in (["tahap", "uji-json", "--json", "--json"], ["cek", "uji-json", "--json", "--json"],
+                  ["cek", "--salah"], ["tahap", "--salah"], ["rakit", "uji-json", "--fasl", "--fasl"],
+                  ["rakit", "uji-json", "--fasl", "1", "--fasl", "2"]):
+    kode, out, err = jalankan(*cmd_salah)
+    if kode != 1 or out.strip() or "Traceback" in err:
+        gagal.append(f"{' '.join(cmd_salah)}: harus ditolak (kode 1, tanpa stdout): kode {kode}, out {out[:80]!r}, err {err[:80]!r}")
+
+for dev in ("CON", "nul", "PRN", "AUX", "COM1", "LPT9", "bahts/ahmad/CON", "bahts/NUL/topik"):
+    kode, out, err = jalankan("baru", dev, "عنوان")
+    induk_uji = AKAR / Path(dev).parent
+    ada_folder = induk_uji.is_dir() and any(p.name.casefold() == Path(dev).name.casefold() for p in induk_uji.iterdir())
+    if kode != 1 or "perangkat Windows" not in err or ada_folder:
+        gagal.append(f"baru {dev}: nama perangkat Windows harus ditolak: kode {kode}, err {err[:120]!r}")
+kode, out, err = jalankan("baru", "COM10", "عنوان")
+if kode or not (AKAR / "COM10" / "naskah.txt").is_file():
+    gagal.append(f"baru COM10: nama sah ditolak: kode {kode}, err {err[:120]!r}")
+
+# `kartu`: unduhan terpotong (hanya book_metadata.json tanpa pages.jsonl.gz) gagal ramah tanpa Traceback
+putus = AKAR / "kitab" / "990099"
+putus.mkdir()
+(putus / "book_metadata.json").write_text('{"betaka_text":"الكتاب: تجربة"}', encoding="utf8")
+kode, out, err = jalankan("kartu", "990099")
+if kode != 1 or "Traceback" in err or ("belum diunduh" not in err and "TIDAK ADA" not in err):
+    gagal.append(f"kartu putus: harus gagal ramah tanpa Traceback: kode {kode}, err {err[:120]!r}")
+
+# `olah.sumber_tertimpa` melindungi file khulasah; `rencana_cetak` mulakhas mengenali harakat
+(uji_json / "naskah.txt").write_text(
+    "@berkas: hasil\n" + dasar_contoh.replace(
+        "#K الخاتمة", 'معنى[^انظر: دراسة، ص1. <<luar|hasil - الخلاصات.pdf|1>>].\n#K الخاتمة'
+    ), encoding="utf8",
+)
+kode, out, err = jalankan("cek", "uji-json")
+if kode != 1 or "menimpa bahan sumber" not in (out + err):
+    gagal.append(f"sumber_tertimpa khulasah tidak ditolak: kode {kode}, out {out[:200]!r}")
+
+import huruf, olah, teks_pdf
+from pypdf import PdfWriter
+from pypdf.generic import ArrayObject, DecodedStreamObject, DictionaryObject, NameObject
+
+(uji_json / "naskah.txt").write_text(
+    dasar_contoh.replace("#K المقدمة", "#K المُلَخَّص\nملخص عربي.\n#K المُلَخَّص باللغة الإنجليزية\nنص.\n#K المقدمة"),
+    encoding="utf8",
+)
+mul = olah.periksa(uji_json).bahan["cetak"]["mulakhas"]
+i_ml = [i for i, b in enumerate(olah.periksa(uji_json).bahan["blok"]) if b["k"] == "K" and "ملخص" in b["judul"].replace("َ", "").replace("ُ", "").replace("ّ", "")]
+if mul["spasi"] != i_ml or mul["berjarak"] != i_ml[:1]:
+    gagal.append(f"mulakhas berharakat salah: {mul!r} vs {i_ml!r}")
+
+# `teks_pdf.periksa`: @angka latin + @nomor mukadimah/abjad tetap menangkap angka hindi saat pertama is None,
+# dan meloloskan halaman pembuka berhuruf (أ، ب) sebelum angka Latin (1، 2)
+pdf_contoh = REPO / "contoh" / "jebakan" / "sumber_word.pdf"
+fmt_contoh = json.loads((REPO / "mesin" / "format.json").read_text(encoding="utf8"))["imam_ayat16"]
+for nm in ("mukadimah", "abjad"):
+    psn = teks_pdf.periksa(pdf_contoh, {"meta": {"judul": "مثال: توحيد الربوبية", "nim": "000000000", "angka": "latin", "nomor": nm}, "format": fmt_contoh})
+    if not psn or "tercetak bukan 0123" not in psn[0]:
+        gagal.append(f"teks_pdf @angka latin + @nomor {nm} melewatkan angka hindi: {psn!r}")
+
+w = PdfWriter()
+for kaki_hal in ("", "أ", "1", "2"):
+    pg = w.add_blank_page(width=595, height=842)
+    pg[NameObject("/Resources")] = DictionaryObject({NameObject("/Font"): DictionaryObject({
+        NameObject("/F1"): w._add_object(DictionaryObject({
+            NameObject("/Type"): NameObject("/Font"), NameObject("/Subtype"): NameObject("/Type1"),
+            NameObject("/BaseFont"): NameObject("/Helvetica"),
+        }))
+    })})
+    st = DecodedStreamObject()
+    isi_hal = "BT /F1 18 Tf 1 0 0 1 200 500 Tm (content) Tj ET\n"
+    if kaki_hal:
+        if kaki_hal == "أ":
+            # Uji lewat fungsi _baris yang dipatch langsung agar tanpa ToUnicode non-ASCII
+            isi_hal += "BT /F1 12 Tf 1 0 0 1 280 30 Tm (A) Tj ET\n"
+        else:
+            isi_hal += f"BT /F1 12 Tf 1 0 0 1 280 30 Tm ({kaki_hal}) Tj ET\n"
+    st.set_data(isi_hal.encode("latin1"))
+    pg[NameObject("/Contents")] = ArrayObject([w._add_object(st)])
+pdf_abjad = AKAR / "uji_abjad.pdf"
+with pdf_abjad.open("wb") as h:
+    w.write(h)
+baris_asli = teks_pdf._baris
+def baris_abjad(hal):
+    res = baris_asli(hal)
+    return [(y, x, u, "أ" if y < 65 and t == "A" else t, m) for y, x, u, t, m in res]
+with patch.object(teks_pdf, "_baris", side_effect=baris_abjad):
+    psn_abjad = teks_pdf.periksa(pdf_abjad, {"meta": {"angka": "latin", "nomor": "mukadimah", "tanpa_sampul": True}, "format": fmt_contoh})
+if psn_abjad:
+    gagal.append(f"teks_pdf halaman huruf أ sebelum 1 diperingatkan palsu: {psn_abjad!r}")
+
+# `huruf.font_terpasang()`: harus ada di berkas DAN registry pada Windows
+font_uji = AKAR / "UthmanicHafs_V22.ttf"
+font_uji.write_bytes(b"font")
+with patch.object(huruf, "os", type("OS", (), {"name": "nt"})()):
+    with patch.object(huruf, "terdaftar", return_value=[]):
+        if huruf.font_terpasang():
+            gagal.append("huruf.font_terpasang() True walau registry kosong")
+    with patch.object(huruf, "terdaftar", return_value=[("KFGQPC HAFS Uthmanic Script", AKAR / "hilang.ttf")]):
+        if huruf.font_terpasang():
+            gagal.append("huruf.font_terpasang() True walau berkas font tidak ada")
+    with patch.object(huruf, "terdaftar", return_value=[("KFGQPC HAFS Uthmanic Script", font_uji)]):
+        if not huruf.font_terpasang():
+            gagal.append("huruf.font_terpasang() False walau ada di berkas dan registry")
+
 for g in gagal:
     print("✗ " + g)
 print(f"perintah: {len(gagal)} gagal")

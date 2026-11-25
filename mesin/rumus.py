@@ -160,12 +160,23 @@ def _kanan_ke_kiri(tok):
     """Rumus tanpa huruf Latin/Yunani dan tanpa nama fungsi (teks Arab, angka, operator) dicetak kanan-ke-kiri seperti
     kalimat Arab di sekitarnya; rumus yang memuatnya dicetak kiri-ke-kanan seluruhnya. Nama lingkungan
     (\\begin{pmatrix}) dan nomor persamaan (\\tag{a}) bukan isi rumus."""
-    lewati = False
+    tunggu, dalam = False, 0
     for jenis, isi in tok:
-        if lewati:
-            lewati = jenis != "rbrace"
-        elif jenis == "cmd" and isi in ("begin", "end", "tag"):
-            lewati = True
+        if dalam > 0:
+            if jenis == "lbrace":
+                dalam += 1
+            elif jenis == "rbrace":
+                dalam -= 1
+            continue
+        if tunggu:
+            if jenis == "sp":
+                continue
+            tunggu = False
+            if jenis == "lbrace":
+                dalam = 1
+                continue
+        if jenis == "cmd" and isi in ("begin", "end", "tag"):
+            tunggu = True
         elif jenis == "txt" and isi.isalpha() and not ARAB.match(isi):
             return False
         elif jenis == "cmd" and (isi in FUNGSI or SIMBOL.get(isi, ("",))[0].isalpha()):
@@ -243,8 +254,59 @@ class _PenguraiRumus:
             return f"<m:r><m:rPr><m:nor/></m:rPr>{self._rpr_arab(bold=bold)}<m:t{sp}>{escape(teks)}</m:t></m:r>"
         return f"<m:r><m:rPr><m:nor/></m:rPr>{self._rpr_math(bold=bold, italic=italic)}<m:t{sp}>{escape(teks)}</m:t></m:r>"
 
+    def _isi_teks(self, perintah, bold=False, italic=False):
+        """Urai isi satu grup {…} teks biasa (`\\text`, `\\textbf`, …) menjadi [(teks, bold, italic)]."""
+        self._lewati_sp()
+        if self.i >= len(self.tok) or self.tok[self.i][0] != "lbrace":
+            raise TandaRusak(f"\\{perintah} memerlukan argumen dalam kurung kurawal {{…}}")
+        self.dalam += 1
+        if self.dalam > BATAS_DALAM:
+            raise TandaRusak("kurung kurawal { } di rumus terlalu dalam")
+        self.i += 1
+        dalam, out = 0, []
+        try:
+            while self.i < len(self.tok):
+                j, v = self.tok[self.i]
+                self.i += 1
+                if j == "lbrace":
+                    dalam += 1
+                elif j == "rbrace":
+                    if not dalam:
+                        return out
+                    dalam -= 1
+                elif j == "cmd":
+                    if v in GAYA_TEKS:
+                        out.extend(self._isi_teks(v, bold=bold or (v == "textbf"), italic=italic or (v == "textit")))
+                    elif v in SIMBOL:
+                        out.append((SIMBOL[v][0], bold, italic))
+                    else:
+                        raise TandaRusak(f"perintah LaTeX «\\{v}» tidak dikenal di \\{perintah}")
+                elif j == "prime":
+                    out.append(("'" * len(v), bold, italic))
+                else:
+                    out.append((v, bold, italic))
+            raise TandaRusak(f"\\{perintah}{{ tidak ditutup dengan }}")
+        finally:
+            self.dalam -= 1
+
+    def _baca_teks(self, perintah):
+        """Isi perintah GAYA_TEKS sebagai rangkaian `<m:r>` (mendukung perintah bersarang seperti `\\textbf{…}`)."""
+        gabung = []
+        for teks, b, it in self._isi_teks(perintah, bold=(perintah == "textbf"), italic=(perintah == "textit")):
+            if not teks:
+                continue
+            if gabung and gabung[-1][1] == b and gabung[-1][2] == it:
+                gabung[-1][0] += teks
+            else:
+                gabung.append([teks, b, it])
+        runs = [self._run_teks(teks, bold=b, italic=it) for teks, b, it in gabung]
+        arab_murni = any(ARAB.search(t) for t, _, _ in gabung) and not any(
+            c.isalpha() and not ARAB.match(c) for t, _, _ in gabung for c in t
+        )
+        return "".join(reversed(runs) if (self.rtl or arab_murni) else runs)
+
     def _baca_mentah(self, perintah):
-        """Baca isi satu grup { ... } sebagai string teks biasa (untuk \\text, \\tag, \\begin, \\end)."""
+        """Baca isi satu grup { ... } sebagai string teks biasa (untuk \\tag, \\begin, \\end)."""
         self._lewati_sp()
         if self.i >= len(self.tok) or self.tok[self.i][0] != "lbrace":
             raise TandaRusak(f"\\{perintah} memerlukan argumen dalam kurung kurawal {{…}}")
@@ -308,9 +370,9 @@ class _PenguraiRumus:
         t = self._ambil()
         if not t:
             raise TandaRusak(f"\\{perintah} memerlukan tanda kurung sesudahnya (mis. \\{perintah}()")
-        if t[0] == "txt" and t[1] in KURUNG:
-            return KURUNG[t[1]]
-        if t[0] == "cmd" and t[1] in KURUNG:
+        if t == ("cmd", "|"):
+            return SIMBOL["|"][0]
+        if t[0] in ("txt", "cmd") and t[1] in KURUNG:
             return KURUNG[t[1]]
         raise TandaRusak(f"tanda kurung sesudah \\{perintah} tidak dikenal: «{t[1]}»")
 
@@ -543,6 +605,8 @@ class _PenguraiRumus:
                 return self._baca_nary(cmd)
             elif cmd in LIMIT:
                 fn = self._run_math(cmd, tegak=True)
+                while self._intip() in (("cmd", "limits"), ("cmd", "nolimits")):
+                    self.i += 1
                 if izin_skrip and self._intip() and self._intip()[0] == "sub":
                     self.i += 1
                     lim = self._baca_arg("_")
@@ -552,8 +616,7 @@ class _PenguraiRumus:
             elif cmd in FUNGSI:
                 dasar = self._run_math(cmd, tegak=True)
             elif cmd in GAYA_TEKS:
-                isi = self._baca_mentah(cmd)
-                dasar = self._run_teks(isi, bold=(cmd == "textbf"), italic=(cmd == "textit"))
+                dasar = self._baca_teks(cmd)
             elif cmd in GAYA_MATH:
                 lama, self.gaya = self.gaya, GAYA_MATH[cmd]
                 try:
@@ -580,8 +643,7 @@ class _PenguraiRumus:
                     jenis = self._ambil()[0]
                     lbl = self._baca_arg(jenis)
                     tag_l = "limUpp" if jenis == "sup" else "limLow"
-                    return f"<m:{tag_l}><m:e>{dasar}</m:e><m:lim>{lbl}</m:lim></m:{tag_l}>"
-                return dasar
+                    dasar = f"<m:{tag_l}><m:e>{dasar}</m:e><m:lim>{lbl}</m:lim></m:{tag_l}>"
             elif cmd == "left":
                 self.dalam += 1
                 if self.dalam > BATAS_DALAM:

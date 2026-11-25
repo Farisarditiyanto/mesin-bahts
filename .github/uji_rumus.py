@@ -56,6 +56,53 @@ def utama():
     assert gaya_xml.find(".//m:sSub", ns) is not None and gaya_xml.find(".//m:acc", ns) is not None, gaya_omml
     assert "_" not in gaya_omml and r"\hat" not in gaya_omml and "β" in gaya_omml, gaya_omml
 
+    # 1c. Regresi \lim\limits, \left\|, \tag{{a}b} RTL, \overbrace + _skrip, dan perintah bersarang di \text
+    w_ns = XML_WRAP.split('xmlns:w="')[1].split('"')[0]
+    lim_xml = cek_xml(rumus.konversi(r"\lim\limits_{x \to 0} f(x)")[0])
+    assert lim_xml.find(".//m:limLow/m:lim", ns) is not None, ET.tostring(lim_xml, encoding="unicode")
+    max_xml = cek_xml(rumus.konversi(r"\max\limits_{x \in S} x")[0])
+    assert max_xml.find(".//m:limLow/m:lim", ns) is not None, ET.tostring(max_xml, encoding="unicode")
+    nolim_xml = cek_xml(rumus.konversi(r"\lim\nolimits_{x \to 0} x")[0])
+    assert nolim_xml.find(".//m:limLow/m:lim", ns) is not None, ET.tostring(nolim_xml, encoding="unicode")
+
+    norm_xml = cek_xml(rumus.konversi(r"\left\| x \right\|")[0])
+    assert [x.get(f"{{{ns['m']}}}val") for x in norm_xml.find(".//m:dPr", ns)] == ["‖", "‖"], ET.tostring(norm_xml, encoding="unicode")
+    abs_xml = cek_xml(rumus.konversi(r"\left| x \right|")[0])
+    assert [x.get(f"{{{ns['m']}}}val") for x in abs_xml.find(".//m:dPr", ns)] == ["|", "|"], ET.tostring(abs_xml, encoding="unicode")
+
+    tag_omml, tag_val = rumus.konversi(r"\text{أ} - \text{ب} \tag{{a}b}", display=True)
+    tag_xml = cek_xml(tag_omml)
+    assert tag_val == "{a}b", tag_val
+    assert [t.text for t in tag_xml.iter(f"{{{ns['m']}}}t")] == ["ب", "−", "أ"], tag_omml
+
+    ob_xml = cek_xml(rumus.konversi(r"\overbrace{a+b}^{n}_{k}")[0])
+    assert ob_xml.find(".//m:sSub/m:e/m:limUpp/m:e/m:groupChr", ns) is not None, ET.tostring(ob_xml, encoding="unicode")
+    ob_prime = cek_xml(rumus.konversi(r"\overbrace{a+b}^{n}'")[0])
+    assert ob_prime.find(".//m:sSup/m:e/m:limUpp", ns) is not None, ET.tostring(ob_prime, encoding="unicode")
+    assert "′" in [t.text for t in ob_prime.iter(f"{{{ns['m']}}}t")], ET.tostring(ob_prime, encoding="unicode")
+    ub_xml = cek_xml(rumus.konversi(r"\underbrace{a+b}_{n}^{k}")[0])
+    assert ub_xml.find(".//m:sSup/m:e/m:limLow/m:e/m:groupChr", ns) is not None, ET.tostring(ub_xml, encoding="unicode")
+
+    teks_arab_omml, _ = rumus.konversi(r"\text{أ \textbf{ب}}")
+    teks_arab_xml = cek_xml(teks_arab_omml)
+    assert r"\textbf" not in teks_arab_omml, teks_arab_omml
+    assert [t.text for t in teks_arab_xml.iter(f"{{{ns['m']}}}t")] == ["ب", "أ "], teks_arab_omml
+    teks_runs = teks_arab_xml.findall(f".//{{{ns['m']}}}r")
+    assert teks_runs[0].find(f"{{{w_ns}}}rPr/{{{w_ns}}}b") is not None, teks_arab_omml
+    assert teks_runs[1].find(f"{{{w_ns}}}rPr/{{{w_ns}}}b") is None, teks_arab_omml
+
+    teks_ltr_omml, _ = rumus.konversi(r"\text{hello \textbf{world}}")
+    teks_ltr_xml = cek_xml(teks_ltr_omml)
+    assert [t.text for t in teks_ltr_xml.iter(f"{{{ns['m']}}}t")] == ["hello ", "world"], teks_ltr_omml
+    teks_campur_omml, _ = rumus.konversi(r"x = \text{أ \textbf{ب}}")
+    assert [t.text for t in cek_xml(teks_campur_omml).iter(f"{{{ns['m']}}}t")] == ["x", "=", "ب", "أ "], teks_campur_omml
+    try:
+        rumus.konversi(r"\text{أ \ngawur{ب}}")
+    except TandaRusak as e:
+        assert "tidak dikenal" in str(e), str(e)
+    else:
+        raise AssertionError("perintah asing di dalam \\text{...} harus ditolak")
+
     # 2. Uji lewat pintu pemakai (CLI `bahts.py cek`) dan isi bahan JSON
     with tempfile.TemporaryDirectory(prefix="bahts-uji-rumus-") as t:
         akar = Path(t)
@@ -166,6 +213,17 @@ def utama():
         # satu bilangan tetap utuh («1\,250», «1/2»), dan huruf di \tag bukan isi rumus
         assert teks(angka) == ["2,5", "=", "1/2", "−", "1\u2009250"], teks(angka)
         assert teks(matriks) == ["ب", "أ"], teks(matriks)
+
+        # CLI `cek`: \lim\limits, \left\|, \tag{{a}b}, \overbrace+_, dan \text{\textbf{...}} terurai & sah di bahan JSON
+        lim_c, norm_c, tag_c, ob_c, teks_c = cetak(
+            r"\lim\limits_{x \to 0} f(x)", r"\left\| x \right\|",
+            r"\text{أ} - \text{ب} \tag{{a}b}", r"\overbrace{a+b}^{n}_{k}", r"\text{أ \textbf{ب}}",
+        )
+        assert lim_c.find(".//m:limLow/m:lim", ns) is not None
+        assert [x.get(f"{{{ns['m']}}}val") for x in norm_c.find(".//m:dPr", ns)] == ["‖", "‖"]
+        assert teks(tag_c) == ["ب", "−", "أ"]
+        assert ob_c.find(".//m:sSub/m:e/m:limUpp", ns) is not None
+        assert teks(teks_c) == ["ب", "أ "] and r"\textbf" not in "".join(teks(teks_c))
 
         # angka rumus di catatan kaki bukan juz/halaman rujukan
         pecahan = jalankan("pecahan di catatan kaki", dasar.replace("#K الخاتمة", "فقرة[^الكسر {E:3/4} هنا.].\n#K الخاتمة"))

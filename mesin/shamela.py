@@ -135,10 +135,11 @@ def _hitung_asal(daftar):
     return {int(r["shamela_id"]): (str(r["main_author_id"]), r["group_id"]) for r in daftar}
 
 
-def _baca_katalog_bin(f_cache, sumber):
-    """Potongan byte cache katalog kalau sidik parquet, versi, panjang, dan crc32 utuh; None kalau tidak."""
+def _baca_biner(f, n_bagian, **syarat):
+    """Baca berkas cache biner (kepala JSON satu baris + muatan byte): kembalikan `(mentah, awal_isi, panjang)` bila
+    kepala, syarat nilai, panjang muatan, dan CRC32 sah; None kalau hilang, usang, atau rusak."""
     try:
-        mentah = f_cache.read_bytes()
+        mentah = f.read_bytes()
         nl = mentah.find(b"\n", 0, 1 << 16)
         if nl < 0:
             return None
@@ -146,23 +147,29 @@ def _baca_katalog_bin(f_cache, sumber):
         if not isinstance(kepala, dict):
             return None
         panjang = kepala.get("panjang")
-        if (kepala.get("versi") != KATALOG_VERSI or kepala.get("norma_versi") != norma.VERSI
-                or kepala.get("sumber") != sumber
-                or type(panjang) is not list or len(panjang) != len(_KATALOG_BAGIAN)
+        if (any(kepala.get(k) != v for k, v in syarat.items())
+                or type(panjang) is not list or len(panjang) != n_bagian
                 or not all(type(n) is int and n >= 0 for n in panjang)):
             return None
         awal = nl + 1
-        if len(mentah) - awal != sum(panjang):
+        if len(mentah) - awal != sum(panjang) or zlib.crc32(memoryview(mentah)[awal:]) != kepala.get("crc32"):
             return None
-        if zlib.crc32(memoryview(mentah)[awal:]) != kepala.get("crc32"):
-            return None
-        potong, pos = {}, awal
-        for nama, n in zip(_KATALOG_BAGIAN, panjang):
-            potong[nama] = mentah[pos:pos + n]
-            pos += n
-        return potong
-    except (OSError, ValueError, KeyError, TypeError):
+        return mentah, awal, panjang
+    except (OSError, ValueError, TypeError):
         return None
+
+
+def _baca_katalog_bin(f_cache, sumber):
+    """Potongan byte cache katalog kalau sidik parquet, versi, panjang, dan crc32 utuh; None kalau tidak."""
+    hasil = _baca_biner(f_cache, len(_KATALOG_BAGIAN), versi=KATALOG_VERSI, norma_versi=norma.VERSI, sumber=sumber)
+    if hasil is None:
+        return None
+    mentah, pos, panjang = hasil
+    potong = {}
+    for nama, n in zip(_KATALOG_BAGIAN, panjang):
+        potong[nama] = mentah[pos:pos + n]
+        pos += n
+    return potong
 
 
 def _tulis_katalog_bin(f_cache, sumber, daftar, jp, jpp, pk, asal_):
@@ -550,12 +557,17 @@ def daftar():
     sys.stdout.write("\n".join(baris) + "\n")
 
 
+def wajib_ada(sid):
+    """Pastikan kitab `sid` sudah diunduh utuh (`pages.jsonl.gz`); tidak ada -> hentikan dengan pesan yang jelas."""
+    if not (folder(sid) / "pages.jsonl.gz").exists():
+        raise _belum(sid)
+
+
 def kartu(sid):
     """Data cetak kitab (pengarang, muhaqqiq, penerbit, cetakan) untuk rujukan pertama dan daftar pustaka, lalu satu
     baris bentuk bukti <<…>> kitab itu (contoh_bukti). Gelar di nama muhaqqiq/penyusun dibuang (gelar.buang_gelar):
     data ini disalin apa adanya ke catatan kaki dan المصادر."""
-    if not (folder(sid) / "pages.jsonl.gz").exists():
-        raise _belum(sid)
+    wajib_ada(sid)
     print("\n".join(gelar.buang_gelar(b) for b in info(sid)["betaka_text"].replace("\r", "\n").rstrip("\n").split("\n")))
     print(contoh_bukti(sid))
 
@@ -642,59 +654,45 @@ def _baca_padat_kena(sid, q, qb, sumber):
     tanpa menyalin/mengurai deret; berkas rusak/usang/hilang dibangun ulang lewat `padat_kitab`."""
     f = _berkas_padat(sid)
     deret_nama, jenis = norma.Padat.DERET, norma.Padat.JENIS
-    try:
-        mentah = f.read_bytes()
-        nl = mentah.find(b"\n", 0, 1 << 16)
-        if nl < 0:
-            kepala = None
-        else:
-            kepala = json.loads(mentah[:nl])
-            panjang = kepala["panjang"]
-            if (kepala["sumber"] != sumber or kepala["urutan"] != sys.byteorder
-                    or len(panjang) != len(BAGIAN) * (1 + len(deret_nama))
-                    or not all(type(n) is int and n >= 0 for n in panjang)):
-                kepala = None
-    except (OSError, ValueError, KeyError, TypeError, AttributeError):
-        kepala = None
-    awal_isi = nl + 1 if kepala is not None else 0
-    if kepala is not None and len(mentah) - awal_isi == sum(panjang):
+    hasil = _baca_biner(f, len(BAGIAN) * (1 + len(deret_nama)), sumber=sumber, urutan=sys.byteorder)
+    if hasil is not None:
+        mentah, awal_isi, panjang = hasil
         mv = memoryview(mentah)[awal_isi:]
-        if zlib.crc32(mv) == kepala.get("crc32"):
-            teks_span, deret_span, pos, k, n_rek_0, sah = [], [], 0, 0, None, True
-            for _ in BAGIAN:
-                t_len = panjang[k]; teks_span.append((pos, pos + t_len)); pos += t_len; k += 1
-                off, cnt = {}, {}
-                for n in deret_nama:
-                    d_len = panjang[k]
-                    if d_len % _PADAT_UKURAN[n]:
-                        sah = False
-                        break
-                    cnt[n] = d_len // _PADAT_UKURAN[n]
-                    off[n] = (pos, pos + d_len)
-                    pos += d_len; k += 1
-                if not sah:
-                    break
-                n_rek = cnt["mulai"]
-                if n_rek_0 is None:
-                    n_rek_0 = n_rek
-                if not (n_rek == cnt["ruas"] == n_rek_0 and n_rek
-                        and _PADAT_STRUCT["mulai"].unpack_from(mv, off["mulai"][1] - _PADAT_UKURAN["mulai"])[0] == t_len
-                        and _PADAT_STRUCT["ruas"].unpack_from(mv, off["ruas"][1] - _PADAT_UKURAN["ruas"])[0] == cnt["awal"]
-                        and all(cnt[x] == cnt["awal"] for x in ("akhir", "h1", "h2"))):
+        teks_span, deret_span, pos, k, n_rek_0, sah = [], [], 0, 0, None, True
+        for _ in BAGIAN:
+            t_len = panjang[k]; teks_span.append((pos, pos + t_len)); pos += t_len; k += 1
+            off, cnt = {}, {}
+            for n in deret_nama:
+                d_len = panjang[k]
+                if d_len % _PADAT_UKURAN[n]:
                     sah = False
                     break
-                deret_span.append(off)
-            if sah:
-                j_awal = [mentah.find(qb, awal_isi + a, awal_isi + z) for a, z in teks_span]
-                if all(j < 0 for j in j_awal):
-                    return None, None
-                teks_ = [mv[a:z] for a, z in teks_span]
-                deret = [{n: mv[a:z].cast(jenis[n]) for n, (a, z) in off.items()} for off in deret_span]
-                gen = _kena_urut(mentah, awal_isi, teks_span, deret, qb, j_awal)
-                pertama = next(gen, None)
-                if pertama is None:
-                    return None, None
-                return norma.Padat(teks_, deret), itertools.chain((pertama,), gen)
+                cnt[n] = d_len // _PADAT_UKURAN[n]
+                off[n] = (pos, pos + d_len)
+                pos += d_len; k += 1
+            if not sah:
+                break
+            n_rek = cnt["mulai"]
+            if n_rek_0 is None:
+                n_rek_0 = n_rek
+            if not (n_rek == cnt["ruas"] == n_rek_0 and n_rek
+                    and _PADAT_STRUCT["mulai"].unpack_from(mv, off["mulai"][1] - _PADAT_UKURAN["mulai"])[0] == t_len
+                    and _PADAT_STRUCT["ruas"].unpack_from(mv, off["ruas"][1] - _PADAT_UKURAN["ruas"])[0] == cnt["awal"]
+                    and all(cnt[x] == cnt["awal"] for x in ("akhir", "h1", "h2"))):
+                sah = False
+                break
+            deret_span.append(off)
+        if sah:
+            j_awal = [mentah.find(qb, awal_isi + a, awal_isi + z) for a, z in teks_span]
+            if all(j < 0 for j in j_awal):
+                return None, None
+            teks_ = [mv[a:z] for a, z in teks_span]
+            deret = [{n: mv[a:z].cast(jenis[n]) for n, (a, z) in off.items()} for off in deret_span]
+            gen = _kena_urut(mentah, awal_isi, teks_span, deret, qb, j_awal)
+            pertama = next(gen, None)
+            if pertama is None:
+                return None, None
+            return norma.Padat(teks_, deret), itertools.chain((pertama,), gen)
     padat_ = padat_kitab(sid, sumber=sumber)
     kena = padat_.kena(q)
     return (padat_, iter(kena)) if kena else (None, None)
@@ -1434,8 +1432,7 @@ def berisi(sid, q, *, padat_=None, rekaman_=None):
         for i, p in rekaman_:
             yield padat_.isi(p, i)
         return
-    if not (folder(sid) / "pages.jsonl.gz").exists():
-        raise _belum(sid)
+    wajib_ada(sid)
     padat_, kena_it = _baca_padat_kena(sid, q, norma.bait(q), _sidik(sid))
     if kena_it is None:
         return
@@ -1469,8 +1466,7 @@ def rekaman_halaman(sid, juz, hal):
 def halaman(sid, juz, hal):
     """Isi satu halaman cetak (juz "-" untuk kitab satu jilid), dengan حاشية milik halaman itu. «05» dan «٥» = 5."""
     juz, hal = angka(juz), angka(hal)
-    if not (folder(sid) / "pages.jsonl.gz").exists():
-        raise _belum(sid)
+    wajib_ada(sid)
     kena = rekaman_halaman(sid, juz, hal)
     for p, bagian in kena:
         print(baris(TAGS.sub("", "".join(bagian))))

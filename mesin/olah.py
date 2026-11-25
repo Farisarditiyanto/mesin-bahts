@@ -1276,7 +1276,7 @@ def _angka_cetak(ctx):
 
 MALAHIQ = re.compile(r"(ال)?ملاحق|ملحق")
 MULAKHAS = re.compile(r"^(?:ال)?ملخص")
-MULAKHAS_ASING = re.compile(r"الأجنبية|الإنجليزية")
+MULAKHAS_ASING = re.compile(r"ال[أا]جنبي[ةه]|ال[إا]نجليزي[ةه]")
 
 
 def _malahiq(ctx):
@@ -1404,6 +1404,8 @@ def rencana_cetak(d):
         except TandaRusak:  # sudah GAGAL di _cek_sampul
             pass
     fmt = format_cetak(d["format"])
+    mulakhas = [(i, j) for i, b in enumerate(blok)
+                if b["k"] == "K" and MULAKHAS.match(j := norma.HARAKAT.sub("", b["judul"]))]
     return {"format": fmt, "kitab": kitab, "sampul": sampul,
             "logo_berwarna": sampul == "qism" and not buang_sampul and meta.get("logo") == "berwarna",
             "judul_sampul": [sub.group(1).strip(), sub.group(2).strip()] if sub else [judul, ""],
@@ -1417,9 +1419,8 @@ def rencana_cetak(d):
             "jarak_sub": _jarak_sub(blok, fmt),
             "mufradat": baris_mufradat(blok),
             "mulakhas": {
-                "spasi": [i for i, b in enumerate(blok) if b["k"] == "K" and MULAKHAS.match(norma.HARAKAT.sub("", b["judul"]))],
-                "berjarak": [i for i, b in enumerate(blok) if b["k"] == "K" and MULAKHAS.match(norma.HARAKAT.sub("", b["judul"]))
-                             and not MULAKHAS_ASING.search(norma.HARAKAT.sub("", b["judul"]))],
+                "spasi": [i for i, _ in mulakhas],
+                "berjarak": [i for i, j in mulakhas if not MULAKHAS_ASING.search(j)],
             },
             "bagian": bagian}
 
