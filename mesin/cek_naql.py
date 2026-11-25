@@ -54,7 +54,14 @@ def salinan(penggal, mk, isi, terbukti):
     berurutan sama persis dengan halaman buktinya, atau None: itu lafaz kitab, bukan إعادة الصياغة."""
     if _nash(isi) or not terbukti:
         return None
-    pasangan = _kata(luar_petik(seragam(penggal).replace(mk, " ") if mk else penggal))
+    s = seragam(penggal)
+    if mk:
+        if mk in s:
+            s = s.replace(mk, " ")
+        elif (k := max(s.rfind('"'), s.rfind("»"))) >= 0 and s[:k].lstrip() and mk.endswith(s[:k]):
+            # kutipan spanning catatan penjelas: ekor sesudah catatan penjelas berakhir di penutup petik «k»
+            s = s[k + 1:]
+    pasangan = _kata(luar_petik(s))
     kata = [k for k, _ in pasangan]
     if len(kata) < SALIN_MIN:
         return None

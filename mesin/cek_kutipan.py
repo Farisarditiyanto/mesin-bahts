@@ -237,7 +237,8 @@ def _menyimpang(sid, juz, p1, p2, teks):
         return ""
     raw = re.sub(r"\s+", " ", norma.HARAKAT.sub("", norma.TAGS.sub("", " ".join(g["body"] for g in gabung(sid, juz, p1, p2)))))
     raw = norma.PENANDA.sub(" ", raw)
-    kitab_padat, kata = norma.padat(raw), teks.split()
+    kitab_padat, _, akhir_raw = norma.padat_peta(raw)
+    kata = teks.split()
     lo, hi = 0, len(kata) - 1  # awalan sepanjang kata[:lo] ada di matan; kata[:hi+1] tidak (kutipan utuhnya tidak ketemu)
     while lo < hi:
         mid = (lo + hi + 1) // 2
@@ -250,13 +251,7 @@ def _menyimpang(sid, juz, p1, p2, teks):
         return ""
     akhir = kitab_padat.find(awalan) + len(awalan)
     awal_kata = [m.start() for m in re.finditer(r"\S+", raw)]
-    a, z = 0, len(awal_kata)  # kata pertama yang mulai sesudah awalan; panjang `padat` awalan teks naik bersama letaknya
-    while a < z:
-        mid = (a + z) // 2
-        if len(norma.padat(raw[:awal_kata[mid]])) >= akhir:
-            z = mid
-        else:
-            a = mid + 1
+    a = bisect.bisect_left(awal_kata, akhir_raw[akhir - 1])
     di_kitab = raw[awal_kata[a]:].split()[0].strip(".,،؛:!؟\"«»()") if a < len(awal_kata) else "(akhir halaman)"
     return f"cocok {lo} dari {len(kata)} kata sampai «…{' '.join(kata[max(0, lo - 3):lo])}», lalu naskah «{kata[lo]}», kitab «{di_kitab}»"
 
@@ -369,7 +364,7 @@ def _cek(b, pot, perhatian, kutipan, rinci, pengantar, bersisipan=False):
                 if DIPOTONG.search(pot):  # «…» milik kitab sendiri yang ikut disalin: kutipan utuhnya bersambung di kitab
                     utuh = DIPOTONG.sub(" ", pot)
                     if not _cek(b, utuh, Catat(), True, False, ""):
-                        return _cek(b, utuh, perhatian, True, rinci, "", bersisipan)
+                        return _cek(b, utuh, perhatian, True, rinci, pengantar, bersisipan)
                 return Temuan(f"bagian kutipan terlalu pendek untuk dicek (paling sedikit {minimal} huruf; jangan dipotong "
                               f"... di situ)", x)
             return Temuan(f"potongan terlalu pendek (paling sedikit {minimal} huruf; yang pendek cocok di sembarang tempat): {pot}")
@@ -377,7 +372,7 @@ def _cek(b, pot, perhatian, kutipan, rinci, pengantar, bersisipan=False):
         e = _cek_bagian(b, x, kutipan, perhatian, rinci)
         if e:
             return e
-    rr = rekaman(sid, juz, p1, p2)
+    rr = sorted(rekaman(sid, juz, p1, p2), key=lambda r: (r.get("page_num") or 0, r.get("page_id") or 0))
     if len(bagian) > 1:
         jarak = [j for j in (berurutan(rr, sisi, bagian) for sisi, _ in norma.BAGIAN) if j is not None]
         if not jarak:
@@ -412,7 +407,7 @@ def _cek(b, pot, perhatian, kutipan, rinci, pengantar, bersisipan=False):
                                             pengarang)
                       + ragu_akhir(rr, bagian[-1])]
     if not any(t.jenis is Jenis.HASYIAH for t in perhatian[p0:]):  # yang di حاشية sudah disebut kalimat muhaqqiq
-        judul = judul_muhaqqiq(sid, rr, norma.padat(bagian[0]), kutipan)
+        judul = judul_muhaqqiq(sid, rr, norma.padat(bagian[0]), kutipan, dalam=(p1, p2))
         if judul:
             perhatian.tambah(Temuan(f"bukti {sid} {juz}/{hal} ada di bagian «{judul}» (tulisan muhaqqiq/penerbit, bukan "
                                     f"pengarang): jangan dinisbatkan ke pengarang kitab", pot[:40]))
@@ -429,11 +424,14 @@ JUDUL_MUHAQQIQ = re.compile(
     r"|^منهج\s+(?:ال)?تحقيق|^منهجي\s+في|^عملي\s+في|^وصف\s+(?:ال)?(?:نسخ|مخطوط)|^دراسة\s+(?:موجزة|الكتاب|الرسالة|المؤلف)")
 
 
-def judul_muhaqqiq(sid, rr, q, utuh):
+def judul_muhaqqiq(sid, rr, q, utuh, dalam=None):
     """Judul (atau induknya) tulisan muhaqqiq/penerbit yang menaungi awal q (`padat`) di matan rr; '' kalau bukan."""
     for r in rr:
-        c = cocok.letak_pertama(r, q, "body", utuh)
-        if c:
+        for c in cocok.semua_letak(r, q, "body", utuh):
+            if dalam is not None:
+                h = cocok.halaman_letak(r, "body", c)
+                if not (dalam[0] <= (h[0] or 0) and (h[1] or 0) <= dalam[1]):
+                    continue
             return next((j for j in shamela.rantai_judul(sid, shamela.judul_naung(sid, r, c)) if JUDUL_MUHAQQIQ.search(j)), "")
     return ""
 
@@ -468,22 +466,13 @@ def susunan_kitab(rr, bagian, celah, ujung, dalam):
                     if samar and r.get("page_num") != norma.per_halaman(r)[-1][0]:
                         tak_pasti.append((a, z))
             offset += len(t) + 1
-        pd, panjang = norma.padat(raw), {}
+        pd, mulai_raw, akhir_raw = norma.padat_peta(raw)
         if q[0] not in pd:
             continue
         rek = {"body": raw}
         angka = angka_kitab(raw)
-
-        def sesudah(k):  # letak di raw tepat sesudah huruf `padat` ke-k
-            lo, hi = 0, len(raw)
-            while lo < hi:
-                mid = (lo + hi) // 2
-                if mid not in panjang:
-                    panjang[mid] = len(norma.padat(raw[:mid]))
-                lo, hi = (lo, mid) if panjang[mid] > k else (mid + 1, hi)
-            return lo
-        mulai = lambda k: sesudah(k) - 1 if k < len(pd) else len(raw)  # letak huruf ke-k
-        akhir = lambda k: sesudah(k - 1) if k > 0 else 0  # sesudah huruf terakhir sebelum huruf ke-k
+        mulai = lambda k: mulai_raw[k] if k < len(pd) else len(raw)  # letak huruf ke-k
+        akhir = lambda k: akhir_raw[k - 1] if k > 0 else 0  # sesudah huruf terakhir sebelum huruf ke-k
         def di_halaman(a, z):
             n = bisect.bisect_right(sah, (a, float("inf"))) - 1
             return n >= 0 and sah[n][0] <= a and z <= sah[n][1]

@@ -13,7 +13,7 @@ import shamela
 import waqfeya
 from cek_rujukan import bentuk_judul, judul_di_baris
 from dasar import ANGKA_LATIN, WAQFEYA_BUKTI
-from olah import _mushaf, kunci_urut, periksa
+from olah import adalah_mushaf, kunci_urut, periksa
 
 _BIDANG = (
     ("judul", re.compile(r"^الكتاب$")),
@@ -317,7 +317,7 @@ def cetak(folder):
     ctx = periksa(folder).ctx
     gaya = ctx.meta.get("pustaka_gaya", "judul")
     sids, wids = _buku(ctx.penunjuk)
-    baris_r = {n: teks for n, teks in ctx.pustaka_baris if not _mushaf(teks)}
+    baris_r = {n: teks for n, teks in ctx.pustaka_baris if not adalah_mushaf(teks)}
     draf, sid_cocok, catatan, terlihat = [], {}, {}, set()
     for sid in sids:
         try:

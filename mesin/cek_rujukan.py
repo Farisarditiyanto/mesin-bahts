@@ -134,13 +134,14 @@ def tercetak(isi, juz):
     Halaman bahts sendiri («ص3 من هذا البحث», «ص3 من البحث», «ص3 من هذه الرسالة/المذكرة») bukan halaman kitab."""
     isi = re.sub(r"\d+(?:\s*(?:[-–]|[،,]\s*و?|\s+و)\s*\d+)*\s*(?=من\s+(?:(?:هذا\s+)?البحث|هذه\s+(?:الرسالة|المذكرة)))",
                  " ", isi.translate(ANGKA_LATIN))
-    rentang = r"\d+(?:\s*[-–]\s*\d+)?"
+    rentang = r"\d+(?!\d)(?:\s*[-–]\s*\d+(?!\d))?"
     tahun = r"(?:1[34]|19|20)\d\d(?!\d|\s*[-–])"  # «ص5، 1423»: tahun cetak tanpa هـ, bukan halaman kedua
-    daftar = rf"(?:\s*(?:[،,]\s*و?|\s+و)\s*(?!{tahun}){rentang}(?![\d/]|\s*/|\s*(?:هـ|ه(?!\w)|م(?!\w))))*"
+    satu = rf"{rentang}(?![\d/]|\s*/|\s*(?:هـ|ه(?!\w)|م(?!\w)))"
+    daftar = rf"(?:\s*(?:[،,]\s*و?|\s+و)\s*(?!{tahun}){satu})*"
     if juz == "-":
-        pola = rf"(?<![\wـ])(?:[وف]?ص|الصفحة)\s*:?\s*({rentang}{daftar})"
+        pola = rf"(?<![\wـ])(?:[وف]?ص|الصفحة)\s*:?\s*({satu}{daftar})"
     else:
-        pola = rf"(?<![\d/]){re.escape(juz)}\s*/\s*({rentang}{daftar})"
+        pola = rf"(?<![\d/]){re.escape(juz)}\s*/\s*({satu}{daftar})"
     return [(int(a), int(b or a)) for m in re.findall(pola, isi) for a, b in re.findall(r"(\d+)(?:\s*[-–]\s*(\d+))?", m)]
 
 
@@ -178,7 +179,8 @@ def rujukan_halaman(isi):
 
 MUJAM = 30  # bidang Shamela الغريب والمعاجم (لسان العرب، الصحاح، القاموس المحيط…)
 # materi kamus yang dirujuk: «مادة (قدر)», «مادة: قدر», atau bentuk kitab 8350 «(قدر)» (الكلمة بين قوسين، ص142، 155)
-MADDA = re.compile(r"(?<![ء-ي])مادة\s*:?\s*[(«\"]?\s*([ء-يً-ْ]+)|\(\s*([ء-يً-ْ]+)\s*\)")
+MADDA = re.compile(r"(?<![ء-ي])مادة\s*:?\s*[(«\"]?\s*([ء-يً-ْ]+)")
+MADDA_KURUNG = re.compile(r"\(\s*([ء-يً-ْ]+)\s*\)")
 
 
 def madda(teks, bb):
@@ -186,10 +188,10 @@ def madda(teks, bb):
     kalau bukan rujukan kamus. Materinya harus berdiri sebagai kata (boleh berawalan ال) di halaman tiap bukti."""
     if not bb or not all((kitab_meta(b.sid) or {}).get("kategori") == MUJAM for b in bb):
         return None
-    m = MADDA.search(teks)
+    m = MADDA.search(teks) or MADDA_KURUNG.search(teks)
     if not m:
         return None
-    kata = norma.norm(m[1] or m[2]).strip()
+    kata = norma.norm(m[1]).strip()
     ada = all(any(re.search(rf"(?<![ء-ي])(?:ال)?{re.escape(kata)}(?![ء-ي])", norma.norm(r.get("body") or ""))
                   for r in rekaman(*b.tempat)) for b in bb)
     return kata, ada
@@ -201,12 +203,24 @@ class SalahHalaman(typing.NamedTuple):
     tanpa_bukti: bool  # ada halaman tercetak yang tidak punya bukti sama sekali
 
 
+def _saring_klausa_luar(isi):
+    """Buang klausa berpemisah «؛» yang hanya merujuk <<luar>> (tanpa sid Shamela) sebelum halaman dicocokkan."""
+    if "<<" not in isi:
+        return isi
+    klausa = [k for k in re.split(r"[؛;]", isi)
+              if not (re.search(rf"<<{LUAR}(?:\||>>)", k) and not re.search(r"<<\d+\|", k))]
+    return re.sub(r"\s*<<[^>]*>>", "", "؛ ".join(klausa)).strip()
+
+
 def cocok_halaman(isi, bukti, perhatian):
     """Bandingkan juz/halaman yang tercetak dengan bukti [Bukti]; kembalikan SalahHalaman, atau None kalau cocok.
     Tiap halaman tercetak harus di dalam rentang bukti kitabnya, dan tiap bukti harus tercetak (kecuali kamus yang
     dirujuk lewat «مادة …»).
     «سبق تخريجه» mencetak halaman bahts ({P:}), bukan halaman kitab: yang dicek hanya halaman kitab yang tercetak."""
     if not bukti:
+        return None
+    isi = _saring_klausa_luar(isi)
+    if not isi:
         return None
     galat, tanpa_bukti = [], False
     bagian = bagian_kitab(isi, bukti)
@@ -223,9 +237,10 @@ def cocok_halaman(isi, bukti, perhatian):
             utuh = juz_arab(utuh)
         bernama = [j for j in juz_bukti if j != "-" and not j.isdigit()]
         for j in bernama:  # «المقدمة، ص1» = halaman 1 bagian المقدمة, sama dengan «المقدمة/1»
-            utuh = re.sub(rf"(?<!\w){re.escape(j)}\s*[،,:]?\s*ص\s*(?=\d)", f"{j}/", utuh)
+            utuh = re.sub(rf"(?<!\w){re.escape(j)}\s*[،,:]?\s*(?:ص|الصفحة)\s*:?\s*(?=\d)", f"{j}/", utuh)
         if len(bernama) == 1 and "-" not in juz_bukti:  # «ص5» tanpa nama bagian = halaman bagian buktinya (<<id|الكتاب|5>>)
-            utuh = re.sub(r"(?<![\wـ])([وف]?)ص\s*(?=\d)", lambda m: f"{m.group(1)}{bernama[0]}/", utuh)
+            utuh = re.sub(r"(?<![\wـ])(?:([وف]?)ص|([وف]?)الصفحة)\s*:?\s*(?=\d)",
+                          lambda m: f"{m.group(1) or m.group(2) or ''}{bernama[0]}/", utuh)
         teks = NOMOR_HADITS.sub(" ", utuh)
         lain = {j for j in JUZ_TERCETAK.findall(teks)} | {"-"}
         for juz in juz_bukti | (lain - juz_bukti):
@@ -522,17 +537,18 @@ def kitab_tanpa_pustaka(penunjuk, pustaka_baris):
     return hasil
 
 
-def kitab_waqfeya(isi, kitab):
-    """Perhatian catatan kaki yang buktinya hanya kitab Waqfeya (kitab = nomor «w…»-nya): judul kitab bukti yang tidak
-    disebut (seperti kitab_lain untuk bukti Shamela), dan judul yang ternyata ada di Shamela."""
+def kitab_waqfeya(isi, kitab, *, cek_shamela=True):
+    """Perhatian catatan kaki yang buktinya memuat kitab Waqfeya (kitab = nomor «w…»-nya): judul kitab bukti yang tidak
+    disebut (seperti kitab_lain untuk bukti Shamela), dan judul yang ternyata ada di Shamela (bila bukan campuran)."""
     hasil = []
     for w in kitab:
         if waqfeya.ada(w) and not waqfeya.judul_disebut(w, isi):
             hasil.append(f"catatan kaki tidak menyebut judul kitab buktinya «{waqfeya.data(w)['judul']}» "
                          f"(<<{w}|…>>): tulis judulnya, atau betulkan nomor kitab di bukti{ekor(isi)}")
-    judul, persis, _ = judul_shamela(isi)
-    if persis:  # Waqfeya hanya untuk kitab yang tidak ada di Shamela: teks Shamela dicek `cek`, OCR tidak
-        hasil.append(f"«{judul}» ada di Shamela (nomor {'، '.join(map(str, persis))}): kalau edisinya sama, "
-                     f"ambil kitab Shamela itu lalu tulis <<sid|juz|hal>> (dicek `cek`); edisi Waqfeya sengaja "
-                     f"dipakai (mis. edisi yang diminta dosen) → «terima <kode> <alasan>»{ekor(isi)}")
+    if cek_shamela:
+        judul, persis, _ = judul_shamela(isi)
+        if persis:  # Waqfeya hanya untuk kitab yang tidak ada di Shamela: teks Shamela dicek `cek`, OCR tidak
+            hasil.append(f"«{judul}» ada di Shamela (nomor {'، '.join(map(str, persis))}): kalau edisinya sama, "
+                         f"ambil kitab Shamela itu lalu tulis <<sid|juz|hal>> (dicek `cek`); edisi Waqfeya sengaja "
+                         f"dipakai (mis. edisi yang diminta dosen) → «terima <kode> <alasan>»{ekor(isi)}")
     return hasil

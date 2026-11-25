@@ -167,7 +167,7 @@ def halaman_janggal(sid, juz):
 def rekaman_dulu(sid, juz, p1, p2):
     """Rekaman tepat sebelum rekaman pertama yang menyentuh halaman p1..p2 (kata di akhir halaman sebelumnya); None kalau tidak ada."""
     ix = shamela.indeks(sid)
-    semua = _nomor_juz(sid, juz)
+    semua = sorted(_nomor_juz(sid, juz), key=lambda i: ix[i][1] or 0)
     for k, i in enumerate(semua):
         if ix[i][2] >= p1 and (ix[i][1] or 0) <= p2:
             return shamela.rekaman_ke(sid, semua[k - 1]) if k else None
@@ -184,7 +184,8 @@ def cari_di(sid, juz, p1, p2, q, utuh, kata=()):
     Kembalikan (jenis, None): jenis "matan", "hasyiah", atau "hasyiah?" (حاشية tanpa penanda halaman di rekaman
     banyak halaman); atau (None, (awal, akhir, tanda)) kalau hanya ada di halaman lain; atau (None, None)."""
     lain, hasyiah = None, None
-    for r in rekaman(sid, juz, p1, p2):
+    rr = sorted(rekaman(sid, juz, p1, p2), key=lambda r: (r.get("page_num") or 0, r.get("page_id") or 0))
+    for r in rr:
         for bagian, catatan in SISI:
             h = cocok.tempat(r, q, bagian, utuh, kata, (p1, p2), catatan)  # q yang muncul dua kali: yang di p1..p2 didahulukan
             if not h:

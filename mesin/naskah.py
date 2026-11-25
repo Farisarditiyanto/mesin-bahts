@@ -125,18 +125,20 @@ class CatatanKaki:
     """Satu catatan kaki [^…] yang sedang diperiksa: isinya, buktinya (dipilah sekali menurut jenisnya; bentuk tiap
     jenis diperiksa di langkahnya), jenisnya, dan kutipan yang dirujuknya. Sisanya diisi berurutan oleh langkah
     `Pengurai._catatan_kaki`; tiap langkah membaca yang sudah diisi langkah sebelumnya."""
-    __slots__ = ("isi", "berbukti", "shamela", "luar", "pdf", "wq", "rujukan_surah", "sabaqa", "sid_bukti", "diam", "zz",
-                 "penggal", "dirujuk", "mk", "lain", "terbukti", "kc", "dikecualikan", "salah_takhrij")
+    __slots__ = ("isi", "mentah", "berbukti", "shamela", "luar", "pdf", "wq", "rujukan_surah", "sabaqa", "sid_bukti", "diam",
+                 "zz", "penggal", "dirujuk", "mk", "lain", "terbukti", "kc", "dikecualikan", "salah_takhrij")
 
-    def __init__(self, isi, bukti):
+    def __init__(self, isi, bukti, mentah=""):
         self.isi = isi
+        self.mentah = mentah or isi
         self.berbukti = bool(bukti)
         self.wq = [b for b in bukti if WAQFEYA.match(b)]  # <<w…|berkas|hal>> (kitab Waqfeya)
         self.pdf = [b.split("|")[1:] for b in bukti if b.startswith(LUAR + "|")]  # <<luar|berkas|hal>>
         self.luar = LUAR in bukti  # <<luar>> polos
         self.shamela = [b for b in bukti if b.split("|")[0] != LUAR and not WAQFEYA.match(b)]  # <<sid|juz|hal(|potongan)>>
-        self.rujukan_surah = isi.startswith("سورة")  # rujukan ayat «سورة …، آية: n»
-        self.sabaqa = isi.startswith("سبق تخريجه")  # «سبق تخريجه، ص{P:k}»: buktinya di catatan kaki takhrij pertama
+        isi_polos = norma.HARAKAT.sub("", isi)
+        self.rujukan_surah = isi_polos.startswith("سورة")  # rujukan ayat «سورة …، آية: n»
+        self.sabaqa = isi_polos.startswith("سبق تخريجه")  # «سبق تخريجه، ص{P:k}»: buktinya di catatan kaki takhrij pertama
 
     @property
     def di_luar(self):
@@ -347,13 +349,13 @@ class Pengurai:
         """Isi catatan kaki sampai penutupnya (dasar.akhir_catatan)."""
         teks, i = self.teks, self.i
         j = akhir_catatan(teks, i)
-        isi = teks[i:j]
+        mentah = teks[i:j]
         self.i = j + 1
-        bukti = re.findall(r"<<([^>]*)>>", isi)
-        isi = re.sub(r"\s*<<[^>]*>>", "", isi).strip()
+        bukti = re.findall(r"<<([^>]*)>>", mentah)
+        isi = re.sub(r"\s*<<[^>]*>>", "", mentah).strip()
         if "<<" in isi or ">>" in isi:
             raise TandaRusak("bukti <<...>> tidak tertutup rapi (tidak boleh ada > di dalam potongan)")
-        return CatatanKaki(isi, bukti)
+        return CatatanKaki(isi, bukti, mentah)
 
     def _cek(self, b, teks, disebut, **pilihan):
         """`cek` yang perhatiannya langsung masuk laporan (yang sekali-sebut: sekali per naskah) dan dicatat di `disebut`."""
@@ -395,6 +397,7 @@ class Pengurai:
     def _cek_rujukan_ayat(self, c):
         """Ayat yang diketik sendiri, dan rujukan «سورة …، آية: n» yang harus cocok dengan {Q:} di kalimatnya."""
         isi, dirujuk, q_akhir = c.isi, c.dirujuk, self.q_akhir
+        isi_polos = norma.HARAKAT.sub("", isi)
         # ayat diketik sendiri lalu dirujuk «سورة …»: tidak pernah dicek ke mushaf, jadi bisa karangan
         # (di dalam tanda petik sudah ditolak di bawah: «سورة …» tidak membebaskan prosa di dalam kutipan)
         ketik = ayat_ketik(c.penggal) if c.rujukan_surah or not c.diam else None
@@ -404,7 +407,7 @@ class Pengurai:
         elif ketik:  # di matan, tanpa rujukan «سورة …»: bisa ayat karangan; paragraf salinan berbukti (diam) dicek ke kitab
             self.perhatian.append(f"ayat diketik langsung «{ketik[:40]}»: tidak dicek ke mushaf; tulis lewat {{Q:surah:ayat}}"
                                   f"{ekor(isi, rapat=True)}")
-        elif ((c.rujukan_surah and re.search(r"[0-9٠-٩۰-۹]", isi) or rujukan_ayat(isi))
+        elif ((c.rujukan_surah and re.search(r"[0-9٠-٩۰-۹]", isi_polos) or rujukan_ayat(isi))
               and (PENGANTAR_AYAT.search(re.split(r"﴿\d+:\d+(?:-\d+)?(?::\d+-\d+)?﴾", dirujuk)[-1])
                    or not re.search(r"﴿\d", dirujuk) and KURUNG_AYAT.search(dirujuk)) and not c.berbukti and c.mk is None):
             # rujukan ayat bernomor, padahal teks sesudah {Q:} terakhir (atau seluruh teks yang dirujuk) mengutip ayat
@@ -415,8 +418,8 @@ class Pengurai:
                               f"lewat {{Q:surah:ayat}}{ekor(isi, rapat=True)}")
         elif c.rujukan_surah and q_akhir:
             s, a = q_akhir
-            nama = re.split(r"[،,:(]|\sآي", isi[4:])[0]  # «سورة الفاتحة، آية: 2.» -> «الفاتحة»
-            angka = isi.translate(ANGKA_LATIN)
+            nama = re.split(r"[،,:(]|\sآي", isi_polos[4:])[0]  # «سورة الفاتحة، آية: 2.» -> «الفاتحة»
+            angka = isi_polos.translate(ANGKA_LATIN)
             ayat_sejak = {n for x, y in re.findall(rf"﴿{s}:(\d+)(?:-(\d+))?(?::\d+-\d+)?﴾", c.penggal) for n in range(int(x), int(y or x) + 1)}
             tertulis = NOMOR_AYAT.search(angka)  # hanya nomor sesudah «آية»: juz, halaman, dan tahun di catatan bukan nomor ayat
             if (norma.padat(nama) != norma.padat(SURAH[s - 1]) or not all(re.search(rf"(?<!\d){x}(?!\d)", angka) for x in a.split("-"))
@@ -508,7 +511,9 @@ class Pengurai:
                 if nukilan is None:
                     if c.kc:  # yang dicek kutipan di dalam catatan kaki (_cek_kutipan_di_catatan)
                         continue
-                    galat.append(f"[tanpa kutipan] {isi[:50]}"); continue
+                    galat.append(f"catatan kaki berbukti <<{teks}>> tanpa potongan dan tanpa kutipan bertanda petik "
+                                 f"sebelumnya: tambah potongan <<{teks}|lafaz>> atau beri tanda petik \"…\" pada "
+                                 f"kutipannya{ekor(isi)}"); continue
                 e = self._cek(b, nukilan, disebut, kutipan=True, pengantar=pengantar)
                 if not diam:  # kutipan ke bukti tanpa potongan: diputus sesudah semua bukti catatan kaki ini dicek
                     kutipan_3.append((b, e)); continue
@@ -650,8 +655,9 @@ class Pengurai:
                 cek_pdf(self.ctx.folder, berkas.strip(), hal, mk, galat, perhatian, isi)
             for b in c.wq:
                 cek_waqfeya(b, mk, galat, isi)
-            if c.wq and not c.shamela:
-                perhatian += kitab_waqfeya(isi, dict.fromkeys(WAQFEYA_BUKTI.fullmatch(b)[1] for b in c.wq))
+            if c.wq:
+                perhatian += kitab_waqfeya(isi, dict.fromkeys(WAQFEYA_BUKTI.fullmatch(b)[1] for b in c.wq),
+                                           cek_shamela=not c.shamela)
         elif not c.shamela and mk is not None and not c.dikecualikan and not c.salah_takhrij:
             if c.di_luar:
                 # <<luar>> hanya untuk sumber yang memang tidak ada di Shamela: judul kitab Shamela = GAGAL
@@ -675,7 +681,7 @@ class Pengurai:
     def _cek_penisbatan(self, c):
         """Juz/halaman dan nama kitab yang tercetak di catatan kaki cocok dengan buktinya; standar dan urutan sumber."""
         isi, terbukti, galat, perhatian = c.isi, c.terbukti, self.galat, self.perhatian
-        salah_hal = cocok_halaman(isi, terbukti, perhatian)
+        salah_hal = cocok_halaman(c.mentah if (c.luar or c.pdf) else isi, terbukti, perhatian)
         if salah_hal and c.wq and salah_hal.tanpa_bukti:  # halaman cetak kitab Waqfeya (ص60) tidak punya bukti Shamela: dibaca pemeriksa di scan
             salah_hal = None
         galat += [salah_hal.pesan] if salah_hal else []
@@ -701,8 +707,14 @@ class Pengurai:
         awal = len(self.polos) - len(c.penggal)
         # lafaz matn ((…)) yang disyarah = nukilan yang sudah bertanda: hanya panjang kutipannya yang dinilai
         matn = any(m >= awal for m in self.matn)
-        for p in (None if matn else salinan(c.penggal, c.mk, c.isi, c.terbukti),
-                  None if matn else isyarat(c.penggal, c.mk, c.isi, c.terbukti, c.kc), panjang(c.mk, c.isi)):
+        penggal_naql = c.penggal
+        if not matn and c.mk and c.mk not in seragam(c.penggal):
+            idx = seragam(self.polos).rfind(c.mk)
+            if idx >= 0:
+                awal_kal = max(self.seg_bukti, max((self.polos.rfind(p, 0, idx) + 1 for p in ".\n"), default=0))
+                penggal_naql = self.polos[awal_kal:]
+        for p in (None if matn else salinan(penggal_naql, c.mk, c.isi, c.terbukti),
+                  None if matn else isyarat(penggal_naql, c.mk, c.isi, c.terbukti, c.kc), panjang(c.mk, c.isi)):
             if p:
                 self.perhatian.append(p)
 

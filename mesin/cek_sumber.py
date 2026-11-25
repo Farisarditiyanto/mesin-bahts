@@ -4,7 +4,7 @@ urutan sumber di catatan kaki «انظر:» dari pengarang yang lebih dulu wafat
 import functools, re
 
 import norma
-from dasar import HERE, MERUJUK_KATA, ekor
+from dasar import HERE, MERUJUK_AWAL, ekor
 from kitab_lokal import bagian_kitab, kitab_meta
 from petik import luar_petik, seragam
 
@@ -60,8 +60,9 @@ def standar_sumber(penggal, isi, sid_bukti):
         return None
     ada = {mz for mz in MAZHAB for sid, v in meta.items() if _kitab_mazhab(mz, sid, v)}
     teks = norma.HARAKAT.sub("", penggal)
-    perantara = any(not BUKAN_PERANTARA.match(isi[m.end():]) for m in PERANTARA.finditer(isi))
-    if perantara or isi.startswith(("أخرجه", "رواه", "سورة")) or KONTEMPORER.search(teks):
+    isi_polos = norma.HARAKAT.sub("", isi)
+    perantara = any(not BUKAN_PERANTARA.match(isi_polos[m.end():]) for m in PERANTARA.finditer(isi_polos))
+    if perantara or isi_polos.startswith(("أخرجه", "رواه", "سورة")) or KONTEMPORER.search(teks):
         # tidak dinilai (takhrij: nama imam = mukharrij), tetapi bukti kitab mazhabnya tetap dihitung untuk bagian itu
         return {"isi": isi, "disebut": set(), "ada": ada, "ijmak": False, "judul": ""}
     judul = "، ".join(dict.fromkeys(v["judul"] for v in meta.values()))
@@ -79,9 +80,6 @@ def standar_sumber(penggal, isi, sid_bukti):
     return {"isi": isi, "disebut": disebut, "ada": ada, "ijmak": bool(ijmak), "judul": judul}
 
 
-MERUJUK = re.compile(rf"^(?:{MERUJUK_KATA})(?![ء-ي])")  # nukilan makna: beberapa sumber untuk satu hal
-
-
 def urutan_sumber(isi, bukti):
     """Perhatian kalau catatan kaki «انظر: …» menyebut beberapa kitab tidak urut dari pengarang yang lebih dulu wafat
     (أبو سليمان، كتابة البحث العلمي، ص73), atau None. Urutannya dibaca dari letak judul/pengarang tiap kitab di catatan
@@ -89,8 +87,9 @@ def urutan_sumber(isi, bukti):
     wafat pengarangnya tidak tercatat tidak dinilai. Kutipan lafaz tidak dinilai: kitab yang lafaznya dikutip boleh di depan."""
     # label «في …:» = sumber dibagi per hal («انظر في الحديث: …، وفي الأثر: …»), bukan beberapa sumber untuk satu hal;
     # «تحقيق:» dan «انظر:» bukan label
-    if (not MERUJUK.match(isi) or PERANTARA.search(isi) or len({b.sid for b in bukti}) < 2
-            or re.search(r"(?<![ء-ي])و?في\s+[^:،؛.]{1,40}:", isi)):
+    isi_polos = norma.HARAKAT.sub("", isi)
+    if (not MERUJUK_AWAL.match(isi_polos) or PERANTARA.search(isi_polos) or len({b.sid for b in bukti}) < 2
+            or re.search(r"(?<![ء-ي])و?في\s+[^:،؛.]{1,40}:", isi_polos)):
         return None
     urut = [bb[0].sid for _, bb in bagian_kitab(isi, bukti)]
     if len(urut) < 2:

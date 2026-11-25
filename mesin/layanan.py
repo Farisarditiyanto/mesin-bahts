@@ -138,8 +138,6 @@ def _tafsir_kunci(kunci):
 def _baris(nama):
     """[(kunci, shamela_id, shamela_page_id)] satu tabel layanan; diunduh dulu kalau belum ada."""
     siapkan(nama)
-    if nama == "tafsir":
-        return list(zip(*_tafsir_indeks(ROOT / TABEL[nama])))
     import pyarrow.parquet as pq
     t = pq.read_table(ROOT / TABEL[nama], columns=["key_id", "book_id", "page_id"]).to_pydict()
     return list(zip(t["key_id"], t["book_id"], t["page_id"]))
@@ -386,7 +384,7 @@ def takhrij(sid, juz, hal):
             i = shamela.rekaman_shamela(sid).get(s)
             for n, j, cocok in _seberang(sid, i, sumber):
                 if (n, cocok) in sudah:
-                    if cocok:
+                    if cocok and j in sp_dari:
                         halaman_tabel.add(sp_dari[j])
                     continue
                 sudah.add((n, cocok))
@@ -394,7 +392,7 @@ def takhrij(sid, juz, hal):
                     print(f"    رقم {n}: tidak ditemukan di [{sumber}]")
                     continue
                 print(f"    رقم {n} -> [{sumber}]" + ("" if cocok else " — LAFAZ TIDAK COCOK: penomoran edisi beda, dilewati"))
-                if cocok:
+                if cocok and j in sp_dari:
                     halaman_tabel.add(sp_dari[j])
     kunci = sorted({k for k, b, h in baris if b == sumber and h in halaman_tabel})
     if not kunci and sumber != sid and sudah and not any(c for _, c in sudah):
