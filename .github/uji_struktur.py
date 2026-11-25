@@ -606,6 +606,10 @@ def utama():
         r = bahts("cek", "naskah uji")
         assert r.returncode != 0 and 'ambil "naskah uji"' in r.stdout, r.stdout + r.stderr
         hasil.append("sampul kapital + logo berwarna, malahiq akhir tanpa #R, JPEG 0xFF, saran ambil berspasi")
+
+        out_q = cek("ayat Al-Quran tanpa {Q:}", sisip("وبين المؤلف أن الله لا يغير ما بقوم حتى يغيروا ما بأنفسهم في أعمالهم."))
+        assert "potongan ayat tanpa {Q:}" in out_q and "13:11" in out_q, out_q
+        hasil.append("deteksi ayat Al-Quran imla'i tanpa tanda {Q:}")
         print(f"uji struktur: {len(hasil)} skenario sesuai, termasuk beban 2000 nukilan/4000 catatan kaki dan 500 data salah ketik")
 
 

@@ -10,14 +10,16 @@ bukti: teks PDF tidak bisa dipercaya seperti teks Shamela.
   dibalik; akibatnya kutipan yang urutan katanya dibalik bisa ikut cocok.
 - Angka tidak dicocokkan (`padat` membuangnya). Halaman hasil scan (gambar tanpa teks) tidak bisa dibaca mesin.
 """
-import functools, logging, re, unicodedata
+import functools, logging, math, re, unicodedata
 from collections import Counter
 from pathlib import Path
 
-from norma import HARAKAT, padat
+from rapidfuzz import fuzz
+
+from dasar import ARAH
+from norma import HARAKAT, PEMBENTUK_HARAKAT, padat
 
 ARAB = re.compile(r"[؀-ۿ]")
-ARAH = re.compile(r"[\u200e\u200f\u202a-\u202e\u2066-\u2069]")
 KATA_ARAB = re.compile(r"[ء-ي]+")
 # Sebagian pembaca PDF membalik teks visual per titik kode, sehingga harakat berpindah ke depan kata.
 HARAKAT_LEPAS = re.compile(r"(?<!\S)[\u064b-\u065f\u0670]+(?=[ء-ي])")
@@ -48,7 +50,7 @@ def _terbalik_visual(baris):
     skor_balik = skor_normal = 0
     ada_kuat = False
     for k in kata:
-        if k[0] in "ةىئ":  # huruf akhir/tengah yang tidak pernah mengawali kata Arab baku
+        if k[0] in "ةىئ" or k[-1] == "إ" or k.endswith("لإا"):  # huruf akhir/awal yang tidak pernah di posisi itu pada kata Arab baku
             skor_balik += 3
             ada_kuat = True
         if k in BALIK_KHAS:
@@ -78,14 +80,20 @@ def _balik_baris_visual(baris):
     return LTR_SEGMEN.sub(lambda m: m.group(0)[::-1], dibalik)
 
 
+def _normal_tanpa_spasi_harakat(teks):
+    return unicodedata.normalize("NFKC", (teks or "").translate(PEMBENTUK_HARAKAT))
+
+
 def pulihkan_arab(teks):
-    """Pulihkan ekstraksi PDF Arab yang rusak: normalisasi NFKC, buang penanda BiDi tersembunyi, balik baris
-    visual-reversed secara konservatif, dan betulkan ligatur Word PDF yang pasti terbalik («هللا» -> «الله»)."""
-    teks = ARAH.sub("", unicodedata.normalize("NFKC", teks or ""))
+    """Pulihkan ekstraksi PDF Arab yang rusak: buang penanda BiDi tersembunyi, balik baris visual-reversed
+    sebelum NFKC (agar ligatur lam-alif ﻻ/ﻷ/ﻹ/ﻵ tidak terbalik menjadi «ال»), normalkan bentuk sajian via NFKC
+    tanpa menyisipkan spasi harakat, dan betulkan ligatur Word PDF yang pasti terbalik («هللا» -> «الله»)."""
+    teks = ARAH.sub("", teks or "")
     baris_out = []
     for b in teks.splitlines():
-        if _terbalik_visual(b):
+        if _terbalik_visual(_normal_tanpa_spasi_harakat(b)):
             b = _balik_baris_visual(b)
+        b = _normal_tanpa_spasi_harakat(b)
         for dari, ke in LIGATUR_WORD:
             if dari in b:
                 b = b.replace(dari, ke)
@@ -103,24 +111,153 @@ def _ada(halaman, kutipan):
     return n > 0 and any(halaman[i:i + n] == kutipan for i in range(len(halaman) - n + 1))
 
 
-def _olah_halaman(halaman):
-    """(tuple sidik halaman (dipulihkan + urutan kata dibalik), jumlah huruf Arab) untuk satu halaman pypdf."""
-    mentah = unicodedata.normalize("NFKC", halaman.extract_text() or "")  # bentuk tampilan (ﻣﻠﻒ, ﳌ) -> huruf biasa
-    t = pulihkan_arab(mentah)
+def _olah_teks(raw):
+    """(tuple sidik halaman, jumlah huruf Arab) dari teks halaman pre-NFKC `raw`."""
+    raw = raw or ""
+    t = pulihkan_arab(raw)
+    nfkc = _normal_tanpa_spasi_harakat(raw)
     # Pemulihan satu baris tidak membuang pencocokan lama untuk baris lain di halaman yang sama.
-    ekstraksi = (t,) if t == mentah else (t, mentah)
+    ekstraksi = (t,) if t == nfkc else (t, nfkc)
     varian = tuple(dict.fromkeys(s for teks in ekstraksi for s in (_sidik(teks), _sidik_urutan_balik(teks))))
     return varian, len(ARAB.findall(t))
 
 
+def _kunci_tepi(teks):
+    return re.sub(r"[\d٠-٩۰-۹\s\-–/|:.،]+", "", _normal_tanpa_spasi_harakat(ARAH.sub("", teks)))
+
+
+def _garis_halaman_pymupdf(page):
+    """[(x0, y0, x1, y1, teks)] tiap baris/segmen teks terpisah di halaman PyMuPDF."""
+    items = []
+    d = page.get_text("dict")
+    for b in d.get("blocks", ()):
+        if b.get("type") != 0:
+            continue
+        for line in b.get("lines", ()):
+            spans = [s for s in line.get("spans", ()) if (s.get("text") or "").strip()]
+            if not spans:
+                continue
+            # Pisahkan span terpisah jauh pada y sama (multi-kolom yang tergabung satu baris).
+            grup = [[spans[0]]]
+            for sp in spans[1:]:
+                prev = grup[-1][-1]
+                gap = max(sp["bbox"][0] - prev["bbox"][2], prev["bbox"][0] - sp["bbox"][2])
+                if gap >= 18.0:
+                    grup.append([sp])
+                else:
+                    grup[-1].append(sp)
+            for g in grup:
+                t = "".join(s["text"] for s in g).strip()
+                if t:
+                    items.append((min(s["bbox"][0] for s in g), min(s["bbox"][1] for s in g),
+                                  max(s["bbox"][2] for s in g), max(s["bbox"][3] for s in g), t))
+    return items, d.get("height") or page.rect.height
+
+
+def _xy_cut_rtl(items):
+    """Urutkan segmen teks PDF secara rekursif: kolom kanan-ke-kiri (gutter X >= 12pt bila bertumpuk vertikal),
+    lalu baris atas-ke-bawah, lalu kanan-ke-kiri dalam baris yang sama."""
+    if len(items) <= 1:
+        return items
+    urut_x = sorted(items, key=lambda it: (it[0], it[1]))
+    x_grup, cur_x1 = [[urut_x[0]]], urut_x[0][2]
+    for it in urut_x[1:]:
+        if it[0] - cur_x1 >= 12.0:
+            x_grup.append([it])
+            cur_x1 = it[2]
+        else:
+            x_grup[-1].append(it)
+            cur_x1 = max(cur_x1, it[2])
+    if len(x_grup) >= 2:
+        y_span = [(min(x[1] for x in g), max(x[3] for x in g)) for g in x_grup]
+        tumpuk = any(min(a[1], b[1]) - max(a[0], b[0]) > 2.0
+                     for i, a in enumerate(y_span) for b in y_span[i + 1:])
+        if tumpuk:
+            # Kolom RTL: paling kanan lebih dulu.
+            x_grup.sort(key=lambda g: -max(x[2] for x in g))
+            return [x for g in x_grup for x in _xy_cut_rtl(g)]
+    urut_y = sorted(items, key=lambda it: (it[1], -it[2]))
+    y_grup, cur_y1 = [[urut_y[0]]], urut_y[0][3]
+    for it in urut_y[1:]:
+        if it[1] > cur_y1 - 2.0:
+            y_grup.append([it])
+            cur_y1 = it[3]
+        else:
+            y_grup[-1].append(it)
+            cur_y1 = max(cur_y1, it[3])
+    if len(y_grup) >= 2:
+        return [x for g in y_grup for x in _xy_cut_rtl(g)]
+    return sorted(items, key=lambda it: (-it[2], it[0]))
+
+
+def _tepi_berulang(doc):
+    """Kunci teks header/footer berulang (>=60% halaman contoh) untuk PDF >= 4 halaman."""
+    n = len(doc)
+    if n < 4:
+        return frozenset()
+    step = max(1, n // 25)
+    sample = list(range(0, n, step))[:25]
+    hitung = Counter()
+    for idx in sample:
+        items, h = _garis_halaman_pymupdf(doc[idx])
+        seen = set()
+        for _, y0, _, y1, teks in items:
+            if h and (y1 <= h * 0.12 or y0 >= h * 0.88):
+                k = _kunci_tepi(teks)
+                if len(k) >= 4:
+                    seen.add(k)
+        hitung.update(seen)
+    ambang = max(3, math.ceil(len(sample) * 0.6))
+    return frozenset(k for k, c in hitung.items() if c >= ambang)
+
+
+def _teks_pymupdf_halaman(doc, idx, tepi_ulang):
+    items, h = _garis_halaman_pymupdf(doc[idx])
+    if tepi_ulang and h:
+        items = [it for it in items if not ((it[3] <= h * 0.12 or it[1] >= h * 0.88) and _kunci_tepi(it[4]) in tepi_ulang)]
+    return "\n".join(it[4] for it in _xy_cut_rtl(items))
+
+
 class _DokPDF:
-    """Isi PDF yang diolah malas per halaman dan di-cache di memori."""
+    """Isi PDF yang diolah malas per halaman (utama PyMuPDF RTL XY-cut, cadangan pypdf) dan di-cache di memori."""
 
     def __init__(self, berkas):
-        from pypdf import PdfReader
-        self.pages = PdfReader(berkas).pages
-        self._n = len(self.pages)
+        self.berkas = Path(berkas)
+        st = self.berkas.stat()
+        self._kunci = (str(self.berkas), st.st_mtime_ns, st.st_size)
         self._cache = {}
+        self._pypdf_pages = None
+        try:
+            self._doc = _buka_pymupdf(*self._kunci)
+            self._n = len(self._doc)
+            self._tepi = _tepi_berulang(self._doc)
+        except ImportError:
+            self._doc = None
+            from pypdf import PdfReader
+            self._pypdf_pages = PdfReader(berkas).pages
+            self._n = len(self._pypdf_pages)
+            self._tepi = frozenset()
+
+    def _pages_pypdf(self):
+        if self._pypdf_pages is None:
+            from pypdf import PdfReader
+            self._pypdf_pages = PdfReader(self.berkas).pages
+        return self._pypdf_pages
+
+    def teks_halaman(self, idx):
+        """Teks bersih satu halaman indeks 0, termasuk cadangan pypdf layout bila ada harakat lepas."""
+        if self._doc is not None:
+            raw = _teks_pymupdf_halaman(self._doc, idx, self._tepi)
+        else:
+            raw = self._pages_pypdf()[idx].extract_text() or ""
+        t = pulihkan_arab(raw)
+        if HARAKAT_LEPAS.search(t):
+            from pypdf.errors import PyPdfError
+            try:
+                t = _coba_tata_letak(self._pages_pypdf()[idx], t)
+            except (OSError, PyPdfError, IndexError, TypeError, ValueError):
+                pass
+        return t
 
     def __len__(self):
         return self._n
@@ -132,7 +269,13 @@ class _DokPDF:
             raise IndexError(idx)
         hasil = self._cache.get(idx)
         if hasil is None:
-            hasil = _olah_halaman(self.pages[idx])
+            if self._doc is not None:
+                raw = _teks_pymupdf_halaman(self._doc, idx, self._tepi)
+                if HARAKAT_LEPAS.search(pulihkan_arab(raw)):
+                    raw = self.teks_halaman(idx)
+            else:
+                raw = self._pages_pypdf()[idx].extract_text() or ""
+            hasil = _olah_teks(raw)
             self._cache[idx] = hasil
         return hasil
 
@@ -188,37 +331,13 @@ def _buka_pymupdf(berkas, mtime_ns, ukuran):
     return pymupdf.open(stream=Path(berkas).read_bytes(), filetype="pdf")
 
 
-@functools.lru_cache(maxsize=256)
-def _teks_halaman(berkas, mtime_ns, ukuran, n, pakai_pymupdf):
-    """Teks bersih satu halaman PDF (mulai 1), termasuk cadangan mode layout bila ada harakat lepas."""
-    if pakai_pymupdf:
-        teks = pulihkan_arab(_buka_pymupdf(berkas, mtime_ns, ukuran)[n - 1].get_text("text") or "")
-    else:
-        teks = pulihkan_arab(_baca(berkas, mtime_ns, ukuran).pages[n - 1].extract_text() or "")
-    if HARAKAT_LEPAS.search(teks):
-        from pypdf.errors import PyPdfError
-        try:
-            pages = _baca(berkas, mtime_ns, ukuran).pages
-            teks = _coba_tata_letak(pages[n - 1], teks)
-        except (OSError, PyPdfError, IndexError, TypeError, ValueError):
-            pass  # pertahankan teks yang berhasil dibaca bila ekstraksi cadangan gagal
-    return teks
-
-
 def _teks_rentang(berkas, a, z):
     """(jumlah halaman total, [(nomor, teks bersih)]) halaman a..z (mulai 1)."""
-    jalur = Path(berkas)
-    st = jalur.stat()
-    kunci = (str(jalur), st.st_mtime_ns, st.st_size)
-    try:
-        total = len(_buka_pymupdf(*kunci))
-        pakai_pymupdf = True
-    except ImportError:
-        total = len(_baca(*kunci))
-        pakai_pymupdf = False
+    dok = halaman(Path(berkas))
+    total = len(dok)
     if z > total:
         raise IndexError(f"PDF hanya {total} halaman")
-    return total, [(n, _teks_halaman(*kunci, n, pakai_pymupdf)) for n in range(a, z + 1)]
+    return total, [(n, dok.teks_halaman(n - 1)) for n in range(a, z + 1)]
 
 
 def _coba_tata_letak(halaman, teks):
@@ -263,6 +382,25 @@ def cuplikan(berkas, hal, kutipan=None, sekitar=300):
                 if qk in p_gabung:
                     i = cocok.letak_asli(gabung, qk)
                     mulai, akhir = max(0, i - sekitar), i + len(kutipan) + sekitar
+                    return "terbaca", f"{'…' * (mulai > 0)}{gabung[mulai:akhir]}{'…' * (akhir < len(gabung))}"
+        # fallback sliding window `rapidfuzz` untuk kutipan panjang yang meleset di tengah/awal pada OCR/PDF
+        kata_q = [padat(w) for w in kutipan.split() if padat(w)]
+        if len(kata_q) >= 4:
+            toks = [(m.start(), m.end(), p) for m in re.finditer(r"\S+", gabung) if (p := padat(m.group()))]
+            win = max(4, min(len(kata_q), 20))
+            if len(toks) >= 3:
+                q_str = " ".join(kata_q)
+                q_khas = {w for w in kata_q if len(w) >= 3}
+                terbaik = (0, 0, 0)
+                for idx in range(0, max(1, len(toks) - win + 1), max(1, win // 3)):
+                    pot_toks = toks[idx:idx + win]
+                    w_str = " ".join(x[2] for x in pot_toks)
+                    skor = fuzz.token_set_ratio(q_str, w_str)
+                    sama = len(q_khas & {x[2] for x in pot_toks})
+                    if skor >= 68 and sama >= min(3, len(q_khas)) and skor > terbaik[0]:
+                        terbaik = (skor, pot_toks[0][0], pot_toks[-1][1])
+                if terbaik[0]:
+                    mulai, akhir = max(0, terbaik[1] - sekitar), terbaik[2] + sekitar
                     return "terbaca", f"{'…' * (mulai > 0)}{gabung[mulai:akhir]}{'…' * (akhir < len(gabung))}"
         # fallback untuk kutipan Latin (padat hanya menyimpan huruf Arab)
         pot = re.sub(r"\s+", " ", kutipan).strip()
