@@ -123,7 +123,7 @@ def periksa():
           f"pasang {diagram.PASANG_NODE} dan {diagram.PASANG_BROWSER}; "
           "tanpa keduanya diagram tetap bisa dicetak dari PNG yang dibuat di tempat lain", untuk_cek=False, untuk_rakit=False)
     print(f"\nMenulis dan `cek`: {'SIAP' if siap_cek else 'BELUM'}.  `rakit` (Word + PDF): {'SIAP' if siap_rakit else 'BELUM'}.")
-    print("WSL tidak diperlukan. Connector shamela: wajib; connector lain ikut dipasang lewat agent (AGENTS.md «Pemakai baru» langkah 4-5).")
+    print("WSL tidak diperlukan. Connector shamela: wajib; connector lain ikut dipasang lewat agent (dok/pemakai-baru.md langkah 4-5).")
     sys.exit(0 if siap_cek else 1)
 
 
