@@ -29,12 +29,12 @@ Commands, markers and program output are in Indonesian and are quoted here as th
 
 ## Getting started
 
-1. Read all of [`AGENTS.md`](AGENTS.md). Those are the working rules. Start from the section «Pemakai baru» (new user).
+1. Read all of [`AGENTS.md`](AGENTS.md). Those are the working rules. For a new user, start with [`dok/pemakai-baru.md`](dok/pemakai-baru.md).
 2. Run `python mesin/bahts.py periksa` (Linux/macOS: `python3`). Fix each `BELUM` line with the command it names.
-3. Make sure the `shamela` connector is connected: the tool `shamela_search_phrase` exists. How to register it and sign in, per agent: `AGENTS.md` «Pemakai baru» step 4.
+3. Make sure the `shamela` connector is connected: the tool `shamela_search_phrase` exists. How to register it and sign in, per agent: `dok/pemakai-baru.md` step 4.
 4. Later session, or you do not know how far a bahts has got: `python mesin/bahts.py tahap <folder>`. Follow the `BERIKUTNYA` line.
 
-The repository is not on the computer yet: run this block from the user's Documents folder, before step 2. Target folder and the way without `git`: `AGENTS.md` «Pemakai baru» step 1.
+The repository is not on the computer yet: run this block from the user's Documents folder, before step 2. Target folder and the way without `git`: `dok/pemakai-baru.md` step 1.
 
 ```bash
 git clone https://github.com/Farisarditiyanto/mesin-bahts
@@ -42,7 +42,7 @@ cd mesin-bahts
 python mesin/bahts.py periksa
 ```
 
-Computer requirements and how to fix them are in one place: `python mesin/bahts.py periksa`. `rakit` needs Windows + desktop Microsoft Word; Linux/macOS can write and run `cek`, without Word and PDF. Gathering sources needs the `shamela` connector (a shamela.link account); الدراسات السابقة (previous studies) needs an OpenAlex key (`AGENTS.md` «Pemakai baru» step 6).
+Computer requirements and how to fix them are in one place: `python mesin/bahts.py periksa`. `rakit` needs Windows + desktop Microsoft Word; Linux/macOS can write and run `cek`, without Word and PDF. Gathering sources needs the `shamela` connector (a shamela.link account); الدراسات السابقة (previous studies) needs an OpenAlex key (`dok/pemakai-baru.md` step 6).
 
 ### Agents and connectors
 
@@ -54,9 +54,9 @@ Computer requirements and how to fix them are in one place: `python mesin/bahts.
 | Codex (CLI and app) | registered by the agent |
 | [Hermes Agent](https://hermes-agent.nousresearch.com) (free) | registered by the agent |
 
-- Commands to register `shamela` and sign in, per agent: `AGENTS.md` «Pemakai baru» step 4 (the only place).
+- Commands to register `shamela` and sign in, per agent: `dok/pemakai-baru.md` step 4 (the only place).
 - Free models take wrong steps more often, so the step 5 reviewer matters even more.
-- Connectors: `shamela` is required; `qurangallery`, `turath`, `hadithunlocked`, `tafsir`, `quran` need no account. What each is for and the fallback order: `AGENTS.md` steps 4-5 and «Alur kerja» (workflow) step 2. Test figures for each connector, including the official shamela.ws MCP that is deliberately not installed: [`dok/uji-riset.md`](dok/uji-riset.md).
+- Connectors: `shamela` is required; `qurangallery`, `turath`, `hadithunlocked`, `tafsir`, `quran` need no account. What each is for and the fallback order: `dok/pemakai-baru.md` steps 4-5 and `AGENTS.md` «Alur kerja» (workflow) step 2. Test figures for each connector, including the official shamela.ws MCP that is deliberately not installed: [`dok/uji-riset.md`](dok/uji-riset.md).
 - Every connector is only a signpost: the book is still downloaded with `ambil`, and the quotation must still pass `cek`.
 
 ### Tell the user
