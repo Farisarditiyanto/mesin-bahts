@@ -1109,17 +1109,19 @@ try {
             $pf = $sel.ParagraphFormat; $pf.Alignment = 0; $pf.SpaceAfter = 4; $pf.RightIndent = $word.CentimetersToPoints(0.6)
             $pf.TabStops.ClearAll(); [void]$pf.TabStops.Add($lebar, 2, 1)   # 2 = rata ujung (kiri di teks kanan-ke-kiri), 1 = titik-titik
             # huruf mushaf hanya untuk kata-kata ayat; titik-titik « ...» tetap huruf matan (huruf mushaf tidak punya titik)
-            $nq = if ($a.pot.EndsWith(' ...')) { $a.pot.Length - 4 } else { $a.pot.Length }
+            # tanda akhir ayat di dalam potongan ayat rentang dibuang: nomornya dicetak sekali di ujung
+            $pot = ($a.pot -replace '\s*[٠-٩۝]+(?=\s|$)', '') -replace '\s{2,}', ' '
+            $nq = if ($pot.EndsWith(' ...')) { $pot.Length - 4 } else { $pot.Length }
             Tulis '﴿' $TA $uMatan 0 0
-            Tulis $a.pot.Substring(0, $nq) $QF $uAyat 0 0
-            Tulis ($a.pot.Substring($nq) + ' ') $TA $uMatan 0 0
+            Tulis $pot.Substring(0, $nq) $QF $uAyat 0 0
+            Tulis ($pot.Substring($nq) + ' ') $TA $uMatan 0 0
             # nomor ayat seperti di mushaf, di dalam kurung: huruf mushaf menggambar angka ٠-٩ sebagai bulatan akhir ayat
             $nomor = @(([string]$a.a -split '-') | ForEach-Object { -join ($_.ToCharArray() | ForEach-Object { [char](0x0660 + [int]$_ - 48) }) })
             for ($i = 0; $i -lt $nomor.Count; $i++) {
                 if ($i) { Tulis ' - ' $TA $uMatan 0 0 }
                 Tulis $nomor[$i] $QF $uAyat 0 0
             }
-            Tulis ("﴾`t") $TA $uMatan 0 0
+            Tulis ("﴾ `t ") $TA $uMatan 0 0              # spasi di kedua sisi tab: titik-titik tidak menempel ke ﴾ atau nomor halaman
             $awalNo = $sel.Start; Tulis (Angka '00') $TA $uMatan 0 0
             [void]$doc.Bookmarks.Add("an_$r", $doc.Range($awalNo, $sel.Start))
             $sel.TypeParagraph()

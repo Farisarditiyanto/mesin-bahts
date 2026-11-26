@@ -9,7 +9,8 @@ from bantu import bahts, salin_mesin, tanpa_word
 
 KEPALA = "@judul: اختبار فهرس الآيات\n@nama: طالب\n@berkas: uji\n@tanpa: hadits, maudhuat, pustaka\n@minimal_halaman: 0\n"
 ISI = ("#K المقدمة\n"
-       "قال الله تعالى: {Q:1:2}[^سورة الفاتحة، آية: 2.]، وقال: {Q:112:1}[^سورة الإخلاص، آية: 1.].\n"
+       "قال الله تعالى: {Q:1:2}[^سورة الفاتحة، آية: 2.]، وقال: {Q:112:1}[^سورة الإخلاص، آية: 1.]، "
+       "وقال: {Q:112:1-2}[^سورة الإخلاص، آية: 1-2.].\n"
        "#K الخاتمة\nهذا آخر البحث.\n")
 QF = "KFGQPC HAFS Uthmanic Script"
 
@@ -48,15 +49,22 @@ def utama():
         isi = [teks(p) for p in par]
         assert any(s.strip() == "سورة الفاتحة" for s in isi) and any(s.strip() == "سورة الإخلاص" for s in isi), isi
         ayat = [p for p in par if "﴿" in teks(p)]
-        assert len(ayat) == 2, isi
-        for p, n in zip(ayat, ("٢", "١")):
-            run = [r for r in re.findall(r"<w:r>.*?</w:r>|<w:r .*?</w:r>", p, re.S) if teks(r) == n]
-            assert run and QF in run[0], f"nomor ayat {n} tidak dalam huruf mushaf: {teks(p)}"
+        assert len(ayat) == 3, isi
+        # ayat rentang 112:1-2: potongannya (5 kata, kata ke-4 «أحد» pendek) melewati tanda akhir ayat ١; tanda itu
+        # dibuang, nomornya dicetak sekali «١ - ٢» di ujung
+        rentang = [teks(p).split("﴾")[0] for p in ayat if " - " in teks(p)]
+        assert len(rentang) == 1, isi
+        assert rentang[0].count("١") == 1 and rentang[0].endswith("١ - ٢"), f"nomor ayat rentang salah: {rentang[0]}"
+        for p in ayat:
             s = teks(p)
+            dalam = p[:p.index("﴾")]                       # run sebelum ﴾: nomor ayat, bukan nomor halaman
+            nomor = [r for r in re.findall(r"<w:r>.*?</w:r>|<w:r .*?</w:r>", dalam, re.S) if re.fullmatch("[٠-٩]+", teks(r))]
+            assert nomor and all(QF in r for r in nomor), f"nomor ayat tidak dalam huruf mushaf: {s}"
+            n = teks(nomor[0])
             assert s.index("﴿") < s.index(n) < s.index("﴾"), f"nomor ayat tidak di dalam ﴿…﴾: {s}"
             assert "<w:tab/>" in p and "w:leader=\"dot\"" in p, f"baris ayat tanpa titik-titik ke nomor halaman: {s}"
             halaman = s.split("﴾")[-1].strip()
-            assert halaman and halaman not in ("00", "٠٠"), f"nomor halaman belum terisi: {s}"
+            assert halaman == "١", f"nomor halaman salah (semua ayat uji di halaman ١): {s}"
         print("lolos @fihris_ayat: titik: tanpa tabel, nama surat, nomor ayat mushaf di dalam ﴿…﴾, nomor halaman terisi")
 
 
