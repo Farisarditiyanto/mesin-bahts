@@ -10,7 +10,7 @@ import enum, os, re, unicodedata
 
 import huruf
 from berkas import sementara
-from dasar import ANGKA_LATIN, bentuk_kitab
+from dasar import ANGKA_LATIN
 from norma import norm, padat
 
 
@@ -214,8 +214,8 @@ def periksa(pdf, bahan):
     fmt = rencana.get("format") or bahan["format"]
     halaman = pypdf.PdfReader(pdf).pages
     pesan = []
-    # halaman 1 = sampul (bukan bentuk kitab dan bukan potongan --fasl tanpa sampul)
-    tanpa_sampul = rencana["kitab"] or rencana["buang_sampul"] if "kitab" in rencana else (bentuk_kitab(meta) or meta.get("tanpa_sampul"))
+    # halaman 1 = sampul (bukan potongan --fasl tanpa sampul)
+    tanpa_sampul = rencana["buang_sampul"] if "buang_sampul" in rencana else meta.get("tanpa_sampul")
     awal = 0 if tanpa_sampul else 1
     if awal and halaman:
         sampul = halaman[0].extract_text() or ""

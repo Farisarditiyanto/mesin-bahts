@@ -5,6 +5,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 REPO = Path(__file__).resolve().parent.parent
+# @data sampul terkecil yang membuat naskah uji jadi bahts sah di `cek`: sampul qism bawaan mewajibkan @judul (ditulis
+# tiap tes) dan @nama; @nim «-» = tanpa nomor mahasiswa; @minimal_halaman: 0 = naskah uji yang pendek tanpa perhatian
+# dan PERINGATAN jumlah halaman. Halaman PDF pertama hasil `rakit` = sampul; nomor tercetak ١ mulai halaman sesudahnya
+SAMPUL_UJI = "@nama: اسم الطالب\n@nim: -\n@minimal_halaman: 0\n"
 
 
 def salin_mesin(akar, kitab=(), huruf=True):

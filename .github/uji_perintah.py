@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 sys.stdout.reconfigure(encoding="utf-8")
 from uji_semua import kitab_ci
-from bantu import salin_mesin
+from bantu import SAMPUL_UJI, salin_mesin
 REPO = Path(__file__).resolve().parent.parent
 SEMENTARA = tempfile.TemporaryDirectory(prefix="bahts-perintah-")
 atexit.register(SEMENTARA.cleanup)
@@ -74,7 +74,7 @@ for sid, harus, jangan in (("2348", "تعليق وتحقيق: ماهر ياسي�
 
 def cek_bukti(bukti):
     (AKAR / "uji-kartu" / "naskah.txt").write_text(
-        f"@judul: اختبار\n@bentuk: kitab\n@tanpa: pustaka\n#K مقدمة\nهذا معنى[^انظر: كتاب، ص5. {bukti}].\n", encoding="utf8")
+        f"@judul: اختبار\n{SAMPUL_UJI}@tanpa: pustaka\n#K مقدمة\nهذا معنى[^انظر: كتاب، ص5. {bukti}].\n", encoding="utf8")
     return jalankan("cek", "uji-kartu")[1]
 
 

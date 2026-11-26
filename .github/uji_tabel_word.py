@@ -8,7 +8,7 @@ import subprocess, sys, tempfile, zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-from bantu import salin_mesin, tanpa_word
+from bantu import SAMPUL_UJI, salin_mesin, tanpa_word
 
 NS = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
 
@@ -25,7 +25,7 @@ def utama():
         folder = akar / "uji"
         folder.mkdir()
         berkas = "kerja"
-        teks = f"@bentuk: kitab\n@judul: اختبار\n@berkas: {berkas}\n#K اختبار الجداول\n"
+        teks = SAMPUL_UJI + f"@judul: اختبار\n@tanpa: pustaka\n@berkas: {berkas}\n#K اختبار الجداول\n"
         for n in kolom:
             teks += f"جدول من {n} أعمدة:\n"
             for r in range(3):
@@ -37,7 +37,10 @@ def utama():
         assert r.returncode == 0 and (folder / f"{berkas}.pdf").is_file(), r.stdout + r.stderr
         with zipfile.ZipFile(folder / f"{berkas}.docx") as z:
             xml = ET.fromstring(z.read("word/document.xml"))
-        tabel = xml.findall(".//w:tbl", NS)
+        # tabel sesudah bagian sampul (bagian Word pertama, berakhir di paragraf ber-sectPr; sampul qism bertabel)
+        badan = list(xml.find("w:body", NS))
+        akhir_sampul = next(i for i, e in enumerate(badan) if e.find("w:pPr/w:sectPr", NS) is not None)
+        tabel = [tb for e in badan[akhir_sampul + 1:] for tb in ([e] if e.tag == f"{{{NS['w']}}}tbl" else e.findall(".//w:tbl", NS))]
         lebar = [len(tb.find("w:tr", NS).findall("w:tc", NS)) for tb in tabel]
         # tabel #J naskah lebih dulu; sesudahnya bisa ada tabel فهرس buatan rakit sendiri
         assert lebar[:len(kolom)] == list(kolom), f"jumlah kolom tabel di DOCX {lebar}, harus diawali {list(kolom)}"
