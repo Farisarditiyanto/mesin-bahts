@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Satu pintu mesin bahts: python mesin/bahts.py <perintah>. Tabel perintahnya (DAFTAR) = teks bantuan dan yang dijalankan."""
 import os, re, sys
+# PYTHONDONTWRITEBYTECODE (dipasang banyak agen CLI) = modul mesin yang berubah sesudah `git pull` dikompilasi ulang tiap
+# perintah, selamanya (±100 ms tiap `cek`). mesin/__pycache__ tidak dilacak git.
+sys.dont_write_bytecode = False
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -616,6 +619,8 @@ if __name__ == "__main__":
                      + (f" (perintah «{cmd}» tidak punya bendera {', '.join(bendera)})" if bendera else "")
                      + f"\nBentuknya:\n{bentuk}")
         p.jalankan(a, **k)
+    except SystemExit:  # keluar biasa (mis. `cek` GAGAL): jangan sampai menilai `_gagal_jaringan()` (memuat http.client)
+        raise
     except MemoryError:
         sys.exit(f"Perintah '{cmd}': memori komputer habis. Tutup aplikasi lain, lalu ulangi.")
     except BrokenPipeError:  # keluarannya dipotong pembaca (mis. `| head`): bukan masalah internet

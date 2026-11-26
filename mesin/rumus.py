@@ -6,11 +6,11 @@ Dipakai `naskah.py` ({E:...} di dalam paragraf/tabel/catatan kaki) dan `olah.py`
 dicetak kanan-ke-kiri dengan huruf profil @format; simbol dan rumus dicetak Cambria Math. Sintaks rusak = TandaRusak
 (GAGAL di `cek` sebelum Word dipanggil).
 """
-import re
-from xml.sax.saxutils import escape
+import functools, html, re
 
 from dasar import TandaRusak
 
+escape = functools.partial(html.escape, quote=False)  # & < > saja, seperti xml.sax.saxutils.escape (yang ikut memuat urllib.request, ±80 ms)
 ARAB = re.compile(r"[؀-ۿ]")
 BATAS_DALAM = 64  # cegah rekursi berlebih pada masukan berulang «{{{{...» atau «\sqrt\sqrt...»
 HURUF_MATH = "Cambria Math"
