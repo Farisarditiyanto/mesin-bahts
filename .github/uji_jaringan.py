@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Regresi jaringan: kunci layanan tidak boleh ikut ke asal lain saat dialihkan."""
-import contextlib, io, json, runpy, sys, threading, unittest, urllib.request
+import contextlib, io, json, sys, threading, unittest, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
+
+from bantu import cli_dalam_proses
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "mesin"))
 import dirasat, jaringan
@@ -93,28 +95,21 @@ class AlihJaringan(unittest.TestCase):
         self.assertIsNone(self.permintaan[-1][2])
 
     def test_cli_dirasat_tetap_mencetak_hasil_tanpa_membocorkan_kunci(self):
-        class Keluaran(io.StringIO):
-            def reconfigure(self, **kw):
-                pass
-
         asli = dirasat.buka
 
         def lokal(url, **kw):
             return asli(url.replace("https://api.openalex.org", self.url), **kw)
 
-        skrip = Path(jaringan.__file__).with_name("bahts.py")
-        keluar = Keluaran()
-        with patch.object(sys, "argv", [str(skrip), "dirasat", "اختبار"]), \
-                patch.object(dirasat, "OPENALEX", "https://api.openalex.org/cli"), \
+        with patch.object(dirasat, "OPENALEX", "https://api.openalex.org/cli"), \
                 patch.object(dirasat, "SUMBER", (("OpenAlex, menurut kata", dirasat._kata, False),)), \
                 patch.object(dirasat, "_kunci", return_value=KUNCI), \
                 patch.object(dirasat, "buka", side_effect=lokal), \
-                patch.dict("os.environ", {"no_proxy": "127.0.0.1,localhost"}), \
-                contextlib.redirect_stdout(keluar):
-            runpy.run_path(str(skrip), run_name="__main__")
-        self.assertIn("1 penelitian cocok", keluar.getvalue())
-        self.assertIn("دراسة اختبار", keluar.getvalue())
-        self.assertNotIn(KUNCI, keluar.getvalue())
+                patch.dict("os.environ", {"no_proxy": "127.0.0.1,localhost"}):
+            kode, out, err = cli_dalam_proses(Path(jaringan.__file__).resolve().parent.parent, "dirasat", "اختبار")
+        self.assertEqual(kode, 0, err)
+        self.assertIn("1 penelitian cocok", out)
+        self.assertIn("دراسة اختبار", out)
+        self.assertNotIn(KUNCI, out)
         self.assertEqual(self.permintaan[0][2], BEARER)
         self.assertIsNone(self.permintaan[-1][2])
 

@@ -98,6 +98,8 @@ jobs:
         run: python -c "import json; a={k:v['url'] for k,v in json.load(open('.mcp.json', encoding='utf-8'))['mcpServers'].items()}; b={k:v['url'] for k,v in json.load(open('opencode.json', encoding='utf-8'))['mcp'].items()}; assert a==b, (a,b)"
       # README.id.md dan README.ar.md = terjemahan README.md: bagian dan tautan relatifnya harus sama
       - run: python .github/uji_readme.py
+      # dok/mutamad.md, tautan/path dok & README, dan skema mesin/format.json terhadap olah.py
+      - run: python .github/uji_dok.py
       # gerbang bug (aturan di .ruff.toml; `ruff check` tanpa --config memakainya juga)
       - uses: astral-sh/setup-uv@v10.3.3
       - run: uvx ruff@0.17.5 check --no-cache .

@@ -25,7 +25,7 @@ function Catat-WordRakit($Word, [string]$Catatan) {
     finally { $dokumen.Close([ref]0) }
 }
 
-function Hentikan-WordRakit([string]$Identitas) {
+function Hentikan-WordRakit([string]$Identitas, [int]$TungguMs = 500) {
     if ($Identitas -notmatch '^(\d+)\|(\d+)$') { return }
     [int]$nomor = 0; [long]$mulai = 0
     if (-not [int]::TryParse($Matches[1], [ref]$nomor) -or -not [long]::TryParse($Matches[2], [ref]$mulai)) { return }
@@ -35,14 +35,14 @@ function Hentikan-WordRakit([string]$Identitas) {
         # Holding the process handle makes the identity check and stop refer to the same OS process, even after PID reuse.
         [void]$p.Handle
         if ($p.ProcessName -ne 'WINWORD' -or $p.StartTime.Ticks -ne $mulai) { return }
-        if (-not $p.WaitForExit(500)) { Stop-Process -InputObject $p -Force -ErrorAction Stop }
+        if (-not $p.WaitForExit($TungguMs)) { Stop-Process -InputObject $p -Force -ErrorAction Stop }
     }
     finally { $p.Dispose() }
 }
 
-function Bersihkan-WordRakit([string]$Catatan) {
+function Bersihkan-WordRakit([string]$Catatan, [int]$TungguMs = 500) {
     if (-not (Test-Path -LiteralPath $Catatan)) { return }
-    foreach ($identitas in Get-Content -LiteralPath $Catatan) { Hentikan-WordRakit $identitas }
+    foreach ($identitas in Get-Content -LiteralPath $Catatan) { Hentikan-WordRakit $identitas $TungguMs }
     # A failed stop must keep the ownership record, so the next build can recover the orphan.
     Remove-Item -LiteralPath $Catatan -Force
 }

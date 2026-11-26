@@ -19,7 +19,7 @@ README ini peta untuk agent. Pemakai cukup menempel tautan repo ini ke [coding a
 | Untuk | coding agent yang bisa menjalankan perintah; pemakainya mahasiswa penulis bahts |
 | Aturan kerja | [`AGENTS.md`](AGENTS.md) |
 | Pintu perintah | `python mesin/bahts.py <perintah>` |
-| Alur | `baru` → cari bahan → `ambil` → tulis `naskah.txt` → `cek` → `rakit` → pemeriksa → `cek` dan `rakit` ulang |
+| Alur | `periksa` → `baru` → cari bahan → `ambil` → tulis `naskah.txt` & `pustaka` → `cek` (`dirasat-cek` bila perlu) → `rakit` → pemeriksa (`peta`, `bukti`, `pratinjau`) → `cek` dan `rakit` ulang (`tahap` memeriksa kemajuan) |
 | Connector MCP | `shamela` (wajib), `qurangallery`, `turath`, `hadithunlocked`, `tafsir`, `quran`, `qaf` |
 | Kebutuhan | disebut `python mesin/bahts.py periksa`; `rakit` butuh Windows + Microsoft Word |
 | Versi | [rilis](https://github.com/Farisarditiyanto/mesin-bahts/releases), [`CHANGELOG.md`](CHANGELOG.md) |
@@ -94,12 +94,12 @@ Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumenn
 
 - Tiap kutipan bertanda petik harus terbaca di juz/halaman kitab yang dirujuk. Tidak ada di sana, atau tanpa alamat = `GAGAL`.
 - Juz/halaman yang tercetak di catatan kaki dicocokkan dengan alamat buktinya. Nama kitab di catatan kaki harus sesuai buktinya, dan derajat hadits di takhrij harus terbaca di halaman bukti. Kutipan di حاشية المحقق, atau yang di kitab diantar «قال …» orang lain, jadi perhatian.
-- Ayat dan angka di kutipan dicocokkan pada kemunculan berkata utuh di halaman bukti; angka dari halaman tetangga tidak dihitung.
+- Ayat dan angka di kutipan dicocokkan pada kemunculan kata utuh di halaman bukti; angka dari halaman tetangga tidak dihitung.
 - Ayat dicetak dari mushaf Hafs rasm Utsmani (`mesin/quran_hafs_v22.json`) lewat `{Q:surah:ayat}`. Ayat yang diketik sendiri dalam ﴿…﴾ dengan rujukan «سورة …» = `GAGAL`; tanpa rujukan = perhatian. Ayat tanpa ﴿…﴾ sesudah «قال الله تعالى» yang dirujuk «سورة …» juga `GAGAL`.
 - `<<sid|juz|hal|#123>>` lolos hanya kalau 123 kepala hadits di awal baris halaman itu («123 - حدثنا», «36 - (123)», «(123) - حدثنا»); nomor ayat dan nomor catatan ditolak. Ini membuktikan nomornya ada, bukan lafaznya.
 - Takhrij «رقم الحديث (123)، 4/56.» yang langsung diikuti bukti: nomornya harus kepala hadits di sekitar halaman itu, lafaz buktinya harus di hadits bernomor itu. Hasilnya perhatian, bukan `GAGAL`.
 - `cek --jejak`: kutipan yang tidak ketemu dicari di kitab lain yang sudah diunduh, paling banyak 3 kitab per teks; lafaz yang sedikit berbeda ditunjuk sebagai «Paling mirip»; kutipan yang menyambung ke halaman berikutnya ditunjuk rentangnya (ص21-22). Hanya petunjuk. Kitab yang tidak terbaca dilewati dengan peringatan «jejak belum lengkap». Pencarian pertama menyiapkan teks kitab, jadi bisa lama.
-- Sumber di luar Shamela: `<<luar|berkas.pdf|hal>>` hanya ditunjuk halamannya, tidak pernah diloloskan. Kitab Waqfeya `<<w…|berkas|hal>>`: lafaznya tidak dinilai `cek` karena OCR salah huruf; pemeriksa membacanya di scan. `GAGAL` hanya kalau kitab belum diunduh, halamannya tidak ada, atau kutipannya terbaca persis di halaman lain.
+- Sumber di luar Shamela: `<<luar|berkas.pdf|hal>>` hanya ditunjuk halamannya, tidak pernah diloloskan. Kitab Waqfeya `<<w…|berkas|hal>>`: lafaznya tidak dinilai `cek` karena OCR salah huruf; pemeriksa membacanya di scan. `GAGAL` hanya kalau penandanya rusak, kitab belum diunduh, berkas atau halamannya tidak ada, atau kutipan paling sedikit 25 huruf dengan kecocokan OCR di halaman itu kurang dari 60% terbaca persis di halaman lain.
 - Cara menukil (perhatian, bukan `GAGAL`): kalimat di luar tanda petik yang 8 kata atau lebih berurutan sama persis dengan halaman buktinya, nukilan makna tanpa «انظر:», kutipan lafaz yang hanya diantar «قال …:» tetapi dirujuk «انظر:», dan kutipan lebih dari 60 kata. Batas kata = aturan repo. Apakah nukilan makna setia pada halaman buktinya tidak dinilai: bukti berpotongan hanya membuktikan potongannya.
 - Takhrij di luar Shahihain tanpa derajat (dan tanpa «ولم أقف على حكم …») = `GAGAL`.
 - Perhatian wajib ditangani: tiap baris dicetak dengan kodenya («! 3f9a2c baris …»), lalu dibereskan di naskah, atau diterima dengan `terima <kode> <alasan>` di `riset.txt` kalau memang tidak bisa dibereskan. Selama ada yang belum ditangani, `tahap` mencetak `NASKAH=PERHATIAN` dan `rakit` mencetak «BELUM SELESAI». Perhatian `riset.txt` tidak bisa diterima. Alasannya tidak dinilai mesin: itu tugas pemeriksa langkah 5.
@@ -140,8 +140,8 @@ Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumenn
 | `mesin/naskah_baru.txt`, `riset_baru.txt` | kerangka dari `baru` |
 | `contoh/` | `naskah.txt` + `riset.txt` contoh dan `jebakan/` untuk tes |
 | `.mcp.json`, `opencode.json` | daftar connector (`opencode.json` = salinan untuk OpenCode) |
-| `dok/` | `mutamad.md` (kitab mu'tamad tiap mazhab), `uji-riset.md`, `takhrij.md` |
-| `.github/` | `uji_*.py`, `workflows/tes.yml` |
+| `dok/` | [`pemakai-baru.md`](dok/pemakai-baru.md), [`pengaturan-bahts.md`](dok/pengaturan-bahts.md), [`riset-alat.md`](dok/riset-alat.md), [`pemeriksaan.md`](dok/pemeriksaan.md), [`penulisan-sumber.md`](dok/penulisan-sumber.md), [`audit.md`](dok/audit.md), [`mutamad.md`](dok/mutamad.md), [`mengubah-mesin.md`](dok/mengubah-mesin.md), [`standar.svg`](dok/standar.svg), [`uji-riset.md`](dok/uji-riset.md), [`takhrij.md`](dok/takhrij.md) |
+| `.github/` | `uji_*.py`, [`bantu.py`](.github/bantu.py), [`workflows/tes.yml`](.github/workflows/tes.yml), [`workflows/rilis.yml`](.github/workflows/rilis.yml), [`uji_word_startup.ps1`](.github/uji_word_startup.ps1), [`uji_pemeriksa/prompt.md`](.github/uji_pemeriksa/prompt.md) (`.github/uji_pemeriksa/`) |
 | `kitab/`, `bahts/`, `sampul_saya.txt`, `keluaran_saya.txt`, `kunci_openalex.txt` | data pemakai di komputernya, tidak di git |
 
 ### Mengubah mesin

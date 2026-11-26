@@ -56,6 +56,27 @@ def utama():
     assert gaya_xml.find(".//m:sSub", ns) is not None and gaya_xml.find(".//m:acc", ns) is not None, gaya_omml
     assert "_" not in gaya_omml and r"\hat" not in gaya_omml and "β" in gaya_omml, gaya_omml
 
+    # 1c. Regresi \lim\nolimits, \overbrace + prime, dan gaya bersarang/angka/italic di \text
+    w_ns = XML_WRAP.split('xmlns:w="')[1].split('"')[0]
+    nolim_xml = cek_xml(rumus.konversi(r"\lim\nolimits_{x \to 0} x")[0])
+    assert nolim_xml.find(".//m:sSub/m:sub", ns) is not None, ET.tostring(nolim_xml, encoding="unicode")
+
+    ob_prime = cek_xml(rumus.konversi(r"\overbrace{a+b}^{n}'")[0])
+    assert ob_prime.find(".//m:sSup/m:e/m:limUpp", ns) is not None, ET.tostring(ob_prime, encoding="unicode")
+    assert "′" in [t.text for t in ob_prime.iter(f"{{{ns['m']}}}t")], ET.tostring(ob_prime, encoding="unicode")
+
+    teks_num_xml = cek_xml(rumus.konversi(r"\text{أ \textbf{5} \textit{ب}}")[0])
+    runs_ar = teks_num_xml.findall(f".//{{{ns['m']}}}r")
+    assert ["".join(r.itertext()) for r in runs_ar] == ["ب", " ", "5", "أ "], ET.tostring(teks_num_xml, encoding="unicode")
+    assert all(r.find(f"{{{w_ns}}}rPr/{{{w_ns}}}rtl") is not None for r in runs_ar), ET.tostring(teks_num_xml, encoding="unicode")
+    assert runs_ar[0].find(f"{{{w_ns}}}rPr/{{{w_ns}}}iCs") is not None, ET.tostring(teks_num_xml, encoding="unicode")
+    assert runs_ar[2].find(f"{{{w_ns}}}rPr/{{{w_ns}}}bCs") is not None, ET.tostring(teks_num_xml, encoding="unicode")
+
+    teks_ltr_xml = cek_xml(rumus.konversi(r"\text{hello \textbf{world}}")[0])
+    assert [t.text for t in teks_ltr_xml.iter(f"{{{ns['m']}}}t")] == ["hello ", "world"]
+    teks_campur_xml = cek_xml(rumus.konversi(r"x = \text{أ \textbf{ب}}")[0])
+    assert [t.text for t in teks_campur_xml.iter(f"{{{ns['m']}}}t")] == ["x", "=", "ب", "أ "]
+
     # 2. Uji lewat pintu pemakai (CLI `bahts.py cek`) dan isi bahan JSON
     with tempfile.TemporaryDirectory(prefix="bahts-uji-rumus-") as t:
         akar = Path(t)
@@ -167,6 +188,19 @@ def utama():
         assert teks(angka) == ["2,5", "=", "1/2", "−", "1\u2009250"], teks(angka)
         assert teks(matriks) == ["ب", "أ"], teks(matriks)
 
+        # CLI `cek`: \lim\limits, \left\|, \tag{{a}b}, \overbrace+_, \underbrace+^, dan \text{\textbf{...}}
+        lim_c, norm_c, tag_c, ob_c, ub_c, teks_c = cetak(
+            r"\lim\limits_{x \to 0} f(x)", r"\left\| x \right\|",
+            r"\text{أ} - \text{ب} \tag{{a}b}", r"\overbrace{a+b}^{n}_{k}",
+            r"\underbrace{a+b}_{n}^{k}", r"\text{أ \textbf{ب}}",
+        )
+        assert lim_c.find(".//m:limLow/m:lim", ns) is not None
+        assert [x.get(f"{{{ns['m']}}}val") for x in norm_c.find(".//m:dPr", ns)] == ["‖", "‖"]
+        assert teks(tag_c) == ["ب", "−", "أ"]
+        assert ob_c.find(".//m:limLow/m:e/m:limUpp/m:e/m:groupChr", ns) is not None
+        assert ub_c.find(".//m:limUpp/m:e/m:limLow/m:e/m:groupChr", ns) is not None
+        assert teks(teks_c) == ["ب", "أ "] and r"\textbf" not in "".join(teks(teks_c))
+
         # angka rumus di catatan kaki bukan juz/halaman rujukan
         pecahan = jalankan("pecahan di catatan kaki", dasar.replace("#K الخاتمة", "فقرة[^الكسر {E:3/4} هنا.].\n#K الخاتمة"))
         assert "rujukan kitab tanpa bukti" not in pecahan, pecahan
@@ -190,6 +224,10 @@ def utama():
             ("rantai frac terlalu dalam", "#E " + "\\frac" * 1200 + "a", "terlalu dalam"),
             ("rantai hat terlalu dalam", "#E " + "\\hat" * 1200 + "x", "terlalu dalam"),
             ("rumus di judul", "#S المعادلة {E:x=1}", "judul tidak boleh memuat"),
+            ("perintah asing di text", r"#E \text{أ \ngawur{ب}}", "tidak dikenal"),
+            ("baris baru di text", r"#E \text{a \\ b}", "tidak boleh di dalam"),
+            ("overbrace pangkat ganda", r"#E \overbrace{a+b}^{n}^{m}", "ganda"),
+            ("underbrace bawah ganda", r"#E \underbrace{a+b}_{n}_{k}", "ganda"),
             ("tanda dolar LaTeX", "#E $a = b$", "tanda «$» tidak dipakai"),
         ]
         for nama, baris_uji, pesan in gagal_kasus:

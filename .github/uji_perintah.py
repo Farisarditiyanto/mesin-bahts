@@ -140,6 +140,49 @@ for k, n, harus in (("صحيح البخاري", 1, "edisi lokal 1681: 1/6"), ("�
 if "SUDAH DIUNDUH" in lokal("مسند أحمد", 1) or "edisi lain" not in keluar.getvalue():
     gagal.append(f"hadits: kitab yang belum diunduh ditandai, atau peringatan edisi lain hilang: {keluar.getvalue()[-600:]!r}")
 
+# Penolakan bendera duplikat/tak-dikenal, `baru` perangkat Windows, `--fasl --fasl`, `kartu` putus, `sumber_tertimpa` khulasah
+uji_cli = AKAR / "uji-cli"
+uji_cli.mkdir()
+dasar_contoh = (REPO / "contoh" / "naskah.txt").read_text(encoding="utf8")
+(uji_cli / "naskah.txt").write_text(dasar_contoh, encoding="utf8")
+(uji_cli / "riset.txt").write_text("tafsir 1:2\ncari توحيد الربوبية\n", encoding="utf8")
+
+for cmd_salah in (["cek", "--salah"], ["cek", "--salah", "uji-cli"], ["tahap", "--salah"],
+                  ["rakit", "uji-cli", "--fasl", "--fasl"], ["rakit", "uji-cli", "--fasl", "1", "--fasl", "2"]):
+    kode, out, err = jalankan(*cmd_salah)
+    if kode != 1 or out.strip() or "Traceback" in err:
+        gagal.append(f"{' '.join(cmd_salah)}: harus ditolak (kode 1, tanpa stdout): kode {kode}, out {out[:80]!r}, err {err[:80]!r}")
+    if "--salah" in cmd_salah and "'--salah'" not in err:
+        gagal.append(f"{' '.join(cmd_salah)}: pesan galat harus menyebut '--salah', bukan argumen folder: {err[:120]!r}")
+
+for dev in ("CON", "nul", "PRN", "AUX", "COM1", "LPT9", "bahts/ahmad/CON", "bahts/NUL/topik"):
+    kode, out, err = jalankan("baru", dev, "عنوان")
+    induk_uji = AKAR / Path(dev).parent
+    ada_folder = induk_uji.is_dir() and any(p.name.casefold() == Path(dev).name.casefold() for p in induk_uji.iterdir())
+    if kode != 1 or "perangkat Windows" not in err or ada_folder:
+        gagal.append(f"baru {dev}: nama perangkat Windows harus ditolak: kode {kode}, err {err[:120]!r}")
+kode, out, err = jalankan("baru", "COM10", "عنوان")
+if kode or not (AKAR / "COM10" / "naskah.txt").is_file():
+    gagal.append(f"baru COM10: nama sah ditolak: kode {kode}, err {err[:120]!r}")
+
+# `kartu`: unduhan terpotong (hanya book_metadata.json tanpa pages.jsonl.gz) gagal ramah tanpa Traceback
+putus = AKAR / "kitab" / "990099"
+putus.mkdir()
+(putus / "book_metadata.json").write_text('{"betaka_text":"الكتاب: تجربة"}', encoding="utf8")
+kode, out, err = jalankan("kartu", "990099")
+if kode != 1 or "Traceback" in err or ("belum diunduh" not in err and "TIDAK ADA" not in err):
+    gagal.append(f"kartu putus: harus gagal ramah tanpa Traceback: kode {kode}, err {err[:120]!r}")
+
+# `olah.sumber_tertimpa` melindungi file khulasah
+(uji_cli / "naskah.txt").write_text(
+    "@berkas: hasil\n" + dasar_contoh.replace(
+        "#K الخاتمة", 'معنى[^انظر: دراسة، ص1. <<luar|hasil - الخلاصات.pdf|1>>].\n#K الخاتمة'
+    ), encoding="utf8",
+)
+kode, out, err = jalankan("cek", "uji-cli")
+if kode != 1 or "menimpa bahan sumber" not in (out + err):
+    gagal.append(f"sumber_tertimpa khulasah tidak ditolak: kode {kode}, out {out[:200]!r}")
+
 for g in gagal:
     print("✗ " + g)
 print(f"perintah: {len(gagal)} gagal")

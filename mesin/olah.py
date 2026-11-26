@@ -369,7 +369,7 @@ def kata(runs):
 def sumber_tertimpa(folder, berkas, sumber, laporan=produk.LAPORAN):
     """Nama bahan pemakai yang bertabrakan dengan nama hasil akhir, juga sesudah `potong` mengganti @berkas."""
     tujuan = {(folder / nama).resolve().as_posix().casefold()
-              for nama in (produk.docx(berkas), produk.pdf(berkas), laporan)}
+              for nama in (produk.docx(berkas), produk.pdf(berkas), produk.khulasah(berkas), laporan)}
     return [nama for nama in dict.fromkeys(sumber)
             if (folder / nama.strip()).resolve().as_posix().casefold() in tujuan]
 
@@ -544,7 +544,7 @@ def _baris_gambar(ctx, n, k, t):
     elif not (ukuran := ukuran_gambar(p)):
         salah = f"«{berkas}» bukan PNG/JPG yang terbaca (berkas rusak, atau isinya format lain)"
     elif re.search(r"\[\^|<<|\{", ket):
-        salah = "keterangan gambar tidak boleh memuat catatan kaki, bukti, atau tanda {Q:/{H: — tulis rujukannya di paragraf sesudahnya"
+        salah = "keterangan gambar tidak boleh memuat catatan kaki, bukti, atau tanda {Q:/{H:/{E: — tulis rujukannya di paragraf sesudahnya"
     if salah:  # barisnya tetap isi bagian itu (bukan «bagian kosong»); GAGAL menghentikan rakit
         ctx.galat.append(f"#G {salah}")
         ctx.blok.append({"k": "P", "runs": [], "n": n})
@@ -604,7 +604,7 @@ def _baris_latin(ctx, n, k, t):
     """«#L teks»: tercetak apa adanya, kiri ke kanan; tanda naskah tidak diurai."""
     blok, galat, b = ctx.blok, ctx.galat, f"#{k} {t}"
     if re.search(r"\[\^|<<|\{", t):
-        galat.append(f"#L tidak boleh memuat catatan kaki, bukti, atau tanda {{Q:/{{H: :: {b[:40]}")
+        galat.append(f"#L tidak boleh memuat catatan kaki, bukti, atau tanda {{Q:/{{H:/{{E: :: {b[:40]}")
     m = re.fullmatch(r"\*\*([^*]+)\*\*", t.strip())  # «#L **Abstract**»: judul Latin tebal di tengah
     if m and not m[1].strip():
         galat.append(f"judul #L **…** kosong :: {b[:40]}")
@@ -617,7 +617,7 @@ def _baris_kotak(ctx, n, k, t):
     """«#T teks» (kotak matn): paragraf biasa (boleh bercatatan kaki), dicetak rakit.ps1 menurut k."""
     runs = _urai_aman(ctx, t)
     if runs is not None:
-        ctx.blok.append({"k": k, "runs": runs})
+        ctx.blok.append({"k": k, "runs": runs, "n": n})
 
 
 def _baris_bait(ctx, n, k, t):
@@ -629,7 +629,7 @@ def _baris_bait(ctx, n, k, t):
 def _baris_judul(ctx, n, k, t):
     """«#K/#F/#B/#M/#S/#R teks»: judul, tercetak apa adanya (juga di فهرس الموضوعات), jadi tanda naskah ikut tercetak."""
     if re.search(r"\[\^|<<|\{|\*\*", t):
-        ctx.galat.append(f"judul tidak boleh memuat catatan kaki [^, bukti <<, tanda {{Q:/{{H:/{{A:/{{N: atau **: "
+        ctx.galat.append(f"judul tidak boleh memuat catatan kaki [^, bukti <<, tanda {{Q:/{{H:/{{A:/{{N:/{{E: atau **: "
                          f"pindahkan ke paragraf sesudahnya :: {f'#{k} {t}'[:40]}")
         return
     if k == "R":
@@ -669,7 +669,7 @@ def _urai_baris(ctx, baris):
     """Tiap baris naskah diurai (`_satu_baris`); tiap galat dan perhatiannya menyebut nomor barisnya
     (Pemeriksaan.selama_baris): pemakai langsung tahu tempatnya, tes jebakan mencocokkan per baris."""
     for n, b in baris:
-        if AWAL_BAGIAN.match(b) and ctx.standar:
+        if AWAL_BAGIAN.match(norma.HARAKAT.sub("", b)) and ctx.standar:
             ctx.perhatian += standar_baris(ctx.standar); ctx.standar.clear()
         with ctx.selama_baris(n):
             _satu_baris(ctx, n, b)
@@ -687,7 +687,8 @@ def _satu_baris(ctx, n, b):
         blok.append({"k": "H", "runs": [], "n": n})
     elif b.startswith("#"):
         k, _, t = b[1:].partition(" ")
-        if k not in TANDA_BARIS or not t.strip():
+        t = t.strip()
+        if k not in TANDA_BARIS or not t:
             galat.append(f"judul harus «{'/'.join('#' + x for x in TANDA_BARIS)} teks» :: {b[:40]}")
         else:
             TANDA_BARIS[k](ctx, n, k, t)
@@ -862,9 +863,10 @@ def _terapkan_model_gaya(ctx):
             for runs in deret:
                 for j, r in enumerate(runs):
                     if "fn" in r:
-                        t = "".join(x.get("t", "") for x in catatan[r["fn"]]["runs"]).strip()
+                        t = norma.HARAKAT.sub("", "".join(x.get("t", "") for x in catatan[r["fn"]]["runs"])).strip()
                         m = re.fullmatch(r"سورة\s+(.+?)،\s*آية:?\s*([\d٠-٩]+(?:\s*[-–]\s*[\d٠-٩]+)?)\.?", t)
                         if m:
+                            catatan[r["fn"]]["matan"] = True
                             runs[j] = {"t": f" [{m.group(1)}: {m.group(2)}]", "b": False}
                             ubah = True
             if ubah:
@@ -919,7 +921,7 @@ def _urutkan_fihris(ctx):
     """Urutan المصادر (القرآن الكريم paling atas), nama surat فهرس الآيات, urutan فهرس الأحاديث.
     Kembalikan baris pustaka القرآن الكريم."""
     pustaka, ayat_idx, hadits_idx = ctx.pustaka, ctx.ayat_idx, ctx.hadits_idx
-    quran = [p for p in pustaka if _mushaf(p)]  # tanpa nomor, paling atas
+    quran = [p for p in pustaka if adalah_mushaf(p)]  # tanpa nomor, paling atas
     pengarang = ctx.meta.get("pustaka_gaya") == "muallif"
     # rujukan Arab dulu, lalu rujukan asing (pustaka_asing), masing-masing urut abjad
     pustaka = quran + sorted([p for p in pustaka if p not in quran],
@@ -944,7 +946,7 @@ def _urutkan_fihris(ctx):
 MUSHAF = re.compile(r"^(?:القران(?:\s+الكريم)?|المصحف(?:\s+الشريف)?)\s*(?:$|[.،,:؛(\-–]|ب?رواي[ةه])")
 
 
-def _mushaf(baris):
+def adalah_mushaf(baris):
     return bool(MUSHAF.match(re.sub("[إأآ]", "ا", norma.HARAKAT.sub("", baris.replace("**", "").replace("__", ""))).strip()))
 
 
@@ -1005,7 +1007,7 @@ def _cek_kitab_pustaka(ctx):
     (sudah GAGAL di _cek_bentuk)."""
     if bentuk_kitab(ctx.meta) or "pustaka" in daftar(ctx.meta, "tanpa") or not ctx.pustaka:
         return
-    ctx.perhatian += kitab_tanpa_pustaka(ctx.penunjuk, [(n, t) for n, t in ctx.pustaka_baris if not _mushaf(t)])
+    ctx.perhatian += kitab_tanpa_pustaka(ctx.penunjuk, [(n, t) for n, t in ctx.pustaka_baris if not adalah_mushaf(t)])
 
 
 def kurang_halaman(meta, halaman):
@@ -1078,7 +1080,7 @@ def _hitung_kata(ctx):
     """Jumlah kata matan dan catatan kaki naskah (sebelum `_angka_cetak`)."""
     blok, catatan = ctx.blok, ctx.catatan
     n_matan = sum(kata(b["runs"]) for b in blok)
-    n_fn = sum(kata(c["runs"]) for c in catatan)
+    n_fn = sum(kata(c["runs"]) for c in catatan if not c.get("matan"))
     return n_matan, n_fn
 
 
@@ -1161,7 +1163,7 @@ def _anak_tunggal(blok):
         induk, anak = None, []
         for b in (*blok, {"k": "R"}):  # penutup: induk terakhir ikut dinilai
             if b["k"] == t_anak and induk:
-                if not PENGANTAR.match(b["judul"]):  # تمهيد bukan pecahan bagiannya: tidak dihitung
+                if not PENGANTAR.match(norma.HARAKAT.sub("", b["judul"])):  # تمهيد bukan pecahan bagiannya: tidak dihitung
                     anak.append(b)
             elif b["k"] == t_induk or b["k"] in pemutus:
                 if induk and len(anak) == 1:
@@ -1180,7 +1182,7 @@ def _cek_tata_letak(ctx):
     nomor = _pilih(ctx, "nomor")
     if nomor == "abjad" and not any(b["k"] == "F" for b in blok):
         galat.append(di("@nomor") + "@nomor: abjad memerlukan #F: nomor ١ mulai dari #F pertama")
-    elif nomor == "mukadimah" and not any(b["k"] == "K" and b.get("judul") == MUQADDIMAH for b in blok):
+    elif nomor == "mukadimah" and not any(b["k"] == "K" and norma.HARAKAT.sub("", b.get("judul", "")) == MUQADDIMAH for b in blok):
         galat.append(di("@nomor") + "@nomor: mukadimah memerlukan «#K المقدمة»: nomor ١ mulai dari judul itu")
     # bagian kosong: judul bahts yang disusul judul setingkat/lebih tinggi (atau akhir naskah) tanpa paragraf isi di antaranya
     # (#H bukan isi). Kitab tidak: di sana #K باب di atas #F فصل, dan #S الشرح boleh hanya membawahi #S lain.
@@ -1197,7 +1199,7 @@ def _cek_tata_letak(ctx):
                              f"sesudahnya mulai halaman baru: tulis paragraf pengantar di bawahnya (kaitannya dengan bagian "
                              f"sebelumnya dan isinya, mis. وفيه مطلبان…, tanpa klaim baru tanpa bukti)")
         elif (a["k"] in ("F", "B") and b["k"] in ("B", "M") and "FBM".index(b["k"]) > "FBM".index(a["k"])
-              and not re.search(r"تمهيد|مدخل", b["judul"])):  # judul «تمهيد» di bawahnya = pengantar itu sendiri
+              and not re.search(r"تمهيد|مدخل", norma.HARAKAT.sub("", b["judul"]))):  # judul «تمهيد» di bawahnya = pengantar itu sendiri
             # فصل/مبحث yang langsung disusul مبحث/مطلب-nya: judul bertumpuk tanpa تمهيد (dikeluhkan dosen)
             perhatian.append(f"baris {a['n']}: judul «{a['judul'][:40]}» langsung disusul judul «{b['judul'][:40]}» "
                              f"tanpa paragraf pengantar: tulis pengantar di bawahnya (isinya dan pembagiannya: "
@@ -1268,7 +1270,7 @@ def _angka_cetak(ctx):
             r["t"] = ubah(r["t"]).translate(HORMAT_CETAK)
     if angka_ayat != angka:  # rujukan ayat [^سورة …، آية: n.] saja; "al" = rakit.ps1 mencetak angkanya kiri-ke-kanan,
         for c in catatan:      # karena Word (angka konteks) mencetak 0-9 di tengah teks Arab sebagai ٠-٩
-            if "".join(r.get("t", "") for r in c["runs"]).startswith("سورة"):
+            if norma.HARAKAT.sub("", "".join(r.get("t", "") for r in c["runs"])).startswith("سورة"):
                 c["al"] = angka_ayat == "latin"
                 for r in c["runs"]:
                     if "t" in r:
@@ -1284,6 +1286,8 @@ def _angka_cetak(ctx):
 
 
 MALAHIQ = re.compile(r"(ال)?ملاحق|ملحق")
+MULAKHAS = re.compile(r"^(?:ال)?ملخص")
+MULAKHAS_ASING = re.compile(r"ال[أا]جنبي[ةه]|ال[إا]نجليزي[ةه]")
 
 
 def _malahiq(ctx):
@@ -1296,7 +1300,7 @@ def _malahiq(ctx):
         return
     if meta.get("pustaka") == "akhir":
         galat.append(di("@malahiq") + "@malahiq: akhir tidak bisa bersama @pustaka: akhir (المصادر sesudah فهرس): pilih salah satu"); return
-    awal = next((i for i, b in enumerate(blok) if b["k"] == "K" and MALAHIQ.match(b["judul"])), None)
+    awal = next((i for i, b in enumerate(blok) if b["k"] == "K" and MALAHIQ.match(norma.HARAKAT.sub("", b["judul"]))), None)
     i_r = next((i for i, b in enumerate(blok) if b["k"] == "R"), None)
     if awal is None:
         galat.append(di("@malahiq") + "@malahiq: akhir memerlukan «#K الملاحق» (atau «#K ملحق…») sebelum #R"); return
@@ -1332,7 +1336,7 @@ def awal_halaman(blok, meta):
             pb = sesudah_h
             if k in JUDUL_FIHRIS:
                 pb = pb or (not pertama and (k in pilihan or (k in JUDUL_BAB and not (kitab and k == "F"))))
-                awal_nomor = k == "K" and b["judul"] == MUQADDIMAH if nomor == "mukadimah" else k == "F"
+                awal_nomor = k == "K" and norma.HARAKAT.sub("", b["judul"]) == MUQADDIMAH if nomor == "mukadimah" else k == "F"
                 if nomor in ("abjad", "mukadimah") and awal_nomor and nomor_satu is None:
                     nomor_satu = i
                 pertama = False
@@ -1385,7 +1389,7 @@ def rencana_cetak(d):
     judul = meta.get("judul", "")
     sub = SUBJUDUL.match(judul)
     halaman_baru, nomor_satu = awal_halaman(blok, meta)
-    awal_isi = next((i for i, b in enumerate(blok) if b["k"] in JUDUL_FIHRIS and b["judul"] == MUQADDIMAH), None)
+    awal_isi = next((i for i, b in enumerate(blok) if b["k"] in JUDUL_FIHRIS and norma.HARAKAT.sub("", b["judul"]) == MUQADDIMAH), None)
     bagian = bagian_akhir(d)
     # @maudhuat_letak: awal = فهرس الموضوعات ditulis tepat sebelum blok ini: المقدمة, atau #K مقدمة/تمهيد pertama, atau #F
     # pertama, atau judul pertama. Hanya kalau فهرس itu memang dicetak (bukan @tanpa: maudhuat, bukan potongan --fasl
@@ -1411,6 +1415,8 @@ def rencana_cetak(d):
         except TandaRusak:  # sudah GAGAL di _cek_sampul
             pass
     fmt = format_cetak(d["format"])
+    mulakhas = [(i, j) for i, b in enumerate(blok)
+                if b["k"] == "K" and MULAKHAS.match(j := norma.HARAKAT.sub("", b["judul"]))]
     return {"format": fmt, "kitab": kitab, "sampul": sampul,
             # baris المصادر tanpa huruf Arab dicetak kiri-ke-kanan (rata kiri), nomornya tetap di kanan
             "pustaka_ltr": [pustaka_asing(p) for p in d.get("pustaka", [])],
@@ -1425,6 +1431,10 @@ def rencana_cetak(d):
             "ihda": _jarak_ihda(blok, fmt) if meta.get("ihda") == "tengah" else {},
             "jarak_sub": _jarak_sub(blok, fmt),
             "mufradat": baris_mufradat(blok),
+            "mulakhas": {
+                "spasi": [i for i, _ in mulakhas],
+                "berjarak": [i for i, j in mulakhas if not MULAKHAS_ASING.search(j)],
+            },
             "bagian": bagian}
 
 
@@ -1516,7 +1526,7 @@ def tulis_bahan(d, keluar):
 def _tanpa_bukti(ctx):
     """Awal teks tiap catatan kaki tanpa bukti. Rujukan kitab tanpa bukti sudah jadi GAGAL atau perhatian: daftar ini
     sisanya (catatan penjelasan, <<luar>>)."""
-    fn_teks = [(c, "".join(r.get("t", "") for r in c["runs"])) for c in ctx.catatan]
+    fn_teks = [(c, "".join(r.get("t", "") for r in c["runs"])) for c in ctx.catatan if not c.get("matan")]
     return [norma.HARAKAT.sub("", t)[:60] for c, t in fn_teks if c["bukti"] == 0 and not c["pdf"] and not c.get("wq")
             and not t.startswith(BUKAN_RUJUKAN) and (c["luar"] or not rujukan_halaman(t))]
 
@@ -1529,11 +1539,12 @@ def _laporan(ctx, n_matan, n_fn, fn_tanpa, sidik_naskah, sidik_isi):
     """Baris laporan `cek`: ringkasan, GAGAL, perhatian, catatan kaki tanpa bukti."""
     blok, pustaka, catatan, ayat_idx = ctx.blok, ctx.pustaka, ctx.catatan, ctx.ayat_idx
     hadits_idx, galat, perhatian, folder = ctx.hadits_idx, ctx.galat, ctx.perhatian, ctx.folder
-    n_bukti = sum(c["bukti"] for c in catatan)
-    n_luar = sum(c["luar"] for c in catatan)  # disebut di ringkasan: tanda yang bisa menyembunyikan kutipan karangan
-    n_pdf = sum(c["pdf"] for c in catatan)
-    n_wq = sum(c.get("wq", 0) for c in catatan)
-    lap = [f"blok={len(blok)} | kata matan={n_matan} | catatan kaki={len(catatan)} ({n_fn} kata) | ayat={len(ayat_idx)} | hadits={len(hadits_idx)} | pustaka={len(pustaka)}",
+    aktif = [c for c in catatan if not c.get("matan")]
+    n_bukti = sum(c["bukti"] for c in aktif)
+    n_luar = sum(c["luar"] for c in aktif)  # disebut di ringkasan: tanda yang bisa menyembunyikan kutipan karangan
+    n_pdf = sum(c["pdf"] for c in aktif)
+    n_wq = sum(c.get("wq", 0) for c in aktif)
+    lap = [f"blok={len(blok)} | kata matan={n_matan} | catatan kaki={len(aktif)} ({n_fn} kata) | ayat={len(ayat_idx)} | hadits={len(hadits_idx)} | pustaka={len(pustaka)}",
            f"bukti dicek ke Shamela lokal: {n_bukti}{f' | ditunjuk di PDF (bukan bukti): {n_pdf}' if n_pdf else ''}"
            f"{f' | <<{LUAR}>> (tidak dicek mesin): {n_luar}' if n_luar else ''}"
            f"{f' | Waqfeya <<w…>> (lafaz dinilai pemeriksa dari scan): {n_wq}' if n_wq else ''} | GAGAL: {len(galat)}"]

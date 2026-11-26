@@ -7,19 +7,12 @@ Dengan «@angka: latin», semua angka di teks Arab bahan rakit 0-9 (mesin/olah.p
 Tautan/DOI di catatan kaki tetap 0-9 dan titiknya tetap, juga DOI tanpa huruf di depannya, dan pola "tautan" bahan
 (dipakai rakit.ps1 untuk mencetaknya kiri-ke-kanan) menangkap seluruhnya tanpa titik penutup kalimat (bukan
 «doi.org/١٠,٢١٦٠٨/jasis.٢٠٢١,١٨٣١٣١»)."""
-import json, re, shutil, subprocess, sys
+import json, re, shutil, sys, tempfile
 from pathlib import Path
 
-AKAR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(AKAR / "mesin"))
-from olah import alamat_bahan
+from bantu import REPO, bahts, salin_mesin
+
 sys.stdout.reconfigure(encoding="utf-8")  # konsol Windows (cp1252) tidak bisa mencetak huruf Arab
-
-
-def bahan(nama):
-    subprocess.run([sys.executable, str(AKAR / "mesin" / "bahts.py"), "cek", nama], cwd=AKAR, check=True,
-                   capture_output=True)
-    return json.loads(alamat_bahan(AKAR / nama).read_text(encoding="utf8"))
 
 
 def teks_latin(b, kecuali=lambda c: False):
@@ -29,16 +22,27 @@ def teks_latin(b, kecuali=lambda c: False):
     return teks, sorted({t for t in teks if re.search(r"[0-9]", t)})
 
 
-b = bahan("contoh")
-teks, latin = teks_latin(b)
-if b["meta"].get("angka") != "hindi" or latin:
-    sys.exit(f"angka bawaan bukan ٠-٩: @angka={b['meta'].get('angka')}, masih 0-9 di: {latin}")
-print(f"uji angka: {len(teks)} teks, semua angka ٠-٩")
+with tempfile.TemporaryDirectory(prefix="bahts-uji-angka-") as tmp:
+    akar = Path(tmp)
+    salin_mesin(akar, ("_meta", "11223"), huruf=False)
+    shutil.copytree(REPO / "contoh", akar / "contoh", ignore=shutil.ignore_patterns("*.docx", "*.pdf", "laporan.txt", "jebakan"))
+    sys.path.insert(0, str(akar / "mesin"))
+    from olah import alamat_bahan
 
-uji = AKAR / "_uji_angka_ayat"  # akar repo = parent.parent uji_angka.py (folder bahts; syarat `cek`), diabaikan git
-uji.mkdir(exist_ok=True)
-try:
-    naskah = (AKAR / "contoh" / "naskah.txt").read_text(encoding="utf-8").replace("@nim: -", "@nim: 123456789")
+    def bahan(nama):
+        r = bahts(akar, "cek", nama)
+        assert r.returncode == 0, r.stdout + r.stderr
+        return json.loads(alamat_bahan(akar / nama).read_text(encoding="utf8"))
+
+    b = bahan("contoh")
+    teks, latin = teks_latin(b)
+    if b["meta"].get("angka") != "hindi" or latin:
+        sys.exit(f"angka bawaan bukan ٠-٩: @angka={b['meta'].get('angka')}, masih 0-9 di: {latin}")
+    print(f"uji angka: {len(teks)} teks, semua angka ٠-٩")
+
+    uji = akar / "_uji_angka_ayat"
+    uji.mkdir()
+    naskah = (akar / "contoh" / "naskah.txt").read_text(encoding="utf-8").replace("@nim: -", "@nim: 123456789")
     (uji / "naskah.txt").write_text("@angka_ayat: latin\n" + naskah, encoding="utf-8")
     b = bahan(uji.name)
     ayat = [c for c in b["catatan"] if "".join(r.get("t", "") for r in c["runs"]).startswith("سورة")]
@@ -50,13 +54,10 @@ try:
     if latin:
         sys.exit(f"@angka_ayat: latin ikut mengubah selain catatan kaki ayat: {latin}")
     print(f"uji angka_ayat: {len(ayat)} catatan kaki ayat 0-9, {len(teks)} teks lain tetap ٠-٩")
-finally:
-    shutil.rmtree(uji)
 
-uji = AKAR / "_uji_angka"  # folder bahts baru; diabaikan git
-uji.mkdir(exist_ok=True)
-try:
-    naskah = (AKAR / "contoh" / "naskah.txt").read_text(encoding="utf-8").replace("@nim: -", "@nim: 123456789")
+    uji = akar / "_uji_angka"
+    uji.mkdir()
+    naskah = (akar / "contoh" / "naskah.txt").read_text(encoding="utf-8").replace("@nim: -", "@nim: 123456789")
     (uji / "naskah.txt").write_text("@angka: latin\n" + naskah, encoding="utf-8")
     b = bahan(uji.name)
     if b["meta"].get("angka") != "latin":
@@ -70,15 +71,12 @@ try:
     if not latin:
         sys.exit("@angka: latin: tidak ada satu pun angka 0-9 di teks hasil (terlalu longgar?)")
     print(f"uji angka: {len(latin)} teks berangka 0-9, ٠-٩ tidak ada")
-finally:
-    shutil.rmtree(uji)
 
-uji = AKAR / "_uji_tautan"  # folder bahts baru; diabaikan git
-uji.mkdir(exist_ok=True)
-try:
+    uji = akar / "_uji_tautan"
+    uji.mkdir()
     tautan = ["doi.org/10.21608/jasis.2021.183131", "10.1016/j.cell.2020.05.012", "https://dorar.net/aqadia/1234",
               "https://dorar.net/aqadia/5678", "10.1016/S0140-6736(20)30183-5"]  # DOI berkurung di dalam kurung kalimat
-    naskah = (AKAR / "contoh" / "naskah.txt").read_text(encoding="utf-8").replace(
+    naskah = (akar / "contoh" / "naskah.txt").read_text(encoding="utf-8").replace(
         "#K الخاتمة\n", f"#K الخاتمة\nوانظر[^انظر ملخص البحث في موقع المجلة، {tautan[0]}.]، وانظر أيضًا[^انظر: {tautan[1]}، "
                         f"ص 12.]، والموقع[^موقع الدرر السنية، {tautan[2]}، 1445هـ.]، وغيره[^انظر: {tautan[3]}وانظر ص 13.]، "
                         f"والدراسة[^انظر: ({tautan[4]})، ص 14.].\n")
@@ -90,5 +88,3 @@ try:
     if len(teks) != len(tautan) or dapat != sorted(tautan):
         sys.exit(f"tautan/DOI di catatan kaki harus tetap 0-9 dan tertangkap utuh {tautan}: dapat {dapat} dari {teks}")
     print(f"uji tautan: {len(dapat)} tautan/DOI di catatan kaki tetap 0-9, angka lain ٠-٩")
-finally:
-    shutil.rmtree(uji)

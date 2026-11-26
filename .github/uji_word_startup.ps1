@@ -4,16 +4,18 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '..\mesin\word.ps1')
 $uji = Join-Path ([IO.Path]::GetTempPath()) ('bahts-word-lifecycle-' + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $uji | Out-Null
+try {
 $catatan = Join-Path $uji 'rakit.word'
 $mulai = [datetime]::new(638000000000000000)
 $global:dihentikan = @()
 $global:ditolak = $false
 $global:sudahKeluar = $false
+$global:tungguDipakai = @()
 
 function Proses($Nomor, $Nama, $Waktu) {
     $p = [pscustomobject]@{ Id = $Nomor; ProcessName = $Nama; StartTime = $Waktu; Handle = [IntPtr]1 }
     $p | Add-Member -MemberType ScriptMethod -Name Dispose -Value {}
-    $p | Add-Member -MemberType ScriptMethod -Name WaitForExit -Value { param($Batas) return $global:sudahKeluar }
+    $p | Add-Member -MemberType ScriptMethod -Name WaitForExit -Value { param($Batas) $global:tungguDipakai += $Batas; return $global:sudahKeluar }
     return $p
 }
 $global:proses = @(
@@ -82,7 +84,15 @@ $muat = & $letak '^\.\s+"\$dir\\word\.ps1"'
 $pulih = & $letak '^Bersihkan-WordRakit \$CATATAN_WORD'
 $buat = & $letak 'New-Object\s+-ComObject\s+Word\.Application'
 $catat = & $letak '^Catat-WordRakit \$word \$CATATAN_WORD'
-$akhir = $ast.Find({ param($a) $a -is [System.Management.Automation.Language.TryStatementAst] -and $a.Finally -and $a.Finally.Extent.Text -match 'Bersihkan-WordRakit' }, $true)
-if (-not $akhir) { throw 'rakit.ps1 finally no longer cleans up its Word.' }
+$akhir = $ast.Find({ param($a) $a -is [System.Management.Automation.Language.TryStatementAst] -and $a.Finally -and $a.Finally.Extent.Text -match 'Bersihkan-WordRakit\s+\$CATATAN_WORD\s+3000' }, $true)
+if (-not $akhir) { throw 'rakit.ps1 finally no longer cleans up its Word with 3000ms graceful wait.' }
 if (-not ($muat -lt $pulih -and $pulih -lt $buat -and $buat -lt $catat)) { throw "rakit.ps1 Word lifecycle out of order: load $muat, recover $pulih, create $buat, record $catat" }
+$global:tungguDipakai = @()
+Set-Content -LiteralPath $catatan -Encoding ASCII -Value $identitas
+Bersihkan-WordRakit $catatan 3000
+if ("$global:tungguDipakai" -ne '3000') { throw "Graceful shutdown wait was [$global:tungguDipakai], expected 3000." }
 Write-Output 'uji lifecycle Word: exact application ownership; unrelated/reused/exited processes protected; failed stop retains recovery record (Word not started)'
+}
+finally {
+    Remove-Item -LiteralPath $uji -Recurse -Force -ErrorAction SilentlyContinue
+}

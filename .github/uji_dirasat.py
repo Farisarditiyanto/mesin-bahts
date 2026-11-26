@@ -6,11 +6,12 @@
 - pembacaan satu karya utuh (ringkasan tanpa dipotong) lewat nomor W… atau DOI;
 - `dirasat-pdf` menerima DOI dan jatuh otomatis ke tautan PDF akses terbuka bila OpenAlex 404/401, tanpa membocorkan kunci.
 """
-import contextlib, io, json, runpy, sys, tempfile, urllib.error, urllib.parse
+import io, json, sys, tempfile, urllib.error, urllib.parse
 from pathlib import Path
 from unittest.mock import patch
 
-REPO = Path(__file__).resolve().parent.parent
+from bantu import REPO, cli_dalam_proses, salin_mesin
+
 sys.path.insert(0, str(REPO / "mesin"))
 import dirasat, jaringan
 
@@ -22,22 +23,7 @@ class _Resp(io.BytesIO):
 
 
 def _cli(*args):
-    class Keluaran(io.StringIO):
-        def reconfigure(self, **kw):
-            pass
-
-    out, err = Keluaran(), Keluaran()
-    skrip = REPO / "mesin" / "bahts.py"
-    with patch.object(sys, "argv", [str(skrip), *args]), \
-            contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-        try:
-            runpy.run_path(str(skrip), run_name="__main__")
-            kode = 0
-        except SystemExit as e:
-            kode = e.code if isinstance(e.code, int) else 1
-            if isinstance(e.code, str):
-                err.write(e.code + "\n")
-    return kode, out.getvalue(), err.getvalue()
+    return cli_dalam_proses(REPO, *args)
 
 
 def _pdf_asli():
@@ -277,7 +263,8 @@ def utama():
             w400 = dict(oa_items[0], id="https://openalex.org/W400", best_oa_location={"pdf_url": rahasia.as_uri()})
 
             def buka_file(url, kepala=None, waktu=60):
-                if urllib.parse.urlsplit(url).path == "/works/W400":
+                u = urllib.parse.urlsplit(url)
+                if u.path == "/works/W400":
                     return _Resp(json.dumps(w400).encode("utf8"))
                 return jaringan.buka(url, kepala=kepala, waktu=waktu)  # pintu jaringan asli yang menolak file://
 
@@ -416,6 +403,25 @@ def utama():
                         "title": ["Retraction Notice"],
                         "update-to": [{"type": "retraction", "DOI": "10.5555/cr-ret"}],
                     }}).encode("utf8"))
+                if "10.5555%2Fconcern" in u.path or "10.5555/concern" in u.path:
+                    return _Resp(json.dumps({"message": {
+                        "DOI": "10.5555/concern",
+                        "title": ["Concerned Study"],
+                        "author": [{"given": "Omar", "family": "Zaki"}],
+                        "published-print": {"date-parts": [[2022]]},
+                        "updated-by": [{"type": "expression_of_concern"}, {"type": "expression-of-concern"}],
+                    }}).encode("utf8"))
+                if "10.5555%2Freinstated" in u.path or "10.5555/reinstated" in u.path:
+                    return _Resp(json.dumps({"message": {
+                        "DOI": "10.5555/reinstated",
+                        "title": ["Reinstated Study"],
+                        "author": [{"given": "Tariq", "family": "Nabil"}],
+                        "published-print": {"date-parts": [[2021]]},
+                        "updated-by": [
+                            {"type": "retraction", "updated": {"date-parts": [[2022, 1, 10]]}},
+                            {"type": "reinstatement", "updated": {"date-parts": [[2023, 4, 15]]}},
+                        ],
+                    }}).encode("utf8"))
                 raise urllib.error.HTTPError(url, 404, "Not Found", {}, io.BytesIO(b""))
             if u.hostname == "doi.org" and u.path.startswith("/api/handles/"):
                 if u.path.endswith("registered"):
@@ -428,9 +434,12 @@ def utama():
             kode, out_r, err = _cli("dirasat", "10.9999/ret")
             assert kode == 0 and "DICABUT / RETRACTED" in out_r, out_r + err
 
-            # folder uji di dalam REPO sementara agar folder_bahts menerimanya
-            uji_dir = Path(tempfile.mkdtemp(prefix="_uji_dirasat_cek_", dir=REPO))
-            try:
+            # folder uji di salinan TEMP mesin agar folder_bahts menerimanya tanpa mengotori REPO
+            with tempfile.TemporaryDirectory(prefix="bahts-uji-dirasat-cek-") as tmp_cek:
+                akar_cek = Path(tmp_cek)
+                salin_mesin(akar_cek, huruf=False)
+                uji_dir = akar_cek / "uji"
+                uji_dir.mkdir()
                 # a) semua cocok: Hijriah 1442هـ -> 2020/2021 cocok dengan W100 (2020), Crossref fallback 10.5555/cr1 (2021),
                 #    ringkasan Arab atas makalah Inggris & tahun wafat (ت 1421هـ) tidak salah tangkap,
                 #    PDF lokal <<luar|w1.pdf|5>> tidak dianggap ID OpenAlex, sedangkan <<luar|W2741809807.pdf|2>> diperiksa.
@@ -442,7 +451,7 @@ def utama():
                     "دراسة الفقه المالي المعاصر، 2020م[^انظر: ص2. <<luar|W2741809807.pdf|2>>].\n",
                     encoding="utf8",
                 )
-                kode, out_ok, err = _cli("dirasat-cek", uji_dir.name)
+                kode, out_ok, err = cli_dalam_proses(akar_cek, "dirasat-cek", uji_dir.name)
                 assert kode in (0, 2), out_ok + err
                 assert "ID DITEMUKAN" in out_ok and "[Crossref]" in out_ok and "0 fatal" in out_ok, out_ok
                 assert "TIDAK COCOK" not in out_ok, out_ok
@@ -457,7 +466,7 @@ def utama():
                     "مرجع مختلق تماما[^https://doi.org/10.9999/phantom-xyz <<luar>>].\n",
                     encoding="utf8",
                 )
-                kode, out_bad, err = _cli("dirasat-cek", uji_dir.name)
+                kode, out_bad, err = cli_dalam_proses(akar_cek, "dirasat-cek", uji_dir.name)
                 assert kode == 1, out_bad + err
                 assert "TIDAK COCOK" in out_bad and "tahun di naskah" in out_bad, out_bad
                 assert out_bad.count("DICABUT (RETRACTED)") == 2, out_bad
@@ -471,7 +480,7 @@ def utama():
                                  "Retraction Notice. doi:10.5555/notice\n"
                                  "doi:10.5555/registered\n"
                                  "doi:10.5555/offline\n", encoding="utf8")
-                kode, out_sebagian, err = _cli("dirasat-cek", uji_dir.name)
+                kode, out_sebagian, err = cli_dalam_proses(akar_cek, "dirasat-cek", uji_dir.name)
                 assert kode == 2, out_sebagian + err
                 assert "baris 1: PERIKSA METADATA (judul" in out_sebagian, out_sebagian
                 assert "baris 2: TIDAK COCOK (tahun di naskah (1995" in out_sebagian, out_sebagian
@@ -479,12 +488,12 @@ def utama():
                 assert "baris 4 [10.5555/registered]: DOI TERDAFTAR" in out_sebagian, out_sebagian
                 assert "baris 5 [10.5555/offline]: GAGAL MEMERIKSA" in out_sebagian and "0 fatal" in out_sebagian, out_sebagian
                 kasus.write_text("doi:10.5555/offline\n", encoding="utf8")
-                kode, out_offline, err = _cli("dirasat-cek", uji_dir.name)
+                kode, out_offline, err = cli_dalam_proses(akar_cek, "dirasat-cek", uji_dir.name)
                 assert kode == 2 and "1 gagal memeriksa" in out_offline, out_offline + err
 
                 kasus.write_text("دراسة الفقه المالي المعاصر، أحمد محمد، 1442هـ"
                                  "[^doi:10.5555/alias <<luar|W100000.pdf|1>>]\n", encoding="utf8")
-                kode, out_alias, err = _cli("dirasat-cek", uji_dir.name)
+                kode, out_alias, err = cli_dalam_proses(akar_cek, "dirasat-cek", uji_dir.name)
                 assert kode == 0 and "beberapa pengenal" not in out_alias and "0 perlu dicek" in out_alias, out_alias + err
 
                 # d) Rujukan berikutnya boleh ringkas (nama keluarga + judul pokok), dua penelitian di dua catatan kaki
@@ -512,7 +521,7 @@ def utama():
                     f"وفيه[^انظر: {lawal}, 2024, p. 3. <<luar|W6000001.pdf|1>>].\n"
                     "وفيه[^انظر: Aderonke & Faith, A Mobile Fingerprint Attendance System for University Lectures, "
                     "p. 3. <<luar|W6000001.pdf|1>>].\n", encoding="utf8")
-                kode, out_ringkas, err = _cli("dirasat-cek", uji_dir.name)
+                kode, out_ringkas, err = cli_dalam_proses(akar_cek, "dirasat-cek", uji_dir.name)
                 assert kode == 2, out_ringkas + err
                 for n in (1, 2, 3):
                     assert f"! baris {n}:" not in out_ringkas, out_ringkas
@@ -525,7 +534,7 @@ def utama():
                 assert "5 perlu dicek" in out_ringkas, out_ringkas
                 kasus.write_text(f"وفيه[^انظر: {hoo}, p. 4. <<luar|W5000001.pdf|4>>].\n"
                                  f"وفيه[^انظر: {hoo}, p. 5. <<luar|W5000001.pdf|5>>].\n", encoding="utf8")
-                kode, out_pertama, err = _cli("dirasat-cek", uji_dir.name)
+                kode, out_pertama, err = cli_dalam_proses(akar_cek, "dirasat-cek", uji_dir.name)
                 assert "baris 1: PERIKSA METADATA (judul" in out_pertama, out_pertama
                 assert "! baris 2:" not in out_pertama and "1 perlu dicek" in out_pertama, out_pertama
 
@@ -543,11 +552,23 @@ def utama():
                     "**حسن**، علي. __حوكمة التمويل الإسلامي (Islamic Finance Governance)__. 2021م (DOI: 10.5555/cr1).\n",
                     encoding="utf8",
                 )
-                kode, out_e, err = _cli("dirasat-cek", uji_dir.name)
+                kode, out_e, err = cli_dalam_proses(akar_cek, "dirasat-cek", uji_dir.name)
                 assert kode == 0 and "0 perlu dicek" in out_e and "0 fatal" in out_e, out_e + err
-            finally:
-                import shutil
-                shutil.rmtree(uji_dir, ignore_errors=True)
+
+                # f) Baris @metadata dilewati, Crossref expression_of_concern (dedup, non-fatal), reinstatement terbaru (bukan fatal), dan multi-ID saat ids[0] gagal
+                kasus.write_text(
+                    "@judul: دراسة حول doi:10.9999/header-skip\n"
+                    "Concerned Study, Omar Zaki, 2022, doi:10.5555/concern\n"
+                    "Reinstated Study, Tariq Nabil, 2021, doi:10.5555/reinstated\n"
+                    "Islamic Finance Governance, Ali Hassan, 2021, doi:10.9999/phantom-1 doi:10.5555/cr1\n",
+                    encoding="utf8",
+                )
+                kode, out_f, err = cli_dalam_proses(akar_cek, "dirasat-cek", uji_dir.name)
+                assert kode == 1, out_f + err
+                assert "header-skip" not in out_f, out_f
+                assert out_f.count("Crossref: expression-of-concern") == 1, out_f
+                assert "baris 3 [10.5555/reinstated]: ID DITEMUKAN" in out_f and "DICABUT" not in out_f, out_f
+                assert "beberapa pengenal di baris ini" in out_f, out_f
 
     print("lolos uji dirasat (tanggal, bahasa, urut kolam, biblio, dedup judul, info W/DOI, fallback OA PDF, dirasat-cek, keamanan)")
 

@@ -105,6 +105,13 @@ def uji_buatan(akar):
     for juz, hal in (("1", "0"), ("1", "99999"), ("1", "a"), ("x", "5"), ("9", "5")):
         kode, dapat, out = halaman(akar, juz, hal)
         assert kode != 0 and not dapat and "TIDAK ADA halaman" in out, f"halaman {juz}/{hal}: {out[:200]}"
+    # kitab belum diunduh (atau unduhan putus tanpa pages.jsonl.gz) dengan rentang halaman: gagal sebelum mencetak kepala =====
+    (akar / "kitab" / "990002").mkdir()
+    (akar / "kitab" / "990002" / "book_metadata.json").write_text("{}", encoding="utf8")
+    for sid_hilang in ("999998", "990002"):
+        r_hilang = bahts(akar, "halaman", sid_hilang, "-", "1-5")
+        assert r_hilang.returncode != 0 and not r_hilang.stdout.strip(), (sid_hilang, r_hilang.stdout, r_hilang.stderr)
+        assert "belum diunduh" in r_hilang.stderr or "TIDAK ADA di katalog" in r_hilang.stderr, r_hilang.stderr
     # `cari`: kata unik ditunjuk di juz/halaman tempatnya ditulis; frasa yang menyeberang penanda halaman tetap ketemu;
     # kata yang tidak ada dikatakan tidak ketemu
     tempat = lambda r: [(j.strip("«»"), int(h)) for j, h in re.findall(rf"^\[{SID}\] ج(\S+) ص(\d+)", r.stdout, re.M)]

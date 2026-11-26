@@ -220,6 +220,10 @@ def utama():
             assert "(٢٠٢١)" in out_b, out_b
             assert KETERANGAN_PDF in out_b, out_b
 
+            assert sumber_pdf.pulihkan_arab("ينغي ﻻو يداشرإ ليلدلا اذه") == "هذا الدليل إرشادي ولا يغني"
+            assert sumber_pdf.pulihkan_arab("مﻻسﻹا يف") == "في الإسلام"
+            assert sumber_pdf.pulihkan_arab("كتإ") == "كتإ"
+
         print("lolos uji pustaka dan pemulihan teks PDF Arab")
 
 

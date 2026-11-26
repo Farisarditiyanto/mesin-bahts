@@ -16,8 +16,8 @@ from dasar import (
     RUJUKAN_AYAT, TIDAK_KETEMU, WAQFEYA_BUKTI)
 from kitab_lokal import (
     nomor_hadits,
-    cari_di, gabung, halaman_janggal, kitab, rangkaian_kitab, rekaman, rekaman_dulu, rentang_halaman, susunan_bagian,
-    tempat_kitab, urut_juz)
+    cari_di, gabung, halaman_janggal, kitab, rangkaian_kitab, rekaman, rekaman_dulu, rekaman_urut, rentang_halaman,
+    susunan_bagian, tempat_kitab, urut_juz)
 
 NASKAH_TULISAN = re.compile("(?:الكتاب|البحث) (?:مخطوط|غير مطبوع)")  # nomornya nomor lembar naskah tulisan/ketikan
 # tambahan peneliti di dalam kutipan: «[هكذا]» sesudah salah yang disalin apa adanya, atau kata yang dibetulkan di dalam
@@ -237,7 +237,8 @@ def _menyimpang(sid, juz, p1, p2, teks):
         return ""
     raw = re.sub(r"\s+", " ", norma.HARAKAT.sub("", norma.TAGS.sub("", " ".join(g["body"] for g in gabung(sid, juz, p1, p2)))))
     raw = norma.PENANDA.sub(" ", raw)
-    kitab_padat, kata = norma.padat(raw), teks.split()
+    kitab_padat = norma.padat(raw)
+    kata = teks.split()
     lo, hi = 0, len(kata) - 1  # awalan sepanjang kata[:lo] ada di matan; kata[:hi+1] tidak (kutipan utuhnya tidak ketemu)
     while lo < hi:
         mid = (lo + hi + 1) // 2
@@ -369,7 +370,7 @@ def _cek(b, pot, perhatian, kutipan, rinci, pengantar, bersisipan=False):
                 if DIPOTONG.search(pot):  # «…» milik kitab sendiri yang ikut disalin: kutipan utuhnya bersambung di kitab
                     utuh = DIPOTONG.sub(" ", pot)
                     if not _cek(b, utuh, Catat(), True, False, ""):
-                        return _cek(b, utuh, perhatian, True, rinci, "", bersisipan)
+                        return _cek(b, utuh, perhatian, True, rinci, pengantar, bersisipan)
                 return Temuan(f"bagian kutipan terlalu pendek untuk dicek (paling sedikit {minimal} huruf; jangan dipotong "
                               f"... di situ)", x)
             return Temuan(f"potongan terlalu pendek (paling sedikit {minimal} huruf; yang pendek cocok di sembarang tempat): {pot}")
@@ -377,7 +378,7 @@ def _cek(b, pot, perhatian, kutipan, rinci, pengantar, bersisipan=False):
         e = _cek_bagian(b, x, kutipan, perhatian, rinci)
         if e:
             return e
-    rr = rekaman(sid, juz, p1, p2)
+    rr = rekaman_urut(sid, juz, p1, p2)
     if len(bagian) > 1:
         jarak = [j for j in (berurutan(rr, sisi, bagian) for sisi, _ in norma.BAGIAN) if j is not None]
         if not jarak:
@@ -412,7 +413,7 @@ def _cek(b, pot, perhatian, kutipan, rinci, pengantar, bersisipan=False):
                                             pengarang)
                       + ragu_akhir(rr, bagian[-1])]
     if not any(t.jenis is Jenis.HASYIAH for t in perhatian[p0:]):  # yang di حاشية sudah disebut kalimat muhaqqiq
-        judul = judul_muhaqqiq(sid, rr, norma.padat(bagian[0]), kutipan)
+        judul = judul_muhaqqiq(sid, rr, norma.padat(bagian[0]), kutipan, dalam=(p1, p2))
         if judul:
             perhatian.tambah(Temuan(f"bukti {sid} {juz}/{hal} ada di bagian «{judul}» (tulisan muhaqqiq/penerbit, bukan "
                                     f"pengarang): jangan dinisbatkan ke pengarang kitab", pot[:40]))
@@ -429,11 +430,14 @@ JUDUL_MUHAQQIQ = re.compile(
     r"|^منهج\s+(?:ال)?تحقيق|^منهجي\s+في|^عملي\s+في|^وصف\s+(?:ال)?(?:نسخ|مخطوط)|^دراسة\s+(?:موجزة|الكتاب|الرسالة|المؤلف)")
 
 
-def judul_muhaqqiq(sid, rr, q, utuh):
+def judul_muhaqqiq(sid, rr, q, utuh, dalam=None):
     """Judul (atau induknya) tulisan muhaqqiq/penerbit yang menaungi awal q (`padat`) di matan rr; '' kalau bukan."""
     for r in rr:
-        c = cocok.letak_pertama(r, q, "body", utuh)
-        if c:
+        for c in cocok.semua_letak(r, q, "body", utuh):
+            if dalam is not None:
+                h = cocok.halaman_letak(r, "body", c)
+                if not (dalam[0] <= (h[0] or 0) and (h[1] or 0) <= dalam[1]):
+                    continue
             return next((j for j in shamela.rantai_judul(sid, shamela.judul_naung(sid, r, c)) if JUDUL_MUHAQQIQ.search(j)), "")
     return ""
 
