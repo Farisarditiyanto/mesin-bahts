@@ -22,7 +22,7 @@
 | قواعد العمل | [`AGENTS.md`](AGENTS.md) (بالإندونيسية) |
 | مدخل الأوامر | `python mesin/bahts.py <perintah>` |
 | المسار | `baru` ← جمع المادة ← `ambil` ← كتابة `naskah.txt` ← `cek` ← `rakit` ← المراجِع ← إعادة `cek` و`rakit` |
-| موصِّلات MCP | `shamela` (إلزامي)، `qurangallery`، `turath`، `hadithunlocked`، `tafsir`، `quran` |
+| موصِّلات MCP | `shamela` (إلزامي)، `qurangallery`، `turath`، `hadithunlocked`، `tafsir`، `quran`، `qaf` |
 | المتطلبات | يذكرها `python mesin/bahts.py periksa`؛ ويحتاج `rakit` إلى Windows وMicrosoft Word |
 | الإصدار | [الإصدارات](https://github.com/Farisarditiyanto/mesin-bahts/releases)، [`CHANGELOG.md`](CHANGELOG.md) |
 | الترخيص | AGPLv3 أو ما بعدها ([`LICENSE`](LICENSE)) |
@@ -31,12 +31,12 @@
 
 ## البداية
 
-1. اقرأ [`AGENTS.md`](AGENTS.md) (بالإندونيسية) كاملًا: هو قواعد العمل. ابدأ من قسم «Pemakai baru».
+1. اقرأ [`AGENTS.md`](AGENTS.md) (بالإندونيسية) كاملًا: هو قواعد العمل. وللمستخدم الجديد ابدأ من [`dok/pemakai-baru.md`](dok/pemakai-baru.md).
 2. شغِّل `python mesin/bahts.py periksa` (في Linux/macOS: `python3`). عالج كل سطر `BELUM` بالأمر الذي يذكره.
-3. تأكد أن الموصِّل `shamela` متصل، أي أن الأداة `shamela_search_phrase` موجودة. طريقة تسجيله والدخول في كل وكيل: `AGENTS.md` قسم «Pemakai baru» الخطوة 4.
+3. تأكد أن الموصِّل `shamela` متصل، أي أن الأداة `shamela_search_phrase` موجودة. طريقة تسجيله والدخول في كل وكيل: `dok/pemakai-baru.md` الخطوة 4.
 4. جلسة لاحقة، أو لا تعرف أين وصل البحث: `python mesin/bahts.py tahap <folder>`، واتبع سطر `BERIKUTNYA`.
 
-إن لم يكن المستودع على الحاسوب: شغِّل هذه الأوامر من مجلد المستندات عند المستخدم، قبل الخطوة 2. المجلد الذي يُنزَّل إليه المستودع والطريقة بلا `git`: `AGENTS.md` «Pemakai baru» الخطوة 1.
+إن لم يكن المستودع على الحاسوب: شغِّل هذه الأوامر من مجلد المستندات عند المستخدم، قبل الخطوة 2. المجلد الذي يُنزَّل إليه المستودع والطريقة بلا `git`: `dok/pemakai-baru.md` الخطوة 1.
 
 <div dir="ltr">
 
@@ -48,7 +48,7 @@ python mesin/bahts.py periksa
 
 </div>
 
-متطلبات الحاسوب وطريقة معالجتها في مكان واحد: `python mesin/bahts.py periksa`. يحتاج `rakit` إلى Windows وMicrosoft Word المكتبي؛ ويمكن في Linux/macOS الكتابة و`cek` دون Word وPDF. جمع المادة يحتاج الموصِّل `shamela` (حساب shamela.link)، والدراسات السابقة تحتاج مفتاح OpenAlex (`AGENTS.md` «Pemakai baru» الخطوة 6).
+متطلبات الحاسوب وطريقة معالجتها في مكان واحد: `python mesin/bahts.py periksa`. يحتاج `rakit` إلى Windows وMicrosoft Word المكتبي؛ ويمكن في Linux/macOS الكتابة و`cek` دون Word وPDF. جمع المادة يحتاج الموصِّل `shamela` (حساب shamela.link)، والدراسات السابقة تحتاج مفتاح OpenAlex (`dok/pemakai-baru.md` الخطوة 6).
 
 ### الوكلاء والموصلات
 
@@ -60,9 +60,9 @@ python mesin/bahts.py periksa
 | Codex (سطر الأوامر والتطبيق) | يسجِّله الوكيل |
 | [Hermes Agent](https://hermes-agent.nousresearch.com) (مجاني) | يسجِّله الوكيل |
 
-- أوامر تسجيل `shamela` والدخول لكل وكيل: `AGENTS.md` «Pemakai baru» الخطوة 4 (وهو مكانها الوحيد).
+- أوامر تسجيل `shamela` والدخول لكل وكيل: `dok/pemakai-baru.md` الخطوة 4 (وهو مكانها الوحيد).
 - النماذج المجانية أكثر خطأً في الخطوات، فالمراجِع في الخطوة 5 أهم.
-- الموصِّلات: `shamela` إلزامي؛ و`qurangallery`، `turath`، `hadithunlocked`، `tafsir`، `quran` بلا حساب. فائدتها وترتيب البدائل: `AGENTS.md` الخطوتان 4-5 و«Alur kerja» الخطوة 2. أرقام اختبار كل موصِّل، ومنها خادم MCP الرسمي لـshamela.ws الذي لم يُثبَّت عمدًا: [`dok/uji-riset.md`](dok/uji-riset.md).
+- الموصِّلات: `shamela` إلزامي؛ و`qurangallery`، `turath`، `hadithunlocked`، `tafsir`، `quran` بلا حساب؛ و`qaf` (البحث بالمعنى) يحتاج حساب Qaf مجانيًا. فائدتها وترتيب البدائل: `dok/pemakai-baru.md` الخطوتان 4-5 و`AGENTS.md` «Alur kerja» الخطوة 2. أرقام اختبار كل موصِّل، ومنها خادم MCP الرسمي لـshamela.ws الذي لم يُثبَّت عمدًا: [`dok/uji-riset.md`](dok/uji-riset.md).
 - كل الموصِّلات دلالة على الطريق فقط: الكتاب يُنزَّل بـ`ambil`، والنقل يجب أن يجتاز `cek`.
 
 ### بلِّغ المستخدم

@@ -62,6 +62,7 @@ $ABJAD = [bool]$RENCANA.abjad            # @nomor: halaman sebelum judul $RENCAN
 $KEPALA_KOTAK = $M.kepala -eq 'kotak'      # kepala halaman: judul kanan, nomor halaman berbingkai kiri, garis di bawahnya
 $JUDUL_KEPALA = if ($M.kepala_judul) { [string]$M.kepala_judul } else { $JUDUL }
 $AYAT_SURAH = $M.fihris_ayat -eq 'surah'   # فهرس الآيات: السورة (digabung per surat) | الآية «… الآية n» | الصفحة
+$AYAT_TITIK = $M.fihris_ayat -eq 'titik'   # فهرس الآيات tanpa tabel: nama surat, lalu «﴿… n﴾ ...... ص» per ayat (n bermotif mushaf)
 $HADITS_RINGKAS = $M.fihris_hadits -eq 'ringkas'   # فهرس الأحاديث: الأحاديث | الصفحة
 $TO_TITIK = $M.maudhuat -eq 'titik'        # فهرس الموضوعات bertitik-titik tanpa tabel
 $PUSTAKA_MUALLIF = $M.pustaka_gaya -eq 'muallif'   # القرآن الكريم bernomor; **…** tebal, __…__ miring
@@ -545,6 +546,20 @@ try {
             $l = $rg.Duplicate; $l.SetRange($awal + $a.Index, $awal + $a.Index + $a.Length); $l.Select(); $word.Selection.LtrRun()
         }
     }
+    # rentang Latin (pola olah.LATIN) di catatan kaki dan المصادر = run kiri-ke-kanan: tanpa itu Word menata rujukan
+    # «Journal …, Vol. 3, No. 3, 2022, pp. 25-36.» kanan-ke-kiri (titik pindah ke depan, potongan judul tertukar) dan
+    # mencetak angkanya ٠-٩. Nomor catatan kaki, «انظر:», dan pemisah «؛» tetap kanan-ke-kiri
+    function LatinLtr($rg, $awal, $teks) {
+        if (-not $teks) { return }
+        foreach ($a in [regex]::Matches($teks, $DATA.latin)) {
+            $ujung = $a.Index + $a.Length
+            # titik penutup ikut run itu (tidak pindah ke depan) hanya kalau sebelum rentang ini tidak ada kalimat Arab selain
+            # «انظر:»/«ينظر:»/«راجع:» dan pemisah «؛»: rujukan Latin, bukan kalimat Arab yang kebetulan berakhir kata Latin
+            $pra = $teks.Substring(0, $a.Index) -replace 'انظر|ينظر|راجع|[\s:؛،]', ''
+            if ($ujung -lt $teks.Length -and $teks[$ujung] -eq '.' -and $pra -notmatch '[؀-ۿ]') { $ujung++ }
+            $l = $rg.Duplicate; $l.SetRange($awal + $a.Index, $awal + $ujung); $l.Select(); $word.Selection.LtrRun()
+        }
+    }
     # Nomor sementara pendek: panjang kunci {P:} bukan isi cetak dan tidak boleh mengubah susunan halaman.
     $PENANDA_HALAMAN = '00'
     $rujukanHalaman = @{}; $script:nRujukanHalaman = 0
@@ -621,6 +636,7 @@ try {
             }
         }
         Tautan $fn.Range ($fr.Start + 1) (TeksRuns $c.runs)
+        LatinLtr $fn.Range ($fr.Start + 1) (TeksRuns $c.runs)
         Latin $fn.Range ($fr.Start + 1) (TeksRuns $c.runs) $uCatatan
         $fr.ParagraphFormat.SpaceBefore = 0; $fr.ParagraphFormat.SpaceAfter = 0; $fr.ParagraphFormat.LineSpacingRule = 0
         $off = 1
@@ -1056,7 +1072,22 @@ try {
         if ($PUSTAKA_MUALLIF) { SelGaya $tb $r 2 $DATA.pustaka[$r - 1] } else { Sel $tb $r 2 $DATA.pustaka[$r - 1] 3 0 }
     }
     Huruf $tb.Range.Font $null $U_PUSTAKA
-    for ($r = 1; $r -le $n; $r++) { $rg = $tb.Cell($r, 2).Range; Latin $rg $rg.Start $(if ($PUSTAKA_MUALLIF) { $DATA.pustaka[$r - 1] -replace '\*\*|__', '' } else { $DATA.pustaka[$r - 1] }) $U_PUSTAKA }
+    for ($r = 1; $r -le $n; $r++) {
+        $rg = $tb.Cell($r, 2).Range; $polos = $(if ($PUSTAKA_MUALLIF) { $DATA.pustaka[$r - 1] -replace '\*\*|__', '' } else { $DATA.pustaka[$r - 1] })
+        Latin $rg $rg.Start $polos $U_PUSTAKA
+        if ($RENCANA.pustaka_ltr[$r - 1]) {   # rujukan asing utuh: paragraf kiri-ke-kanan rata kiri, nomornya tetap di kolom kanan
+            $rg.ParagraphFormat.ReadingOrder = 1; $rg.ParagraphFormat.Alignment = 0
+            # seluruh teksnya satu run kiri-ke-kanan Times (juga kurung, tanda petik, angka, dan titik di luar rentang Latin)
+            # huruf untuk seluruh sel, juga tanda akhir selnya: tanda itu yang menentukan tinggi baris terakhir
+            $uL = [Math]::Ceiling($U_PUSTAKA * $rasioLatin)
+            Huruf $rg.Font 'Times New Roman' $uL $null
+            # jarak antarrujukan seperti baris Arab
+            # nomor tetap sebesar nomor baris Arab; tinggi barisnya dibuat sama dengan baris teks Latin supaya sebaris
+            $no = $tb.Cell($r, 1).Range; $no.ParagraphFormat.LineSpacingRule = 4; $no.ParagraphFormat.LineSpacing = [single]($uL * 1.15)   # 4 = tepat setinggi baris teks Latin
+            $rg.ParagraphFormat.SpaceAfter = 6; $no.ParagraphFormat.SpaceAfter = 6
+            $l = $rg.Duplicate; $l.SetRange($rg.Start, $rg.Start + $polos.Length); $l.Select(); $word.Selection.LtrRun()
+        } else { LatinLtr $rg $rg.Start $polos }
+    }
     }
 
     # ---------- 3. Sesudah isi: المصادر والمراجع, الملاحق, الفهارس (yang dicetak, urutan, dan judulnya: $RENCANA.bagian) ----------
@@ -1086,16 +1117,53 @@ try {
         if (-not $ay.ContainsKey($key)) { $ay[$key] = @{ t = $a.t; surah = $a.surah; a = $a.a; bm = @($a.k); s = [int]$a.s; n = [int](($a.a -split '-')[0]) }; [void]$urut.Add($key) }
         else { $ay[$key].bm += $a.k; if ($a.t.Length -gt $ay[$key].t.Length) { $ay[$key].t = $a.t } }
     }
-    $urut = $urut | Sort-Object { $ay[$_].s }, { $ay[$_].n }
+    $urut = @($urut | Sort-Object { $ay[$_].s }, { $ay[$_].n })
+    foreach ($key in $urut) {                            # potongan awal ayat: 4 kata (5 kalau kata ke-4 pendek), lalu « ...»
+        $kata = $ay[$key].t -split ' '
+        $nk = 4; if ($kata.Count -gt 5 -and $kata[3].Length -le 3) { $nk = 5 }
+        $ay[$key].pot = if ($kata.Count -gt $nk) { ($kata[0..($nk - 1)] -join ' ') + ' ...' } else { $ay[$key].t }
+    }
+    if ($AYAT_TITIK) {                                   # @fihris_ayat: titik = nama surat, lalu «﴿… n﴾ ...... ص» per ayat, tanpa tabel
+        $lebar = $sec.PageSetup.PageWidth - $sec.PageSetup.LeftMargin - $sec.PageSetup.RightMargin
+        $r = 1; $sTadi = -1
+        foreach ($key in $urut) {
+            $r++; $a = $ay[$key]
+            if ($a.s -ne $sTadi) {                       # nama surat: tebal, menempel ke ayat pertamanya
+                $sTadi = $a.s
+                Para 3 $(if ($r -gt 2) { 12 } else { 0 }) 0
+                $sel.ParagraphFormat.Alignment = 0; $sel.ParagraphFormat.SpaceAfter = 4; $sel.ParagraphFormat.KeepWithNext = -1
+                Tulis ('سورة ' + $a.surah) $TA $uMatan 1 0
+                $sel.TypeParagraph()
+            }
+            Para 3 0 0
+            $pf = $sel.ParagraphFormat; $pf.Alignment = 0; $pf.SpaceAfter = 4; $pf.RightIndent = $word.CentimetersToPoints(0.6)
+            $pf.TabStops.ClearAll(); [void]$pf.TabStops.Add($lebar, 2, 1)   # 2 = rata ujung (kiri di teks kanan-ke-kiri), 1 = titik-titik
+            # huruf mushaf hanya untuk kata-kata ayat; titik-titik « ...» tetap huruf matan (huruf mushaf tidak punya titik)
+            # tanda akhir ayat di dalam potongan ayat rentang dibuang: nomornya dicetak sekali di ujung
+            $pot = ($a.pot -replace '\s*[٠-٩۝]+(?=\s|$)', '') -replace '\s{2,}', ' '
+            $nq = if ($pot.EndsWith(' ...')) { $pot.Length - 4 } else { $pot.Length }
+            Tulis '﴿' $TA $uMatan 0 0
+            Tulis $pot.Substring(0, $nq) $QF $uAyat 0 0
+            Tulis ($pot.Substring($nq) + ' ') $TA $uMatan 0 0
+            # nomor ayat seperti di mushaf, di dalam kurung: huruf mushaf menggambar angka ٠-٩ sebagai bulatan akhir ayat
+            $nomor = @(([string]$a.a -split '-') | ForEach-Object { -join ($_.ToCharArray() | ForEach-Object { [char](0x0660 + [int]$_ - 48) }) })
+            for ($i = 0; $i -lt $nomor.Count; $i++) {
+                if ($i) { Tulis ' - ' $TA $uMatan 0 0 }
+                Tulis $nomor[$i] $QF $uAyat 0 0
+            }
+            Tulis ("﴾ `t ") $TA $uMatan 0 0              # spasi di kedua sisi tab: titik-titik tidak menempel ke ﴾ atau nomor halaman
+            $awalNo = $sel.Start; Tulis (Angka '00') $TA $uMatan 0 0
+            [void]$doc.Bookmarks.Add("an_$r", $doc.Range($awalNo, $sel.Start))
+            $sel.TypeParagraph()
+        }
+    } else {
     # @fihris_ayat: surah = السورة | الآية | الصفحة; sel السورة digabung per surat, ayat diakhiri «الآية n»
     $cA = if ($AYAT_SURAH) { 2 } else { 1 }; $cP = if ($AYAT_SURAH) { 3 } else { 4 }
     if ($AYAT_SURAH) { $tAy = Tabel ($urut.Count + 1) @(2.6, 10.4, 2.0) 1; Sel $tAy 1 1 'السورة' 1 1; Sel $tAy 1 2 'الآية' 1 1; Sel $tAy 1 3 'الصفحة' 1 1 }
     else { $tAy = Tabel ($urut.Count + 1) @(7.9, 2.6, 2.5, 2.0) 1; Sel $tAy 1 1 'الآية' 1 1; Sel $tAy 1 2 'السورة' 1 1; Sel $tAy 1 3 'رقمها' 1 1; Sel $tAy 1 4 'الصفحة' 1 1 }
     $r = 1
     foreach ($key in $urut) {
-        $r++; $a = $ay[$key]
-        $kata = $a.t -split ' '
-        $nk = 4; if ($kata.Count -gt 5 -and $kata[3].Length -le 3) { $nk = 5 }; $pot = if ($kata.Count -gt $nk) { ($kata[0..($nk - 1)] -join ' ') + ' ...' } else { $a.t }
+        $r++; $a = $ay[$key]; $pot = $a.pot
         $ekor = if ($AYAT_SURAH) { ' الآية ' + (Angka $a.a) } else { '' }
         $rg = $tAy.Cell($r, $cA).Range; $rg.Text = '﴿' + $pot + '﴾' + $ekor; $rg.ParagraphFormat.Alignment = 3
         # huruf mushaf hanya untuk kata-kata ayat; titik-titik « ...» tetap huruf matan (huruf mushaf tidak punya titik)
@@ -1118,6 +1186,7 @@ try {
                 $tAy.Cell($r, 1).VerticalAlignment = 1; $akhirS = $r - 1
             }
         }
+    }
     }
     }
     elseif ($bg.jenis -eq 'hadits') {
@@ -1262,7 +1331,16 @@ try {
     }
     for ($putaran = 1; $putaran -le 5; $putaran++) {
         $ubah = RapatFihrisAwal
-        if ($adaAy) { $r = 1; foreach ($key in $urut) { $r++; $pg = Angka (($ay[$key].bm | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '); if ($isiLama["a$r"] -ne $pg) { $isiLama["a$r"] = $pg; $ubah++; Sel $tAy $r $cP $pg 1 ([int]$AYAT_SURAH) } } }
+        if ($adaAy) {
+            $r = 1
+            foreach ($key in $urut) {
+                $r++; $pg = Angka (($ay[$key].bm | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، ')
+                if ($isiLama["a$r"] -eq $pg) { continue }
+                $isiLama["a$r"] = $pg; $ubah++
+                if ($AYAT_TITIK) { $x = $doc.Bookmarks.Item("an_$r").Range; $x.Text = $pg; [void]$doc.Bookmarks.Add("an_$r", $x) }
+                else { Sel $tAy $r $cP $pg 1 ([int]$AYAT_SURAH) }
+            }
+        }
         if ($adaHd) { $r = 1; foreach ($h in $DATA.hadits) { $r++; $ks = @($h.k); if ($h.lagi) { $ks += $h.lagi }; $pg = Angka (($ks | ForEach-Object { Hal $_ } | Select-Object -Unique) -join '، '); if ($isiLama["h$r"] -ne $pg) { $isiLama["h$r"] = $pg; $ubah++; Sel $tHd $r $cH $pg 1 ([int]$HADITS_RINGKAS) } } }
         foreach ($fNama in $fihrisNama) { $r = 1; foreach ($a in $fNama.baris) { $r++; $pg = Angka (Rentang @(@($a.k) | ForEach-Object { Hal $_ } | Select-Object -Unique)); $idIsi = "$($fNama.jenis)$r"; if ($isiLama[$idIsi] -ne $pg) { $isiLama[$idIsi] = $pg; $ubah++; Sel $fNama.tbl $r 2 $pg 1 0 } } }
         if ($adaTo -and $TO_TITIK) {
