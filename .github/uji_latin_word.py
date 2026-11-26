@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Huruf Latin di tengah teks Arab lewat `rakit` dan Microsoft Word asli: di PDF hasil, kata Latin di paragraf, sel #J,
 catatan kaki, dan المصادر tercetak Times New Roman dengan ukuran sebanding (lebih kecil daripada teks Arab di sekitarnya),
-dan teks Arab tetap huruf profilnya. Rujukan Latin di catatan kaki dan المصادر kiri-ke-kanan: angkanya 0-9, titik penutupnya
+dan teks Arab tetap huruf profilnya. Apostrof dan tanda petik tipografis di rentang Latin («al-Qāsimī’s», “…”) ikut
+Times New Roman tanpa hint eastAsia (Word memberikannya ke ’ sesudah «ī»): run ber-hint itu tercetak MS Mincho selebar
+huruf CJK, tampak «al-Qāsimī’ s». Rujukan Latin di catatan kaki dan المصادر kiri-ke-kanan: angkanya 0-9, titik penutupnya
 di belakang; baris المصادر tanpa huruf Arab rata kiri dan dicetak sesudah rujukan Arab. Runner tanpa Word melaporkan lewati. Semua bahan tinggal di TEMP."""
-import importlib.util, re, subprocess, sys, tempfile
+import importlib.util, re, subprocess, sys, tempfile, zipfile
 from pathlib import Path
 
 from bantu import salin_mesin, tanpa_word
@@ -14,7 +16,7 @@ NASKAH = """@format: imam_ayat16
 @berkas: uji
 @minimal_halaman: 0
 #K المقدمة
-يستعمل نظام Banner في الجامعة منذ مدة، وهو نظام ISO 9001 معتمد في Islamic Banking (IB) المعاصرة[^انظر: Hoo & Ibrahim, Biometric-Based Attendance Tracking System, Vol. 3, No. 12, 2019, p. 45. <<luar>>].
+يستعمل نظام Banner في الجامعة منذ مدة، وهو نظام ISO 9001 معتمد في Islamic Banking (IB) المعاصرة، وفي al-Qāsimī’s “Smart” Method بيان[^انظر: al-Qāsimī’s ‘Treatise’; Hoo & Ibrahim, Biometric-Based Attendance Tracking System, Vol. 3, No. 12, 2019, p. 45. <<luar>>].
 #J البند | Item
 #J الحضور | Attendance rate
 #J الجدول | BIO_TEMPLATE
@@ -24,7 +26,9 @@ NASKAH = """@format: imam_ayat16
 Hoo, Seng Chun, Biometric-Based Attendance Tracking System for Education Sectors, 2019.
 المغني، عبد الله بن أحمد بن قدامة، دار عالم الكتب، الرياض، 1417هـ.
 (2019) Annual Report of Bank Indonesia, Jakarta, 2019.
+Coppens, Pieter. Jamāl al-Dīn al-Qāsimī’s Treatise on Wiping over Socks, 2022.
 """
+PETIK = "’‘“”"
 
 
 def utama():
@@ -46,17 +50,22 @@ def utama():
                            cwd=akar, capture_output=True, encoding="utf8", timeout=1800)
         assert r.returncode == 0 and (folder / "uji.pdf").is_file(), r.stdout + r.stderr
         # (huruf, ukuran) tiap potongan teks PDF sesudah sampul; potongan berhuruf Latin lawan potongan berhuruf Arab
-        latin, arab = {}, []
+        latin, arab, petik = {}, [], []
         with pymupdf.open(folder / "uji.pdf") as pdf:
             # baris teks per halaman: (y, x0, teks), untuk arah dan urutan rujukan
             baris_hal = [[(round(b["bbox"][1]), b["bbox"][0], "".join(s["text"] for s in b["spans"]))
                           for blk in h.get_text("dict")["blocks"] for b in blk.get("lines", [])] for h in pdf]
             lebar = pdf[0].rect.width
+            teks_hal = "\n".join(h.get_text() for h in pdf)
             # (garis dasar y, x, ukuran, teks) tiap potongan di halaman المصادر
             dasar = [(s["origin"][1], s["origin"][0], s["size"], s["text"])
                      for blk in next(h for h in pdf if "Hoo, Seng" in h.get_text()).get_text("dict")["blocks"]
                      for b in blk.get("lines", []) for s in b["spans"] if s["text"].strip()]
             for hal in list(pdf)[1:]:
+                # (halaman, tanda, huruf, lebar glyph per ukuran huruf) tiap apostrof/tanda petik tipografis
+                petik += [(hal.number + 1, c["c"], s["font"], (c["bbox"][2] - c["bbox"][0]) / s["size"])
+                          for blk in hal.get_text("rawdict")["blocks"] for b in blk.get("lines", []) for s in b["spans"]
+                          for c in s["chars"] if c["c"] in PETIK]
                 for blok in hal.get_text("dict")["blocks"]:
                     for baris in blok.get("lines", []):
                         for s in baris["spans"]:
@@ -92,6 +101,21 @@ def utama():
         # baris Latin yang diawali kurung dan angka: seluruhnya kiri-ke-kanan, angkanya 0-9
         tahun = " ".join(t for t in semua if "Annual Report" in t)
         assert "(2019) Annual Report" in tahun and "٢٠١٩" not in tahun, tahun
+        # apostrof/tanda petik Latin di matan, catatan kaki, dan المصادر: Times dan sempit (MS Mincho ±1 em) di PDF, dan di
+        # docx run-nya Times tanpa hint eastAsia (huruf East Asian run itu kosong, jadi Word memakai MS Mincho)
+        assert len(petik) >= 7 and all("Times" in f and lebar_em < 0.5 for _, _, f, lebar_em in petik), petik
+        # rujukan Latin (run kiri-ke-kanan) di catatan kaki dan المصادر: teksnya utuh tanpa spasi sesudah apostrof
+        assert teks_hal.count("al-Qāsimī’s") >= 2, [t for t in semua if "Qāsim" in t]
+        with zipfile.ZipFile(folder / "uji.docx") as z:
+            for bagian in ("word/document.xml", "word/footnotes.xml"):
+                xml = z.read(bagian).decode("utf8")
+                runs = [r for r in re.findall(r"<w:r[ >](?:(?!</w:r>).)*</w:r>", xml, re.S)
+                        if any(c in "".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", r)) for c in PETIK)]
+                assert runs, bagian
+                for r in runs:
+                    f = re.search(r"<w:rFonts [^>]*>", r)
+                    assert f and 'w:ascii="Times New Roman"' in f.group(), (bagian, r)
+                    assert 'w:hint="eastAsia"' not in f.group(), (bagian, r)
         print(f"lolos huruf Latin Word: matan {matan:.1f}, sel {tabel:.1f}, catatan kaki {catatan:.1f}, المصادر {pustaka:.1f}")
 
 

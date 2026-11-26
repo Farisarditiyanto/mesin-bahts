@@ -517,11 +517,21 @@ try {
     # Glyph Latin Traditional Arabic lebar dan, di ukuran yang sama, tampak jauh lebih besar daripada huruf Arabnya.
     # Huruf mengisi Name/Size dan NameBi/SizeBi sekaligus: di run kanan-ke-kiri (catatan kaki) huruf Latin memakai yang Bi
     $rasioLatin = $uLatin / $uMatan
+    # Apostrof/tanda petik tipografis (’ ‘ “ ”) yang diketik di teks berhuruf Arab, mis. sesudah «ī» di «al-Qāsimī’s», diberi
+    # Word hint eastAsia: run itu memakai huruf East Asian, yang di dokumen ini kosong, jadi tercetak MS Mincho selebar huruf
+    # CJK («al-Qāsimī’ s»). Mengganti Name/NameBi tidak membuang hint itu, dan NameFarEast menolak huruf non-East Asian
+    # (0x800A16D4). Tanda yang diketik ulang sesudah rentangnya ber-Times dinilai ulang Word tanpa hint
+    function PetikUlang($rg, $awal, $teks) {
+        foreach ($m in [regex]::Matches($teks, '[‘’“”]')) {   # bukan tanda aslinya: PowerShell membacanya tanda petik kode
+            $q = $rg.Duplicate; $q.SetRange($awal + $m.Index, $awal + $m.Index + 1); $q.Text = $m.Value
+        }
+    }
     function Latin($rg, $awal, $teks, $ukuran) {
         if (-not $teks -or $teks -notmatch $DATA.latin) { return }
         $u = [Math]::Ceiling($ukuran * $rasioLatin)       # matan 18 -> 12, catatan kaki 14 -> 10, sel tabel 16 -> 11
         foreach ($a in [regex]::Matches($teks, $DATA.latin)) {
             $l = $rg.Duplicate; $l.SetRange($awal + $a.Index, $awal + $a.Index + $a.Length); Huruf $l.Font 'Times New Roman' $u $null
+            PetikUlang $rg ($awal + $a.Index) $a.Value
         }
     }
     function Tulis($t, $font, $size, $bold, $sup, $warna = -16777216) {
@@ -1060,7 +1070,7 @@ try {
             # seluruh teksnya satu run kiri-ke-kanan Times (juga kurung, tanda petik, angka, dan titik di luar rentang Latin)
             # huruf untuk seluruh sel, juga tanda akhir selnya: tanda itu yang menentukan tinggi baris terakhir
             $uL = [Math]::Ceiling($U_PUSTAKA * $rasioLatin)
-            Huruf $rg.Font 'Times New Roman' $uL $null
+            Huruf $rg.Font 'Times New Roman' $uL $null; PetikUlang $rg $rg.Start $polos
             # jarak antarrujukan seperti baris Arab
             # nomor tetap sebesar nomor baris Arab; tinggi barisnya dibuat sama dengan baris teks Latin supaya sebaris
             $no = $tb.Cell($r, 1).Range; $no.ParagraphFormat.LineSpacingRule = 4; $no.ParagraphFormat.LineSpacing = [single]($uL * 1.15)   # 4 = tepat setinggi baris teks Latin
