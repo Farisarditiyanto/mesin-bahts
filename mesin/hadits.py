@@ -13,6 +13,7 @@ from cocok import kunci_frasa
 from dasar import perintah
 from norma import HARAKAT
 from kitab_lokal import kepala_hadits
+from layanan import MIRIP_MIN, SIRAP
 
 ALMINASA = "https://alminasa.ai/api/reactivesearchproxy/es-prod-euw1-hadith-12-read/_search"
 KOLOM = ["book_name", "number", "editions", "chapter", "sub_chapter", "matn", "rulings"]
@@ -46,30 +47,75 @@ def _nomor(s):
     return [int(n) for n in s.get("number") or [] if str(n).isdigit()]
 
 
+def _kata(teks):
+    """Kata-kata teks dalam bentuk `padat`: bahan pencocok matan layanan dengan hadits di kitab lokal."""
+    return [k for k in map(norma.padat, norma.norm(teks).split()) if k]
+
+
+def _hadits_lokal(sid):
+    """[(nomor, «juz/halaman» kepalanya, « kata kata … » teksnya (`_kata`))] tiap hadits kitab lokal sid. Teks satu hadits = dari kepalanya
+    sampai kepala pemisah berikutnya (batas `kepala_hadits`), juga lanjutannya di halaman/rekaman berikutnya. Kepala
+    bernomor ganda («134 - (2951)» di مسلم) = satu hadits untuk tiap nomornya."""
+    hadits, terbuka = [], []  # terbuka: nomor, letak, dan potongan teks hadits yang belum ditutup kepala berikutnya
+    for p in shamela.rekaman_di(sid, range(len(shamela.indeks(sid)))):
+        juz = shamela.nama_juz(p.get("part"))
+        for hal, b in norma.per_halaman(p):
+            teks, kepala, batas = kepala_hadits(b)
+            ruas = sorted({pos for pos, _ in batas}) + [len(teks)]
+            for _, _, potongan in terbuka:
+                potongan.append(teks[:ruas[0]])
+            for awal, ujung in zip(ruas, ruas[1:]):
+                hadits += [(n, letak, _ruas(potongan)) for n, letak, potongan in terbuka]
+                # nomor kepala di ruas ini selain kepala pemisah (nomor urut riwayat di مسلم) ikut kepala pemisahnya
+                terbuka = [(n, f"{juz}/{hal}", [teks[awal:ujung]]) for q, n in kepala if awal <= q < ujung]
+    hadits += [(n, letak, _ruas(potongan)) for n, letak, potongan in terbuka]
+    shamela.lepas()
+    return hadits
+
+
+def _ruas(potongan):
+    return " " + " ".join(_kata(" ".join(potongan))) + " "
+
+
+def _cocok(matan, ruas):
+    """Matan layanan terbaca di teks hadits itu (`_ruas`): sebagian besar deret SIRAP katanya (matan yang lebih pendek:
+    seluruhnya) ada di sana, dengan batas MIRIP_MIN pencocok edisi `takhrij`."""
+    kata = _kata(matan)
+    deret = [" " + " ".join(kata[i:i + SIRAP]) + " " for i in range(max(len(kata) - SIRAP + 1, 1))] if kata else []
+    return bool(deret) and sum(d in ruas for d in deret) / len(deret) >= MIRIP_MIN
+
+
 def _lokal(hits):
-    """(kitab lokal: {nama kitab layanan (`padat`): [sid]}, tempat: {(sid, nomor): «juz/halaman»}) untuk riwayat yang
-    kitabnya sudah di-`ambil`. Kitab lokal = judulnya tanpa keterangan edisi («سنن ابن ماجه - ت عبد الباقي» → «سنن ابن
-    ماجه») sama dengan nama kitab layanan; «صحيح سنن أبي داود» dan sejenisnya tidak. tempat = halaman cetak edisi lokal
-    tempat nomor itu berdiri sebagai kepala hadits («2192 - حدثنا»). Tiap kitab dibaca sekali, hanya kalau ada riwayatnya."""
+    """(kitab lokal: {nama kitab layanan (`padat`): [sid]}, hadits: {sid: `_hadits_lokal`}) untuk riwayat yang kitabnya
+    sudah di-`ambil`. Kitab lokal = judulnya tanpa keterangan edisi («سنن ابن ماجه - ت عبد الباقي» → «سنن ابن ماجه») sama
+    dengan nama kitab layanan; «صحيح سنن أبي داود» dan sejenisnya tidak. Tiap kitab dibaca sekali, hanya kalau ada riwayatnya."""
     judul = {}
     for sid in shamela.punya():
         judul.setdefault(norma.padat(shamela.info(sid)["title_ar"].split(" - ")[0]), []).append(sid)
-    perlu = {}  # sid -> nomor yang dicari
-    for h in hits:
-        for sid in judul.get(norma.padat(h["_source"]["book_name"]), ()):
-            perlu.setdefault(sid, set()).update(_nomor(h["_source"]))
-    tempat = {}
-    for sid, nomor in perlu.items():
-        for p in shamela.rekaman_di(sid, range(len(shamela.indeks(sid)))):
-            for hal, b in norma.per_halaman(p):
-                for n in {n for _, n in kepala_hadits(b)[1]} & nomor:
-                    tempat.setdefault((sid, n), f"{shamela.nama_juz(p.get('part'))}/{hal}")
-        shamela.lepas()
-    return judul, tempat
+    perlu = {sid for h in hits for sid in judul.get(norma.padat(h["_source"]["book_name"]), ())}
+    return judul, {sid: _hadits_lokal(sid) for sid in sorted(perlu)}
+
+
+def _letak_lokal(sid, hadits, n, matan):
+    """Baris «SUDAH DIUNDUH» riwayat bernomor layanan n di kitab lokal sid. Juz/halaman lokal hanya dicetak kalau matan
+    layanan terbaca di hadits itu: penomoran layanan (mis. المكنز) bisa beda dengan edisi lokal, jadi «606 -» di edisi lokal
+    bisa hadits lain. Kalau tidak cocok, matannya dicari di hadits lain kitab itu."""
+    cari = perintah(f'cari {sid} "<lafaz matan>"')
+    if not _kata(matan):
+        return f"{LOKAL} kitab {sid}, tetapi matan riwayat ini kosong di layanan, jadi «{n} -» tidak bisa dicocokkan: {cari}"
+    letak = next((letak for k, letak, ruas in hadits if k == n and _cocok(matan, ruas)), None)
+    if letak:
+        return f"{LOKAL} edisi lokal {sid}: {letak} (kepala hadits «{n} -»)"
+    beda = (f"«{n} -» di sana hadits lain (LAFAZ TIDAK COCOK: penomoran edisinya beda)" if any(k == n for k, _, _ in hadits)
+            else f"«{n} -» tidak ketemu sebagai kepala hadits di sana (penomoran edisinya bisa berbeda)")
+    lain = next(((k, letak) for k, letak, ruas in hadits if k != n and _cocok(matan, ruas)), None)
+    if lain:
+        return f"{LOKAL} edisi lokal {sid}: {lain[1]} (kepala hadits «{lain[0]} -», lafaz matannya cocok; {beda})"
+    return f"{LOKAL} kitab {sid}, tetapi {beda}, dan matannya tidak ketemu di kitab itu: {cari}"
 
 
 def _baris(hits):
-    baris, (judul, tempat) = [], _lokal(hits)
+    baris, (judul, lokal) = [], _lokal(hits)
     for h in hits:
         s = h["_source"]
         cetak = "؛ ".join(f"{e['volume']}/{e['page']} [{e.get('edition')}]" for e in s.get("editions") or [] if e.get("page"))
@@ -77,10 +123,7 @@ def _baris(hits):
         baris += [f"\n{s['book_name']}، رقم {nomor}، {cetak or 'juz/halaman tidak tercatat'}"]
         for n in _nomor(s):
             for sid in judul.get(norma.padat(s["book_name"]), ()):
-                letak = tempat.get((sid, n))
-                baris.append(f"{LOKAL} edisi lokal {sid}: {letak} (kepala hadits «{n} -»)" if letak else
-                             f"{LOKAL} kitab {sid}, tetapi «{n} -» tidak ketemu sebagai kepala hadits di sana "
-                             "(penomoran edisinya bisa berbeda): " + perintah(f'cari {sid} "<lafaz matan>"'))
+                baris.append(_letak_lokal(sid, lokal[sid], n, s.get("matn") or ""))
         baris += [f"    {s.get('chapter') or '-'}، {s.get('sub_chapter') or '-'}",
                   f"    المتن: {(s.get('matn') or '')[:MATAN_MAKS]}"]
         baris += [f"    حكم: {k.get('ruler')}: {k.get('ruling')} — {k.get('book_name')}، {k.get('volume')}/{k.get('page')}"
