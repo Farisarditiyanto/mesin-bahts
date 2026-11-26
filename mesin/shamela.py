@@ -1058,7 +1058,9 @@ def _scan_buku(sid, q, qb):
     padat_, kena = _baca_padat_kena(sid, q, qb, sumber)
     if kena is None:
         return sid, None, None, None, None
-    return sid, (folder(sid) / "pages.jsonl.gz").read_bytes(), _letak_lokal(sid, sumber), padat_, kena
+    with open(folder(sid) / "pages.jsonl.gz", "rb") as h:  # dipetakan: kata umum cocok di awal kitab, sisanya tidak dibaca
+        gz = mmap.mmap(h.fileno(), 0, access=mmap.ACCESS_READ)
+    return sid, gz, _letak_lokal(sid, sumber), padat_, kena
 
 
 def _hitung_buku_siap(sid, frasa, konteks, potongan, gz_bytes, letak_, padat_, kena):
