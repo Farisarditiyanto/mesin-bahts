@@ -138,7 +138,8 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       (teks Arab, angka) dicetak kanan-ke-kiri, yang memuatnya kiri-ke-kanan seluruhnya. Angka di rumus
                       selalu 0-9, dan bilangan yang ditulis rapat tetap utuh («2.5», «2,5», «1\\,250», «1/2», «1:2»):
                       pasangan, daftar, dan selang ditulis berspasi «(1, 2)», «[0, 1)». Dolar «\\$». Sintaks LaTeX yang rusak = GAGAL
-  #R teks             awal المصادر والمراجع; sesudahnya satu kitab per baris (diurutkan abjad otomatis, القرآن الكريم paling atas).
+  #R teks             awal المصادر والمراجع; sesudahnya satu kitab per baris (diurutkan abjad otomatis, القرآن الكريم paling atas, rujukan Arab sebelum rujukan berhuruf Latin;
+                      baris tanpa huruf Arab dicetak kiri-ke-kanan).
                       Wajib, kecuali «@tanpa: pustaka»; semua bagian isi harus sebelum #R (tidak boleh ada judul/#T/#H sesudahnya).
                       Kitab berbukti <<…>> di catatan kaki yang judulnya tidak ada di satu baris #R = perhatian (draf: `pustaka`)
   **...**             tebal
@@ -910,13 +911,21 @@ def kunci_urut(s, pengarang=False):
     return re.sub("[إأآ]", "ا", s)
 
 
+def pustaka_asing(s):
+    """Baris المصادر tanpa huruf Arab (rujukan asing): dicetak sesudah rujukan Arab, kiri-ke-kanan rata kiri.
+    Satu aturan untuk urutan dan arah cetak; baris bercampur («Ibn Taymiyyah, مجموع الفتاوى») tetap rujukan Arab."""
+    return not re.search("[؀-ۿ]", s)
+
+
 def _urutkan_fihris(ctx):
     """Urutan المصادر (القرآن الكريم paling atas), nama surat فهرس الآيات, urutan فهرس الأحاديث.
     Kembalikan baris pustaka القرآن الكريم."""
     pustaka, ayat_idx, hadits_idx = ctx.pustaka, ctx.ayat_idx, ctx.hadits_idx
     quran = [p for p in pustaka if adalah_mushaf(p)]  # tanpa nomor, paling atas
     pengarang = ctx.meta.get("pustaka_gaya") == "muallif"
-    pustaka = quran + sorted([p for p in pustaka if p not in quran], key=lambda p: kunci_urut(p, pengarang))
+    # rujukan Arab dulu, lalu rujukan asing (pustaka_asing), masing-masing urut abjad
+    pustaka = quran + sorted([p for p in pustaka if p not in quran],
+                             key=lambda p: (pustaka_asing(p), kunci_urut(p, pengarang)))
     for a in ayat_idx:
         a["surah"] = SURAH[a["s"] - 1]
     hadits_idx.sort(key=lambda h: kunci_urut(h["t"]))
@@ -1409,6 +1418,8 @@ def rencana_cetak(d):
     mulakhas = [(i, j) for i, b in enumerate(blok)
                 if b["k"] == "K" and MULAKHAS.match(j := norma.HARAKAT.sub("", b["judul"]))]
     return {"format": fmt, "kitab": kitab, "sampul": sampul,
+            # baris المصادر tanpa huruf Arab dicetak kiri-ke-kanan (rata kiri), nomornya tetap di kanan
+            "pustaka_ltr": [pustaka_asing(p) for p in d.get("pustaka", [])],
             "logo_berwarna": sampul == "qism" and not buang_sampul and meta.get("logo") == "berwarna",
             "judul_sampul": [sub.group(1).strip(), sub.group(2).strip()] if sub else [judul, ""],
             "buang_sampul": buang_sampul, "basmalah": meta.get("basmalah") == "ya" and not kitab and not buang_sampul,

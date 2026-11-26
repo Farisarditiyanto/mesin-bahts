@@ -27,6 +27,10 @@
     "quran": {
       "type": "remote",
       "url": "https://mcp.quran.ai"
+    },
+    "qaf": {
+      "type": "remote",
+      "url": "https://api.qaf.ai/mcp"
     }
   }
 }
