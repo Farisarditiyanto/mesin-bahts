@@ -645,7 +645,6 @@ try {
         $fn = $doc.Footnotes.Add($rg, $nomor, (' ' + $teks))
         $fr = $fn.Range                                  # mulai dari spasi di depan teks; tanda + spasi Word di depannya
         Huruf $fr.Font $TA $uCatatan 0; $fr.Font.Superscript = 0; $fr.Font.Color = -16777216
-        $fp = $fr.Paragraphs(1); $fp.ReadingOrder = 0; $fp.Alignment = 3
         $fr.Select(); $word.Selection.RtlRun()
         if ($c.al) {   # @angka_ayat: latin: angka di run kiri-ke-kanan dicetak Word 0-9 walau angka konteks
             foreach ($a in [regex]::Matches((TeksRuns $c.runs '__'), '[0-9]+(?:[-–][0-9]+)*')) {
@@ -655,7 +654,6 @@ try {
         Tautan $fn.Range ($fr.Start + 1) $teks
         LatinLtr $fn.Range ($fr.Start + 1) $teks
         Latin $fn.Range ($fr.Start + 1) $teks $uCatatan
-        $fr.ParagraphFormat.SpaceBefore = 0; $fr.ParagraphFormat.SpaceAfter = 0; $fr.ParagraphFormat.LineSpacingRule = 0
         $off = 1
         $fnOmml = New-Object System.Collections.ArrayList
         foreach ($r in $c.runs) {
