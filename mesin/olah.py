@@ -296,12 +296,17 @@ HURUF_TAUTAN = r"[^\s؀-ۿ«»()\[\]]"
 TAUTAN = re.compile(rf"(?:https?://|www\.|doi\.org/|(?<![\w.])10\.[0-9]{{4,}}/)(?:{HURUF_TAUTAN}|\({HURUF_TAUTAN}*\))+(?<![.,:])")
 # rentang berhuruf Latin di teks Arab (bahan "latin"): rakit.ps1 mencetaknya Times New Roman dengan ukuran sebanding.
 # Tautan/DOI utuh; selain itu mulai di huruf Latin (atau angka yang menempel di depannya: «3G») dan berakhir di huruf
-# Latin, angka, «%», atau kurung yang dibuka di dalam rentang itu («Islamic Banking (IB)»). Spasi dan tanda baca di
-# antaranya ikut; yang di ujungnya («(», «.», «،») milik kalimat Arabnya. Dipakai .NET juga: jangan pakai sintaks
-# khusus Python
+# Latin, angka, «%», atau kurung (biasa/siku) yang dibuka di dalam rentang itu («Islamic Banking (IB)»). Spasi dan tanda
+# baca di antaranya ikut; yang di ujungnya («(», «.», «،») milik kalimat Arabnya, kecuali tanda petik yang menempel di
+# hurufnya: pembuka di depan («“Essay») dan penutup/apostrof di belakang («Coppens’», «Essay”»). Tanda yang lepas dari
+# rentangnya ditata Word kanan-ke-kiri: di catatan kaki rentang Latin dipecah, potongannya tertukar («Société … al-…»),
+# dan tanda petik pindah ke sisi lain. Dipakai .NET juga: jangan pakai sintaks khusus Python
 _L = HURUF_LATIN + "ʾʿʼ"  # ʿayn dan hamzah transliterasi
-_TENGAH = r" ,.;:&'’‘“”\"/%–—_=?#~@+-"
-LATIN = re.compile(rf"{TAUTAN.pattern}|(?:(?<![0-9])[0-9]+(?=[{_L}]))?[{_L}](?:[{_TENGAH}]*(?:[{_L}0-9%]|\([{_L}0-9{_TENGAH}]*\)))*")
+_TENGAH = r" ,.;:&'’‘“”\"/%–—…!_=?#~@+-"
+# di ujung hanya petik tipografis: petik lurus «"»/«'» di tepi bisa milik kutipan Arab («قال: "IFRS 9 هو…"»)
+_PETIK_BUKA, _PETIK_TUTUP = "“‘", "”’"
+LATIN = re.compile(rf"{TAUTAN.pattern}|[{_PETIK_BUKA}]*(?:(?<![0-9])[0-9]+(?=[{_L}]))?[{_L}]"
+                   rf"(?:[{_TENGAH}]*(?:[{_L}0-9%]|\([{_L}0-9{_TENGAH}]*\)|\[[{_L}0-9{_TENGAH}]*\]))*[{_PETIK_TUTUP}]*")
 
 
 def galat_mesin(e):
