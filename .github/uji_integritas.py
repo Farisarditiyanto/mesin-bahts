@@ -5,7 +5,7 @@ Word/COM dan kegagalan filesystem disimulasikan; rakit Word sungguhan tetap diuj
 import gzip, hashlib, json, os, random, subprocess, sys, tempfile, zipfile
 from pathlib import Path
 from unittest.mock import patch
-from bantu import salin_mesin
+from bantu import SAMPUL_UJI, salin_mesin
 
 AKAR = Path(__file__).resolve().parent.parent
 sys.stdout.reconfigure(encoding="utf8")
@@ -18,7 +18,7 @@ def jalan(akar, *args):
 
 def naskah(f, judul="المطلوب", berkas="hasil"):
     f.mkdir(parents=True, exist_ok=True)
-    (f / "naskah.txt").write_text(f"@judul: {judul}\n@bentuk: kitab\n@tanpa: pustaka\n@berkas: {berkas}\n#K مقدمة\nهذا نص تجريبي.\n", encoding="utf8")
+    (f / "naskah.txt").write_text(f"@judul: {judul}\n{SAMPUL_UJI}@tanpa: pustaka\n@berkas: {berkas}\n#K مقدمة\nهذا نص تجريبي.\n", encoding="utf8")
 
 
 def sumber(f, baru=False):
@@ -363,8 +363,8 @@ def utama():
             w = PdfWriter(); w.add_blank_page(width=100, height=100)
             with pdf.open("wb") as h: w.write(h)
             awal = {p: p.read_bytes() for p in (tpl, pdf)}
-            for tambahan in ("@bentuk: bahts\n@templat: hasil.docx\n",
-                             "@bentuk: bahts\n@templat: HASIL.docx\n",
+            for tambahan in ("@templat: hasil.docx\n",
+                             "@templat: HASIL.docx\n",
                              "معنى من المصدر[^انظر: دراسة، ص1. <<luar|hasil.pdf|1>>].\n"):
                 naskah(f)
                 with (f / "naskah.txt").open("a", encoding="utf8") as h: h.write(tambahan)

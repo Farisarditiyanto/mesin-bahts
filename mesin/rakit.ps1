@@ -57,7 +57,6 @@ $TAHUN = if ($M.tahun) { [string]$M.tahun } else { Angka ([Globalization.UmAlQur
 $TAHUN_CETAK = if ($TAHUN -match '^\s*(\S+?)\s*[-–]\s*(\S+?)\s*$') { "$($Matches[1])هـ – $($Matches[2])م" } else { "$TAHUN هـ" }
 $JENIS_BAGIAN = @($RENCANA.bagian | ForEach-Object { $_.jenis })   # المصادر dan فهرس yang dicetak (olah.bagian_akhir)
 $adaAy = $JENIS_BAGIAN -contains 'ayat'; $adaHd = $JENIS_BAGIAN -contains 'hadits'; $adaTo = $JENIS_BAGIAN -contains 'maudhuat'
-$KITAB = [bool]$RENCANA.kitab            # @bentuk: kitab = tanpa sampul bahts, judul di kepala halaman
 $ABJAD = [bool]$RENCANA.abjad            # @nomor: halaman sebelum judul $RENCANA.nomor_satu bernomor huruf, mulai judul itu ١، ٢، ٣
 # tata letak yang bisa dicampur (olah.GAYA, @model): tiap bagian memilih bentuknya sendiri
 $KEPALA_KOTAK = $M.kepala -eq 'kotak'      # kepala halaman: judul kanan, nomor halaman berbingkai kiri, garis di bawahnya
@@ -99,7 +98,7 @@ try {
     # huruf profil yang tidak terpasang diganti Word diam-diam: berhenti di sini saja
     if (@($word.FontNames) -notcontains $TA) { throw "Huruf [$TA] belum terpasang di Windows. Jalankan: python mesin/bahts.py periksa" }
     if (@($word.FontNames) -notcontains $TJ) { Write-Output "PERINGATAN: huruf judul $TJ belum terpasang di Windows: judul dicetak $TA."; $TJ = $TA }
-    # ---------- 1. Sampul: berangkat dari template sampul (bentuk kitab: dokumen kosong) ----------
+    # ---------- 1. Sampul: berangkat dari template sampul ----------
     if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force }
     # Tampilan Draft selama menyusun: di Print Layout (bawaan kebanyakan pemakai) tiap Select menyusun ulang halaman sampai
     # titik itu (bahts 63 catatan kaki: rakit ±110 detik, Draft ±40). Sebelum .docx disimpan dan sebelum dokumen ditutup
@@ -170,8 +169,7 @@ try {
         $z = [IO.Compression.ZipFile]::OpenRead("$dir\sampul_jakarta.docx")
         try { $s = $z.GetEntry($LOGO).Open(); $ms = New-Object IO.MemoryStream; $s.CopyTo($ms); $s.Dispose(); return , $ms.ToArray() } finally { $z.Dispose() }
     }
-    if ($KITAB) { $doc = $word.Documents.Add(); $doc.SaveAs2($tmp, 16); Draft }
-    elseif ($RENCANA.sampul -in 'qism', 'jakarta') {
+    if ($RENCANA.sampul -in 'qism', 'jakarta') {
     # @sampul: qism = model قسم الشريعة (logo, judul dalam kurung, العام الجامعي): teks penanda diganti, bentuknya dari templat
     # jakarta = sama, dari sampul_jakarta.docx: «قسم الشريعة بجاكرتا», logo berwarna, baris @sifat, nomor tanpa «الرقم الجامعي:»
     $JAKARTA = $RENCANA.sampul -eq 'jakarta'
@@ -425,7 +423,7 @@ try {
         $sel.ParagraphFormat.SpaceBefore = 12
         Huruf $sel.Font $TA $uMatan 0; $sel.TypeText((Angka $RENCANA.ayat_pembuka.rujukan))
     }
-    if (-not $KITAB) { $sel.InsertBreak(2) }             # section break (halaman baru) sesudah sampul
+    $sel.InsertBreak(2)                                  # section break (halaman baru) sesudah sampul
     # potongan `rakit --fasl` selain yang pertama: sampul (bagian Word pertama, berikut pemisahnya) dibuang; tata halaman isi
     # disetel sesudah ini, jadi isinya sama dengan potongan bersampul
     if ($RENCANA.buang_sampul) { [void]$doc.Sections(1).Range.Delete(); [void]$sel.EndKey(6) }
@@ -500,20 +498,6 @@ try {
         }
         $TPL.Close(0); $TPL = $null; $doc.Activate(); $script:kepalaTpl = $hd
     }
-    # kepala halaman berjalan gaya cetakan kitab, bergaris bawah: halaman genap = judul kitab, halaman ganjil = judul bab
-    # (#K / فهرس; tiap judul itu mulai bagian Word baru, lihat Judul). Nomor halaman bersambung di kaki semua halaman
-    function KepalaHalaman($h, $teks) {
-        $r = $h.Range; $r.Text = $teks
-        Huruf $r.Font $TA $uCatatan 1
-        $r.ParagraphFormat.ReadingOrder = 0; $r.ParagraphFormat.Alignment = 1
-        $b = $r.Paragraphs(1).Borders.Item(-3); $b.LineStyle = 1; $b.LineWidth = 12
-    }
-    if ($KITAB) {
-        $doc.PageSetup.OddAndEvenPagesHeaderFooter = -1
-        KepalaHalaman $sec.Headers(1) $JUDUL; KepalaHalaman $sec.Headers(3) $JUDUL
-        $fg = $sec.Footers(3); KakiNomor $fg
-    }
-
     $st = $doc.Styles.Item(-30)                          # Footnote Text
     Huruf $st.Font $TA $uCatatan
     $st.ParagraphFormat.ReadingOrder = 0; $st.ParagraphFormat.Alignment = 3
@@ -564,7 +548,7 @@ try {
     # Halaman fisik sebuah posisi (seperti Information(3)) dari awal tiap halaman: GoTo sekali per halaman. Information per
     # catatan kaki menyusun halaman dari awal dokumen tiap dipanggil, makin belakang makin lambat (bahts 63 catatan kaki:
     # ±10 detik per putaran NomorCatatan; dengan GoTo ±0,2 detik). Untuk penanda فهرس (Hal) Information(1) tetap lebih
-    # cepat: bentuk kitab 187 halaman 7 detik, peta GoTo 9,5
+    # cepat: naskah 187 halaman 7 detik, peta GoTo 9,5
     function AwalHalaman { $n = $doc.ComputeStatistics(2); return , @(for ($k = 1; $k -le $n; $k++) { $doc.GoTo(1, 1, $k).Start }) }
     function HalamanDi($awal, $pos) {
         $lo = 0; $hi = $awal.Count - 1
@@ -723,7 +707,7 @@ try {
     function SalahNomor {
         $doc.Repaginate()
         # halaman hanya dibaca untuk nomor yang mulai ulang tiap halaman, dan hanya kalau ada catatan kaki: AwalHalaman
-        # membaca awal tiap halaman (bentuk kitab 187 halaman tanpa catatan kaki: ±6 detik untuk apa-apa)
+        # membaca awal tiap halaman (naskah 187 halaman tanpa catatan kaki: ±6 detik untuk apa-apa)
         $ulangHal = $ULANG -eq 2 -and $doc.Footnotes.Count -gt 0
         if ($ulangHal) { $awal = AwalHalaman }
         $salah = @(); $hal = -1; $n = 0; $i = 0
@@ -763,7 +747,7 @@ try {
     # itu naik ke baris sebelumnya; tidak berhasil sampai 0,3 = dibiarkan. Hanya paragraf rata kanan-kiri di luar tabel,
     # bukan sub-judul #S (tebal seluruhnya). Baris dihitung di Print Layout: di Draft barisnya bukan baris halaman cetak.
     # Sesudah NomorCatatan (nomor final menentukan lebar baris), lalu NomorCatatan lagi (halaman bisa bergeser).
-    # Qulub 27 halaman: runt 22 -> 8, rakit +±30 detik; bentuk kitab 162 halaman: 140 -> 50, +±2 menit
+    # Qulub 27 halaman: runt 22 -> 8, rakit +±30 detik; naskah 162 halaman: 140 -> 50, +±2 menit
     function BarisPendek {
         $doc.ActiveWindow.View.Type = 3; $doc.Repaginate()
         # runt = kata ketiga dari belakang (huruf saja, bukan angka catatan kaki/tanda baca) ada di baris lain daripada akhir paragraf
@@ -812,13 +796,6 @@ try {
     }
     # $kedua = baris kedua judul (@judul_fasl: dua_baris): paragraf sendiri, rata dan ukuran sama, menempel ke baris pertama
     function Judul($teks, $bm, $pb, $k = '', $kedua = '', $atas = 6) {
-        if ($pb -and $KITAB) {                           # bentuk kitab: judul halaman baru = bagian Word baru, judulnya jadi kepala halaman ganjil
-            $sel.InsertBreak(2)
-            $s = $doc.Sections($doc.Sections.Count)
-            $h = $s.Headers(1); $h.LinkToPrevious = $false; KepalaHalaman $h $teks
-            $s.Footers(1).PageNumbers.RestartNumberingAtSection = $false
-            $pb = $false
-        }
         Para $(if ($k -in $KANAN) { 3 } else { 1 }) $atas 0  # @judul_kanan: #B/#M rata kanan seperti #S; $atas = olah._jarak_sub
         $sel.ParagraphFormat.KeepWithNext = -1
         if ($pb) { $sel.ParagraphFormat.PageBreakBefore = -1; $sel.ParagraphFormat.SpaceBefore = 0 }
@@ -1409,7 +1386,6 @@ try {
         if ($HINDI -and $hf.PageNumbers.NumberStyle -ne 46) { Write-Output "PERINGATAN: Word tidak mau membuat nomor halaman kanan-ke-kiri: nomor halaman bisa tercetak 0123. Rakit lagi." }
     }
     NomorRtl $ft
-    if ($KITAB) { NomorRtl $fg }
     if ($ftIsi) { NomorRtl $ftIsi }
     # garis pemisah catatan kaki di kanan: ceritanya baru ada sesudah catatan kaki pertama; dokumen @templat berangkat dari
     # dokumen kosong yang gaya Normal-nya kiri-ke-kanan, jadi garisnya ikut ke kiri kalau tidak disetel di sini

@@ -65,13 +65,11 @@ def _baca_riset(folder):
                                                 if os.name == "nt" else "simpan ulang sebagai UTF-8") + ", lalu ulangi `cek`")
 
 
-def periksa_riset(folder, baris, perhatian, *, wajib=True):
-    """Nilai langkah riset dan penerimaan perhatian dari satu pembacaan riset.txt.
-    @bentuk: kitab tidak mewajibkan langkah riset, tetapi catatan penerimaan dan berkas rusak tetap dinilai."""
+def periksa_riset(folder, baris, perhatian):
+    """Nilai langkah riset, berkas rusak, dan penerimaan perhatian dari satu pembacaan riset.txt."""
     isi, rusak = _baca_riset(folder)
     riset = [rusak] if rusak else []
-    if wajib:
-        _periksa_langkah(isi, baris, riset)
+    _periksa_langkah(isi, baris, riset)
     return _terapkan_terima(isi, perhatian, riset, dict(baris))
 
 
