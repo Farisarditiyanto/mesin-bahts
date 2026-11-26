@@ -10,7 +10,7 @@ from xml.etree import ElementTree as ET
 
 from pypdf import PdfReader
 
-from bantu import salin_mesin, tanpa_word
+from bantu import SAMPUL_UJI, salin_mesin, tanpa_word
 
 
 def png(lebar, tinggi):
@@ -35,7 +35,7 @@ def utama():
         folder.mkdir()
         (folder / "lebar.png").write_bytes(png(3000, 600))   # lebih lebar dari halaman: harus dikecilkan
         (folder / "tinggi.png").write_bytes(png(300, 3000))  # lebih tinggi dari halaman: harus dikecilkan
-        teks = ("@bentuk: kitab\n@judul: اختبار\n@berkas: uji\n@angka: latin\n@malahiq: akhir\n"
+        teks = (SAMPUL_UJI + "@judul: اختبار\n@berkas: uji\n@angka: latin\n@malahiq: akhir\n"
                 "#K المقدمة\nAWALMARK فقرة أولى، والشكل الآتي:\n"
                 "#G lebar.png | GAMBARMARK الشكل الأول\n"
                 "فقرة بعد الشكل، والشكل الثاني:\n"
@@ -63,13 +63,19 @@ def utama():
         assert len(media) >= 2, f"gambar di DOCX: {media}"
         ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
               "wp": "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"}
-        bagian = xml.find(".//w:sectPr", ns)
+        # gambar naskah = sesudah bagian sampul (bagian Word pertama, berakhir di paragraf ber-sectPr; sampul qism bergambar
+        # logo dan kop); tata halamannya = sectPr pertama sesudah gambar naskah pertama
+        badan = list(xml.find("w:body", ns))
+        akhir_sampul = next(i for i, e in enumerate(badan) if e.find("w:pPr/w:sectPr", ns) is not None)
+        isi = [x for e in badan[akhir_sampul + 1:] for x in e.iter()]
+        pertama = next(i for i, e in enumerate(isi) if e.tag == f"{{{ns['wp']}}}inline")
+        bagian = next(e for e in isi[pertama:] if e.tag == f"{{{ns['w']}}}sectPr")
         ukuran, tepi = bagian.find("w:pgSz", ns), bagian.find("w:pgMar", ns)
         nilai = lambda elemen, kunci: int(elemen.get(f"{{{ns['w']}}}{kunci}"))
         # OOXML uses 635 EMU per twip; Word can round a drawing's dimensions by one twip.
         lebar = (nilai(ukuran, "w") - nilai(tepi, "left") - nilai(tepi, "right")) * 635
         tinggi = (nilai(ukuran, "h") - nilai(tepi, "top") - nilai(tepi, "bottom")) * 635
-        gambar = xml.findall(".//wp:inline/wp:extent", ns)
+        gambar = [x for e in isi if e.tag == f"{{{ns['wp']}}}inline" for x in e.findall("wp:extent", ns)]
         assert len(gambar) == 2, f"ukuran gambar di DOCX: {len(gambar)}"
         for g in gambar:
             cx, cy = int(g.get("cx")), int(g.get("cy"))

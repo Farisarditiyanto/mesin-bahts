@@ -9,7 +9,7 @@ from xml.etree import ElementTree as ET
 
 from pypdf import PdfReader
 
-from bantu import bahts, salin_mesin, tanpa_word
+from bantu import SAMPUL_UJI, bahts, salin_mesin, tanpa_word
 
 NS = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
 
@@ -24,7 +24,7 @@ def utama():
         salin_mesin(akar, ("_meta", "11223"))
         f = akar / "uji"
         f.mkdir()
-        teks = ("@judul: فحص الحواشي\n@bentuk: kitab\n@berkas: hasil\n"
+        teks = ("@judul: فحص الحواشي\n" + SAMPUL_UJI + "@berkas: hasil\n"
                 "@tanpa: pustaka, ayat, hadits, maudhuat\n@halaman_baru: B\n@rumuz: 11223=-\n"
                 "#K المقدمة\nهذا تمهيد للفحص.\n#F الفصل الأول\nهذا فصل سابق[^OLD-FIRST-NOTE].\n"
                 "{X}خلاصة الفصل الأول.\n"
@@ -56,7 +56,7 @@ def utama():
 def format_catatan(akar):
     f = akar / "format_fn"
     f.mkdir()
-    teks = ("@judul: فحص تنسيق الحواشي\n@bentuk: kitab\n@berkas: hasil\n@format: imam_ayat16\n"
+    teks = ("@judul: فحص تنسيق الحواشي\n" + SAMPUL_UJI + "@berkas: hasil\n@format: imam_ayat16\n"
             "@tanpa: pustaka, ayat, hadits, maudhuat\n"
             "#K المقدمة\n"
             "فقرة تمهيدية[^توضيح **توكيد** و((متن أحمر)) ونص عادي.].\n"
@@ -73,6 +73,7 @@ def format_catatan(akar):
     with zipfile.ZipFile(f / "hasil.docx") as z:
         doc_xml = ET.fromstring(z.read("word/document.xml"))
         fn_xml = ET.fromstring(z.read("word/footnotes.xml"))
+        gaya = ET.fromstring(z.read("word/styles.xml"))
     w = "{" + NS["w"] + "}"
     fns = {int(n.attrib[f"{w}id"]): n for n in fn_xml.findall("w:footnote", NS) if int(n.attrib.get(f"{w}id", "0")) > 0}
     fn1 = fns[min(fns)]
@@ -86,19 +87,32 @@ def format_catatan(akar):
     assert all((c := rpr.find("w:color", NS)) is not None and c.attrib.get(f"{w}val") == "B00000" for rpr in red_runs), runs
     assert plain_runs and all(rpr.find("w:b", NS) is None and rpr.find("w:bCs", NS) is None for rpr in plain_runs), runs
     assert all((c := rpr.find("w:color", NS)) is None or c.attrib.get(f"{w}val") != "B00000" for rpr in plain_runs), runs
-    tc_refs = [rpr.find("w:szCs", NS).attrib.get(f"{w}val")
-               for tc in doc_xml.findall(".//w:tc", NS)
-               for rn in tc.findall(".//w:r", NS)
-               if rn.find("w:footnoteReference", NS) is not None
-               and (rpr := rn.find("w:rPr", NS)) is not None and rpr.find("w:szCs", NS) is not None]
+    # ukuran tercetak rujukan: szCs run, gaya karakternya, gaya paragrafnya (bawaan: gaya paragraf default), lalu
+    # docDefaults. Word tidak menulis szCs run yang sama dengan gaya paragrafnya (Normal sampul qism = 16 pt)
+    def sz(rpr):
+        e = None if rpr is None else rpr.find("w:szCs", NS)
+        return None if e is None else e.get(f"{w}val")
+
+    def gaya_sz(jenis, sid):
+        s = next((s for s in gaya.findall("w:style", NS) if s.get(f"{w}type") == jenis
+                  and (s.get(f"{w}styleId") == sid if sid else s.get(f"{w}default") == "1")), None)
+        return s is not None and sz(s.find("w:rPr", NS)) or None
+
+    def ukuran(p, rn):
+        rpr, ppr = rn.find("w:rPr", NS), p.find("w:pPr", NS)
+        rs = None if rpr is None else rpr.find("w:rStyle", NS)
+        ps = None if ppr is None else ppr.find("w:pStyle", NS)
+        return (sz(rpr) or (rs is not None and gaya_sz("character", rs.get(f"{w}val")) or None)
+                or gaya_sz("paragraph", None if ps is None else ps.get(f"{w}val"))
+                or sz(gaya.find("w:docDefaults/w:rPrDefault/w:rPr", NS)))
+
+    tc_refs = [ukuran(p, rn) for tc in doc_xml.findall(".//w:tc", NS) for p in tc.findall(".//w:p", NS)
+               for rn in p.findall("w:r", NS) if rn.find("w:footnoteReference", NS) is not None]
     assert len(tc_refs) == 2 and tc_refs == ["32", "32"], f"ukuran rujukan catatan #J bukan 16 pt (32): {tc_refs}"
-    luar_refs = [rpr.find("w:szCs", NS).attrib.get(f"{w}val")
-                 for p in doc_xml.findall("./w:body/w:p", NS)
-                 for rn in p.findall(".//w:r", NS)
-                 if rn.find("w:footnoteReference", NS) is not None
-                 and (rpr := rn.find("w:rPr", NS)) is not None and rpr.find("w:szCs", NS) is not None]
+    luar_refs = [ukuran(p, rn) for p in doc_xml.findall("./w:body/w:p", NS)
+                 for rn in p.findall(".//w:r", NS) if rn.find("w:footnoteReference", NS) is not None]
     assert luar_refs == ["36"], f"ukuran rujukan catatan matan bukan 18 pt (36): {luar_refs}"
-    hal2 = PdfReader(f / "hasil.pdf").pages[1].extract_text() or ""
+    hal2 = PdfReader(f / "hasil.pdf").pages[2].extract_text() or ""  # halaman 1 = sampul, 2 = sebelum #H
     assert "حاشية" in hal2 and "الثانية" in hal2 and ("(١)" in hal2 or "(1)" in hal2), hal2
     print("lolos format catatan Word: **tebal**, ((merah)), dan ukuran rujukan #J (16 pt) tetap sesudah NomorCatatan", flush=True)
 

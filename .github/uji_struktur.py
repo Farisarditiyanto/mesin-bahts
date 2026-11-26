@@ -92,8 +92,9 @@ def utama():
         cek("@minimal_halaman kosong", dasar.replace("@minimal_halaman: 0", "@minimal_halaman:"), True, "@minimal_halaman: kosong")
         cek("@minimal_halaman bukan bilangan", dasar.replace("@minimal_halaman: 0", "@minimal_halaman: banyak"), True,
             "bukan bilangan bulat")
-        out = cek("@bentuk: kitab tidak dinilai halamannya", tanpa_batas.replace("@format:", "@bentuk: kitab\n@format:", 1))
-        assert "halaman, kurang dari" not in out, out
+        # naskah lama ber-@bentuk (mode kitab/muqarrar yang sudah dicabut) berhenti dengan jalan keluarnya
+        cek("@bentuk dicabut", "@bentuk: kitab\n" + dasar, True,
+            "@bentuk dicabut: mesin ini khusus bahts; naskah kitab/muqarrar dirakit dengan versi mesin b4dbc50 (atau rilis v14.0.0)")
         # @minimal_kitab: bawaan tidak dinilai (contoh asli di atas: tanpa «kurang dari»); hanya kalau dosen menulis batasnya
         dua = dasar.replace("@minimal_halaman: 0", "@minimal_halaman: 0\n@minimal_kitab: 2")
         cek("kitab kurang dari batas dosen", dua, pesan="baru 1 kitab (selain القرآن الكريم), kurang dari 2 («@minimal_kitab: 2»)")
@@ -200,7 +201,6 @@ def utama():
             assert ("cari belum tercatat" in out) == ada, out
         riset.write_bytes("tafsir 1:2".encode("utf-16"))
         cek("riset bukan UTF-8", dasar, pesan="riset.txt bukan UTF-8")
-        cek("riset kitab bukan UTF-8 tetap dilaporkan", "@bentuk: kitab\n" + dasar, pesan="riset.txt bukan UTF-8")
         riset.write_text("tafsir 1:" + "9" * 5000 + "\n", encoding="utf8")
         cek("riset angka melampaui batas konversi", dasar, pesan="surat/ayat itu tidak ada")
         riset.write_text("tafsir 1:2\ncari الربوبية\n", encoding="utf8")
@@ -235,14 +235,12 @@ def utama():
             out = cek("judul " + tamhid, dasar.replace("#K الخاتمة", f"#F الفصل الثاني\n#B {tamhid}\nهذا تمهيد الفصل، وفيه مبحثان.\n#K الخاتمة"))
             assert "langsung disusul judul" not in out, out
         # bagian kosong (judul tanpa paragraf isi sebelum judul setingkat/lebih tinggi; #H bukan isi) = satu perhatian per
-        # judul, menggantikan «tercetak sendirian»; judul yang membawahi judul lebih rendah bukan kosong; kitab tidak diperiksa
+        # judul, menggantikan «tercetak sendirian»; judul yang membawahi judul lebih rendah bukan kosong
         kosong = dasar.replace("#K المقدمة", "#K الإهداء\n#K المقدمة").replace(
             "#K الخاتمة", "#B المبحث الأول\n#S الأول\n#S الثاني\nنص.\n#M المطلب\n#H\n#B المبحث الثاني\nنص.\n#K الخاتمة")
         out = cek("bagian kosong", kosong)
         assert re.findall(r"bagian «(.+?)» masih kosong", out) == ["الإهداء", "الأول", "المطلب"], out
         assert "tercetak sendirian" not in out, out
-        out = cek("bagian kosong di kitab", "@bentuk: kitab\n" + kosong)
-        assert "masih kosong" not in out, out
         out = cek("riset {Q:} di bawah #R", dasar + "مرجع {Q:1:1}.\n")
         assert "tafsir belum tercatat di riset.txt untuk 1 ayat: 1:2 →" in out, out
         for tanda in ("#K", "#F", "#B", "#M", "#S", "#T", "#R", "#H"):

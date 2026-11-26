@@ -13,7 +13,7 @@ from xml.etree import ElementTree as ET
 
 from pypdf import PdfReader
 
-from bantu import salin_mesin, tanpa_word
+from bantu import SAMPUL_UJI, salin_mesin, tanpa_word
 
 
 def utama():
@@ -27,7 +27,7 @@ def utama():
         folder = akar / "uji"
         folder.mkdir()
         teks = (
-            "@bentuk: kitab\n@format: tatbiqi\n@judul: اختبار المعادلات المالية\n@berkas: uji\n"
+            SAMPUL_UJI + "@tanpa: pustaka\n@format: tatbiqi\n@judul: اختبار المعادلات المالية\n@berkas: uji\n"
             "#K المقدمة\n"
             "تُحسب نسبة العائد على حقوق الملكية بالصيغة {E:ROE = \\frac{\\text{صافي الربح}}{\\text{حقوق الملكية}}} "
             "بمستوى دلالة {E:\\alpha = 0.05}[^حيث {E:p < 0.05} والمجال {E:\\left[0, 1\\right)} دليل على المعنوية الإحصائية.].\n"
@@ -76,10 +76,11 @@ def utama():
 
         pdf_reader = PdfReader(folder / "uji.pdf")
         halaman = len(pdf_reader.pages)
-        assert halaman >= 2, halaman
-        # Pastikan #H sebelum #E \tag{2} benar-benar memindah persamaan (٢) ke halaman sesudah halaman pertama
-        hal1_teks = unicodedata.normalize("NFKC", pdf_reader.pages[0].extract_text() or "")
-        hal2_teks = unicodedata.normalize("NFKC", pdf_reader.pages[1].extract_text() or "")
+        assert halaman >= 3, halaman
+        # Pastikan #H sebelum #E \tag{2} benar-benar memindah persamaan (٢) ke halaman sesudah halaman isi pertama
+        # (halaman PDF 1 = sampul)
+        hal1_teks = unicodedata.normalize("NFKC", pdf_reader.pages[1].extract_text() or "")
+        hal2_teks = unicodedata.normalize("NFKC", pdf_reader.pages[2].extract_text() or "")
         assert "NPV" in hal1_teks and "NPV" not in hal2_teks, (hal1_teks, hal2_teks)
         assert "(٢)" not in hal1_teks and "(٢)" in hal2_teks and "Yi" in hal2_teks, (hal1_teks, hal2_teks)
         # Rumus pecahan Arab panjang pada @format: imam_ayat16 (matan 18 pt) tidak boleh terlipat lalu dibalik
@@ -88,7 +89,7 @@ def utama():
         arab_p = akar / "arab"
         arab_p.mkdir()
         (arab_p / "naskah.txt").write_text(
-            "@bentuk: kitab\n@format: imam_ayat16\n@judul: اختبار\n@berkas: arab\n#K المقدمة\n"
+            SAMPUL_UJI + "@tanpa: pustaka\n@format: imam_ayat16\n@judul: اختبار\n@berkas: arab\n#K المقدمة\n"
             "وتُصاغ المعادلة العربية كما يأتي:\n"
             "#E \\text{وعاء السهم الزكوي} = \\frac{\\text{الأصول المتداولة الزكوية} - \\text{الالتزامات المتداولة الحالة}}{\\text{إجمالي الأسهم المصدرة}} \\tag{1}\n"
             "#E \\text{الوعاء الزكوي للسهم} = \\frac{\\text{النقدية} + \\text{المدينون} + \\text{المخزون السلعي} + \\text{الاستثمارات المتداولة} - \\text{الالتزامات الحالية}}{\\text{عدد الأسهم المصدرة}} \\tag{2}\n"
@@ -117,7 +118,7 @@ def utama():
         ujung = akar / "ujung"
         ujung.mkdir()
         (ujung / "naskah.txt").write_text(
-            "@bentuk: kitab\n@format: tatbiqi\n@judul: اختبار\n@berkas: ujung\n#K المقدمة\n"
+            SAMPUL_UJI + "@tanpa: pustaka\n@format: tatbiqi\n@judul: اختبار\n@berkas: ujung\n#K المقدمة\n"
             "نص فيه حاشية[^النسبة {E:\\frac{\\text{صافي الربح}}{\\text{المبيعات}}} هنا.] وينتهي بتمهيد منفصل عن محتواه كما يأتي:\n"
             "#H\nالمحتوى في الصفحة التالية.\n#K الخاتمة\nأهم النتائج: نجح.\n", encoding="utf8")
         ru = subprocess.run(

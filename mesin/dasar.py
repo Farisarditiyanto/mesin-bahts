@@ -146,14 +146,6 @@ def ekor(isi, *, rapat=False, lebar=45, apa="fn"):
     return f"{' ' if rapat else '  '}|| {apa}: {isi[:lebar]}"
 
 
-KITAB = "kitab"  # @bentuk selain bahts: mis. muqarrar gabungan dua syarah
-
-
-def bentuk_kitab(meta):
-    """Naskah ber-«@bentuk: kitab» (meta = @data naskah atau "meta" bahan rakit), bukan bahts."""
-    return meta.get("bentuk") == KITAB
-
-
 def judul_baris(baris, tanda):
     """Baris naskah mentah itu judul bertanda salah satu `tanda` («#F الفصل…» untuk "F")."""
     return bool(re.match(rf"#[{''.join(tanda)}]\s", baris))

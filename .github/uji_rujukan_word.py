@@ -10,7 +10,7 @@ from xml.etree import ElementTree as ET
 
 from pypdf import PdfReader
 
-from bantu import salin_mesin, tanpa_word
+from bantu import SAMPUL_UJI, salin_mesin, tanpa_word
 
 NS = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
 
@@ -29,7 +29,7 @@ def utama():
         # sesudah diisi satu angka, target maju halaman. Nomor yang diisi sekali akan diam-diam menjadi salah.
         kunci = "target" * 35
         for mode in ("bersambung", "ulang"):
-            teks = ("@bentuk: kitab\n@judul: اختبار\n@berkas: uji\n@angka: latin\n"
+            teks = (SAMPUL_UJI + "@judul: اختبار\n@tanpa: pustaka\n@berkas: uji\n@angka: latin\n"
                     f"@catatan_kaki: {mode}\n@format: tatbiqi\n#K اختبار\n{{A:awal}}STARTMARK\n")
             for i in range(18):
                 teks += ("هذا اختبار لترتيب الصفحات والتأكد من صحة الإحالة إلى موضع لاحق من الكتاب. " * 3
@@ -42,7 +42,7 @@ def utama():
             assert r.returncode == 0, r.stdout + r.stderr
             halaman = {}
             pdf = PdfReader(folder / "uji.pdf")
-            for n, p in enumerate(pdf.pages, 1):
+            for n, p in enumerate(pdf.pages[1:], 1):  # nomor tercetak: halaman 1 = sampul, ١ mulai sesudahnya
                 for tanda in ("STARTMARK", "TARGETMARK"):
                     if tanda in p.extract_text():
                         halaman[tanda] = n

@@ -246,7 +246,7 @@ def utama():
         )
         jalankan("sub-bagian tunggal #M", tunggal_m, gagal=False, pesan="sub-bagian tunggal «المطلب الأول»")
 
-        # Dua sub-bagian, تمهيد, dan @bentuk: kitab -> tidak kena perhatian sub-bagian tunggal
+        # Dua sub-bagian dan تمهيد -> tidak kena perhatian sub-bagian tunggal
         berpasangan = dasar.replace(
             "#K الخاتمة",
             "#F الفصل الأول\nتمهيد.\n#B المبحث الأول\nنص.\n#B المبحث الثاني\nنص.\n#K الخاتمة",
@@ -264,7 +264,6 @@ def utama():
             "#F الفصل الأول\nنص.\n#B تمهيد\nنص.\n#B المبحث الأول: مدخلات النظام\nنص.\n#K الخاتمة",
         )
         jalankan("تمهيد + satu مبحث", tamhid_satu, pesan="sub-bagian tunggal «المبحث الأول: مدخلات النظام»")
-        assert "sub-bagian tunggal" not in jalankan("sub-bagian tunggal di kitab", "@bentuk: kitab\n" + tunggal_b)
 
     print("lolos uji rumus (fuzz 300x + CLI + sub-bagian tunggal)")
 
