@@ -6,6 +6,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Dihapus: tanda naskah muqarrar/syarah `#T` (kotak matn), `((…))` (lafaz matn merah), `@rumuz` (rumuz sumber dan catatan kaki bukti saja yang tidak dicetak), dan `@warna`. Naskah yang masih memakainya kini GAGAL di `cek` dengan jalan keluarnya (versi mesin b4dbc50 atau rilis v14.0.0); `))` tanpa `((` kini kurung biasa.
 - Perbaikan: apostrof dan tanda petik tipografis di teks Latin («al-Qāsimī’s», “…”) tercetak Times New Roman di matan, catatan kaki, dan المصادر, jadi tidak lagi tampak bercelah («al-Qāsimī’ s»).
 - Perbaikan: `hadits` hanya mencetak juz/halaman edisi lokal kalau matan riwayatnya terbaca di hadits bernomor itu. Nomor layanan yang di edisi lokal menunjuk hadits lain ditandai «LAFAZ TIDAK COCOK», dan halaman hadits yang lafaznya cocok di kitab itu ditunjukkan.
 - Dihapus: `@bentuk: kitab` (naskah kitab/muqarrar tanpa sampul bahts). Naskah yang masih menulis `@bentuk` kini GAGAL di `cek`; naskah kitab/muqarrar lama dirakit dengan versi mesin b4dbc50 (atau rilis v14.0.0).

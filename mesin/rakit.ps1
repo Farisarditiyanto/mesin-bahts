@@ -73,7 +73,6 @@ $JARAK_J = [single]$FMT.jarak_judul      # pt sesudah judul #K/#F (baris keduany
 $U_PUSTAKA = [single]$FMT.ukuran_pustaka   # ukuran huruf المصادر
 $FIHRIS_SAMBUNG = $M.fihris -eq 'sambung'  # فهرس sesudah yang pertama menyambung di halaman yang sama
 $TEPI_KANAN = [single]$FMT.tepi_kanan   # cm
-$MERAH = 176; $COKLAT = 2772843           # warna Word (BGR): lafaz matn RGB(176,0,0); rumuz RGB(107,79,42)
 
 # satu rakit dalam satu waktu: rakit kedua berhenti di sini, sebelum mematikan Word milik rakit pertama (kunci lepas sendiri saat proses ini selesai).
 # rakit.py menunggu kunci ini lepas sebelum rakit berikutnya (rakit.ps1 yang Python-nya dimatikan masih memegangnya).
@@ -663,10 +662,9 @@ try {
             $len = 0
             if ($null -ne $r.t) { $len = $r.t.Length } elseif ($r.pg) { $len = $PENANDA_HALAMAN.Length } elseif ($r.omml) { $len = 1; [void]$fnOmml.Add(@{ pos = ($fr.Start + $off); omml = $r.omml }) }
             if ($r.q) { $q = $fn.Range; $q.SetRange($fr.Start + $off, $fr.Start + $off + $len); Huruf $q.Font $QF }
-            elseif ($len -and ($r.b -or $r.m)) {
+            elseif ($len -and $r.b) {
                 $q = $fn.Range; $q.SetRange($fr.Start + $off, $fr.Start + $off + $len)
                 Huruf $q.Font $null $null 1
-                if ($r.m) { $q.Font.Color = $MERAH }
             }
             if ($r.pg) {
                 $q = $fn.Range.Duplicate; $q.SetRange($fr.Start + $off, $fr.Start + $off + $len)
@@ -776,20 +774,15 @@ try {
         }
         if ($draft) { $doc.ActiveWindow.View.Type = 1 }
     }
-    function Runs($runs, $size, $paksaTebal, $paksaMerah) {
+    function Runs($runs, $size, $paksaTebal) {
         foreach ($r in $runs) {
             if ($null -ne $r.fn) { Catatan $r.fn $size }
-            elseif ($r.z) {                               # rumuz sumber: huruf kecil cokelat terangkat tanpa kurung, menempel sebelum nomor catatan kaki
-                $awal = $sel.Start; Tulis (' ' + $r.z) $TA $size 1 1 $COKLAT
-                $doc.Range($awal, $sel.Start).Select(); $word.Selection.RtlRun(); $sel.Collapse(0)
-            }
             elseif ($r.bm) { [void]$doc.Bookmarks.Add($r.bm, $sel.Range) }
             elseif ($r.omml) { TulisOmml $r.omml $true }
-            elseif ($r.q) { $u = $size; if ($size -eq $uMatan) { $u = $uAyat }; $w = -16777216; if ($r.w) { $w = $r.w }; Tulis $r.t $QF $u 0 0 $w }
+            elseif ($r.q) { $u = $size; if ($size -eq $uMatan) { $u = $uAyat }; Tulis $r.t $QF $u 0 0 }
             elseif ($null -ne $r.t) {
-                $tb = 0; if ($r.b -or $r.m -or $paksaTebal) { $tb = 1 }   # lafaz matn di syarah: tebal + merah (cetakan Saudi: tebal dalam kurung)
-                $w = -16777216; if ($r.m -or $paksaMerah) { $w = $MERAH } elseif ($r.w) { $w = $r.w }   # w = @warna sumber paragraf
-                $awal = $sel.Start; Tulis $r.t $TA $size $tb 0 $w
+                $tb = 0; if ($r.b -or $paksaTebal) { $tb = 1 }
+                $awal = $sel.Start; Tulis $r.t $TA $size $tb 0
                 if ($r.t -match $DATA.tautan) { $akhir = $sel.Start; Tautan $doc.Content $awal $r.t; $doc.Range($akhir, $akhir).Select() }
             }
         }
@@ -812,8 +805,6 @@ try {
     }
 
     $toc = New-Object System.Collections.ArrayList
-    $nKotak = 0
-    $garis = New-Object System.Collections.ArrayList   # paragraf @warna: garis tegak di sisi awal (tetap terlihat di fotokopi hitam putih)
     $diMulakhas = $false; $nT = 0; $iR = -1; $berjarakL = $false; $bmMuqaddimah = $null
     function HalamanBaru($pb) { if ($pb) { $sel.ParagraphFormat.PageBreakBefore = -1; $sel.ParagraphFormat.SpaceBefore = 0 } }
     # paragraf pengantar = berakhir «:» (spasi dan nomor catatan kaki di ujung tidak dihitung, mis. «…وفيها قولان:»), atau
@@ -862,14 +853,6 @@ try {
             $lvl = @{ K = 0; F = 0; B = 1; M = 2 }[$blk.k]
             [void]$toc.Add(@{ t = $blk.judul; bm = $bm; lvl = $lvl })
         }
-        elseif ($blk.k -eq 'T') {                         # kotak matn: bingkai merah tipis, teks merah, rata kanan-kiri
-            Para 3 6 0
-            HalamanBaru $pb
-            $awal = $sel.Start
-            Runs $blk.runs $uMatan $false $true
-            $nKotak++; [void]$doc.Bookmarks.Add("kotak_$nKotak", $doc.Range($awal, $sel.Start))   # bingkainya dipasang sesudah isi selesai
-            $sel.TypeParagraph()
-        }
         elseif ($blk.k -eq 'J') {                         # tabel: baris #J berturut-turut; baris pertama = kepala
             $baris = @($blk)
             while ($i + 1 -lt $DATA.blok.Count -and $DATA.blok[$i + 1].k -eq 'J') { $i++; $baris += $DATA.blok[$i] }
@@ -900,7 +883,7 @@ try {
                     # kanan = awal baris = 0; nilai 2 disimpan jc="right" = ujung akhir = rata KIRI di halaman.
                     $x.ParagraphFormat.Alignment = $(if ($r -eq 0) { 1 } else { 0 })
                     $x.Collapse(1); $x.Select()
-                    Runs $isi[$c] $uTabel ($r -eq 0) $false
+                    Runs $isi[$c] $uTabel ($r -eq 0)
                 }
             }
             $doc.Range($tbl.Range.End, $tbl.Range.End).Select()
@@ -922,7 +905,7 @@ try {
             $sel.TypeParagraph()
             if (@($blk.runs).Count) {
                 Para 1 0 0
-                Runs $blk.runs $uCatatan $true $false
+                Runs $blk.runs $uCatatan $true
                 $sel.ParagraphFormat.SpaceAfter = 6
                 $sel.TypeParagraph()
             }
@@ -972,7 +955,7 @@ try {
         elseif ($blk.k -eq 'V') {                         # bait syair: di tengah, tanpa awal alinea
             Para 1 2 0
             HalamanBaru $pb
-            Runs $blk.runs $uMatan $false $false
+            Runs $blk.runs $uMatan $false
             # bait terakhir dari deretan bait menempel ke paragraf sesudahnya (syarahnya): bait di baris akhir halaman
             # dengan syarah di halaman berikutnya pindah bersama pengantarnya (yang berakhir «:» sudah menempel).
             # Bait yang disusul bait lagi, atau pengantar bait lain («…:» atau label tebal seperti «الشرح»), tidak
@@ -1009,20 +992,13 @@ try {
         elseif ($null -ne $RENCANA.ihda."$i") {           # @ihda: tengah = paragraf الإهداء rata tengah, tebal, berjarak, tanpa menjorok
             Para 1 $RENCANA.ihda."$i" 0
             HalamanBaru $pb
-            Runs $blk.runs $uMatan $true $false
+            Runs $blk.runs $uMatan $true
             $sel.TypeParagraph()
         }
         else {
             if ($diMulakhas) { Para 3 $(if ($DATA.blok[$i - 1].k -eq 'K') { 0 } else { 6 }) 0 } else { Para 3 $(if ($i -gt 0 -and $DATA.blok[$i - 1].k -eq 'J') { 6 } else { 0 }) ($word.CentimetersToPoints(0.8)); $sel.ParagraphFormat.SpaceAfter = $JARAK_P }   # sesudah tabel: berjarak
             HalamanBaru $pb
-            $awal = $sel.Start
-            Runs $blk.runs $uMatan $false $false
-            $teks = @($blk.runs | Where-Object { $_.t -and $_.t.Trim() })
-            $biasa = @($teks | Where-Object { -not $_.m })    # lafaz matn ((…)) tetap merah: tidak dihitung
-            $w = @($biasa | Where-Object { $_.w } | ForEach-Object { $_.w } | Select-Object -Unique)
-            if ($biasa.Count -and $w.Count -eq 1 -and @($biasa | Where-Object { -not $_.w }).Count -eq 0) {
-                [void]$doc.Bookmarks.Add("garis_$($garis.Count + 1)", $doc.Range($awal, $sel.Start)); [void]$garis.Add($w[0])
-            }
+            Runs $blk.runs $uMatan $false
             if ((Pengantar $blk) -and (Menempel $i)) { $sel.ParagraphFormat.KeepWithNext = -1 }
             if ($i -in @($RENCANA.mufradat)) { $sel.ParagraphFormat.KeepWithNext = -1 }   # baris مفردات (olah.baris_mufradat)
             $sel.TypeParagraph()
@@ -1268,18 +1244,6 @@ try {
     foreach ($sc in $doc.Sections) { $sc.Range.FootnoteOptions.NumberingRule = $ULANG; $sc.Range.FootnoteOptions.StartingNumber = 1 }
     $doc.Range().FootnoteOptions.NumberingRule = $ULANG
 
-    # bingkai kotak matn (#T): dipasang di akhir; dipasang saat menulis, Enter sesudahnya menyeret bingkai ke paragraf baru
-    for ($k = 1; $k -le $nKotak; $k++) {
-        $pf = $doc.Bookmarks.Item("kotak_$k").Range.ParagraphFormat
-        foreach ($sisi in -1, -2, -3, -4) { $b = $pf.Borders.Item($sisi); $b.LineStyle = 1; $b.LineWidth = 4; $b.Color = $MERAH }
-        $pf.Borders.DistanceFromLeft = 4; $pf.Borders.DistanceFromRight = 4; $pf.Borders.DistanceFromTop = 2; $pf.Borders.DistanceFromBottom = 2
-        $pf.SpaceAfter = 6
-    }
-    for ($k = 1; $k -le $garis.Count; $k++) {
-        $pf = $doc.Bookmarks.Item("garis_$k").Range.ParagraphFormat
-        $b = $pf.Borders.Item(-4); $b.LineStyle = 1; $b.LineWidth = 12; $b.Color = $garis[$k - 1]
-        $pf.Borders.DistanceFromRight = 4
-    }
     NomorCatatan
     BarisPendek
     NomorCatatan
@@ -1396,7 +1360,7 @@ try {
     # Word sesudah tabel terakhir (فهرس). Isi yang pas memenuhi halaman mendorongnya ke halaman baru: PDF berakhir dengan
     # halaman kosong yang hanya bernomor. Sesudah paragraf biasa (bahts tanpa المصادر dan فهرس), tanda paragraf
     # sebelumnya dihapus: paragraf kosong itu hilang, dan paragraf terakhir tetap memakai formatnya sendiri (diuji di
-    # Word: perataan, bingkai #T, ukuran, bookmark). Mengecilkannya sampai 1 pt tidak cukup kalau baris terakhir tepat di
+    # Word: perataan, ukuran, bookmark). Mengecilkannya sampai 1 pt tidak cukup kalau baris terakhir tepat di
     # tepi bawah (naskah 50 baris pendek). Sesudah tabel paragraf itu tidak bisa dibuang: dikecilkan sampai setinggi 1 pt
     $ekor = $doc.Paragraphs.Last
     $tanda = if ($ekor.Range.Start -gt 0) { $doc.Range($ekor.Range.Start - 1, $ekor.Range.Start) }
