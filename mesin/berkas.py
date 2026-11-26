@@ -1,28 +1,33 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Penulisan berkas utuh dan nilai turunan isi berkas yang diingat; tanpa layanan luar."""
-import json, os, tempfile
+import functools, json, os, tempfile
 from contextlib import contextmanager
 from pathlib import Path
 
-if os.name == "nt":
+
+@functools.cache
+def _win32():
+    """(ctypes, msvcrt, FILE_BASIC_INFO, GetFileInformationByHandleEx), dimuat saat dipakai (ctypes ±6 ms impor)."""
     import ctypes, msvcrt
     from ctypes import wintypes
 
-    class _InfoDasar(ctypes.Structure):  # FILE_BASIC_INFO
+    class InfoDasar(ctypes.Structure):  # FILE_BASIC_INFO
         _fields_ = [("buat", ctypes.c_int64), ("akses", ctypes.c_int64), ("tulis", ctypes.c_int64),
                     ("ubah", ctypes.c_int64), ("atribut", wintypes.DWORD)]
 
-    _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    _kernel32.GetFileInformationByHandleEx.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
+    baca = ctypes.WinDLL("kernel32", use_last_error=True).GetFileInformationByHandleEx
+    baca.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
+    return ctypes, msvcrt, InfoDasar, baca
 
-    def _waktu_ubah(fd):
-        info = _InfoDasar()
-        if not _kernel32.GetFileInformationByHandleEx(msvcrt.get_osfhandle(fd), 0, ctypes.byref(info), ctypes.sizeof(info)):
-            raise ctypes.WinError(ctypes.get_last_error())
-        return info.ubah
-else:
-    def _waktu_ubah(fd):
+
+def _waktu_ubah(fd):
+    if os.name != "nt":
         return os.fstat(fd).st_ctime_ns
+    ctypes, msvcrt, InfoDasar, baca = _win32()
+    info = InfoDasar()
+    if not baca(msvcrt.get_osfhandle(fd), 0, ctypes.byref(info), ctypes.sizeof(info)):
+        raise ctypes.WinError(ctypes.get_last_error())
+    return info.ubah
 
 
 def cap(f, fd=None):
