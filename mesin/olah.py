@@ -16,7 +16,7 @@ from cek_rujukan import kitab_tanpa_pustaka, rujukan_halaman
 from cek_sumber import standar_baris
 from cek_tautsiq import gelar
 from dasar import (AD, ANGKA_LATIN, BUKAN_RUJUKAN, HERE, HORMAT_CETAK, HURUF_LATIN, JUDUL_BAB, JUDUL_FIHRIS, JUDUL_ISI, LUAR,
-                   SUBJUDUL, SURAH, TINGKAT_JUDUL, TandaRusak, akhir_catatan, akhir_rumus, daftar, perintah, profil_format)
+                   SUBJUDUL, SURAH, TINGKAT_JUDUL, DICABUT, TandaRusak, akhir_catatan, akhir_rumus, daftar, perintah, profil_format)
 from laporan import gabung_kembar
 from naskah import FIHRIS_NAMA, Pemeriksaan, urai
 
@@ -100,10 +100,6 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       @judul_kanan: B, M, @catatan_kaki: bersambung, @fihris: sambung, @rujukan_ayat: matan; kunci yang ditulis sendiri tetap menang,
                       mis. «@model: jakarta» + «@sampul: qism»). @sampul: jakarta = model qism dengan «قسم الشريعة بجاكرتا»,
                       logo berwarna, baris @sifat, dan nomor mahasiswa tanpa «الرقم الجامعي:»
-  @rumuz: sid=ض، sid=ف  rumuz sumber: catatan kaki yang buktinya dari kitab sid itu dicetak dengan rumuznya ض (huruf kecil terangkat) tepat sebelum
-                      nomor catatan kakinya. Rumuz diambil dari bukti, jadi tidak bisa berbeda dengan sumbernya
-  @warna: sid=biru    paragraf yang buktinya [^<<sid|..>>] saja (sid juga di @rumuz) dicetak dengan warna itu + garis tegak di sisi kanan, mis. ziyadah
-                      syarah kedua di dalam syarah pertama; lafaz matn ((…)) tetap merah. Warna yang ada: biru
   #K #F #B #M teks    judul tengah + masuk فهرس الموضوعات: K = مقدمة/خاتمة, F = فصل (keduanya mulai halaman baru), B = مبحث, M = مطلب.
                       Bahts pendek tanpa فصل: #F untuk مبحث, #B untuk مطلب. B/M halaman baru juga: @halaman_baru
   #S teks             sub-judul kanan (tidak masuk فهرس)
@@ -119,7 +115,6 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       sesudahnya diberi jarak antar paragraf (6 pt) sampai blok bukan #L. Judul itu mulai halaman baru
                       kalau sebelumnya ada isi (mis. الملخص Arab), jadi الملخص dan Abstract tidak sehalaman;
                       langsung di bawah judul #K/#F/#B/#M tetap sehalaman dengan judulnya
-  #T teks             kotak matn: paragraf dalam bingkai, seluruhnya merah (boleh memuat catatan kaki)
   #J sel | sel | sel  satu baris tabel (mis. جدول المقارنة); sel dipisah « | ». Baris #J berturut-turut = satu tabel bergaris
                       selebar halaman; baris pertamanya = kepala (tebal, berlatar abu-abu, diulang di halaman berikutnya).
                       Tiap baris tabel itu harus sama jumlah selnya. Sel boleh memuat catatan kaki dan kutipan berbukti
@@ -136,10 +131,9 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       pasangan, daftar, dan selang ditulis berspasi «(1, 2)», «[0, 1)». Dolar «\\$». Sintaks LaTeX yang rusak = GAGAL
   #R teks             awal المصادر والمراجع; sesudahnya satu kitab per baris (diurutkan abjad otomatis, القرآن الكريم paling atas, rujukan Arab sebelum rujukan berhuruf Latin;
                       baris tanpa huruf Arab dicetak kiri-ke-kanan).
-                      Wajib, kecuali «@tanpa: pustaka»; semua bagian isi harus sebelum #R (tidak boleh ada judul/#T/#H sesudahnya).
+                      Wajib, kecuali «@tanpa: pustaka»; semua bagian isi harus sebelum #R (tidak boleh ada baris #… sesudahnya).
                       Kitab berbukti <<…>> di catatan kaki yang judulnya tidak ada di satu baris #R = perhatian (draf: `pustaka`)
   **...**             tebal
-  ((...))             lafaz matn yang disyarah: dicetak merah di dalam kurung, «((ليس بحجة))» -> (ليس بحجة)
   {Q:s:a} {Q:s:a-b} {Q:s:a:i-j}   ayat surat s ayat a (atau a-b; atau kata ke-i s.d. j): teks resmi rasm Utsmani + masuk فهرس الآيات.
                       Ayat sesudah «قال الله تعالى»/«وقال:» yang dirujuk [^سورة …، آية: n.] tanpa {Q:} = GAGAL;
                       nomor rujukan (juga «(الفاتحة: 5)», «الفاتحة/5», «الآية 5 من سورة الفاتحة») harus nomor {Q:}.
@@ -191,10 +185,6 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       [^أخرجه أبو داود، …، رقم الحديث (3502)، 3/283، وابن ماجه، …، رقم الحديث (2192)، 2/738، وهو حديث ضعيف،
                       ضعفه النووي في المجموع، 9/335. <<1726|3|283>> <<1198|2|738|نهى عن بيع العربان>>
                       <<2186|9|335|فالحاصل أن هذا الحديث ضعيف>>]
-  [^<<sid|juz|hal>>]  catatan kaki berisi bukti saja, semua sid-nya ada di @rumuz: tidak dicetak; yang tercetak hanya
-                      rumuznya ض (sid=- di @rumuz: tanpa rumuz, mis. kitab matn). Seluruh teks sejak catatan kaki
-                      ber-<<…>> sebelumnya dicek sebagai nukilan utuh dari halaman itu (catatan tanpa <<…>> di
-                      tengahnya, termasuk «سورة …», dan <<luar>> tanpa kutipan tidak memotongnya; tanda ((…)) dan ** tidak ikut dicek)
   <<luar>>            kutipan dari sumber yang tidak ada di Shamela (jurnal, PDF penelitian): lolos, tetapi masuk
                       perhatian; lafaz dan halamannya dicocokkan sendiri ke sumbernya. Judul kitab Shamela = GAGAL
   <<luar|berkas.pdf|hal>>   kutipan dari PDF penelitian yang disimpan di folder bahts (mis. hasil dirasat-pdf):
@@ -297,8 +287,6 @@ MODEL = {"jakarta": {"sampul": "jakarta", "format": "jakarta", "kepala": "kotak"
 MINIMAL = {"halaman": 25, "kitab": 0}
 # perkiraan kasar kata per halaman isi pada huruf matan 18; angka pasti hanya dari Word
 KATA_PER_HALAMAN_18 = 260
-# @warna: nama -> RGB. Biru tua: tetap nyaman dibaca untuk paragraf panjang dan jelas beda dari hitam serta merah lafaz matn
-WARNA = {"biru": (20, 60, 150)}
 KUAT = re.compile(r"[^\W\d_]|[،؛؟]")  # huruf, atau tanda baca Arab (tanda teks Arab)
 # tautan/DOI di teks Arab: angkanya tetap 0-9 (hindi) dan rakit.ps1 mencetaknya kiri-ke-kanan apa adanya (bahan "tautan"),
 # karena Word (angka konteks) mencetak «10.21608» di teks kanan-ke-kiri sebagai «١٠,٢١٦٠٨». Tanda baca penutup kalimat
@@ -613,17 +601,12 @@ def _baris_latin(ctx, n, k, t):
     blok.append({"k": "L", "runs": [{"t": m[1].strip() if m else t}], "n": n, **({"tengah": True} if m else {})})
 
 
-def _baris_kotak(ctx, n, k, t):
-    """«#T teks» (kotak matn): paragraf biasa (boleh bercatatan kaki), dicetak rakit.ps1 menurut k."""
-    runs = _urai_aman(ctx, t)
+def _baris_bait(ctx, n, k, t):
+    """«#V teks» (bait syair): paragraf biasa (boleh bercatatan kaki); kata yang dipecah «...~» dicek dan dicetak utuh,
+    bukan sebagai dua bagian kutipan."""
+    runs = _urai_aman(ctx, GABUNG_PARUH.sub("", t))
     if runs is not None:
         ctx.blok.append({"k": k, "runs": runs, "n": n})
-
-
-def _baris_bait(ctx, n, k, t):
-    """«#V teks» (bait syair): seperti #T; kata yang dipecah «...~» dicek dan dicetak utuh, bukan sebagai dua bagian
-    kutipan."""
-    _baris_kotak(ctx, n, k, GABUNG_PARUH.sub("", t))
 
 
 def _baris_judul(ctx, n, k, t):
@@ -650,7 +633,7 @@ def _baris_rumus(ctx, n, k, t):
 
 
 # Tanda baris «#X teks» -> penangannya (ctx, nomor baris, X, teks). Tanda baris baru = penangan baru di sini
-TANDA_BARIS = {**dict.fromkeys((*JUDUL_ISI, "R"), _baris_judul), "T": _baris_kotak, "V": _baris_bait, "L": _baris_latin,
+TANDA_BARIS = {**dict.fromkeys((*JUDUL_ISI, "R"), _baris_judul), "V": _baris_bait, "L": _baris_latin,
                "J": _baris_tabel, "G": _baris_gambar, "E": _baris_rumus}
 
 
@@ -688,7 +671,9 @@ def _satu_baris(ctx, n, b):
     elif b.startswith("#"):
         k, _, t = b[1:].partition(" ")
         t = t.strip()
-        if k not in TANDA_BARIS or not t:
+        if "#" + k in DICABUT:
+            galat.append(f"#{k} dicabut: {DICABUT['#' + k]}")
+        elif k not in TANDA_BARIS or not t:
             galat.append(f"judul harus «{'/'.join('#' + x for x in TANDA_BARIS)} teks» :: {b[:40]}")
         else:
             TANDA_BARIS[k](ctx, n, k, t)
@@ -706,41 +691,18 @@ def _satu_baris(ctx, n, b):
 
 
 def _baca_data(ctx, n, b):
-    """Baris «@kunci: nilai» (baris ke-n): simpan di meta; kunci yang punya pembaca `segera` di DATA diurai sekarang,
-    karena dipakai `urai` untuk baris-baris sesudahnya. Nilai kunci lain dicek sesudah seluruh naskah dibaca."""
+    """Baris «@kunci: nilai» (baris ke-n): simpan di meta; nilainya dicek sesudah seluruh naskah dibaca. @kunci yang
+    dicabut (dasar.DICABUT) GAGAL dengan jalan keluarnya."""
     k, _, v = b[1:].partition(":")
     k = k.strip()
-    if k in DICABUT:
-        ctx.galat.append(f"@{k} dicabut: {DICABUT[k]}")
+    if "@" + k in DICABUT:
+        ctx.galat.append(f"@{k} dicabut: {DICABUT['@' + k]}")
     elif k not in DATA:
         mirip = difflib.get_close_matches(k, sorted(DATA), n=1)
         ctx.galat.append(f"@{k}: data tidak dikenal" +
                          (f"; maksudnya @{mirip[0]}?" if mirip else "; lihat `tanda` untuk daftar data naskah"))
     ctx.meta[k] = v.strip()
     ctx.di_baris["@" + k] = n
-    if k in DATA and DATA[k].segera:
-        DATA[k].segera(ctx, v)
-
-
-def _baca_rumuz(ctx, v):
-    """@rumuz: sid=huruf, …"""
-    for pasang in re.split(r"[,،]", v):
-        sid, _, z = pasang.partition("=")
-        if not re.fullmatch(r"\d+", sid.strip()) or not z.strip():
-            ctx.galat.append(f"@rumuz: «{pasang.strip()}»: bentuknya sid=huruf (atau sid=- tanpa rumuz), "
-                             f"mis. «@rumuz: 12010=-، 900002=ف»"); continue
-        ctx.rumuz[sid.strip()] = z.strip()
-
-
-def _baca_warna(ctx, v):
-    """@warna: sid=warna, … -> warna Word (BGR)."""
-    for pasang in re.split(r"[,،]", v):
-        sid, _, w = pasang.partition("=")
-        if not re.fullmatch(r"\d+", sid.strip()) or w.strip() not in WARNA:
-            ctx.galat.append(f"@warna: «{pasang.strip()}»: bentuknya sid=warna (warna yang ada: {'، '.join(WARNA)}), "
-                             f"mis. «@warna: 900002=biru»"); continue
-        rr, gg, bb = WARNA[w.strip()]
-        ctx.warna[sid.strip()] = rr + gg * 256 + bb * 65536
 
 
 @dataclasses.dataclass(frozen=True)
@@ -751,7 +713,6 @@ class Data:
     pisah: str = ", "  # pemisah nilai sah di kalimat GAGAL
     pesan: str = "«{nilai}» tidak dikenal (yang ada: {ada})"  # kalimat GAGAL nilai di luar `sah`
     baca: Callable = str  # nilai seperti ditulis -> bentuk yang dicocokkan dengan `sah`
-    segera: Callable | None = None  # pembaca (ctx, nilai) begitu barisnya dibaca: dipakai `urai` baris-baris sesudahnya
     teks: bool = False  # teks yang tercetak apa adanya: angkanya mengikuti @angka
     hanya_cek: bool = False  # tidak dibaca rakit.ps1: mengubahnya tidak membuat PDF usang (sidik_cetak)
 
@@ -770,15 +731,12 @@ DATA = {
     "angka": Data(sah=ANGKA, bawaan="hindi", pisah="، "), "angka_ayat": Data(sah=ANGKA, pisah="، "),  # bawaan = @angka
     "tanpa": Data(sah=TANPA), "pustaka": Data(sah=("akhir",)), "malahiq": Data(sah=("akhir",)), "templat": Data(),
     "halaman_baru": Data(sah=HALAMAN_BARU), "nomor": Data(sah=("abjad", "mukadimah")),
-    "rumuz": Data(segera=_baca_rumuz), "warna": Data(segera=_baca_warna),
     "model": Data(sah=tuple(MODEL), pisah="، "), "kepala_judul": TEKS, "sifat": TEKS, "qism": TEKS, "judul_sampul": TEKS,
     **{f"minimal_{k}": Data(hanya_cek=True) for k in MINIMAL},
     **{k: Data(sah=tuple(nilai)) for k, (_, nilai) in TIMPA.items()},
     **{k: Data(sah=nilai, bawaan=nilai[0]) for k, nilai in GAYA.items()},
 }
 HANYA_CEK = frozenset(k for k, sifat in DATA.items() if sifat.hanya_cek)
-# @kunci yang dulu ada: GAGAL dengan jalan keluarnya, bukan «data tidak dikenal; maksudnya …?»
-DICABUT = {"bentuk": "mesin ini khusus bahts; naskah kitab/muqarrar dirakit dengan versi mesin b4dbc50 (atau rilis v14.0.0)"}
 
 
 def _tak_dikenal(ctx, kunci, nilai):

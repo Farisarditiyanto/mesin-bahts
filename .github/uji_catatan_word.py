@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Isi catatan kaki lewat `rakit` dan Word asli: tiap catatan tetap berisi teksnya sendiri saat nomor diulang per
-halaman, juga di potongan `--fasl` dan sesudah bukti yang tidak mencetak catatan. Runner tanpa Word melaporkan lewati.
+halaman, juga di potongan `--fasl`. Runner tanpa Word melaporkan lewati.
 Semua bahan tinggal di TEMP.
 """
 import sys, tempfile, zipfile
@@ -21,15 +21,14 @@ def utama():
         return
     with tempfile.TemporaryDirectory(prefix="bahts-catatan-word-") as t:
         akar = Path(t)
-        salin_mesin(akar, ("_meta", "11223"))
+        salin_mesin(akar, ("_meta",))
         f = akar / "uji"
         f.mkdir()
         teks = ("@judul: فحص الحواشي\n" + SAMPUL_UJI + "@berkas: hasil\n"
-                "@tanpa: pustaka, ayat, hadits, maudhuat\n@halaman_baru: B\n@rumuz: 11223=-\n"
+                "@tanpa: pustaka, ayat, hadits, maudhuat\n@halaman_baru: B\n"
                 "#K المقدمة\nهذا تمهيد للفحص.\n#F الفصل الأول\nهذا فصل سابق[^OLD-FIRST-NOTE].\n"
                 "{X}خلاصة الفصل الأول.\n"
                 "#F الفصل الثاني\nهذا تمهيد للفصل الثاني.\n#B المبحث الأول\n"
-                "توحيد الربوبية وهو إفراد الله تعالى بالخلق والملك والتدبير[^<<11223|-|5>>]\n"
                 "هذا نص المبحث الأول[^EXPECTED-SECOND-NOTE].\n"
                 "{X}KHULASAHFASL2 خلاصة الفصل الثاني.\n"
                 "#B المبحث الثاني\nهذا نص المبحث الثاني[^EXPECTED-THIRD-NOTE].\n#K الخاتمة\nانتهى الفحص.\n")
@@ -59,7 +58,7 @@ def format_catatan(akar):
     teks = ("@judul: فحص تنسيق الحواشي\n" + SAMPUL_UJI + "@berkas: hasil\n@format: imam_ayat16\n"
             "@tanpa: pustaka, ayat, hadits, maudhuat\n"
             "#K المقدمة\n"
-            "فقرة تمهيدية[^توضيح **توكيد** و((متن أحمر)) ونص عادي.].\n"
+            "فقرة تمهيدية[^توضيح **توكيد** ونص عادي.].\n"
             "#J البند | البيان\n"
             "#J الأول | خلية[^حاشية الجدول الأولى.]\n"
             "#H\n"
@@ -79,14 +78,9 @@ def format_catatan(akar):
     fn1 = fns[min(fns)]
     runs = [("".join(rn.itertext()), rn.find("w:rPr", NS)) for rn in fn1.findall(".//w:r", NS)]
     bold_runs = [rpr for t, rpr in runs if "توكيد" in t]
-    red_runs = [rpr for t, rpr in runs if "متن أحمر" in t]
     plain_runs = [rpr for t, rpr in runs if "عادي" in t]
     assert bold_runs and all((rpr.find("w:b", NS) is not None or rpr.find("w:bCs", NS) is not None) for rpr in bold_runs), runs
-    assert all((c := rpr.find("w:color", NS)) is None or c.attrib.get(f"{w}val") != "B00000" for rpr in bold_runs), runs
-    assert red_runs and all((rpr.find("w:b", NS) is not None or rpr.find("w:bCs", NS) is not None) for rpr in red_runs), runs
-    assert all((c := rpr.find("w:color", NS)) is not None and c.attrib.get(f"{w}val") == "B00000" for rpr in red_runs), runs
     assert plain_runs and all(rpr.find("w:b", NS) is None and rpr.find("w:bCs", NS) is None for rpr in plain_runs), runs
-    assert all((c := rpr.find("w:color", NS)) is None or c.attrib.get(f"{w}val") != "B00000" for rpr in plain_runs), runs
     # ukuran tercetak rujukan: szCs run, gaya karakternya, gaya paragrafnya (bawaan: gaya paragraf default), lalu
     # docDefaults. Word tidak menulis szCs run yang sama dengan gaya paragrafnya (Normal sampul qism = 16 pt)
     def sz(rpr):
@@ -114,7 +108,7 @@ def format_catatan(akar):
     assert luar_refs == ["36"], f"ukuran rujukan catatan matan bukan 18 pt (36): {luar_refs}"
     hal2 = PdfReader(f / "hasil.pdf").pages[2].extract_text() or ""  # halaman 1 = sampul, 2 = sebelum #H
     assert "حاشية" in hal2 and "الثانية" in hal2 and ("(١)" in hal2 or "(1)" in hal2), hal2
-    print("lolos format catatan Word: **tebal**, ((merah)), dan ukuran rujukan #J (16 pt) tetap sesudah NomorCatatan", flush=True)
+    print("lolos format catatan Word: **tebal** dan ukuran rujukan #J (16 pt) tetap sesudah NomorCatatan", flush=True)
 
 
 if __name__ == "__main__":

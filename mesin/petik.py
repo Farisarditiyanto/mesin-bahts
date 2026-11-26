@@ -55,7 +55,7 @@ TAK_TERLIHAT = "\u200b\u200c\u200d\u200e\u200f\u061c\u202a\u202b\u202c\u202d\u20
 def kutipan_akhir(teks):
     """Isi kutipan "..." atau «...» yang menutup teks (tanda baca sesudahnya boleh), termasuk kutipan di dalamnya:
     «قال: "…" ثم سكت» -> seluruh isi «…». None kalau teks tidak berakhir dengan kutipan."""
-    # kurung lafaz matn «((…))» dan tanda arah tak terlihat (RLM, ZWNJ, …) sesudah tanda petik ikut dibuang
+    # tanda baca dan tanda arah tak terlihat (RLM, ZWNJ, …) sesudah tanda petik ikut dibuang
     teks = seragam(teks)
     # Tanda baca Latin/Unicode sesudah petik tidak memutus hubungan nukilan dengan catatan kakinya.
     # Berhenti pada petik: ia diperlukan parser, termasuk pembuka yang tidak berpasangan.
@@ -97,10 +97,10 @@ def kutipan_pendek_diantar(teks, k):
     return i >= 0 and diantar_qaul(sebelum) and not lafaz
 
 
-def kurung_akhir(polos, seg, matn, h_pos):
+def kurung_akhir(polos, seg, h_pos):
     """Isi (…) yang menutup polos[seg:] bila kurung itu kutipan: diantar «قال …:» / «ﷺ:», atau tepat sesudah {H:}
     (h_pos = letak {H:} terakhir di polos). None selain itu: kurung juga dipakai untuk tahun, nomor, penjelasan pendek,
-    dan nama; lafaz matn ((…)) (letak kurung bukanya di matn) sudah punya arti sendiri."""
+    dan nama."""
     t = polos.rstrip(" .،,؛;" + TAK_TERLIHAT)
     if not t.endswith(")"):
         return None
@@ -110,7 +110,7 @@ def kurung_akhir(polos, seg, matn, h_pos):
         if not d:
             break
         i -= 1
-    if i < seg or i in matn or not re.search(r"[ء-ي]", t[i + 1:-1]):
+    if i < seg or not re.search(r"[ء-ي]", t[i + 1:-1]):
         return None
     sebelum = polos[seg:i].rstrip()
     sesudah_h = h_pos is not None and seg <= h_pos <= i and not polos[h_pos:i].strip()
