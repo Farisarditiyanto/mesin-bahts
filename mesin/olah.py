@@ -73,7 +73,8 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       Tata letak per bagian, bisa dicampur (nilai pertama = bawaan):
                       kepala (- | kotak = judul kanan, nomor halaman berbingkai kiri, garis di bawahnya; kepala_judul =
                       judul pendek di situ, bawaan @judul), fihris_ayat (tabel | surah = السورة digabung per surat | الآية
-                      «… الآية n» | الصفحة, berjudul فهرس الآيات الكريمة), fihris_hadits (tabel | ringkas = الأحاديث | الصفحة,
+                      «… الآية n» | الصفحة, berjudul فهرس الآيات الكريمة | titik = tanpa tabel: nama tiap surat, lalu
+                      «﴿… n﴾ ...... ص» per ayat, n = nomor ayat bermotif mushaf), fihris_hadits (tabel | ringkas = الأحاديث | الصفحة,
                       berjudul فهرس الأحاديث الشريفة), maudhuat (tabel | titik = baris bertitik-titik ke nomor halaman;
                       #S «❖ …» ikut), maudhuat_letak (akhir | awal = فهرس الموضوعات di depan, tepat sebelum المقدمة
                       (atau #F pertama), sesudah الإهداء/الشكر; tidak memuat dirinya sendiri), pustaka_gaya (judul | muallif = القرآن الكريم ikut bernomor; **…** tebal, __…__ miring
@@ -277,7 +278,8 @@ TIMPA = {"catatan_kaki": ("catatan_ulang_tiap_halaman", {"bersambung": False, "u
 # Bagian tata letak yang bisa dicampur: tiap kunci memilih bentuk satu bagian, nilai pertama = bawaan.
 # kepala_judul = judul pendek di kepala halaman (bawaan @judul); sifat = baris di bawah nama di sampul
 GAYA = {"kepala": ("-", "kotak"),            # kotak = judul kanan, nomor halaman berbingkai kiri, garis di bawahnya
-        "fihris_ayat": ("tabel", "surah"),   # surah = kolom السورة (digabung per surat) | الآية «… الآية n» | الصفحة
+        "fihris_ayat": ("tabel", "surah", "titik"),  # surah = kolom السورة (digabung per surat) | الآية «… الآية n» | الصفحة;
+                                                     # titik = tanpa tabel: judul tiap surat, lalu «﴿… n﴾ ...... ص» per ayat (n bermotif mushaf)
         "fihris_hadits": ("tabel", "ringkas"),  # ringkas = الأحاديث | الصفحة, tanpa kolom الراوي
         "maudhuat": ("tabel", "titik"),      # titik = baris bertitik-titik ke nomor halaman, tanpa tabel; #S «❖ …» ikut
         "maudhuat_letak": ("akhir", "awal"),  # awal = فهرس الموضوعات sesudah الإهداء/الشكر, tepat sebelum المقدمة (atau #F pertama)

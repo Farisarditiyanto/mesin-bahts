@@ -6,6 +6,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Baru: `@fihris_ayat: titik` mencetak فهرس الآيات tanpa tabel: nama tiap surat tebal, lalu tiap ayat «﴿… n﴾» (nomor ayat bermotif seperti di mushaf, di dalam kurung) dengan titik-titik ke nomor halamannya. Bawaan tetap tabel.
 - Performa: perintah rutin (`cek`, `bukti`, `tahap`, `tafsir`, `edisi`, `kitab`, dan `cari semua`) berjalan lebih cepat lewat pembacaan PDF per halaman, cache katalog dan indeks tafsir terverifikasi, pencarian biner katalog dan daftar isi, serta pemindaian pustaka lokal paralel tanpa mengubah hasil pemeriksaan.
 - Perbaikan: `tahap` tetap baca-saja meski kutipan salah dan cache kitab belum ada. Cache katalog dengan data rusak dibaca ulang dari katalog asli.
 - Perbaikan: normalisasi teks Arab membersihkan bentuk sajian harakat terpisah (`U+FE70` dkk.) dan menyamakan varian huruf (`ۂ`/`ۍ`), sehingga kata berharakat tidak terpecah saat pencocokan kutipan; `ekspor` dan pembacaan judul Shamela mengenali span judul `toc-N` berkutip tunggal atau berurutan terbalik serta penanda halaman yang akurat.
