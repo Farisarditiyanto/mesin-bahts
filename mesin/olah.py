@@ -303,7 +303,8 @@ TAUTAN = re.compile(rf"(?:https?://|www\.|doi\.org/|(?<![\w.])10\.[0-9]{{4,}}/)(
 # dan tanda petik pindah ke sisi lain. Dipakai .NET juga: jangan pakai sintaks khusus Python
 _L = HURUF_LATIN + "ʾʿʼ"  # ʿayn dan hamzah transliterasi
 _TENGAH = r" ,.;:&'’‘“”\"/%–—…!_=?#~@+-"
-_PETIK_BUKA, _PETIK_TUTUP = r"“‘\"'", r"”’\"'"
+# di ujung hanya petik tipografis: petik lurus «"»/«'» di tepi bisa milik kutipan Arab («قال: "IFRS 9 هو…"»)
+_PETIK_BUKA, _PETIK_TUTUP = "“‘", "”’"
 LATIN = re.compile(rf"{TAUTAN.pattern}|[{_PETIK_BUKA}]*(?:(?<![0-9])[0-9]+(?=[{_L}]))?[{_L}]"
                    rf"(?:[{_TENGAH}]*(?:[{_L}0-9%]|\([{_L}0-9{_TENGAH}]*\)|\[[{_L}0-9{_TENGAH}]*\]))*[{_PETIK_TUTUP}]*")
 

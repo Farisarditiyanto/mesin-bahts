@@ -41,6 +41,14 @@ URUT = ("al-Qāsimī’s“Treatise”—pp.25–36…Société.", "Pieters’�
 
 def utama():
     sys.stdout.reconfigure(encoding="utf8")
+    # petik lurus di tepi kata Latin milik kutipan Arab: tidak masuk rentang (di catatan kaki rentang itu run kiri-ke-kanan,
+    # jadi «قال: "IFRS 9 هو…"» mencetak petiknya di sisi lain); petik tipografis di tepi tetap ikut. Tanpa Word
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "mesin"))
+    import olah
+    for teks, harus in (('قال المحقق: "IFRS 9 هو المعيار"', ["IFRS 9"]), ('وقال: "هذا ما قرره Coppens" ثم', ["Coppens"]),
+                        ("قال الباحث: 'Smith وغيره'", ["Smith"]), ("انظر: “Gibb’s Notes”, p. 9.", ["“Gibb’s Notes”, p. 9"])):
+        dapat = [m.group(0) for m in olah.LATIN.finditer(teks)]
+        assert dapat == harus, (teks, dapat)
     if alasan := tanpa_word():
         print("lewati uji huruf Latin Word: " + alasan)
         return
