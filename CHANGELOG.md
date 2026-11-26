@@ -6,6 +6,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Perbaikan: rujukan Latin yang memuat elipsis «…» atau kurung siku, atau diawali/diakhiri tanda petik («“Essay”», «Coppens’»), tercetak utuh kiri-ke-kanan di catatan kaki dan المصادر, jadi potongannya tidak lagi tertukar («Société … al-Qāsimī’s») dan tanda petiknya tetap di tempatnya.
 - Perbaikan: apostrof dan tanda petik tipografis di teks Latin («al-Qāsimī’s», “…”) tercetak Times New Roman di matan, catatan kaki, dan المصادر, jadi tidak lagi tampak bercelah («al-Qāsimī’ s»).
 - Perbaikan: `hadits` hanya mencetak juz/halaman edisi lokal kalau matan riwayatnya terbaca di hadits bernomor itu. Nomor layanan yang di edisi lokal menunjuk hadits lain ditandai «LAFAZ TIDAK COCOK», dan halaman hadits yang lafaznya cocok di kitab itu ditunjukkan.
 - Dihapus: `@bentuk: kitab` (naskah kitab/muqarrar tanpa sampul bahts). Naskah yang masih menulis `@bentuk` kini GAGAL di `cek`; naskah kitab/muqarrar lama dirakit dengan versi mesin b4dbc50 (atau rilis v14.0.0).

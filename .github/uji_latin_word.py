@@ -16,10 +16,11 @@ NASKAH = """@format: imam_ayat16
 @berkas: uji
 @minimal_halaman: 0
 #K المقدمة
-يستعمل نظام Banner في الجامعة منذ مدة، وهو نظام ISO 9001 معتمد في Islamic Banking (IB) المعاصرة، وفي al-Qāsimī’s “Smart” Method بيان[^انظر: al-Qāsimī’s ‘Treatise’; Hoo & Ibrahim, Biometric-Based Attendance Tracking System, Vol. 3, No. 12, 2019, p. 45. <<luar>>].
+يستعمل نظام Banner في الجامعة منذ مدة، وهو نظام ISO 9001 معتمد في Islamic Banking (IB) المعاصرة، وفي al-Qāsimī’s “Smart” Method بيان[^انظر: al-Qāsimī’s ‘Treatise’; Hoo & Ibrahim, Biometric-Based Attendance Tracking System, Vol. 3, No. 12, 2019, p. 45. <<luar>>]، ونص[^al-Qāsimī’s “Treatise” — pp. 25–36 … Société. <<luar>>]، ونص[^انظر: Pieters’ “Essay”, p. 3. <<luar>>]، ونص[^انظر: Ḥallaq [Paris] — Société … ed. 2, pp. 25–36. <<luar>>]، ونص[^Laoust’ “Note”، ص3. <<luar>>]، ونص[^انظر: “Gibb’s Notes”, p. 9. <<luar>>].
 #J البند | Item
 #J الحضور | Attendance rate
 #J الجدول | BIO_TEMPLATE
+#J المرجع | Ṭūfī’s “Risāla” … p. 7
 #K الخاتمة
 أهم النتائج: نجح الاختبار.
 #R المصادر والمراجع
@@ -27,8 +28,15 @@ Hoo, Seng Chun, Biometric-Based Attendance Tracking System for Education Sectors
 المغني، عبد الله بن أحمد بن قدامة، دار عالم الكتب، الرياض، 1417هـ.
 (2019) Annual Report of Bank Indonesia, Jakarta, 2019.
 Coppens, Pieter. Jamāl al-Dīn al-Qāsimī’s Treatise on Wiping over Socks, 2022.
+Brockelmann, Carl. Geschichte — Bd. 1 … Société [Leiden], 1943.
+Nallino’ “Raccolta” … Société، دار المعارف، 1940.
 """
 PETIK = "’‘“”"
+# rujukan Latin di catatan kaki, sel #J, dan المصادر (tanpa spasi): urutan hurufnya di baris PDF, dibaca kiri-ke-kanan, sama
+# dengan naskah. Elipsis, kurung siku, dan tanda petik di ujung rujukan tidak memecahnya atau pindah ke sisi lain
+URUT = ("al-Qāsimī’s“Treatise”—pp.25–36…Société.", "Pieters’“Essay”,p.3.", "Ḥallaq[Paris]—Société…ed.2,pp.25–36.",
+        "Laoust’“Note”", "“Gibb’sNotes”,p.9.", "Ṭūfī’s“Risāla”…p.7", "Brockelmann,Carl.Geschichte—Bd.1…Société[Leiden],1943.",
+        "Nallino’“Raccolta”…Société")
 
 
 def utama():
@@ -56,6 +64,16 @@ def utama():
             baris_hal = [[(round(b["bbox"][1]), b["bbox"][0], "".join(s["text"] for s in b["spans"]))
                           for blk in h.get_text("dict")["blocks"] for b in blk.get("lines", [])] for h in pdf]
             lebar = pdf[0].rect.width
+            # baris PDF dibaca kiri-ke-kanan: huruf yang segaris dasar diurutkan menurut x, tanpa spasi
+            kiri_kanan = []
+            for h in pdf:
+                segaris = {}
+                for blk in h.get_text("rawdict")["blocks"]:
+                    for b in blk.get("lines", []):
+                        for sp in b["spans"]:
+                            for c in sp["chars"]:
+                                segaris.setdefault(round(c["origin"][1] / 3), []).append((c["origin"][0], c["c"]))
+                kiri_kanan += ["".join(c for _, c in sorted(v) if not c.isspace()) for v in segaris.values()]
             teks_hal = "\n".join(h.get_text() for h in pdf)
             # (garis dasar y, x, ukuran, teks) tiap potongan di halaman المصادر
             dasar = [(s["origin"][1], s["origin"][0], s["size"], s["text"])
@@ -101,6 +119,8 @@ def utama():
         # baris Latin yang diawali kurung dan angka: seluruhnya kiri-ke-kanan, angkanya 0-9
         tahun = " ".join(t for t in semua if "Annual Report" in t)
         assert "(2019) Annual Report" in tahun and "٢٠١٩" not in tahun, tahun
+        salah = [u for u in URUT if not any(u in b for b in kiri_kanan)]
+        assert not salah, (salah, [b for b in kiri_kanan if any(k in b for k in ("Société", "Essay", "Note", "Risāla"))])
         # apostrof/tanda petik Latin di matan, catatan kaki, dan المصادر: Times dan sempit (MS Mincho ±1 em) di PDF, dan di
         # docx run-nya Times tanpa hint eastAsia (huruf East Asian run itu kosong, jadi Word memakai MS Mincho)
         assert len(petik) >= 7 and all("Times" in f and lebar_em < 0.5 for _, _, f, lebar_em in petik), petik
