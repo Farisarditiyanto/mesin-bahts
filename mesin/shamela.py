@@ -3,11 +3,11 @@
 AuthenticIlm/Shamela4_Full_DB ke folder kitab/, lalu cari kutipan secara offline
 (tanpa kredit, tanpa internet). Dipanggil lewat bahts.py.
 """
-import array, bisect, collections, contextlib, functools, gzip, hashlib, itertools, json, operator, os, re, struct, sys, urllib.parse, zlib
+import array, bisect, collections, contextlib, functools, gzip, hashlib, itertools, json, mmap, operator, os, re, struct, sys, urllib.parse, zlib
 from pathlib import Path
 
 import cocok, gelar, norma
-from berkas import sementara
+from berkas import diingat, sementara
 from dasar import angka, perintah
 from jaringan import buka, tulis_biner, unduh, unduh_kitab
 from norma import BAGIAN, HARAKAT, PENANDA, TAGS, BUKAN_ABJAD, per_halaman, ruas_halaman, norm, padat
@@ -135,26 +135,40 @@ def _hitung_asal(daftar):
     return {int(r["shamela_id"]): (str(r["main_author_id"]), r["group_id"]) for r in daftar}
 
 
-def _baca_biner(f, n_bagian, **syarat):
+def _baca_biner(f, n_bagian, *, peta=False, **syarat):
+    """(isi, awal isi sesudah baris kepala, panjang tiap potongan) berkas biner bercrc32, atau None kalau rusak/usang.
+    peta=True: isinya dipetakan (mmap), bukan disalin, dan crc32 yang cocok diingat per `berkas.cap` (`berkas.diingat`):
+    `cari semua` yang berulang hanya membaca halaman yang disentuh pencariannya, bukan seluruh pustaka tiap kali."""
+    mentah = None
     try:
-        mentah = f.read_bytes()
-        nl = mentah.find(b"\n", 0, 1 << 16)
-        if nl < 0:
-            return None
-        kepala = json.loads(mentah[:nl])
-        if not isinstance(kepala, dict):
-            return None
-        panjang = kepala.get("panjang")
-        if (any(kepala.get(k) != v for k, v in syarat.items())
-                or type(panjang) is not list or len(panjang) != n_bagian
-                or not all(type(n) is int and n >= 0 for n in panjang)):
-            return None
-        awal = nl + 1
-        if len(mentah) - awal != sum(panjang) or zlib.crc32(memoryview(mentah)[awal:]) != kepala.get("crc32"):
-            return None
+        with open(f, "rb") as h:
+            mentah = mmap.mmap(h.fileno(), 0, access=mmap.ACCESS_READ) if peta else h.read()
+            nl = mentah.find(b"\n", 0, 1 << 16)
+            if nl < 0:
+                return _tutup(mentah)
+            kepala = json.loads(mentah[:nl])
+            if not isinstance(kepala, dict):
+                return _tutup(mentah)
+            panjang = kepala.get("panjang")
+            if (any(kepala.get(k) != v for k, v in syarat.items())
+                    or type(panjang) is not list or len(panjang) != n_bagian
+                    or not all(type(n) is int and n >= 0 for n in panjang)):
+                return _tutup(mentah)
+            awal = nl + 1
+            if len(mentah) - awal != sum(panjang):
+                return _tutup(mentah)
+            crc = lambda _: zlib.crc32(memoryview(mentah)[awal:])
+            if (diingat(f, crc, tulis=not _BACA_SAJA, fd=h.fileno()) if peta else crc(f)) != kepala.get("crc32"):
+                return _tutup(mentah)
         return mentah, awal, panjang
     except (OSError, ValueError, TypeError):
-        return None
+        return _tutup(mentah)
+
+
+def _tutup(mentah):
+    """Lepas peta berkas (mmap) yang tidak dipakai: di Windows berkas yang masih dipetakan tidak bisa diganti."""
+    if isinstance(mentah, mmap.mmap):
+        mentah.close()
 
 
 def _baca_katalog_bin(f_cache, sumber):
@@ -651,7 +665,7 @@ def _baca_padat_kena(sid, q, qb, sumber):
     tanpa menyalin/mengurai deret; berkas rusak/usang/hilang dibangun ulang lewat `padat_kitab`."""
     f = _berkas_padat(sid)
     deret_nama, jenis = norma.Padat.DERET, norma.Padat.JENIS
-    hasil = _baca_biner(f, len(BAGIAN) * (1 + len(deret_nama)), sumber=sumber, urutan=sys.byteorder)
+    hasil = _baca_biner(f, len(BAGIAN) * (1 + len(deret_nama)), peta=True, sumber=sumber, urutan=sys.byteorder)
     if hasil is not None:
         mentah, awal_isi, panjang = hasil
         mv = memoryview(mentah)[awal_isi:]
@@ -690,6 +704,8 @@ def _baca_padat_kena(sid, q, qb, sumber):
             if pertama is None:
                 return None, None
             return norma.Padat(teks_, deret), itertools.chain((pertama,), gen)
+        mv.release()
+        _tutup(mentah)
     padat_ = padat_kitab(sid, sumber=sumber)
     kena = padat_.kena(q)
     return (padat_, iter(kena)) if kena else (None, None)
@@ -707,8 +723,9 @@ def padat_kitab(sid, *, sumber=None):
 
 @cache_kitab()
 def _sidik(sid):
-    """Sidik pages.jsonl.gz kitab sid, sekali per perintah: indeks dan teks `padat` sama-sama mencocokkan diri dengannya."""
-    return norma.sidik(folder(sid) / "pages.jsonl.gz")
+    """Sidik pages.jsonl.gz kitab sid, sekali per perintah: indeks dan teks `padat` sama-sama mencocokkan diri dengannya.
+    Diingat per `berkas.cap` (`berkas.diingat`): berkas yang tidak berubah tidak dibaca ulang."""
+    return diingat(folder(sid) / "pages.jsonl.gz", norma.sidik, tulis=not _BACA_SAJA)
 
 
 INDEKS = "indeks.json"  # di folder tiap kitab
@@ -1036,13 +1053,12 @@ def _cari_satu(sid, frasa, konteks, maks, potongan, sekilas=False, *, padat_=Non
 
 
 def _scan_buku(sid, q, qb):
-    """Pindai satu kitab di pekerja: baca & sidik .gz sekali, cek padat sekali, muat letak indeks bila cocok."""
-    gz_bytes = (folder(sid) / "pages.jsonl.gz").read_bytes()
-    sumber = hashlib.sha256(gz_bytes).hexdigest()
+    """Pindai satu kitab di pekerja: cek padat sekali; .gz dan letak indeksnya dibaca hanya bila cocok."""
+    sumber = _sidik(sid)
     padat_, kena = _baca_padat_kena(sid, q, qb, sumber)
     if kena is None:
         return sid, None, None, None, None
-    return sid, gz_bytes, _letak_lokal(sid, sumber), padat_, kena
+    return sid, (folder(sid) / "pages.jsonl.gz").read_bytes(), _letak_lokal(sid, sumber), padat_, kena
 
 
 def _hitung_buku_siap(sid, frasa, konteks, potongan, gz_bytes, letak_, padat_, kena):
