@@ -23,7 +23,7 @@ def profil_format():
 # Pemisah judul utama dan sub-judul sampul «… - …» (dipakai `baru` dan `olah.rencana_cetak`)
 SUBJUDUL = re.compile(r"^(.+?)\s+[-–—]\s*(.+)$")
 # Ligatur hormat Unicode 14 (﵀-﵏ ﷾ ﷿) tidak ada di huruf cetak (Traditional Arabic, Sakkal Majalla, Arial): kotak kosong di
-# Word/PDF. Teks yang dicetak (`rakit`, `ekspor`) memakai kalimatnya; `cek` membuangnya (norma.LIGATUR_HORMAT, HORMAT)
+# Word/PDF. Teks yang dicetak (`rakit`) memakai kalimatnya; `cek` membuangnya (norma.LIGATUR_HORMAT, HORMAT)
 HORMAT_CETAK = str.maketrans({
     "﵀": "رحمه الله", "﵁": "رضي الله عنه", "﵂": "رضي الله عنها", "﵃": "رضي الله عنهم",
     "﵄": "رضي الله عنهما", "﵅": "رضي الله عنهن", "﵆": "صلى الله عليه وآله", "﵇": "عليه السلام",
