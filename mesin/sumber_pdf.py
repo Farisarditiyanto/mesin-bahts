@@ -10,7 +10,7 @@ bukti: teks PDF tidak bisa dipercaya seperti teks Shamela.
   dibalik; akibatnya kutipan yang urutan katanya dibalik bisa ikut cocok.
 - Angka tidak dicocokkan (`padat` membuangnya). Halaman hasil scan (gambar tanpa teks) tidak bisa dibaca mesin.
 """
-import functools, logging, re, unicodedata
+import functools, logging, os, re, unicodedata
 from collections import Counter
 from pathlib import Path
 
@@ -34,7 +34,111 @@ LTR_SEGMEN = re.compile(rf"{_LTR_KATA}(?:(?:\s*[,;]\s*|\s+){_LTR_KATA})*")
 LIGATUR_WORD = (("هللا", "الله"), ("اإل", "الإ"), ("األ", "الأ"), ("اآل", "الآ"))
 MIN_ARAB = 50  # huruf Arab di satu halaman; kurang dari ini = halaman gambar (scan) atau kosong
 MIN_TEKS = 20  # huruf bukan spasi (Arab maupun Latin) untuk menganggap halaman PDF punya lapisan teks terbaca
+AKHIR_EOF = 4096  # bita terakhir berkas PDF yang diperiksa untuk penanda %%EOF dan data susulan
+MAKS_POHON_PDF = 64  # batas kedalaman pohon /Pages untuk mencegah rekursi tak berujung pada PDF cacat
 logging.getLogger("pypdf").setLevel(logging.ERROR)  # keluhan pypdf soal PDF cacat tidak ikut tercetak di laporan `cek`
+
+
+def _hitung_daun_halaman(node, dilihat, dalam=0):
+    """(jumlah halaman daun /Type=/Page, ada_siklus) pada pohon /Pages PDF."""
+    if dalam > MAKS_POHON_PDF:
+        return 0, True
+    if getattr(node, "idnum", None) is not None:
+        kunci = (node.idnum, node.generation)
+    elif getattr(node, "indirect_reference", None) is not None:
+        ref = node.indirect_reference
+        kunci = (ref.idnum, ref.generation)
+    else:
+        kunci = None
+    if kunci is not None:
+        if kunci in dilihat:
+            return 0, True
+        dilihat.add(kunci)
+    obj = node.get_object() if hasattr(node, "get_object") else node
+    if not isinstance(obj, dict):
+        return 0, False
+    if obj.get("/Type") == "/Page":
+        return 1, False
+    kids = obj.get("/Kids")
+    if not kids:
+        return 0, False
+    kids_obj = kids.get_object() if hasattr(kids, "get_object") else kids
+    total = 0
+    for anak in kids_obj:
+        n, siklus = _hitung_daun_halaman(anak, dilihat, dalam + 1)
+        total += n
+        if siklus:
+            return total, True
+    return total, False
+
+
+@functools.lru_cache(maxsize=64)
+def _masalah_struktur_cache(berkas, mtime_ns, ukuran):
+    from pypdf import PdfReader
+
+    masalah = []
+    with open(berkas, "rb") as fh:
+        fh.seek(-min(AKHIR_EOF, fh.seek(0, os.SEEK_END)), os.SEEK_END)
+        ekor = fh.read()
+    pos = ekor.rfind(b"%%EOF")
+    if pos < 0:
+        masalah.append("tidak ada penanda akhir %%EOF")
+    elif ekor[pos + 5:].strip(b" \t\r\n\x00"):
+        masalah.append("ada data susulan sesudah %%EOF terakhir")
+
+    peringatan = []
+
+    class _Tangkap(logging.Handler):
+        def emit(self, record):
+            pesan = record.getMessage().strip()
+            if pesan and pesan not in peringatan:
+                peringatan.append(pesan)
+
+    lg = logging.getLogger("pypdf")
+    lama_level, lama_prop = lg.level, lg.propagate
+    h = _Tangkap(logging.WARNING)
+    lg.setLevel(logging.WARNING)
+    lg.propagate = False
+    lg.addHandler(h)
+    try:
+        reader = PdfReader(berkas)
+        if not reader.is_encrypted:
+            n_reader = len(reader.pages)
+            root = reader.trailer.get("/Root")
+            root = root.get_object() if hasattr(root, "get_object") else root
+            pages = root.get("/Pages") if isinstance(root, dict) else None
+            pages_obj = pages.get_object() if hasattr(pages, "get_object") else pages
+            if isinstance(pages_obj, dict):
+                raw_count = pages_obj.get("/Count")
+                raw_count = raw_count.get_object() if hasattr(raw_count, "get_object") else raw_count
+                n_count = int(raw_count) if isinstance(raw_count, int) and not isinstance(raw_count, bool) else None
+                n_kids, siklus = _hitung_daun_halaman(pages, set())
+                if siklus:
+                    masalah.append("pohon halaman /Pages melingkar")
+                elif n_kids != n_reader or (n_count is not None and (n_count != n_reader or n_count != n_kids)):
+                    masalah.append(f"jumlah halaman tidak konsisten (/Count={n_count}, /Kids={n_kids}, terbaca={n_reader})")
+    except Exception as e:  # noqa: BLE001 — galat baca struktur pypdf dilaporkan sebagai peringatan preflight
+        if not peringatan:
+            masalah.append(f"gagal membaca struktur PDF ({type(e).__name__}: {e})")
+    finally:
+        lg.removeHandler(h)
+        lg.setLevel(lama_level)
+        lg.propagate = lama_prop
+
+    if peringatan:
+        ringkas = "; ".join(peringatan[:2])
+        if len(peringatan) > 2:
+            ringkas += f" (+{len(peringatan) - 2} peringatan lain)"
+        masalah.append(f"peringatan perbaikan PDF: {ringkas}")
+    return tuple(masalah)
+
+
+def masalah_struktur(berkas):
+    """Tuple pesan cacat struktur PDF (tanpa %%EOF/data susulan, peringatan xref pypdf, atau selisih hitungan
+    halaman /Count vs /Kids vs reader.pages); kosong bila struktur PDF bersih."""
+    p = Path(berkas)
+    st = p.stat()
+    return _masalah_struktur_cache(str(p), st.st_mtime_ns, st.st_size)
 
 
 def _terbalik_visual(baris):

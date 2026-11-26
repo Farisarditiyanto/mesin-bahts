@@ -496,6 +496,11 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
              "rakit (BELUM/TERKINI/USANG, juga tiap --fasl), rakit yang sedang jalan, folder .rakit-*\n"
              "dan _arsip/rakit-*. Folder bahts tidak disentuh",
              lambda a: _tahap(a[0]), 1, 1),
+    Perintah("ubah <folder> [pembanding]", "bandingkan naskah.txt sekarang dengan salinan terakhir hasil `rakit` (atau berkas\n"
+             "pembanding / git HEAD) tanpa internet: rentang baris berubah (untuk `bukti <folder> <awal-akhir>`)\n"
+             "serta bukti <<…>>, penanda, angka, dan kata syarat fikih yang hilang atau bertambah",
+             lambda a: _mod("revisi").cetak(folder_bahts(a[0]), jalur_ketik(a[0]), a[1] if len(a) > 1 else None),
+             1, 2),
     Perintah("tanda", "daftar tanda yang dipakai di naskah.txt",
              lambda a: print(tanda()), 0, 0),
     Perintah("diagram <folder>", "tiap diagram Mermaid <nama>.mmd di folder itu jadi <nama>.png (butuh Node.js + Chrome/Edge),\n"

@@ -49,14 +49,19 @@ def _penunjuk_pdf(folder, berkas, hal, kutipan):
     if not p.is_file():
         return f"PDF «{berkas}» tidak ada di folder bahts (lihat `cek`)"
     try:
+        cacat = sumber_pdf.masalah_struktur(p)
+    except OSError:
+        cacat = ()
+    warn = f"; PERINGATAN struktur PDF: {'; '.join(cacat)}" if cacat else ""
+    try:
         status, teks = sumber_pdf.cuplikan(p, hal, kutipan, SEKITAR)
     except Exception as e:  # noqa: BLE001 — PDF rusak/bersandi dilaporkan sebagai catatan diagnostik untuk pemeriksa
-        return f"PDF «{berkas}» hal {hal} tidak terbaca ({type(e).__name__}: {e})"
+        return f"PDF «{berkas}» hal {hal} tidak terbaca ({type(e).__name__}: {e}){warn}"
     if status == "scan":
-        return f"{berkas} [PDF hal {hal}; halaman gambar/scan tanpa teks terbaca: buka PDF-nya langsung]"
+        return f"{berkas} [PDF hal {hal}{warn}; halaman gambar/scan tanpa teks terbaca: buka PDF-nya langsung]"
     letak = ("sekitar kutipan" if status == "terbaca" else
              "kutipan TIDAK ditemukan di teks PDF, awal halaman" if kutipan else "awal halaman")
-    return f"{berkas} [PDF hal {hal}; teks PDF, {letak}; cocokkan sendiri lafaz dan angkanya]: {teks}"
+    return f"{berkas} [PDF hal {hal}{warn}; teks PDF, {letak}; cocokkan sendiri lafaz dan angkanya]: {teks}"
 
 
 def _penunjuk_waqfeya(w, n, hal, kutipan):

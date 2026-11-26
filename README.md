@@ -84,7 +84,7 @@ Computer requirements and how to fix them are in one place: `python mesin/bahts.
 | Publication data | `kartu <id>`, `pustaka <folder>` | first reference and المصادر draft from cited books |
 | Read the text | `cari`, `teks`, `bab`, `halaman` | local text to copy exactly |
 | Check | `cek <folder>` (`--jejak` for quotations that are not found); online DOI check: `dirasat-cek <folder>` | `GAGAL: n`, perhatian, `NASKAH_SHA256` |
-| Reviewer | optional `peta <folder>`, `bukti <folder> [awal-akhir]` | offline structure/source/claim-arc overview ([`dok/audit.md`](dok/audit.md)), the page text around each footnote (Shamela, Waqfeya, and research PDFs), and body paragraphs without a footnote |
+| Reviewer | optional `peta <folder>`, `bukti <folder> [awal-akhir]`, `ubah <folder> [pembanding]` | offline structure/source/claim-arc overview ([`dok/audit.md`](dok/audit.md)), the page text around each footnote (Shamela, Waqfeya, and research PDFs), body paragraphs without a footnote, and revision diff with token conservation |
 | Build | `rakit <folder> [--fasl n]` (Windows + Word) | `.docx` + `.pdf` (cover, footnotes, المصادر والمراجع, الفهارس), `HALAMAN_ISI`, `HALAMAN` |
 | Status | `tahap <folder>` | `NASKAH=`, `HASIL=`, `RAKIT=`, `BERIKUTNYA` |
 | Diagrams | `diagram <folder>` (Node.js + Chrome/Edge) | each `<nama>.mmd` (Mermaid) becomes `<nama>.png`, printed through `#G` |

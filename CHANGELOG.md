@@ -6,6 +6,8 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Baru: `ubah <folder> [pembanding]` membandingkan `naskah.txt` dengan salinan terakhir hasil `rakit` (atau berkas pembanding / git HEAD) tanpa internet, mencetak rentang baris berubah untuk `bukti` ulang serta token penting yang hilang atau bertambah (bukti `<<…>>`, penanda `{Q/H/P/A/E/X}`, `#E`, angka, dan syarat/qayd fikih seperti «إلا», «بشرط», «على الراجح»). `rakit` menyimpan salinan acuan otomatis di `mesin/_tmp/revisi/`.
+- Perbaikan: pemeriksaan integritas struktur PDF lokal (`%%EOF`, peringatan perbaikan `pypdf`, dan kecocokan jumlah halaman `/Count` terhadap pohon halaman) kini memberi `perhatian` di `cek`, peringatan di `bukti`, dan peringatan saat `dirasat-pdf` menyimpan PDF bermasalah.
 - Baru: connector `qaf` (qaf.ai, perlu akun gratis) di `.mcp.json` dan `opencode.json` untuk mencari nash menurut makna, termasuk pertanyaan berbahasa Inggris; lafaz dan halamannya tetap dipastikan lewat `shamela`.
 - Perbaikan: rujukan berhuruf Latin di catatan kaki dan المصادر والمراجع dicetak kiri-ke-kanan dengan angka 0-9, jadi titik dan potongan judul tidak lagi berpindah tempat; nomor catatan kaki dan «انظر:» tetap Arab di kanan. المصادر kini mendahulukan rujukan Arab, lalu rujukan asing.
 - Baru: `@fihris_ayat: titik` mencetak فهرس الآيات tanpa tabel: nama tiap surat tebal, lalu tiap ayat «﴿… n﴾» (nomor ayat bermotif seperti di mushaf, di dalam kurung) dengan titik-titik ke nomor halamannya. Bawaan tetap tabel.

@@ -82,7 +82,7 @@ Kebutuhan komputer dan cara membereskannya ada di satu tempat: `python mesin/bah
 | Data cetak | `kartu <id>`, `pustaka <folder>` | rujukan pertama dan draf المصادر dari kitab berbukti |
 | Baca teks | `cari`, `teks`, `bab`, `halaman` | teks lokal untuk disalin persis |
 | Periksa | `cek <folder>` (`--jejak` untuk kutipan yang tidak ketemu); cek DOI online: `dirasat-cek <folder>` | `GAGAL: n`, perhatian, `NASKAH_SHA256` |
-| Pemeriksa | opsional `peta <folder>`, `bukti <folder> [awal-akhir]` | peta struktur/sumber/busur argumen offline ([`dok/audit.md`](dok/audit.md)), teks halaman di sekitar tiap catatan kaki (Shamela, Waqfeya, dan PDF penelitian), dan paragraf isi tanpa catatan kaki |
+| Pemeriksa | opsional `peta <folder>`, `bukti <folder> [awal-akhir]`, `ubah <folder> [pembanding]` | peta struktur/sumber/busur argumen offline ([`dok/audit.md`](dok/audit.md)), teks halaman di sekitar tiap catatan kaki (Shamela, Waqfeya, dan PDF penelitian), paragraf isi tanpa catatan kaki, dan diff revisi beserta konservasi token |
 | Rakit | `rakit <folder> [--fasl n]` (Windows + Word) | `.docx` + `.pdf` (sampul, catatan kaki, المصادر والمراجع, الفهارس), `HALAMAN_ISI`, `HALAMAN` |
 | Status | `tahap <folder>` | `NASKAH=`, `HASIL=`, `RAKIT=`, `BERIKUTNYA` |
 | Diagram | `diagram <folder>` (Node.js + Chrome/Edge) | tiap `<nama>.mmd` (Mermaid) jadi `<nama>.png`, dicetak lewat `#G` |
