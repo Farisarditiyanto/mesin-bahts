@@ -546,6 +546,20 @@ try {
             $l = $rg.Duplicate; $l.SetRange($awal + $a.Index, $awal + $a.Index + $a.Length); $l.Select(); $word.Selection.LtrRun()
         }
     }
+    # rentang Latin (pola olah.LATIN) di catatan kaki dan المصادر = run kiri-ke-kanan: tanpa itu Word menata rujukan
+    # «Journal …, Vol. 3, No. 3, 2022, pp. 25-36.» kanan-ke-kiri (titik pindah ke depan, potongan judul tertukar) dan
+    # mencetak angkanya ٠-٩. Nomor catatan kaki, «انظر:», dan pemisah «؛» tetap kanan-ke-kiri
+    function LatinLtr($rg, $awal, $teks) {
+        if (-not $teks) { return }
+        foreach ($a in [regex]::Matches($teks, $DATA.latin)) {
+            $ujung = $a.Index + $a.Length
+            # titik penutup ikut run itu (tidak pindah ke depan) hanya kalau sebelum rentang ini tidak ada kalimat Arab selain
+            # «انظر:»/«ينظر:»/«راجع:» dan pemisah «؛»: rujukan Latin, bukan kalimat Arab yang kebetulan berakhir kata Latin
+            $pra = $teks.Substring(0, $a.Index) -replace 'انظر|ينظر|راجع|[\s:؛،]', ''
+            if ($ujung -lt $teks.Length -and $teks[$ujung] -eq '.' -and $pra -notmatch '[؀-ۿ]') { $ujung++ }
+            $l = $rg.Duplicate; $l.SetRange($awal + $a.Index, $awal + $ujung); $l.Select(); $word.Selection.LtrRun()
+        }
+    }
     # Nomor sementara pendek: panjang kunci {P:} bukan isi cetak dan tidak boleh mengubah susunan halaman.
     $PENANDA_HALAMAN = '00'
     $rujukanHalaman = @{}; $script:nRujukanHalaman = 0
@@ -622,6 +636,7 @@ try {
             }
         }
         Tautan $fn.Range ($fr.Start + 1) (TeksRuns $c.runs)
+        LatinLtr $fn.Range ($fr.Start + 1) (TeksRuns $c.runs)
         Latin $fn.Range ($fr.Start + 1) (TeksRuns $c.runs) $uCatatan
         $fr.ParagraphFormat.SpaceBefore = 0; $fr.ParagraphFormat.SpaceAfter = 0; $fr.ParagraphFormat.LineSpacingRule = 0
         $off = 1
@@ -1057,7 +1072,22 @@ try {
         if ($PUSTAKA_MUALLIF) { SelGaya $tb $r 2 $DATA.pustaka[$r - 1] } else { Sel $tb $r 2 $DATA.pustaka[$r - 1] 3 0 }
     }
     Huruf $tb.Range.Font $null $U_PUSTAKA
-    for ($r = 1; $r -le $n; $r++) { $rg = $tb.Cell($r, 2).Range; Latin $rg $rg.Start $(if ($PUSTAKA_MUALLIF) { $DATA.pustaka[$r - 1] -replace '\*\*|__', '' } else { $DATA.pustaka[$r - 1] }) $U_PUSTAKA }
+    for ($r = 1; $r -le $n; $r++) {
+        $rg = $tb.Cell($r, 2).Range; $polos = $(if ($PUSTAKA_MUALLIF) { $DATA.pustaka[$r - 1] -replace '\*\*|__', '' } else { $DATA.pustaka[$r - 1] })
+        Latin $rg $rg.Start $polos $U_PUSTAKA
+        if ($RENCANA.pustaka_ltr[$r - 1]) {   # rujukan asing utuh: paragraf kiri-ke-kanan rata kiri, nomornya tetap di kolom kanan
+            $rg.ParagraphFormat.ReadingOrder = 1; $rg.ParagraphFormat.Alignment = 0
+            # seluruh teksnya satu run kiri-ke-kanan Times (juga kurung, tanda petik, angka, dan titik di luar rentang Latin)
+            # huruf untuk seluruh sel, juga tanda akhir selnya: tanda itu yang menentukan tinggi baris terakhir
+            $uL = [Math]::Ceiling($U_PUSTAKA * $rasioLatin)
+            Huruf $rg.Font 'Times New Roman' $uL $null
+            # jarak antarrujukan seperti baris Arab
+            # nomor tetap sebesar nomor baris Arab; tinggi barisnya dibuat sama dengan baris teks Latin supaya sebaris
+            $no = $tb.Cell($r, 1).Range; $no.ParagraphFormat.LineSpacingRule = 4; $no.ParagraphFormat.LineSpacing = [single]($uL * 1.15)   # 4 = tepat setinggi baris teks Latin
+            $rg.ParagraphFormat.SpaceAfter = 6; $no.ParagraphFormat.SpaceAfter = 6
+            $l = $rg.Duplicate; $l.SetRange($rg.Start, $rg.Start + $polos.Length); $l.Select(); $word.Selection.LtrRun()
+        } else { LatinLtr $rg $rg.Start $polos }
+    }
     }
 
     # ---------- 3. Sesudah isi: المصادر والمراجع, الملاحق, الفهارس (yang dicetak, urutan, dan judulnya: $RENCANA.bagian) ----------
