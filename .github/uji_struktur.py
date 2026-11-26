@@ -93,8 +93,17 @@ def utama():
         cek("@minimal_halaman bukan bilangan", dasar.replace("@minimal_halaman: 0", "@minimal_halaman: banyak"), True,
             "bukan bilangan bulat")
         # naskah lama ber-@bentuk (mode kitab/muqarrar yang sudah dicabut) berhenti dengan jalan keluarnya
-        cek("@bentuk dicabut", "@bentuk: kitab\n" + dasar, True,
-            "@bentuk dicabut: mesin ini khusus bahts; naskah kitab/muqarrar dirakit dengan versi mesin b4dbc50 (atau rilis v14.0.0)")
+        muqarrar = "mesin ini khusus bahts; naskah kitab/muqarrar dirakit dengan versi mesin b4dbc50 (atau rilis v14.0.0)"
+        cek("@bentuk dicabut", "@bentuk: kitab\n" + dasar, True, "@bentuk dicabut: " + muqarrar)
+        cek("@rumuz dicabut", "@rumuz: 11223=-\n" + dasar, True, "@rumuz dicabut: " + muqarrar)
+        cek("@warna dicabut", "@warna: 11223=biru\n" + dasar, True, "@warna dicabut: " + muqarrar)
+        # #T dan ((…)) tidak boleh diam-diam jadi judul tak dikenal atau teks biasa yang tercetak dengan kurungnya
+        for nama, sisip, pesan in (("#T dicabut", "#T نص المتن.\n", "#T dicabut: " + muqarrar),
+                                   ("((…)) dicabut", "قال المصنف: ((نص المتن)).\n", "tanda rusak — ((…)) dicabut: " + muqarrar)):
+            out = cek(nama, dasar.replace("#K الخاتمة", sisip + "#K الخاتمة"), True, pesan)
+            assert re.search(r"\| GAGAL: 1$", out, re.M), (nama, out)
+        # «))» tanpa «((» = kurung biasa di teks bahts («(رحمه الله))»), bukan tanda
+        cek("kurung tutup ganda biasa", dasar.replace("#K الخاتمة", "قال (أي: الباحث (رحمه الله)).\n#K الخاتمة"))
         # @minimal_kitab: bawaan tidak dinilai (contoh asli di atas: tanpa «kurang dari»); hanya kalau dosen menulis batasnya
         dua = dasar.replace("@minimal_halaman: 0", "@minimal_halaman: 0\n@minimal_kitab: 2")
         cek("kitab kurang dari batas dosen", dua, pesan="baru 1 kitab (selain القرآن الكريم), kurang dari 2 («@minimal_kitab: 2»)")
@@ -243,14 +252,14 @@ def utama():
         assert "tercetak sendirian" not in out, out
         out = cek("riset {Q:} di bawah #R", dasar + "مرجع {Q:1:1}.\n")
         assert "tafsir belum tercatat di riset.txt untuk 1 ayat: 1:2 →" in out, out
-        for tanda in ("#K", "#F", "#B", "#M", "#S", "#T", "#R", "#H"):
+        for tanda in ("#K", "#F", "#B", "#M", "#S", "#V", "#R", "#H"):
             akhir = tanda + ("" if tanda == "#H" else " نص إضافي")
             cek("isi sesudah pustaka " + tanda, dasar + "\n" + akhir + "\n", True, "sesudah #R")
         # Perintah rakit harus berhenti pada cek; sumber dan generasi hasil lama tetap utuh.
         lama = {"uji.docx": b"DOCX-LAMA", "uji.pdf": b"PDF-LAMA", "laporan.txt": b"LAPORAN-LAMA"}
         for nama, data in lama.items():
             (f / nama).write_bytes(data)
-        cek("rakit menolak isi yang akan hilang", dasar + "\n#T نص إضافي\n", True, "Belum dirakit", "rakit")
+        cek("rakit menolak isi yang akan hilang", dasar + "\n#V نص إضافي\n", True, "Belum dirakit", "rakit")
         assert all((f / nama).read_bytes() == data for nama, data in lama.items())
         assert not list(f.glob(".rakit-*"))
 

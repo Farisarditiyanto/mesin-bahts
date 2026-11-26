@@ -40,7 +40,7 @@ def rakit(akar, nama, teks):
     teks, sisa = akhir.get_text(), akhir.rect.height - tepi - max((l["bbox"][3] for l in isi), default=0)
     doc.close()
     assert isi, f"{nama}: halaman PDF terakhir (ke-{hal}) kosong"
-    return hal, teks, xml, sisa
+    return hal, teks, sisa
 
 
 def utama():
@@ -52,19 +52,14 @@ def utama():
         akar = Path(t)
         salin_mesin(akar)
         # 50 baris: baris ke-50 tepat di tepi bawah halaman ketiga
-        hal, teks, xml, sisa = rakit(akar, "pas", baris(50))
+        hal, teks, sisa = rakit(akar, "pas", baris(50))
         assert sisa < 3, (f"naskah uji tidak lagi pas memenuhi halaman (sisa {sisa:.1f} pt di bawah baris terakhir): "
                           "jebakannya tidak teruji, sesuaikan jumlah barisnya")
         assert "٥٠" in teks or "٠٥" in teks, teks   # teks PDF Word: angka ٠-٩ bisa terbaca terbalik
         print(f"lolos halaman akhir: 50 baris pas di tepi bawah (sisa {sisa:.1f} pt), {hal} halaman tanpa halaman kosong")
         # 24 baris: sisa ruang di bawah baris terakhir kurang dari satu baris matan
-        hal, teks, xml, sisa = rakit(akar, "hampir", baris(24))
+        hal, _, sisa = rakit(akar, "hampir", baris(24))
         print(f"lolos halaman akhir: 24 baris (sisa {sisa:.1f} pt), {hal} halaman tanpa halaman kosong")
-        # blok terakhir = kotak matn #T: paragraf terakhir tetap berbingkai sesudah paragraf kosong penutup dibuang
-        hal, teks, xml, sisa = rakit(akar, "kotak", baris(48) + "#T هذا نص المتن في الإطار الأخير.\n")
-        akhir = re.findall(r"<w:p[ >].*?</w:p>", xml.split("<w:body>")[1])[-1]
-        assert "المتن في الإطار الأخير" in akhir and "<w:pBdr>" in akhir, akhir
-        print(f"lolos halaman akhir: #T di akhir tetap berbingkai, {hal} halaman tanpa halaman kosong")
 
 
 if __name__ == "__main__":

@@ -266,7 +266,7 @@ PORSI_MIN = 600
 
 def porsi_kutipan(blok, catatan):
     """Perhatian tiap bagian (#K/#F/#B/#M sampai judul berikutnya) yang hurufnya sebagian besar kutipan bertanda petik.
-    Yang dihitung hanya paragraf matan (#P): ayat {Q:}, catatan kaki, bait #V, dan kotak #T tidak ikut. Hadits juga tidak:
+    Yang dihitung hanya paragraf matan (#P): ayat {Q:}, catatan kaki, dan bait #V tidak ikut. Hadits juga tidak:
     nash Sunnah dikutip utuh (أبو سليمان، كتابة البحث العلمي، ص112), jadi potongan teks yang memuat {H:} atau yang
     catatan kakinya takhrij («أخرجه»، «رواه»، «متفق عليه») tidak dihitung."""
     hasil, judul, semua, kutip = [], None, 0, 0

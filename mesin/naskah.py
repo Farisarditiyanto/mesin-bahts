@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Pengurai satu baris naskah (Pengurai): tanda {Q:}, {H:}, {P:}, {A:}, **, ((…)), dan catatan kaki [^…] yang
+"""Pengurai satu baris naskah (Pengurai): tanda {Q:}, {H:}, {P:}, {A:}, **, dan catatan kaki [^…] yang
 diperiksa per langkah (CatatanKaki). Hasilnya dikumpulkan di Pemeriksaan, satu objek per naskah."""
 import contextlib, dataclasses, re
 from pathlib import Path
@@ -14,7 +14,7 @@ from cek_naql import isyarat, panjang, salinan
 from cek_rujukan import cocok_halaman, judul_kitab, judul_shamela, kitab_lain, kitab_waqfeya, rujukan_halaman
 from cek_sumber import standar_sumber, urutan_sumber
 from cek_tautsiq import data_cetak, gelar, pemisah_sumber
-from dasar import (ANGKA_LATIN, AYAT_DI_KUTIPAN, DIPOTONG, HURUF_LATIN, LUAR, SURAH, TANPA_ANZHUR, TandaRusak, WAQFEYA, WAQFEYA_BUKTI,
+from dasar import (ANGKA_LATIN, AYAT_DI_KUTIPAN, DICABUT, DIPOTONG, HURUF_LATIN, LUAR, SURAH, TANPA_ANZHUR, TandaRusak, WAQFEYA, WAQFEYA_BUKTI,
                    akhir_catatan, akhir_rumus, daftar, ekor)
 from kitab_lokal import Bukti, diunduh
 from petik import (
@@ -60,8 +60,6 @@ class Pemeriksaan:
     dan catatan yang baru dinilai sesudah barisnya atau sesudah seluruh naskah. Satu objek per `periksa`, jadi dua naskah
     yang diperiksa dalam satu proses (mis. `bukti` lalu `cek`) tidak saling mewarisi isi."""
     folder: Path | None = None  # folder bahts (tempat PDF bukti <<luar|berkas|hal>>)
-    rumuz: dict = dataclasses.field(default_factory=dict)  # @rumuz: sid -> huruf
-    warna: dict = dataclasses.field(default_factory=dict)  # @warna: sid -> warna Word (BGR)
     catatan: list = dataclasses.field(default_factory=list)  # catatan kaki: {"runs", "bukti", "luar", "pdf"}
     ayat_idx: list = dataclasses.field(default_factory=list)  # {Q:} di matan, untuk فهرس الآيات
     hadits_idx: list = dataclasses.field(default_factory=list)  # {H:}, untuk فهرس الأحاديث
@@ -125,8 +123,8 @@ class CatatanKaki:
     """Satu catatan kaki [^…] yang sedang diperiksa: isinya, buktinya (dipilah sekali menurut jenisnya; bentuk tiap
     jenis diperiksa di langkahnya), jenisnya, dan kutipan yang dirujuknya. Sisanya diisi berurutan oleh langkah
     `Pengurai._catatan_kaki`; tiap langkah membaca yang sudah diisi langkah sebelumnya."""
-    __slots__ = ("isi", "mentah", "berbukti", "shamela", "luar", "pdf", "wq", "rujukan_surah", "sabaqa", "sid_bukti", "diam",
-                 "zz", "seg_bukti", "penggal", "dirujuk", "mk", "lain", "terbukti", "kc", "dikecualikan", "salah_takhrij")
+    __slots__ = ("isi", "mentah", "berbukti", "shamela", "luar", "pdf", "wq", "rujukan_surah", "sabaqa", "sid_bukti",
+                 "seg_bukti", "penggal", "dirujuk", "mk", "lain", "terbukti", "kc", "dikecualikan", "salah_takhrij")
 
     def __init__(self, isi, bukti, mentah=""):
         self.isi = isi
@@ -161,16 +159,14 @@ class Pengurai:
 
     def __init__(self, teks, ctx, di_catatan):
         self.teks, self.ctx, self.di_catatan = teks, ctx, di_catatan
-        self.runs, self.tebal, self.merah, self.i = [], False, False, 0
+        self.runs, self.tebal, self.i = [], False, 0
         self.q_akhir = None  # ayat terakhir di baris ini (untuk mencocokkan catatan kaki «سورة …»)
         self.polos = ""  # teks polos berjalan (untuk mencari kutipan sebelum catatan kaki)
         self.seg = 0  # awal teks polos sesudah catatan kaki terakhir
         self.penggal_lalu = ""  # teks yang dirujuk catatan kaki sebelumnya (catatan kaki berurutan merujuk teks yang sama)
-        # awal teks polos dan runs sesudah catatan kaki berbukti terakhir: paragraf salinan (diam) dicek sejak situ, jadi
-        # catatan penjelasan di tengahnya tidak meloloskan kalimat karangan sebelumnya
-        self.seg_bukti = self.seg_run_bukti = 0
+        # awal teks polos sesudah catatan kaki berbukti terakhir: batas awal kalimat nukilan yang dinilai cara menukilnya
+        self.seg_bukti = 0
         self.seg_h = len(ctx.hadits_idx)  # {H:} pertama sesudah catatan kaki terakhir
-        self.matn = set()  # letak kurung buka lafaz matn ((…)) di polos: bukan kurung kutipan
         self.h_pos = None  # letak {H:} terakhir di polos: (…) tepat sesudahnya = matan hadits yang dikutip
 
     @property
@@ -182,7 +178,7 @@ class Pengurai:
         return self.ctx.perhatian
 
     def _teks(self, t):
-        self.runs.append({"t": t, "b": self.tebal, "m": self.merah}); self.polos += t
+        self.runs.append({"t": t, "b": self.tebal}); self.polos += t
 
     def jalan(self):
         teks = self.teks
@@ -200,13 +196,8 @@ class Pengurai:
     def _tebal(self, tok):
         self.tebal = not self.tebal
 
-    def _matn(self, tok):
-        if self.merah == (tok == "(("):
-            raise TandaRusak(f"tanda {tok} tidak berpasangan: lafaz matn ditulis ((…))")
-        self.merah = tok == "(("
-        if self.merah:
-            self.matn.add(len(self.polos))
-        self.runs.append({"t": tok[0], "b": self.tebal, "m": True}); self.polos += tok[0]  # kurung lafaz matn ikut tercetak merah dan dicek
+    def _matn_dicabut(self, tok):  # «((» = pembuka lafaz matn naskah muqarrar: GAGAL, bukan diam-diam jadi kurung biasa
+        raise TandaRusak(f"((…)) dicabut: {DICABUT['((…))']}")
 
     def _ayat(self, tok):
         ctx = self.ctx
@@ -313,8 +304,6 @@ class Pengurai:
         polos = self.polos
         if self.tebal:
             raise TandaRusak("tanda ** tidak berpasangan")
-        if self.merah:
-            raise TandaRusak("tanda (( tidak ditutup dengan ))")
         if re.search(rf"<<(?:\d+\||{LUAR}(?:>>|\|))", polos):
             raise TandaRusak("bukti <<...>> hanya boleh di dalam catatan kaki [^...]; di luar itu ia ikut tercetak")
         kurawal = [t for t in self.PENANGAN if t.startswith("{")]
@@ -340,10 +329,9 @@ class Pengurai:
         self._cek_kutipan_lain(c)
         self._cek_hadits(c)
         self._cek_tanpa_bukti(c)
-        if not c.diam:
-            self._cek_penisbatan(c)
-            self._cek_tautsiq(c)
-            self._cek_naql(c)
+        self._cek_penisbatan(c)
+        self._cek_tautsiq(c)
+        self._cek_naql(c)
         self._pasang_catatan(c)
 
     def _baca_catatan(self):
@@ -380,14 +368,10 @@ class Pengurai:
 
     def _kenali_kutipan(self, c):
         """Teks yang dirujuk catatan kaki ini dan kutipan bertanda petik tepat sebelumnya (mk)."""
-        rumuz, polos = self.ctx.rumuz, self.polos
-        # bukti saja + semua sumbernya di @rumuz: tidak dicetak, dan seluruh teks sejak catatan kaki berbukti sebelumnya
-        # = nukilan utuh dari halaman bukti (kitab tanpa catatan kaki: paragraf syarah yang disalin dari kitabnya)
+        polos = self.polos
         c.sid_bukti = [b.split("|")[0] for b in c.shamela]  # seperti ditulis: bentuk bukti baru diperiksa _cek_bukti_shamela
-        c.diam = not c.isi and bool(c.sid_bukti) and all(x in rumuz for x in c.sid_bukti)
-        c.zz = [z for z in dict.fromkeys(rumuz.get(x) for x in c.sid_bukti) if z and z != "-"]
         c.seg_bukti = self.seg_bukti
-        c.penggal = polos[self.seg_bukti if c.diam else self.seg:]
+        c.penggal = polos[self.seg:]
         # catatan kaki tepat sesudah catatan kaki lain («[^…][^…]») merujuk teks yang sama dengan catatan kaki itu
         c.dirujuk = self.penggal_lalu = c.penggal if re.search(r"\w", c.penggal) else self.penggal_lalu
         # kutipan terakhir tepat sebelum catatan kaki; kutipan lain sejak catatan kaki sebelumnya tidak punya catatan kaki sendiri
@@ -402,11 +386,11 @@ class Pengurai:
         isi_polos = norma.HARAKAT.sub("", isi)
         # ayat diketik sendiri lalu dirujuk «سورة …»: tidak pernah dicek ke mushaf, jadi bisa karangan
         # (di dalam tanda petik sudah ditolak di bawah: «سورة …» tidak membebaskan prosa di dalam kutipan)
-        ketik = ayat_ketik(c.penggal) if c.rujukan_surah or not c.diam else None
+        ketik = ayat_ketik(c.penggal)
         if ketik and c.rujukan_surah:
             self.galat.append(f"ayat diketik langsung «{ketik[:40]}»: tidak dicek ke mushaf; tulis lewat {{Q:surah:ayat}}"
                               f"{ekor(isi, rapat=True)}")
-        elif ketik:  # di matan, tanpa rujukan «سورة …»: bisa ayat karangan; paragraf salinan berbukti (diam) dicek ke kitab
+        elif ketik:  # di matan, tanpa rujukan «سورة …»: bisa ayat karangan
             self.perhatian.append(f"ayat diketik langsung «{ketik[:40]}»: tidak dicek ke mushaf; tulis lewat {{Q:surah:ayat}}"
                                   f"{ekor(isi, rapat=True)}")
         elif ((c.rujukan_surah and re.search(r"[0-9٠-٩۰-۹]", isi_polos) or rujukan_ayat(isi))
@@ -439,30 +423,24 @@ class Pengurai:
         """Kutipan lain sejak catatan kaki sebelumnya, kurung yang jadi kutipan, dan tanda petik yang tidak berpasangan."""
         polos, seg = self.polos, self.seg
         c.lain = kutipan_semua(polos[seg:])[:-1 if c.mk is not None else None]
-        if c.mk is None and c.berbukti and not c.diam:  # «قال ﷺ: (…)», «{H:…}(…)»: kurung itu kutipan, dicek seperti "…"
-            c.mk = kurung_akhir(polos, seg, self.matn, self.h_pos)
+        if c.mk is None and c.berbukti:  # «قال ﷺ: (…)», «{H:…}(…)»: kurung itu kutipan, dicek seperti "…"
+            c.mk = kurung_akhir(polos, seg, self.h_pos)
         sisa = luar_petik(polos[seg:])
-        if c.mk is None and c.berbukti and not c.diam and SISA_PETIK.search(sisa):  # nukilan utuh: tanda petiknya tidak menentukan apa pun
+        if c.mk is None and c.berbukti and SISA_PETIK.search(sisa):  # nukilan utuh: tanda petiknya tidak menentukan apa pun
             self.perhatian.append(f"tanda petik tanpa pasangan sebelum catatan kaki: kutipannya tidak dikenali dan tidak dicek; "
                                   f"pakai \"…\" atau «…»{ekor(c.isi)}")
-        # «"…" ... "…"»: dua kutipan disambung elipsis di luar petik. Paragraf salinan berbukti (diam) sudah dicek
-        # utuh ke kitab, dan «...» di situ bisa pemisah dua paruh bait syair
-        if c.lain and DIPOTONG.search(sisa) and not c.diam:
+        # «"…" ... "…"»: dua kutipan disambung elipsis di luar petik
+        if c.lain and DIPOTONG.search(sisa):
             self.perhatian.append("kutipan disambung ... di luar tanda petik: baca yang dilompati di kitab, pastikan makna dan "
                                   "pembicaranya tetap" + (ekor(c.isi) if c.isi else ekor(c.penggal.strip(), apa="matan")))
 
     def _batas_paragraf(self, c):
-        """Catatan kaki ini menutup teks yang dirujuknya; paragraf salinan satu kitab berwarna diberi warnanya."""
+        """Catatan kaki ini menutup teks yang dirujuknya."""
         self.seg = len(self.polos)
         # batas paragraf salinan: bukti Shamela, atau <<luar>> yang menutup kutipan (yang dicek/diberi perhatian).
         # «سورة …»/«سبق تخريجه» dan <<luar>> tanpa kutipan tidak: teks sebelumnya ikut dicek ke bukti berikutnya
         if c.sid_bukti or c.berbukti and c.mk is not None:
             self.seg_bukti = self.seg
-        ww = {self.ctx.warna.get(x) for x in c.sid_bukti}
-        if c.diam and len(ww) == 1 and None not in ww:  # paragraf salinan satu kitab berwarna: lafaz matn ((…)) tetap merah
-            for r in self.runs[self.seg_run_bukti:]:
-                if "t" in r and not r.get("m"):
-                    r["w"] = next(iter(ww))
 
     def _cek_bentuk_luar(self, c):
         """Bentuk <<w…|berkas|hal>> (kitab Waqfeya) dan <<luar|berkas.pdf|hal>>; catatan kaki berbukti kitab dicatat untuk `bukti`."""
@@ -479,12 +457,12 @@ class Pengurai:
         if c.shamela or c.wq or pdf_bukti:
             # Runs paragraf tetap diisi sampai akhir; batas c.dirujuk terputus oleh catatan penjelasan di tengah kutipan.
             self.ctx.penunjuk.append({"n": self.ctx.baris, "bukti": c.shamela + c.wq + pdf_bukti, "runs": self.runs,
-                                      "kutipan": c.penggal if c.diam else c.mk, "catatan": c.isi})
+                                      "kutipan": c.mk, "catatan": c.isi})
 
     def _cek_bukti_shamela(self, c):
         """Tiap bukti <<sid|juz|hal(|potongan)>>: juz/halamannya ada, dan kutipan (atau potongannya) terbaca di sana."""
         galat, perhatian, ctx = self.galat, self.perhatian, self.ctx
-        isi, diam, mk = c.isi, c.diam, c.mk
+        isi, mk = c.isi, c.mk
         c.terbukti = terbukti = []  # tiap Bukti yang juz/halamannya ada, untuk dicocokkan dengan yang tercetak
         disebut = []  # perhatian `cek` catatan kaki ini yang sudah masuk laporan
         kutipan_4 = []  # hasil cek kutipan ke tiap bukti berpotongan sendiri: (bukti, galat, perhatian)
@@ -495,7 +473,7 @@ class Pengurai:
                 and not any(shamela.nomor_judul(k.strip())) and not judul_kitab(k, c.sid_bukti)]
         # teks naskah tepat sebelum kutipan («قال البهوتي:»): pembicaranya dicocokkan dengan kitab di `cek`
         s = seragam(self.polos)
-        pengantar = re.split(r'[.،؛"«»\n]', s[:s.rfind(mk) - 1])[-1] if mk and not diam and mk in s else ""
+        pengantar = re.split(r'[.،؛"«»\n]', s[:s.rfind(mk) - 1])[-1] if mk and mk in s else ""
         for teks in c.shamela:
             try:
                 b = Bukti.urai(teks)
@@ -508,23 +486,20 @@ class Pengurai:
                     ctx.belum_diunduh.append(b.sid)
                 continue
             terbukti.append(b)
-            if b.potongan is None or diam:  # bukti saja: seluruh paragraf dicek, potongannya tidak cukup
-                nukilan = c.penggal if diam else mk
-                if nukilan is None:
+            if b.potongan is None:  # bukti saja: kutipan bertanda petik sebelum catatan kaki yang dicek
+                if mk is None:
                     if c.kc:  # yang dicek kutipan di dalam catatan kaki (_cek_kutipan_di_catatan)
                         continue
                     galat.append(f"catatan kaki berbukti <<{teks}>> tanpa potongan dan tanpa kutipan bertanda petik "
                                  f"sebelumnya: tambah potongan <<{teks}|lafaz>> atau beri tanda petik \"…\" pada "
                                  f"kutipannya{ekor(isi)}"); continue
-                e = self._cek(b, nukilan, disebut, kutipan=True, pengantar=pengantar)
-                if not diam:  # kutipan ke bukti tanpa potongan: diputus sesudah semua bukti catatan kaki ini dicek
-                    kutipan_3.append((b, e)); continue
-            else:
-                nukilan = tandai_ayat(b.potongan)
-                e = self._cek(b, nukilan, disebut)
-                if not e and mk is not None and not tiga:
-                    p = Catat()
-                    kutipan_4.append((b, cek(b, mk, p, kutipan=True, pengantar=pengantar), p))
+                # diputus sesudah semua bukti catatan kaki ini dicek
+                kutipan_3.append((b, self._cek(b, mk, disebut, kutipan=True, pengantar=pengantar))); continue
+            nukilan = tandai_ayat(b.potongan)
+            e = self._cek(b, nukilan, disebut)
+            if not e and mk is not None and not tiga:
+                p = Catat()
+                kutipan_4.append((b, cek(b, mk, p, kutipan=True, pengantar=pengantar), p))
             if e:
                 galat.append(f"{e}{ekor(isi)}")
                 self._tertolak(e, b, nukilan)
@@ -706,34 +681,27 @@ class Pengurai:
 
     def _cek_naql(self, c):
         """Cara menukil (cek_naql): lafaz kitab di luar tanda petik, tanda «انظر», dan kutipan yang terlalu panjang."""
-        awal = len(self.polos) - len(c.penggal)
-        # lafaz matn ((…)) yang disyarah = nukilan yang sudah bertanda: hanya panjang kutipannya yang dinilai
-        matn = any(m >= awal for m in self.matn)
         penggal_naql = c.penggal
-        if not matn and c.mk and c.mk not in seragam(c.penggal):
+        if c.mk and c.mk not in seragam(c.penggal):
             idx = seragam(self.polos).rfind(c.mk)
             if idx >= 0:
                 awal_kal = max(c.seg_bukti, max((self.polos.rfind(p, 0, idx) + 1 for p in ".\n"), default=0))
                 penggal_naql = self.polos[awal_kal:]
-        for p in (None if matn else salinan(penggal_naql, c.mk, c.isi, c.terbukti),
-                  None if matn else isyarat(penggal_naql, c.mk, c.isi, c.terbukti, c.kc), panjang(c.mk, c.isi)):
+        for p in (salinan(penggal_naql, c.mk, c.isi, c.terbukti), isyarat(penggal_naql, c.mk, c.isi, c.terbukti, c.kc),
+                  panjang(c.mk, c.isi)):
             if p:
                 self.perhatian.append(p)
 
     def _pasang_catatan(self, c):
-        """Catatan kaki jadi bahan rakit: diurai sendiri, rumuz-nya dicetak, nomornya dipasang di matan."""
+        """Catatan kaki jadi bahan rakit: diurai sendiri, nomornya dipasang di matan."""
         isi = c.isi
         if "anzhur" in daftar(self.ctx.meta, "tanpa"):  # @tanpa: anzhur: kata itu tidak dicetak, `cek` tetap membacanya
             isi = TANPA_ANZHUR.sub(r"\g<pra>", isi)
         sub = urai(isi, self.ctx, di_catatan=True)
-        self.runs += [{"z": z} for z in c.zz]
         self.ctx.catatan.append({"runs": sub, "bukti": len(c.shamela), "luar": c.luar and not c.wq, "pdf": len(c.pdf),
                                  "wq": len(c.wq)})
-        if not c.diam:
-            self.runs.append({"fn": len(self.ctx.catatan) - 1})
-        if self.seg_bukti == self.seg:
-            self.seg_run_bukti = len(self.runs)
+        self.runs.append({"fn": len(self.ctx.catatan) - 1})
 
-    PENANGAN = {"**": _tebal, "((": _matn, "))": _matn, "{Q:": _ayat, "{H2:": _hadits_lagi, "{H:": _hadits,
+    PENANGAN = {"**": _tebal, "((": _matn_dicabut, "{Q:": _ayat, "{H2:": _hadits_lagi, "{H:": _hadits,
                 "{P:": _rujuk_halaman, "{A:": _jangkar, "{E:": _rumus, **dict.fromkeys((f"{{{f.tanda}:" for f in FIHRIS_NAMA), _nama), "{X}": _khulasah, "[^": _catatan_kaki, "]": _kurung_nyasar}
     TOKEN = re.compile("(" + "|".join(re.escape(k) + (r"[^}]*\}" if k.endswith(":") and k != "{E:" else "") for k in PENANGAN) + ")")
