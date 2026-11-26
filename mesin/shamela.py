@@ -1352,16 +1352,6 @@ def rekaman(sid):
     yield from norma.rekaman(folder(sid) / "pages.jsonl.gz")
 
 
-def judul_rekaman(sid):
-    """{page_id rekaman: [(shamela_title_id, judul, kedalaman 1 = teratas)]} menurut daftar isi, urut daftar isi.
-    shamela_title_id = n di «<span data-type="title" id=toc-n>» body; kitab yang body-nya tanpa tanda itu (mis. سنن أبي
-    داود) hanya punya judul di sini."""
-    out = {}
-    for t in daftar_isi(sid)[0]:
-        out.setdefault(t["page_id"], []).append((t["shamela_title_id"], t["title_text"], len(rantai_judul(sid, t))))
-    return out
-
-
 def rantai_calon(sid, p, c, h, bagian):
     """Rantai judul (kitab > bab) tiap judul yang mungkin menaungi letak c (`padat`) di rekaman p: satu = pasti, lebih = ragu."""
     return [" < ".join(rantai_judul(sid, t)[:3]) or "(sebelum judul pertama)"

@@ -307,7 +307,6 @@ POTONGAN = Bendera("--potongan", ganda="--potongan disebut lebih dari sekali")  
 JEJAK = Bendera("--jejak", ganda="--jejak disebut lebih dari sekali")
 FASL = Bendera("--fasl", "--fasl perlu nomor #F, mis. --fasl 2", lambda x: x.startswith("--"),
                "--fasl disebut lebih dari sekali; rentang ditulis --fasl 1-2")
-KE = Bendera("--ke", "--ke perlu nama folder", lambda x: x.startswith("--"))
 SARING = tuple(Bendera(n, f"{n} butuh nilai, mis. {n} {contoh}", lambda x: not x.strip(" ,،"),
                        f"{n} disebut dua kali; nilai ganda ditulis dengan koma, mis. {n} {contoh},…")
                for n, contoh in (("--mazhab", "hanbali"), ("--kitab", "8370"), ("--halaman", "2")))
@@ -422,15 +421,6 @@ def perintah_pratinjau(a):
     pratinjau.render(folder_bahts(a[0]), jalur_ketik(a[0]), *a[1:])
 
 
-def perintah_ekspor(a):
-    """`ekspor <id|w…> [...] [--ke <folder>]`: --ke boleh di mana saja."""
-    import ekspor
-    a, k = pisah(a, PERINTAH["ekspor"].bendera)
-    if not a or any(x.startswith("--") for x in a):
-        raise ValueError(f"argumen tidak dikenal atau kurang: {a}")
-    ekspor.ekspor(a, Path(k["ke"]) if "ke" in k else Path.home() / "Downloads")
-
-
 def perintah_dirasat(a, **k):
     """`dirasat "<kata kunci|W…|DOI>" [maks] [saringan] [--dari t] [--sampai t] [--bahasa b] [--urut u]`."""
     import dirasat
@@ -542,10 +532,6 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
              lambda a: ketemu(_mod("waqfeya").halaman(*a) if wq(a[0]) else halaman(*a)), 3, 3),
     Perintah("scan <id> <juz> <hal>", "alamat scan cetakan halaman itu (PDF di turath.io, butuh internet), untuk bacaan yang meragukan",
              lambda a: ketemu(_mod("turath").scan(*a)), 3, 3),
-    Perintah("ekspor <id|w…> [...] [--ke <folder>]", "seluruh kitab jadi satu .txt (satu paragraf satu baris, judul bab «#»,\n"
-             "penanda juz/halaman, حاشية sesudah halamannya); yang belum diunduh diunduh dulu.\n"
-             "Bawaan ke folder Downloads; nama berkas = judul kitab. Bukan bahan bahts",
-             perintah_ekspor, 1, None, (KE,)),
     "Kitab Waqfeya (scan cetakan + OCR, untuk kitab yang tidak ada di Shamela; disimpan di kitab/waqfeya, dipakai semua bahts):",
     Perintah('waqfeya "<judul/pengarang>" [maks]', "cari di katalog Waqfeya (±10.000 kitab) -> nomor w… (diunduh sekali, ±17 MB)",
              lambda a: ketemu(_mod("waqfeya").cari_katalog(a[0], *(angka(x, "maks") for x in a[1:]))), 1, 2),

@@ -6,6 +6,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Dihapus: perintah `ekspor` (seluruh kitab jadi satu .txt untuk dibaca). Mesin ini khusus menulis bahts; kitab tetap dibaca lewat `cari`, `teks`, `bab`, dan `halaman`.
 - Baru: `ubah <folder> [pembanding]` membandingkan `naskah.txt` dengan salinan terakhir hasil `rakit` (atau berkas pembanding / git HEAD) tanpa internet, mencetak rentang baris berubah untuk `bukti` ulang serta token penting yang hilang atau bertambah (bukti `<<…>>`, penanda `{Q/H/P/A/E/X}`, `#E`, angka, dan syarat/qayd fikih seperti «إلا», «بشرط», «على الراجح»). `rakit` menyimpan salinan acuan otomatis di `mesin/_tmp/revisi/`.
 - Perbaikan: pemeriksaan integritas struktur PDF lokal (`%%EOF`, peringatan perbaikan `pypdf`, dan kecocokan jumlah halaman `/Count` terhadap pohon halaman) kini memberi `perhatian` di `cek`, peringatan di `bukti`, dan peringatan saat `dirasat-pdf` menyimpan PDF bermasalah.
 - Baru: connector `qaf` (qaf.ai, perlu akun gratis) di `.mcp.json` dan `opencode.json` untuk mencari nash menurut makna, termasuk pertanyaan berbahasa Inggris; lafaz dan halamannya tetap dipastikan lewat `shamela`.

@@ -132,7 +132,6 @@ Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumenn
 | `mesin/diagram.py` | diagram Mermaid jadi PNG (`diagram`) |
 | `mesin/rumus.py` | pengurai rumus LaTeX (`#E` / `{E:…}`) menjadi persamaan OMML Word asli, tanpa TeX |
 | `mesin/pratinjau.py` | halaman PDF jadi gambar grid PNG 2×2 di TEMP (`pratinjau`) |
-| `mesin/ekspor.py` | satu kitab yang sudah diunduh (Shamela atau Waqfeya) jadi satu .txt untuk dibaca (`ekspor`) |
 | `mesin/tahap.py`, `rakit.py`, `produk.py` | keadaan bahts; alur `rakit` sisi Python (kunci, folder `.rakit-*`, pemasangan hasil); nama berkas hasil dan baris laporannya |
 | `mesin/rakit.ps1`, `word.ps1`, `teks_pdf.py` | perakit Word/PDF, identitas proses Word miliknya, dan teks PDF |
 | `mesin/format.json` | profil bentuk halaman (`@format`) |

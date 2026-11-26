@@ -134,7 +134,6 @@ Every command = `python mesin/bahts.py <perintah>`. Full list with arguments: `p
 | `mesin/diagram.py` | Mermaid diagrams to PNG (`diagram`) |
 | `mesin/rumus.py` | LaTeX math parser (`#E` / `{E:…}`) to native Word OMML equations, without TeX |
 | `mesin/pratinjau.py` | PDF pages to 2×2 PNG visual grids in TEMP (`pratinjau`) |
-| `mesin/ekspor.py` | a whole downloaded book (Shamela or Waqfeya) as one plain .txt to read (`ekspor`) |
 | `mesin/tahap.py`, `rakit.py`, `produk.py` | state of a bahts; the Python side of `rakit` (lock, `.rakit-*` folders, installing the results); result file names and report lines |
 | `mesin/rakit.ps1`, `word.ps1`, `teks_pdf.py` | Word/PDF builder, the identity of its own Word process, and PDF text |
 | `mesin/format.json` | page layout profiles (`@format`) |
