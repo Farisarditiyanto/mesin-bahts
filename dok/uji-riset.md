@@ -143,6 +143,29 @@ Diuji 19 November 2026: `qurangallery.com/mcp/shamela` (server `qurangallery-sha
 
 Yang hanya ada di `shamela`: `shamela_research_scope` (status `silent`), `shamela_scan_consensus`, dan paging tanpa batas huruf. Yang hanya ada di `qurangallery`: juz/halaman cetak → `page_id` (`shamela_cite`), daftar rawi dan sanad (`shamela_lookup_rijal`; mutunya belum diuji), dan tanpa akun. `shamela_search` mode `batch` (satu panggilan, satu `scope` per soal) memberi jumlah halaman per kategori mazhab, tetapi mencocokkan kata sehalaman (bukan frasa) dan tidak memberi status `silent`.
 
+## Connector `qaf` (dipasang sebagai pencari menurut makna)
+
+Diuji 26 November 2026 lewat API Qaf v1 (`api.qaf.ai/v1`, kunci akun gratis; isinya sama dengan MCP resmi `api.qaf.ai/mcp`) dan `shamela.link` lewat Toolport, dari PC yang sama.
+
+| Uji | `qaf` | `shamela` (shamela.link) |
+|---|---|---|
+| Akun | akun Qaf gratis (MCP: masuk OAuth); 60 permintaan per menit, 2.500 `search` per minggu | akun + masuk OAuth |
+| 75 permintaan serentak (`lookup_catalog`) | 60 dijawab, 12 ditolak HTTP 429 (`reason: minute`, `retryAfter` 59), 3 sambungan putus | — |
+| Waktu `search` | 0,34–1,19 detik (12 kueri); 20 serentak: tengah 0,6, paling lama 0,82 | `shamela_search_pages`: 0,47–10,5 detik per 3 kueri serentak |
+| Nomor kitab | `versionId` = nomor Shamela di 15 kitab (21731, 767, 913, 931, 900, 107, 142264, 30065, 9979, 32535, 14596, 37793, 7687, 12293, 2300) | — |
+| Halaman | perkiraan: 9979 «1/500» (Shamela «500»); 12293 «15/15, 15/17» (awal nash di 15/17); 142264 kitab audio «1/7447» = nomor urut Shamela | `printed_page` |
+| Kutipan الكافي 21731 «ومن ادعى الجهل بتحريم الزنا…» | 4/87 | `shamela_verify_quote`: `verbatim`, 4/ 87 |
+| «حكم صلاة الجماعة للرجال» | tanpa saringan: 5 kitab kontemporer (الطيار، ابن عثيمين، الفوزان، ابن جبرين); `deathYearAH` < 900: شرح المقنع، الإنصاف، الممتع، الشرح الكبير، المبدع | `search_pages`: المبسوط، المحيط البرهاني، مختصر المزني، روضة الطالبين، النهاية |
+| «حجية قول الصحابي», `deathYearAH` < 900 | شرح تنقيح الفصول، شرح العضد، نفائس الأصول، رفع الحاجب، إعلام الموقعين | `search_pages`: الروايتين والوجهين (2)، مسند أبي يعلى، الإشارة (2) |
+| «أثر الجهل بالتحريم في سقوط الحد», `deathYearAH` < 1000 | المحلى، الكافي 4/87، اختلاف العلماء، القواعد للحصني، المنثور، البيان | — |
+| Kalimat المغني «وجملة ذلك أن من باع سلعة بثمن مؤجل…» | المغني 4/132 teratas | `search_phrase`: المغني 4/132 dan 6/260, 6 halaman; `search_pages`: المغني tidak di 5 teratas |
+| Kalimat Inggris tentang menjual kredit lalu membeli kembali lebih murah | المغني 4/132 teratas | — |
+| «is zakat due on monthly salary income» | fatwa ابن باز، الشبكة الإسلامية | `search_pages`: 0 |
+| «ترجمة عكرمة مولى ابن عباس», `deathYearAH` < 900 | جزء المنذري، الكوثر الجاري، عمدة القاري; تهذيب/ميزان tidak di 5 teratas | `search_pages`: العدة، الاستغناء، شعب الإيمان |
+| «لا ضرر ولا ضرار», `deathYearAH` < 900 | syarah الأربعين (الطوفي، ابن دقيق العيد، ابن الملقن) | `search_pages`: السنن الكبرى للبيهقي (5), 3.978 halaman |
+
+Yang hanya ada di `qaf`: pencarian menurut makna (nash dengan lafaz lain) dan pertanyaan berbahasa Inggris. Yang tidak ada di `qaf`: frasa persis, jumlah hasil, status `silent`, `verify_quote`, halaman cetak pasti, dan lebih dari 20 hasil per panggilan (lanjutan lewat `excludeIds`, paling banyak 200).
+
 ## Jebakan alat
 
 - `shamela_resolve` hasil pertama salah kitab pada empat judul: `مواهب الجليل`, `تحفة المحتاج`, `أسنى المطالب`, `حاشية الدسوقي`.

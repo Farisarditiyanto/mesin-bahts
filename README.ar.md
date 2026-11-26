@@ -22,7 +22,7 @@
 | قواعد العمل | [`AGENTS.md`](AGENTS.md) (بالإندونيسية) |
 | مدخل الأوامر | `python mesin/bahts.py <perintah>` |
 | المسار | `baru` ← جمع المادة ← `ambil` ← كتابة `naskah.txt` ← `cek` ← `rakit` ← المراجِع ← إعادة `cek` و`rakit` |
-| موصِّلات MCP | `shamela` (إلزامي)، `qurangallery`، `turath`، `hadithunlocked`، `tafsir`، `quran` |
+| موصِّلات MCP | `shamela` (إلزامي)، `qurangallery`، `turath`، `hadithunlocked`، `tafsir`، `quran`، `qaf` |
 | المتطلبات | يذكرها `python mesin/bahts.py periksa`؛ ويحتاج `rakit` إلى Windows وMicrosoft Word |
 | الإصدار | [الإصدارات](https://github.com/Farisarditiyanto/mesin-bahts/releases)، [`CHANGELOG.md`](CHANGELOG.md) |
 | الترخيص | AGPLv3 أو ما بعدها ([`LICENSE`](LICENSE)) |
@@ -62,7 +62,7 @@ python mesin/bahts.py periksa
 
 - أوامر تسجيل `shamela` والدخول لكل وكيل: `dok/pemakai-baru.md` الخطوة 4 (وهو مكانها الوحيد).
 - النماذج المجانية أكثر خطأً في الخطوات، فالمراجِع في الخطوة 5 أهم.
-- الموصِّلات: `shamela` إلزامي؛ و`qurangallery`، `turath`، `hadithunlocked`، `tafsir`، `quran` بلا حساب. فائدتها وترتيب البدائل: `dok/pemakai-baru.md` الخطوتان 4-5 و`AGENTS.md` «Alur kerja» الخطوة 2. أرقام اختبار كل موصِّل، ومنها خادم MCP الرسمي لـshamela.ws الذي لم يُثبَّت عمدًا: [`dok/uji-riset.md`](dok/uji-riset.md).
+- الموصِّلات: `shamela` إلزامي؛ و`qurangallery`، `turath`، `hadithunlocked`، `tafsir`، `quran` بلا حساب؛ و`qaf` (البحث بالمعنى) يحتاج حساب Qaf مجانيًا. فائدتها وترتيب البدائل: `dok/pemakai-baru.md` الخطوتان 4-5 و`AGENTS.md` «Alur kerja» الخطوة 2. أرقام اختبار كل موصِّل، ومنها خادم MCP الرسمي لـshamela.ws الذي لم يُثبَّت عمدًا: [`dok/uji-riset.md`](dok/uji-riset.md).
 - كل الموصِّلات دلالة على الطريق فقط: الكتاب يُنزَّل بـ`ambil`، والنقل يجب أن يجتاز `cek`.
 
 ### بلِّغ المستخدم
