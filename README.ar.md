@@ -90,7 +90,7 @@ python mesin/bahts.py periksa
 | بيانات النشر | `kartu <id>`، `pustaka <folder>` | التوثيق الأول ومسودة قائمة المصادر من الكتب الموثقة |
 | قراءة النص | `cari`، `teks`، `bab`، `halaman` | نص محلي يُنسخ كما هو |
 | الفحص | `cek <folder>` (و`--jejak` للنقل غير الموجود)؛ وفحص DOI بالشبكة: `dirasat-cek <folder>` | `GAGAL: n`، تنبيهات، `NASKAH_SHA256` |
-| المراجِع | `peta <folder>` اختياريًّا، `bukti <folder> [awal-akhir]` | خريطة الهيكل والمصادر وقوس الحجاج دون إنترنت ([`dok/audit.md`](dok/audit.md))، ونص الصفحة حول كل حاشية (الشاملة، والوقفية، وملفات PDF البحثية)، والفقرات التي بلا حاشية |
+| المراجِع | `peta <folder>` اختياريًّا، `bukti <folder> [awal-akhir]`، `ubah <folder> [pembanding]` | خريطة الهيكل والمصادر وقوس الحجاج دون إنترنت ([`dok/audit.md`](dok/audit.md))، ونص الصفحة حول كل حاشية (الشاملة، والوقفية، وملفات PDF البحثية)، والفقرات التي بلا حاشية، وفروق التعديل مع التحقق من بقاء الأدلة والعلامات والقيود |
 | الإخراج | `rakit <folder> [--fasl n]` (Windows + Word) | `.docx` + `.pdf` (الغلاف، الحواشي، المصادر والمراجع، الفهارس)، `HALAMAN_ISI`، `HALAMAN` |
 | الحالة | `tahap <folder>` | `NASKAH=`، `HASIL=`، `RAKIT=`، `BERIKUTNYA` |
 | المخططات | `diagram <folder>` (Node.js + Chrome/Edge) | كل `<nama>.mmd` (Mermaid) يصير `<nama>.png`، ويطبع بـ`#G` |

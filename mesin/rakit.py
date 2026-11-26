@@ -7,7 +7,7 @@ from enum import Enum
 from pathlib import Path
 from typing import NamedTuple
 
-import dasar, huruf, olah, produk, teks_pdf
+import dasar, huruf, olah, produk, revisi, teks_pdf
 from berkas import sementara
 from dasar import perintah
 
@@ -461,6 +461,7 @@ def _rakit_di(f, jalur, kerja, fasl):
     elif (f / khulasah).exists():  # naskah tidak lagi ber-{X}: salinan lama dibuang bersama penggantian hasil
         buang.append(khulasah)
     terbitkan(kerja, f, terbit, buang)
+    revisi.simpan_salinan(cek.sidik_naskah, f / "naskah.txt")
     for b in baris:
         if b.startswith(produk.HITUNGAN):
             print(b)

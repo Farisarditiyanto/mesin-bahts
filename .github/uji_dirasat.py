@@ -250,6 +250,17 @@ def utama():
             dirasat.pdf("https://doi.org/10.1234/w100", t)
             assert (t / "W100.pdf").is_file()
 
+            # PDF dengan sisa bait sesudah %%EOF tetap tersimpan, tetapi mencetak PERINGATAN struktur PDF
+            (t / "W100.pdf").unlink()
+            pdf_cacat = pdf_bytes + b"\nSISA_TIDAK_SAH"
+            out_cacat = io.StringIO()
+            with patch.object(dirasat, "buka", side_effect=lambda u, kepala=None, waktu=60: (
+                _Resp(pdf_cacat) if u == "https://oa.example.org/w100.pdf" else palsu_buka(u, kepala, waktu)
+            )), contextlib.redirect_stdout(out_cacat):
+                dirasat.pdf("W100", t)
+            assert (t / "W100.pdf").is_file()
+            assert "PERINGATAN: struktur PDF" in out_cacat.getvalue() and "%%EOF" in out_cacat.getvalue(), out_cacat.getvalue()
+
         # 5. Validasi argumen salah dan bendera tak dikenal ditolak bersih tanpa Traceback
         for buruk in (
             ("dirasat", "uji", "--urut", "acak"),

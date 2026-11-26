@@ -117,6 +117,9 @@ def cek_pdf(folder, berkas, hal, kutipan, galat, perhatian, isi):
         if z > len(teks):
             galat.append(f"{tanda}: PDF itu hanya {len(teks)} halaman (hal = urutan halaman di berkas, mulai 1){ekor(isi)}")
             return
+        if cacat := sumber_pdf.masalah_struktur(p):
+            perhatian.append(f"struktur PDF «{berkas}» bermasalah ({'; '.join(cacat)}): nomor halaman bisa bergeser, "
+                             f"periksa langsung di pembaca PDF{ekor(isi)}")
         if kutipan is None:  # nukilan makna: berkas dan halaman tetap dicek, isi diperiksa orang
             perhatian.append(f"nukilan tanpa tanda petik dari PDF ({berkas}): mesin tidak mengecek isinya; pastikan sendiri "
                              f"maknanya ada di halaman itu{ekor(isi)}")

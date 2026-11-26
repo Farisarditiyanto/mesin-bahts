@@ -220,7 +220,64 @@ def utama():
             assert "(٢٠٢١)" in out_b, out_b
             assert KETERANGAN_PDF in out_b, out_b
 
-        print("lolos uji pustaka dan pemulihan teks PDF Arab")
+        # 4. Pemeriksaan integritas struktur PDF (`cek` + `bukti`): bersih, sisa bait sesudah %%EOF, /Count tidak
+        #    konsisten, dan tabel xref rusak yang memicu peringatan perbaikan pypdf.
+        import io as _io
+        from pypdf import PdfWriter
+
+        buf = _io.BytesIO()
+        w = PdfWriter()
+        w.add_blank_page(width=200, height=200)
+        w.write(buf)
+        pdf_bersih = buf.getvalue()
+
+        def uji_pdf_struktur(nama_pdf, data_pdf):
+            (f / nama_pdf).write_bytes(data_pdf)
+            naskah_s = dasar.replace(
+                "#K الخاتمة",
+                f"وفي الدراسة المعاصرة[^انظر: دراسة معاصرة، ص1. <<luar|{nama_pdf}|1>>].\n\n#K الخاتمة",
+            )
+            (f / "naskah.txt").write_text(naskah_s, encoding="utf8")
+            k_cek, o_cek = jalan("cek", "uji")
+            k_buk, o_buk = jalan("bukti", "uji")
+            assert k_cek == 0 and k_buk == 0, (nama_pdf, k_cek, o_cek, k_buk, o_buk)
+            return o_cek, o_buk
+
+        o_cek, o_buk = uji_pdf_struktur("bersih.pdf", pdf_bersih)
+        assert "struktur PDF" not in o_cek and "PERINGATAN struktur PDF" not in o_buk, (o_cek, o_buk)
+
+        o_cek, o_buk = uji_pdf_struktur("eof_sisa.pdf", pdf_bersih + b"\nSAMPAH_SESUDAH_EOF")
+        assert "struktur PDF" in o_cek and "%%EOF" in o_cek, o_cek
+        assert "PERINGATAN struktur PDF" in o_buk and "%%EOF" in o_buk, o_buk
+
+        pdf_count = pdf_bersih.replace(b"/Count 1", b"/Count 5", 1)
+        assert pdf_count != pdf_bersih
+        o_cek, o_buk = uji_pdf_struktur("count_salah.pdf", pdf_count)
+        assert "struktur PDF" in o_cek and "jumlah halaman tidak konsisten" in o_cek, o_cek
+        assert "PERINGATAN struktur PDF" in o_buk and "jumlah halaman tidak konsisten" in o_buk, o_buk
+
+        # /Count sebagai indirect object harus tetap terdeteksi bila tidak cocok
+        from pypdf.generic import NameObject, NumberObject
+        w_ind = PdfWriter()
+        w_ind.add_blank_page(width=200, height=200)
+        ref_count = w_ind._add_object(NumberObject(99))
+        w_ind._pages.get_object()[NameObject("/Count")] = ref_count
+        buf_ind = _io.BytesIO()
+        w_ind.write(buf_ind)
+        o_cek, o_buk = uji_pdf_struktur("count_indirect.pdf", buf_ind.getvalue())
+        assert "struktur PDF" in o_cek and "jumlah halaman tidak konsisten" in o_cek, o_cek
+        assert "PERINGATAN struktur PDF" in o_buk and "jumlah halaman tidak konsisten" in o_buk, o_buk
+
+        # Geser posisi xref agar pypdf memperbaikinya dengan peringatan tanpa gagal membaca halaman
+        pdf_xref = pdf_bersih.replace(b"startxref\n", b"startxref\n999", 1)
+        if pdf_xref == pdf_bersih:
+            pdf_xref = pdf_bersih.replace(b"startxref\r\n", b"startxref\r\n999", 1)
+        assert pdf_xref != pdf_bersih
+        o_cek, o_buk = uji_pdf_struktur("xref_rusak.pdf", pdf_xref)
+        assert "struktur PDF" in o_cek and "peringatan perbaikan PDF" in o_cek, o_cek
+        assert "PERINGATAN struktur PDF" in o_buk and "peringatan perbaikan PDF" in o_buk, o_buk
+
+        print("lolos uji pustaka, struktur PDF, dan pemulihan teks PDF Arab")
 
 
 if __name__ == "__main__":

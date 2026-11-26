@@ -461,6 +461,9 @@ def _simpan_pdf(isi, tujuan, nomor, asal=""):
             raise ValueError(f"PDF {nomor} tidak utuh atau tidak bisa dibaca; ulangi unduhan.")
     ket = f" (dari {asal})" if asal else ""
     print(f"Jadi: {tujuan} ({len(isi) / 1e6:.1f} MB){ket}")
+    import sumber_pdf
+    if cacat := sumber_pdf.masalah_struktur(tujuan):
+        print(f"PERINGATAN: struktur PDF {tujuan.name} bermasalah ({'; '.join(cacat)}); pastikan nomor halamannya di pembaca PDF")
 
 
 def pdf(nomor, folder):
