@@ -108,9 +108,14 @@ def _letak_lokal(sid, hadits, n, matan):
         return f"{LOKAL} edisi lokal {sid}: {letak} (kepala hadits «{n} -»)"
     beda = (f"«{n} -» di sana hadits lain (LAFAZ TIDAK COCOK: penomoran edisinya beda)" if any(k == n for k, _, _ in hadits)
             else f"«{n} -» tidak ketemu sebagai kepala hadits di sana (penomoran edisinya bisa berbeda)")
-    lain = next(((k, letak) for k, letak, ruas in hadits if k != n and _cocok(matan, ruas)), None)
+    # matan pendek («نعم») terbaca di ratusan hadits: halaman lain hanya ditunjuk kalau matannya ≥ SIRAP kata dan cocok tepat satu
+    if len(_kata(matan)) < SIRAP:
+        return f"{LOKAL} kitab {sid}, tetapi {beda}, dan matannya terlalu pendek untuk dicari di kitab itu: {cari}"
+    lain = [(k, letak) for k, letak, ruas in hadits if k != n and _cocok(matan, ruas)]
+    if len(lain) == 1:
+        return f"{LOKAL} edisi lokal {sid}: {lain[0][1]} (kepala hadits «{lain[0][0]} -», lafaz matannya cocok; {beda})"
     if lain:
-        return f"{LOKAL} edisi lokal {sid}: {lain[1]} (kepala hadits «{lain[0]} -», lafaz matannya cocok; {beda})"
+        return f"{LOKAL} kitab {sid}, tetapi {beda}, dan matannya cocok dengan {len(lain)} hadits di kitab itu: {cari}"
     return f"{LOKAL} kitab {sid}, tetapi {beda}, dan matannya tidak ketemu di kitab itu: {cari}"
 
 

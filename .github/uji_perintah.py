@@ -124,7 +124,8 @@ NIYYA = "إنما الأعمال بالنيات، وإنما لكل امرئ م�
 ASING = "هذا كلام لا يوجد في أي حديث من أحاديث هذا الكتاب أصلا"  # matan yang tidak ada di 1681
 riwayat = [("صحيح البخاري", 1, NIYYA), ("صحيح البخاري", 856, "وقال أحمد بن صالح بعد حديث يونس عن ابن شهاب وهو يثبت قول يونس"),
            ("صحيح مسلم", 1907, "إنما الأعمال بالنية، وإنما لامرئ ما نوى"), ("مسند أحمد", 1, NIYYA),
-           ("صحيح البخاري", 999999, ASING), ("صحيح البخاري", 2, NIYYA), ("صحيح البخاري", 3, ASING)]
+           ("صحيح البخاري", 999999, ASING), ("صحيح البخاري", 2, NIYYA), ("صحيح البخاري", 3, ASING),
+           ("صحيح البخاري", 888888, "قال: نعم")]
 jawaban = {"hits": {"total": {"value": len(riwayat)}, "hits": [
     {"_id": str(i), "_source": {"book_name": k, "number": [n], "editions": [{"volume": 9, "page": 999, "edition": "طبعة أخرى"}],
                                 "matn": m}} for i, (k, n, m) in enumerate(riwayat)]}}
@@ -145,6 +146,7 @@ for k, n, harus in (("صحيح البخاري", 1, "edisi lokal 1681: 1/6"), ("�
                     ("صحيح البخاري", 999999, "«999999 -» tidak ketemu sebagai kepala hadits"),
                     ("صحيح البخاري", 2, "edisi lokal 1681: 1/6 (kepala hadits «1 -», lafaz matannya cocok; «2 -» di sana "
                                         "hadits lain (LAFAZ TIDAK COCOK"),
+                    ("صحيح البخاري", 888888, "matannya terlalu pendek untuk dicari"),
                     ("صحيح البخاري", 3, "«3 -» di sana hadits lain (LAFAZ TIDAK COCOK: penomoran edisinya beda), dan "
                                         "matannya tidak ketemu")):
     if harus not in lokal(k, n):
@@ -153,6 +155,9 @@ for k, n, harus in (("صحيح البخاري", 1, "edisi lokal 1681: 1/6"), ("�
 for n in (2, 3):
     if re.search(r"edisi lokal 1681: [^(]*\(kepala hadits «" + str(n) + " -»", lokal("صحيح البخاري", n)):
         gagal.append(f"hadits صحيح البخاري {n}: halaman hadits lain dicetak sebagai edisi lokal: {lokal('صحيح البخاري', n)!r}")
+# matan pendek terbaca di ratusan hadits: tidak boleh menunjuk halaman hadits mana pun
+if "edisi lokal 1681:" in lokal("صحيح البخاري", 888888):
+    gagal.append(f"hadits matan pendek: halaman hadits sembarang dicetak: {lokal('صحيح البخاري', 888888)!r}")
 if "SUDAH DIUNDUH" in lokal("مسند أحمد", 1) or "edisi lain" not in keluar.getvalue():
     gagal.append(f"hadits: kitab yang belum diunduh ditandai, atau peringatan edisi lain hilang: {keluar.getvalue()[-600:]!r}")
 
