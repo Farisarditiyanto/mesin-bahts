@@ -33,7 +33,8 @@ def _berkas(folder):
 def _bersihkan_lama(induk, awalan, umur=UMUR_PRATINJAU_DETIK):
     batas = time.time() - umur
     try:
-        calon = [p for p in induk.iterdir() if p.name.startswith(awalan) and p.is_dir() and not p.is_symlink()]
+        calon = [p for p in induk.iterdir()
+                 if p.name.startswith(awalan) and p.is_dir() and not p.is_symlink() and not p.is_junction()]
     except OSError:
         return
     for p in calon:
@@ -63,10 +64,10 @@ def render(folder, jalur, rentang=None):
         import pymupdf
     except ImportError:
         sys.exit(f"`pratinjau` butuh pustaka pymupdf: jalankan `{perintah('periksa')}`")
-    pdf = tahap.terakhir(tahap.hasil_rakit(folder, berkas=_berkas(folder))).pdf
+    pdf = tahap.pdf_terakhir(folder, _berkas(folder))
     if pdf is None or not pdf.is_file():
         sys.exit(f"PDF hasil rakit belum ada di folder ini: jalankan `{perintah(f'rakit "{jalur}"')}` dulu")
-    awalan = f"bahts-pratinjau-{folder.name}-"
+    awalan = f"bahts-pratinjau-{folder.name}__"
     _bersihkan_lama(Path(tempfile.gettempdir()), awalan)
     with pymupdf.open(pdf) as doc:
         total = len(doc)

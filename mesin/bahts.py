@@ -177,8 +177,6 @@ def baru(nama, judul):
     nama = nama.strip("/")
     if not re.fullmatch(NAMA_FOLDER, nama) or nama.split("/")[0] in BUKAN_BAHTS:
         sys.exit(f"Nama folder «{nama}»: pakai huruf Latin, angka, - atau _ saja, tanpa spasi (mis. ikhlas, atau bahts/ahmad/ikhlas untuk bahts banyak orang).")
-    if any(PERANGKAT_WINDOWS.fullmatch(x) for x in nama.split("/")):
-        sys.exit(f"Nama folder «{nama}»: nama perangkat Windows (CON, NUL, PRN, AUX, COM1-9, LPT1-9) tidak bisa dipakai.")
     if not judul.strip():
         sys.exit('Judul bahts masih kosong: ' + perintah(f'baru {nama.strip(".")} "<judul>"'))
     f = AKAR / nama
@@ -235,104 +233,19 @@ def jalur_ketik(nama):
     return nama.rstrip("/\\") or nama  # «"folder\"»: garis miring menelan tanda petik penutupnya
 
 
-def _cek_json(hasil, jejak=False):
-    import olah
-    ctx = hasil.ctx
-    aktif = [c for c in ctx.catatan if not c.get("matan")]
-    status = "GAGAL" if ctx.galat else "PERHATIAN" if ctx.perhatian else "LOLOS"
-    perkiraan = olah.perkiraan_halaman(hasil.bahan)
-    jejak_baris = []
-    if jejak and ctx.tertolak:
-        import jejak as cari_jejak
-        jejak_baris = [b.strip() for b in cari_jejak.jejak(ctx.tertolak)]
-    return {
-        "folder": str(ctx.folder),
-        "status": status,
-        "ringkasan": {
-            "blok": len(ctx.blok),
-            "catatan_kaki": len(aktif),
-            "ayat": len(ctx.ayat_idx),
-            "hadits": len(ctx.hadits_idx),
-            "pustaka": len(ctx.pustaka),
-            "bukti_shamela": sum(c["bukti"] for c in aktif),
-            "bukti_pdf": sum(c["pdf"] for c in aktif),
-            "bukti_luar": sum(c["luar"] for c in aktif),
-            "bukti_waqfeya": sum(c.get("wq", 0) for c in aktif),
-            "gagal": len(ctx.galat),
-            "perhatian": len(ctx.perhatian),
-            "diterima": len(ctx.diterima),
-            "tanpa_bukti": len(hasil.tanpa_bukti),
-        },
-        "belum_diunduh": list(dict.fromkeys(ctx.belum_diunduh)),
-        "galat": list(ctx.galat),
-        "perhatian": [{"kode": ctx.kode.get(p, ""), "pesan": p} for p in ctx.perhatian],
-        "diterima": [{"kode": k, "pesan": p, "alasan": a} for k, p, a in ctx.diterima],
-        "tanpa_bukti": list(hasil.tanpa_bukti),
-        "jejak": jejak_baris,
-        "perkiraan_halaman": (
-            {"isi": perkiraan[0], "total": perkiraan[1], "rinci": perkiraan[2]} if perkiraan else None
-        ),
-        "cetak_sha256": hasil.sidik_cetak,
-        "naskah_sha256": hasil.sidik_naskah,
-    }
-
-
-def cek(nama, jejak=False, json_out=False):
+def cek(nama, jejak=False):
     """Periksa naskah, tulis bahannya, cetak laporannya. Kembalikan jumlah galat."""
-    import json, olah
+    import olah
     f = folder_bahts(nama)
     hasil = olah.periksa(f)
     olah.tulis_bahan(hasil.bahan, olah.alamat_bahan(f))
-    if json_out:
-        print(json.dumps(_cek_json(hasil, jejak), ensure_ascii=False))
-    else:
-        olah.cetak(hasil, jalur_ketik(nama), jejak)
+    olah.cetak(hasil, jalur_ketik(nama), jejak)
     return len(hasil.ctx.galat)
 
 
-def _tahap_json(k):
+def _tahap(nama):
     import tahap
-    apa, cmd = tahap.berikutnya(k)
-    tertahan = [n for n, kk in k.kerja if kk.name != "SEMENTARA"] + [f"_arsip/{n}" for n in k.arsip]
-    perlu = tertahan if tertahan and not (k.rakit is tahap.Rakit.JALAN and k.rakit_sini) else []
-    return {
-        "jalur": k.jalur,
-        "naskah": {
-            "status": k.naskah.value,
-            "galat": k.galat,
-            "perhatian": k.perhatian,
-            "diterima": k.diterima,
-            "tertolak": k.tertolak,
-        },
-        "hasil": [
-            {
-                "kunci": p.kunci,
-                "status": p.keadaan.value,
-                "pdf": str(p.pdf) if p.pdf else None,
-                "laporan": str(p.laporan),
-                "bendera": p.bendera,
-            }
-            for p in k.hasil
-        ],
-        "rakit": {
-            "status": k.rakit.value,
-            "siapa": k.siapa,
-            "rakit_sini": k.rakit_sini,
-        },
-        "folder_kerja": [{"nama": n, "keadaan": kk.name} for n, kk in k.kerja],
-        "arsip": list(k.arsip),
-        "perlu_pemakai": perlu,
-        "berikutnya": {"keterangan": apa, "perintah": cmd},
-    }
-
-
-def _tahap(nama, json_out=False):
-    import json, tahap
-    k = tahap.baca(folder_bahts(nama), jalur_ketik(nama))
-    if json_out:
-        print(json.dumps(_tahap_json(k), ensure_ascii=False))
-    else:
-        print("\n".join(tahap.baris(k)))
+    print("\n".join(tahap.baris(tahap.baca(folder_bahts(nama), jalur_ketik(nama)))))
 
 
 def angka(teks, apa):
@@ -392,7 +305,6 @@ class Bendera:
 
 POTONGAN = Bendera("--potongan", ganda="--potongan disebut lebih dari sekali")  # frasa boleh cocok di tengah kata
 JEJAK = Bendera("--jejak", ganda="--jejak disebut lebih dari sekali")
-JSON = Bendera("--json", ganda="--json disebut lebih dari sekali")
 FASL = Bendera("--fasl", "--fasl perlu nomor #F, mis. --fasl 2", lambda x: x.startswith("--"),
                "--fasl disebut lebih dari sekali; rentang ditulis --fasl 1-2")
 KE = Bendera("--ke", "--ke perlu nama folder", lambda x: x.startswith("--"))
@@ -521,9 +433,6 @@ def perintah_ekspor(a):
 
 def perintah_dirasat(a, **k):
     """`dirasat "<kata kunci|W…|DOI>" [maks] [saringan] [--dari t] [--sampai t] [--bahasa b] [--urut u]`."""
-    for x in a:
-        if x.startswith("--"):
-            raise ValueError(f"bendera «{x}» tidak dikenal")
     import dirasat
     dirasat.cari(a[0], *(angka(x, "maks") for x in a[1:2]), *a[2:], **k)
 
@@ -561,11 +470,10 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
     "Bahts (tiap bahts = satu folder berisi naskah.txt):",
     Perintah('baru <folder> "<judul>"', "buat folder bahts baru + kerangka naskah.txt; <folder> boleh bahts/<orang>/<topik>",
              lambda a: baru(a[0], a[1]), 2, 2),
-    Perintah("cek <folder> [--jejak] [--json]", "periksa naskah: tanda, ayat, dan semua bukti <<...>> ke kitab lokal;\n"
-             "--jejak: teks yang tidak ada di kitabnya dicari di kitab lain yang sudah diunduh;\n"
-             "--json: keluaran JSON di stdout",
-             lambda a, **k: sys.exit(1 if cek(a[0], jejak=k.get("jejak", False), json_out=k.get("json", False)) else 0),
-             1, 1, (JEJAK, JSON)),
+    Perintah("cek <folder> [--jejak]", "periksa naskah: tanda, ayat, dan semua bukti <<...>> ke kitab lokal;\n"
+             "--jejak: teks yang tidak ada di kitabnya dicari di kitab lain yang sudah diunduh",
+             lambda a, **k: sys.exit(1 if cek(a[0], jejak=k.get("jejak", False)) else 0),
+             1, 1, (JEJAK,)),
     Perintah("bukti <folder> [baris|awal-akhir]", "untuk pemeriksa: tiap catatan kaki berbukti <<sid|juz|hal>>, <<w…>>, atau\n"
              "<<luar|berkas.pdf|hal>> (kalimat yang dibuktikan, isi catatan kaki, nama kitab/PDF, bab,\n"
              "dan teks halaman itu di sekitar kutipan) dan teks tiap ayat {Q:} persis seperti tercetak,\n"
@@ -584,10 +492,10 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
              "ke-2, untuk bahts yang dikumpulkan bertahap per فصل (lihat `tanda`); `cek` tetap\n"
              "memeriksa seluruh naskah",
              lambda a, **k: _rakit(a[0], k.get("fasl")), 1, 1, (FASL,)),
-    Perintah("tahap <folder> [--json]", "tahap bahts sekarang dan satu langkah berikutnya: naskah (GAGAL/PERHATIAN/LOLOS), hasil\n"
+    Perintah("tahap <folder>", "tahap bahts sekarang dan satu langkah berikutnya: naskah (GAGAL/PERHATIAN/LOLOS), hasil\n"
              "rakit (BELUM/TERKINI/USANG, juga tiap --fasl), rakit yang sedang jalan, folder .rakit-*\n"
-             "dan _arsip/rakit-*. Folder bahts tidak disentuh; --json: keluaran JSON di stdout",
-             lambda a, **k: _tahap(a[0], json_out=k.get("json", False)), 1, 1, (JSON,)),
+             "dan _arsip/rakit-*. Folder bahts tidak disentuh",
+             lambda a: _tahap(a[0]), 1, 1),
     Perintah("tanda", "daftar tanda yang dipakai di naskah.txt",
              lambda a: print(tanda()), 0, 0),
     Perintah("diagram <folder>", "tiap diagram Mermaid <nama>.mmd di folder itu jadi <nama>.png (butuh Node.js + Chrome/Edge),\n"
@@ -712,7 +620,7 @@ if __name__ == "__main__":
             sys.exit(f"Perintah «{cmd}» kurang argumen. Bentuknya:\n{bentuk}")
         if p.paling_banyak is not None and (len(a) > p.paling_banyak or any(x.startswith("--") for x in a)):
             bendera = [x for x in a if x.startswith("--")]
-            lebih = a[p.paling_banyak:] if len(a) > p.paling_banyak else bendera
+            lebih = bendera or a[p.paling_banyak:]
             sys.exit(f"Argumen perintah «{cmd}» tidak dikenal atau berlebih: {lebih}"
                      + (f" (perintah «{cmd}» tidak punya bendera {', '.join(bendera)})" if bendera else "")
                      + f"\nBentuknya:\n{bentuk}")

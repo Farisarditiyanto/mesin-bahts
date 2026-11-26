@@ -136,7 +136,7 @@ def tercetak(isi, juz):
                  " ", isi.translate(ANGKA_LATIN))
     rentang = r"\d+(?!\d)(?:\s*[-–]\s*\d+(?!\d))?"
     tahun = r"(?:1[34]|19|20)\d\d(?!\d|\s*[-–])"  # «ص5، 1423»: tahun cetak tanpa هـ, bukan halaman kedua
-    satu = rf"{rentang}(?![\d/]|\s*/|\s*(?:هـ|ه(?!\w)|م(?!\w)))"
+    satu = rf"{rentang}(?![\d/]|(?:\s*[-–]\s*\d+)*\s*(?:/|هـ|ه(?!\w)|م(?!\w)))"
     daftar = rf"(?:\s*(?:[،,]\s*و?|\s+و)\s*(?!{tahun}){satu})*"
     if juz == "-":
         pola = rf"(?<![\wـ])(?:[وف]?ص|الصفحة)\s*:?\s*({satu}{daftar})"
@@ -206,9 +206,18 @@ class SalahHalaman(typing.NamedTuple):
 def _saring_klausa_luar(isi):
     if "<<" not in isi:
         return isi
-    klausa = [k for k in re.split(r"[؛;]", isi)
-              if not (re.search(rf"<<{LUAR}(?:\||>>)", k) and not re.search(r"<<\d+\|", k))]
-    return re.sub(r"\s*<<[^>]*>>", "", "؛ ".join(klausa)).strip()
+    bukti_tok = []
+    bertanda = re.sub(r"<<[^>]*>>", lambda m: (bukti_tok.append(m.group(0)), f"\x00{len(bukti_tok) - 1}\x00")[1], isi)
+    pola_luar = re.compile(rf"<<{LUAR}(?:\||>>)")
+    pola_shamela = re.compile(r"<<\d+\|")
+    klausa = []
+    for k in re.split(r"[؛;]|(?<=\x00)\s*[،,.]\s*", bertanda):
+        asli = re.sub(r"\x00(\d+)\x00", lambda m: bukti_tok[int(m.group(1))], k)
+        if pola_luar.search(asli) and not pola_shamela.search(asli):
+            continue
+        if bersih := re.sub(r"\s*<<[^>]*>>", "", asli).strip():
+            klausa.append(bersih)
+    return "؛ ".join(klausa)
 
 
 def cocok_halaman(isi, bukti, perhatian):

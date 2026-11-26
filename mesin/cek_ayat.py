@@ -10,7 +10,7 @@ try:
     from rapidfuzz.distance import Levenshtein
 except ImportError:  # pustaka belum dipasang ulang sesudah `git pull`
     raise SystemExit("Pustaka Python belum terpasang; cara memasangnya disebut oleh: " + perintah("periksa"))
-from petik import kutipan_semua, luar_petik
+from petik import kutipan_semua
 
 BEDA_AYAT = 2  # huruf kerangka ayat tercetak yang boleh tidak ada di ayat bertanda kitab (ayat_tercetak)
 # ﴿…﴾ (atau terbalik ﴾…﴿) berhuruf Arab yang diketik di naskah; {Q:} jadi «﴿2:255﴾» (angka), jadi ﴾ sesudah angka
@@ -392,74 +392,3 @@ def ayat_ketik(teks):
     """﴿…﴾ berhuruf Arab pertama yang diketik di luar tanda petik (di dalam petik, kutipannya dicek ke kitab), atau None."""
     dikutip = " ".join(kutipan_semua(teks))
     return next((k for k in AYAT_KETIK.findall(teks) if k not in dikutip), None)
-
-
-_ABAI_ZIKIR = frozenset({
-    "بسم الله الرحمن الرحيم", "الحمد لله رب العالمين", "لا اله الا الله",
-    "انا لله وانا اليه راجعون", "سبحان الله وبحمده", "حسبي الله ونعم الوكيل",
-    "ما شاء الله لا قوه الا بالله", "ان شاء الله", "تبارك الله احسن الخالقين",
-})
-_TANDA_LUAR_PROSA = re.compile(r"\{[^{}]*\}|<<[^>]*>>|﴿[^﴾]*﴾")
-
-
-def _kata_quran(w):
-    w = re.sub(r"\u0649\u0670(?=[ء-ي])", "ا", w).replace("\u0649\u0670", "ى")
-    w = re.sub(r"\u0648\u0670\u0627?", "ا", w)
-    return tanpa_lam_sandang(norma.padat(w.translate(IMLAI)))
-
-
-def _kata_prosa(teks):
-    bersih = luar_petik(_TANDA_LUAR_PROSA.sub(" ", teks))
-    out = []
-    for w in bersih.split():
-        k = _kata_quran(w)
-        if k:
-            out.append((k, w))
-    return out
-
-
-@functools.cache
-def _indeks_trigram_quran():
-    indeks, ayat_kata = {}, {}
-    for k, v in mushaf().items():
-        kata = [k_ for w in v.split() if (k_ := _kata_quran(w))]
-        if len(kata) < 5:
-            continue
-        ayat_kata[k] = kata
-        for i in range(len(kata) - 2):
-            tri = (kata[i], kata[i + 1], kata[i + 2])
-            indeks.setdefault(tri, []).append((k, i))
-    return indeks, ayat_kata
-
-
-def ayat_tanpa_tanda(teks):
-    """Deteksi ayat Al-Quran (>=5 kata berturut-turut dan >=24 huruf `padat`) di prosa luar tanda petik/{Q:},
-    mengabaikan zikir lazim; kembalikan (kunci 's:a', cuplikan) pertama atau None."""
-    pasangan = _kata_prosa(teks)
-    kata = [k for k, _ in pasangan]
-    if len(kata) < 5:
-        return None
-    indeks, ayat_kata = _indeks_trigram_quran()
-    terbaik = None
-    i = 0
-    while i <= len(kata) - 5:
-        calon = indeks.get((kata[i], kata[i + 1], kata[i + 2]))
-        if not calon:
-            i += 1
-            continue
-        naik = 1
-        for key, pos in calon:
-            vk = ayat_kata[key]
-            n = 3
-            while i + n < len(kata) and pos + n < len(vk) and kata[i + n] == vk[pos + n]:
-                n += 1
-            if n >= 5:
-                gabung = "".join(kata[i:i + n])
-                frase = " ".join(kata[i:i + n])
-                if len(gabung) >= 24 and frase not in _ABAI_ZIKIR:
-                    asli = " ".join(a for _, a in pasangan[i:i + n])
-                    if terbaik is None or n > terbaik[0]:
-                        terbaik = (n, key, asli)
-                naik = max(naik, n)
-        i += naik
-    return (terbaik[1], terbaik[2]) if terbaik else None

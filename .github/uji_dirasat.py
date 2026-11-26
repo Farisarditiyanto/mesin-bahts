@@ -166,25 +166,12 @@ def utama():
             return _Resp(json.dumps(oa_items[0]).encode("utf8"))
         if u.hostname == "api.openalex.org" and u.path in ("/works/W200", "/works/doi:10.1234/w200"):
             return _Resp(json.dumps(oa_items[1]).encode("utf8"))
-        if u.hostname == "api.openalex.org" and u.path in ("/works/W201", "/works/doi:10.1234/up1"):
-            return _Resp(json.dumps(dict(oa_items[1], id="https://openalex.org/W201",
-                                         doi="https://doi.org/10.1234/up1", has_content={"pdf": False})).encode("utf8"))
         if u.hostname == "doaj.org":
             return _Resp(json.dumps({"total": len(doaj_items), "results": doaj_items}).encode("utf8"))
         if u.hostname == "content.openalex.org" and u.path == "/works/W100.pdf":
             raise urllib.error.HTTPError(url, 404, "Not Found", {}, io.BytesIO(b"not found"))
         if u.hostname == "content.openalex.org" and u.path == "/works/W200.pdf":
             raise urllib.error.HTTPError(url, 401, "Unauthorized", {}, io.BytesIO(b"no key"))
-        if u.hostname == "api.unpaywall.org":
-            p = urllib.parse.unquote(u.path)
-            if p == "/v2/10.1234/w200":
-                raise urllib.error.HTTPError(url, 404, "Not Found", {}, io.BytesIO(b"not found"))
-            if p == "/v2/10.1234/up1":
-                return _Resp(json.dumps({
-                    "title": "أحكام المعاملات الرقمية",
-                    "best_oa_location": {"url_for_pdf": "https://oa.example.org/w100.pdf"},
-                    "oa_locations": [],
-                }).encode("utf8"))
         if url == "https://oa.example.org/w100.pdf":
             return _Resp(pdf_bytes)
         raise AssertionError(f"URL tak terduga: {url}")
@@ -249,10 +236,6 @@ def utama():
             dirasat.pdf("https://doi.org/10.1234/w100", t)
             assert (t / "W100.pdf").is_file()
 
-            # fallback Unpaywall saat OpenAlex & best_oa_location kosong
-            dirasat.pdf("10.1234/up1", t)
-            assert (t / "W201.pdf").is_file() and dirasat._pdf_terbaca(t / "W201.pdf")
-
         # 5. Validasi argumen salah dan bendera tak dikenal ditolak bersih tanpa Traceback
         for buruk in (
             ("dirasat", "uji", "--urut", "acak"),
@@ -283,8 +266,6 @@ def utama():
                 u = urllib.parse.urlsplit(url)
                 if u.path == "/works/W400":
                     return _Resp(json.dumps(w400).encode("utf8"))
-                if u.hostname == "api.unpaywall.org":
-                    raise urllib.error.HTTPError(url, 404, "Not Found", {}, io.BytesIO(b"not found"))
                 return jaringan.buka(url, kepala=kepala, waktu=waktu)  # pintu jaringan asli yang menolak file://
 
             with patch.object(dirasat, "buka", side_effect=buka_file):
@@ -428,22 +409,20 @@ def utama():
                         "title": ["Concerned Study"],
                         "author": [{"given": "Omar", "family": "Zaki"}],
                         "published-print": {"date-parts": [[2022]]},
-                        "updated-by": [{"type": "expression-of-concern"}],
+                        "updated-by": [{"type": "expression_of_concern"}, {"type": "expression-of-concern"}],
                     }}).encode("utf8"))
-                if "query.bibliographic" in u.query:
-                    return _Resp(json.dumps({"message": {"items": [{
-                        "DOI": "10.5555/cr1",
-                        "title": ["Islamic Finance Governance"],
-                        "author": [{"given": "Ali", "family": "Hassan"}],
+                if "10.5555%2Freinstated" in u.path or "10.5555/reinstated" in u.path:
+                    return _Resp(json.dumps({"message": {
+                        "DOI": "10.5555/reinstated",
+                        "title": ["Reinstated Study"],
+                        "author": [{"given": "Tariq", "family": "Nabil"}],
                         "published-print": {"date-parts": [[2021]]},
-                    }] if "Governance" in urllib.parse.unquote(u.query) else []}}).encode("utf8"))
+                        "updated-by": [
+                            {"type": "retraction", "updated": {"date-parts": [[2022, 1, 10]]}},
+                            {"type": "reinstatement", "updated": {"date-parts": [[2023, 4, 15]]}},
+                        ],
+                    }}).encode("utf8"))
                 raise urllib.error.HTTPError(url, 404, "Not Found", {}, io.BytesIO(b""))
-            if u.hostname == "api.openalex.org" and u.path == "/works":
-                qs = urllib.parse.parse_qs(u.query)
-                flt = (qs.get("filter") or [""])[0]
-                if "Islamic Finance Governance" in flt:
-                    return _Resp(json.dumps({"results": []}).encode("utf8"))
-                return _Resp(json.dumps({"results": []}).encode("utf8"))
             if u.hostname == "doi.org" and u.path.startswith("/api/handles/"):
                 if u.path.endswith("registered"):
                     return _Resp(b'{"responseCode":1}')
@@ -576,22 +555,20 @@ def utama():
                 kode, out_e, err = cli_dalam_proses(akar_cek, "dirasat-cek", uji_dir.name)
                 assert kode == 0 and "0 perlu dicek" in out_e and "0 fatal" in out_e, out_e + err
 
-                # f) Crossref expression-of-concern (warning non-fatal), multi-ID saat ids[0] gagal, dan #R tanpa ID
+                # f) Baris @metadata dilewati, Crossref expression_of_concern (dedup, non-fatal), reinstatement terbaru (bukan fatal), dan multi-ID saat ids[0] gagal
                 kasus.write_text(
+                    "@judul: دراسة حول doi:10.9999/header-skip\n"
                     "Concerned Study, Omar Zaki, 2022, doi:10.5555/concern\n"
-                    "Islamic Finance Governance, Ali Hassan, 2021, doi:10.9999/phantom-1 doi:10.5555/cr1\n"
-                    "#R المصادر والمراجع\n"
-                    "القرآن الكريم.\n"
-                    "**Hassan**, Ali. __Islamic Finance Governance__. Arab Finance Review, 2021.\n"
-                    "**مجهول**، فلان. __Nonexistent Hallucinated Paper Title__. 2024م.\n",
+                    "Reinstated Study, Tariq Nabil, 2021, doi:10.5555/reinstated\n"
+                    "Islamic Finance Governance, Ali Hassan, 2021, doi:10.9999/phantom-1 doi:10.5555/cr1\n",
                     encoding="utf8",
                 )
                 kode, out_f, err = cli_dalam_proses(akar_cek, "dirasat-cek", uji_dir.name)
                 assert kode == 1, out_f + err
-                assert "PERINGATAN CROSSREF" in out_f and "expression-of-concern" in out_f, out_f
+                assert "header-skip" not in out_f, out_f
+                assert out_f.count("Crossref: expression-of-concern") == 1, out_f
+                assert "baris 3 [10.5555/reinstated]: ID DITEMUKAN" in out_f and "DICABUT" not in out_f, out_f
                 assert "beberapa pengenal di baris ini" in out_f, out_f
-                assert "baris 5 [#R tanpa ID]: COCOK" in out_f, out_f
-                assert "baris 6 [#R tanpa ID]: TIDAK TERKONFIRMASI" in out_f, out_f
 
     print("lolos uji dirasat (tanggal, bahasa, urut kolam, biblio, dedup judul, info W/DOI, fallback OA PDF, dirasat-cek, keamanan)")
 

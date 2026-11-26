@@ -281,7 +281,8 @@ def jakarta_mahad_dan_mulakhas(akar):
     assert sp("الفقرة الثانية من الملخص العربي.").attrib.get(f"{w}before") == "120", ET.tostring(paras["الفقرة الثانية من الملخص العربي."], encoding="unicode")
     assert (ind("الفقرة الثانية من الملخص العربي.") is None or ind("الفقرة الثانية من الملخص العربي.").attrib.get(f"{w}firstLine", "0") == "0")
     assert sp("English abstract paragraph.").attrib.get(f"{w}line") == "360"
-    assert (sp_mq := sp("فقرة المقدمة العادية.")) is None or sp_mq.attrib.get(f"{w}line") == "240"
+    sp_mq = sp("فقرة المقدمة العادية.")
+    assert sp_mq is None or (sp_mq.attrib.get(f"{w}line", "240") == "240" and sp_mq.attrib.get(f"{w}before", "0") == "0")
     with pymupdf.open(akar / "mahad" / "uji.pdf") as doc:
         hal1 = doc[0].get_text()
     assert "المعهد" in hal1 or "بحث" in hal1, hal1

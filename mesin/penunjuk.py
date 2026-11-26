@@ -9,44 +9,12 @@ import norma
 import shamela
 import sumber_pdf
 import waqfeya
-from cek_kutipan import HENTI, NAFI, PENGANTAR, bagian_kutipan
+from cek_kutipan import bagian_kutipan
 from dasar import ELIPSIS, JUDUL_BAB, KUTIPAN_MIN, LUAR, WAQFEYA_BUKTI, perintah
-from kitab_lokal import Bukti, akhir_rekaman, rekaman
+from kitab_lokal import Bukti, akhir_rekaman, rekaman_urut
 from olah import periksa
 
 SEKITAR = 300  # huruf teks kitab yang dicetak `bukti` sebelum dan sesudah letak kutipan
-AMBANG_KUTIPAN = 65
-AMBANG_PARAFRASE = 60
-KECUALI_KITAB = frozenset({"الا", "غير", "سوي"})
-
-
-def _rekaman_urut(sid, juz, p1, p2):
-    return sorted(rekaman(sid, juz, p1, p2), key=lambda r: (r.get("page_num") or 0, r.get("page_id") or 0))
-
-
-def _konteks_kitab(raw, a_off, z_off):
-    isyarat = []
-    pra = raw[:a_off]
-    if m_pra := list(HENTI.finditer(pra)):
-        pra = pra[m_pra[-1].end():]
-    kata_pra = [(m.group(), norma.padat(m.group())) for m in re.finditer(r"\S+", pra)]
-    kata_pra = [(asli, p) for asli, p in kata_pra if p][-6:]
-    for asli, p in reversed(kata_pra[-4:]):
-        if p in NAFI:
-            isyarat.append(f"sebelum letak ada nafi «{asli}»")
-            break
-    idx_p = next((i for i in range(len(kata_pra) - 2, -1, -1) if kata_pra[i][1] in PENGANTAR), None)
-    if idx_p is not None:
-        isyarat.append(f"didahului pengantar «{' '.join(asli for asli, _ in kata_pra[idx_p:])}»")
-    pasca = raw[z_off:]
-    if m_pasca := HENTI.search(pasca):
-        pasca = pasca[:m_pasca.start()]
-    kata_pasca = [(m.group(), norma.padat(m.group())) for m in re.finditer(r"\S+", pasca)]
-    for asli, p in [(asli, p) for asli, p in kata_pasca if p][:5]:
-        if p in KECUALI_KITAB:
-            isyarat.append(f"sesudah letak ada pengecualian «{asli}»")
-            break
-    return "konteks kitab: " + "; ".join(isyarat) if isyarat else None
 
 
 def _ringkas(t, maks=200):
@@ -58,7 +26,7 @@ def _teks_halaman(sid, juz, p1, p2, bagian):
     """Teks asli (tanpa tag dan harakat) bagian rekaman halaman p1..p2 saja, tiap halaman diawali ⦗n⦘.
     حاشية tanpa penanda halaman di rekaman banyak halaman: seluruhnya, ditandai ⦗awal-akhir⦘ (seperti `halaman`)."""
     out = []
-    for r in _rekaman_urut(sid, juz, p1, p2):
+    for r in rekaman_urut(sid, juz, p1, p2):
         pp = norma.per_halaman(r, bagian)
         if len(pp) == 1:
             a, z = r.get("page_num"), akhir_rekaman(r)
@@ -111,31 +79,7 @@ def _penunjuk_waqfeya(w, n, hal, kutipan):
             f"{perintah(f'halaman {w} {n} {hal}')} (lafaz dan nomor halaman cetak dinilai dari scan)")
 
 
-def _lokalkan_perkiraan(teks, bagian_q, klausa, juz, hal):
-    target, ambang, label = (bagian_q[0], AMBANG_KUTIPAN, "perkiraan letak") if bagian_q else ("", 0, "")
-    if not target and klausa:
-        kl = re.split(r"[.\n؛؟!]+", re.sub(r"﴿[^﴾]*﴾", " ", klausa).strip())[-1].strip()
-        target, ambang, label = (kl or klausa, AMBANG_PARAFRASE, "perkiraan letak parafrase")
-    if not target:
-        return []
-    terbaik = None
-    for bagian, tanda in norma.BAGIAN:
-        raw = teks[bagian]
-        temu = sumber_pdf.cari_jendela(raw, target, ambang, max_win=24, step_div=4)
-        if temu and (terbaik is None or temu.skor > terbaik[0].skor):
-            terbaik = (temu, tanda, raw)
-    if not terbaik:
-        return []
-    temu, tanda, raw = terbaik
-    h = ([x[1] for x in re.finditer(r"⦗([\d-]+)⦘", raw[:temu.awal + 1])] or [hal])[-1]
-    a, z = max(0, temu.awal - SEKITAR), temu.akhir + SEKITAR
-    out = [f"{shamela.letak(juz, h)}{tanda} ({label} ~{temu.skor}%): {'…' * (a > 0)}{raw[a:z]}{'…' * (z < len(raw))}"]
-    if isy := _konteks_kitab(raw, temu.awal, temu.akhir):
-        out.append(isy)
-    return out
-
-
-def _penunjuk_bukti(b, kutipan, klausa=None):
+def _penunjuk_bukti(b, kutipan):
     """Baris `bukti` untuk satu bukti Shamela b: nama kitab, rantai judul, dan teks halaman itu di sekitar kutipan."""
     e = b.salah()
     if e:
@@ -145,7 +89,7 @@ def _penunjuk_bukti(b, kutipan, klausa=None):
     hasil = [f"kitab: {m['title_ar']} — {m.get('main_author_name_ar') or '?'}"]
     bagian_q = [x for x in ELIPSIS.split(kutipan or "") if len(norma.padat(x)) >= KUTIPAN_MIN]
     q = norma.padat(bagian_q[0]) if bagian_q else ""
-    rr = _rekaman_urut(sid, juz, p1, p2)
+    rr = rekaman_urut(sid, juz, p1, p2)
     # rantai judul di letak kutipan; kutipan tidak ketemu (atau melintasi rekaman) -> judul di awal halaman p1
     letak_judul = None
     for r in rr if q else ():
@@ -176,11 +120,7 @@ def _penunjuk_bukti(b, kutipan, klausa=None):
             a, z = max(0, i - SEKITAR), i + len(kutipan) + SEKITAR
             sebagian = f" (hanya awal kutipan yang ada: «{' '.join(kata_awal[:k])}»)" if k < len(kata_awal) else ""
             hasil.append(f"{shamela.letak(juz, h)}{tanda}{sebagian}: {'…' * (a > 0)}{raw[a:z]}{'…' * (z < len(raw))}")
-            if isy := _konteks_kitab(raw, i, min(len(raw), i + len(kutipan))):
-                hasil.append(isy)
             return hasil
-    if perkiraan := _lokalkan_perkiraan(teks, bagian_q, klausa, juz, hal):
-        return hasil + perkiraan
     raw = teks["body"]
     if not raw:
         return hasil + [f"{shamela.letak(juz, (p1, p2))}: halaman itu tidak ada di kitab {sid} juz {juz}"]
@@ -250,7 +190,7 @@ def bukti(folder, dari=None, sampai=None):
                 print(f"{kepala} <<{_ringkas(b, 80)}>>: bentuk bukti rusak (lihat `cek`)"); continue
             pot = bukti_.potongan
             pot = re.sub(r"\{Q:[^}]*\}", " ﴿﴾ ", pot) if pot is not None and not pot.startswith("#") else None
-            for x in _penunjuk_bukti(bukti_, pot or u["kutipan"], klausa=None if (pot or u["kutipan"]) else u.get("klausa")):
+            for x in _penunjuk_bukti(bukti_, pot or u["kutipan"]):
                 print(f"{kepala} <<{_ringkas(b, 80)}>> {x}")
     if not pilih:
         print("Tidak ada catatan kaki berbukti <<sid|juz|hal>> atau ayat {Q:} di " + (

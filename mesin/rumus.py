@@ -223,10 +223,11 @@ class _PenguraiRumus:
         return (f'<w:rPr><w:rFonts w:ascii="{HURUF_MATH}" w:hAnsi="{HURUF_MATH}"/>{b}{it}<w:sz w:val="{self.sz_latin}"/>'
                 '<w:lang w:val="en-US" w:bidi="en-US"/></w:rPr>')
 
-    def _rpr_arab(self, bold=False):
+    def _rpr_arab(self, bold=False, italic=False):
         f = escape(self.huruf_arab)
         b = "<w:b/><w:bCs/>" if bold else ""
-        return (f'<w:rPr><w:rFonts w:ascii="{f}" w:hAnsi="{f}" w:cs="{f}"/>{b}'
+        it = "<w:i/><w:iCs/>" if italic else ""
+        return (f'<w:rPr><w:rFonts w:ascii="{f}" w:hAnsi="{f}" w:cs="{f}"/>{b}{it}'
                 f'<w:sz w:val="{self.sz_arab}"/><w:szCs w:val="{self.sz_arab}"/><w:rtl/></w:rPr>')
 
     def _run_math(self, teks, *, tegak=False, bold=False, italic=False):
@@ -246,12 +247,12 @@ class _PenguraiRumus:
         sp = ' xml:space="preserve"' if teks.startswith(" ") or teks.endswith(" ") else ""
         return f"<m:r>{mpr}{self._rpr_math(bold=bold, italic=italic)}<m:t{sp}>{escape(teks)}</m:t></m:r>"
 
-    def _run_teks(self, teks, *, bold=False, italic=False):
+    def _run_teks(self, teks, *, bold=False, italic=False, arab=False):
         if not teks:
             return ""
         sp = ' xml:space="preserve"' if teks.startswith(" ") or teks.endswith(" ") else ""
-        if ARAB.search(teks):
-            return f"<m:r><m:rPr><m:nor/></m:rPr>{self._rpr_arab(bold=bold)}<m:t{sp}>{escape(teks)}</m:t></m:r>"
+        if arab or ARAB.search(teks):
+            return f"<m:r><m:rPr><m:nor/></m:rPr>{self._rpr_arab(bold=bold, italic=italic)}<m:t{sp}>{escape(teks)}</m:t></m:r>"
         return f"<m:r><m:rPr><m:nor/></m:rPr>{self._rpr_math(bold=bold, italic=italic)}<m:t{sp}>{escape(teks)}</m:t></m:r>"
 
     def _isi_teks(self, perintah, bold=False, italic=False):
@@ -273,6 +274,8 @@ class _PenguraiRumus:
                     if not dalam:
                         return out
                     dalam -= 1
+                elif j == "nl":
+                    raise TandaRusak(f"baris baru «\\\\» tidak boleh di dalam \\{perintah}{{…}}")
                 elif j == "cmd":
                     if v in GAYA_TEKS:
                         out.extend(self._isi_teks(v, bold=bold or (v == "textbf"), italic=italic or (v == "textit")))
@@ -297,10 +300,10 @@ class _PenguraiRumus:
                 gabung[-1][0] += teks
             else:
                 gabung.append([teks, b, it])
-        runs = [self._run_teks(teks, bold=b, italic=it) for teks, b, it in gabung]
         arab_murni = any(ARAB.search(t) for t, _, _ in gabung) and not any(
             c.isalpha() and not ARAB.match(c) for t, _, _ in gabung for c in t
         )
+        runs = [self._run_teks(teks, bold=b, italic=it, arab=arab_murni) for teks, b, it in gabung]
         return "".join(reversed(runs) if (self.rtl or arab_murni) else runs)
 
     def _baca_mentah(self, perintah):
@@ -414,7 +417,7 @@ class _PenguraiRumus:
         # «المصروفات − الإيرادات». Rumus Arab murni dibalik di tiap deretnya supaya terbaca benar dari kanan.
         return "".join(reversed(bagian) if self.rtl else bagian)
 
-    def _skrip(self, dasar):
+    def _skrip(self, dasar, *, larang=()):
         """Tangkap rangkaian _, ^, dan prime (') sesudah atom `dasar`."""
         sub = sup = None
         while (t := self._intip()) is not None and t[0] in ("sub", "sup", "prime"):
@@ -423,11 +426,11 @@ class _PenguraiRumus:
                 p = self._run_math(t[1], tegak=True)
                 sup = (sup + p) if sup else p
             elif t[0] == "sub":
-                if sub is not None:
+                if sub is not None or "sub" in larang:
                     raise TandaRusak("tanda bawah «_» ganda pada satu simbol: gunakan kurung kurawal _{…}")
                 sub = self._baca_arg("_")
             else:
-                if sup is not None:
+                if sup is not None or "sup" in larang:
                     raise TandaRusak("tanda pangkat «^» ganda pada satu simbol: gunakan kurung kurawal ^{…}")
                 sup = self._baca_arg("^")
         if self.rtl and (sub is not None or sup is not None):  # rumus Arab: pangkat dan indeks di kiri simbolnya
@@ -602,12 +605,14 @@ class _PenguraiRumus:
                 return self._baca_nary(cmd)
             elif cmd in LIMIT:
                 fn = self._run_math(cmd, tegak=True)
+                nolimits = False
                 while self._intip() in (("cmd", "limits"), ("cmd", "nolimits")):
-                    self.i += 1
+                    nolimits = self._ambil()[1] == "nolimits"
                 if izin_skrip and self._intip() and self._intip()[0] == "sub":
                     self.i += 1
                     lim = self._baca_arg("_")
-                    dasar = f"<m:limLow><m:e>{fn}</m:e><m:lim>{lim}</m:lim></m:limLow>"
+                    dasar = (f"<m:sSub><m:e>{fn}</m:e><m:sub>{lim}</m:sub></m:sSub>" if nolimits
+                             else f"<m:limLow><m:e>{fn}</m:e><m:lim>{lim}</m:lim></m:limLow>")
                 else:
                     dasar = fn
             elif cmd in FUNGSI:
@@ -636,11 +641,17 @@ class _PenguraiRumus:
                 pos = "top" if cmd == "overbrace" else "bot"
                 ch = "⏞" if cmd == "overbrace" else "⏟"
                 dasar = f'<m:groupChr><m:groupChrPr><m:chr m:val="{ch}"/><m:pos m:val="{pos}"/></m:groupChrPr><m:e>{isi}</m:e></m:groupChr>'
-                if izin_skrip and self._intip() and self._intip()[0] in ("sup", "sub"):
+                terpakai = set()
+                while izin_skrip and self._intip() and self._intip()[0] in ("sup", "sub"):
                     jenis = self._ambil()[0]
+                    if jenis in terpakai:
+                        tanda_s = "^" if jenis == "sup" else "_"
+                        raise TandaRusak(f"tanda {'pangkat' if jenis == 'sup' else 'bawah'} «{tanda_s}» ganda pada \\{cmd}")
+                    terpakai.add(jenis)
                     lbl = self._baca_arg(jenis)
                     tag_l = "limUpp" if jenis == "sup" else "limLow"
                     dasar = f"<m:{tag_l}><m:e>{dasar}</m:e><m:lim>{lbl}</m:lim></m:{tag_l}>"
+                return self._skrip(dasar, larang=terpakai) if izin_skrip else dasar
             elif cmd == "left":
                 self.dalam += 1
                 if self.dalam > BATAS_DALAM:

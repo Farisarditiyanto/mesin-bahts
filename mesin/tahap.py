@@ -109,12 +109,10 @@ class Keadaan:
     diterima: int = 0  # perhatian yang diterima lewat «terima» di riset.txt
 
 
-def hasil_rakit(folder, cek=None, berkas=None):
+def hasil_rakit(folder, cek):
     """[Produk] hasil `rakit` di folder menurut naskah sekarang (cek = olah.periksa): seluruh naskah dulu, lalu tiap
     potongan --fasl urut nomornya."""
-    sidik = cek.sidik_naskah if cek else ""
-    cetak = cek.sidik_cetak if cek else ""
-    berkas = berkas if berkas is not None else cek.ctx.meta["berkas"]
+    sidik, cetak, berkas = cek.sidik_naskah, cek.sidik_cetak, cek.ctx.meta["berkas"]
     pdf, laporan = folder / produk.pdf(berkas), folder / produk.laporan()
     ada = [Produk(laporan, hasil(pdf, laporan, sidik, cetak), pdf)]
     for fasl, laporan in produk.potongan(folder):  # nama yang bukan --fasl sah dilewati: jangan menyarankan perintah palsu
@@ -122,6 +120,18 @@ def hasil_rakit(folder, cek=None, berkas=None):
         pdf = None if label is None else folder / produk.pdf(produk.nama_potongan(berkas, label, fasl))
         ada.append(Produk(laporan, hasil(pdf, laporan, sidik, cetak), pdf, f"--fasl {fasl}"))
     return ada
+
+
+def pdf_terakhir(folder, berkas):
+    """Path PDF hasil `rakit` yang terakhir (seluruh naskah atau potongan --fasl), tanpa perlu menjalankan `cek`."""
+    folder = Path(folder)
+    calon = [(folder / produk.laporan(), folder / produk.pdf(berkas))]
+    for fasl, lap in produk.potongan(folder):
+        label = produk.label_potongan(_baris(lap), fasl)
+        pdf = None if label is None else folder / produk.pdf(produk.nama_potongan(berkas, label, fasl))
+        calon.append((lap, pdf))
+    ada = [(lap, pdf) for lap, pdf in calon if lap.is_file()]
+    return max(ada, key=lambda x: x[0].stat().st_mtime)[1] if ada else calon[0][1]
 
 
 def terakhir(hasil):

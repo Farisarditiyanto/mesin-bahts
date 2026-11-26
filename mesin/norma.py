@@ -92,61 +92,6 @@ def padat(s):
     return BUKAN_ABJAD.sub("", norm(s))
 
 
-def padat_peta(raw):
-    """(teks `padat`, awal_di_raw, akhir_di_raw) untuk memetakan posisi `padat` kembali ke teks asli `raw` secara monoton."""
-    if not raw:
-        return "", [], []
-    sp = [(i, i + 1) for i in range(len(raw))]
-
-    def ganti(s, sp_in, pola, repl_fn):
-        out, sp_out, pos = [], [], 0
-        for m in pola.finditer(s):
-            a, b = m.span()
-            if a > pos:
-                out.append(s[pos:a]); sp_out.extend(sp_in[pos:a])
-            rep = repl_fn(m) if callable(repl_fn) else repl_fn
-            if rep:
-                rentang = (sp_in[a][0], sp_in[b - 1][1]) if a < b else (sp_in[a][0], sp_in[a][0])
-                out.append(rep); sp_out.extend([rentang] * len(rep))
-            pos = b
-        if pos < len(s):
-            out.append(s[pos:]); sp_out.extend(sp_in[pos:])
-        return "".join(out), sp_out
-
-    s = raw
-    s, sp = ganti(s, sp, re.compile(r"[ﷺﷻ]|" + LIGATUR_HORMAT.pattern), " ")
-    if "﷽" in s:
-        s, sp = ganti(s, sp, re.compile("﷽"), " بسم الله الرحمن الرحيم ")
-    if PRESENTASI.search(s):
-        out, sp_out = [], []
-        for ch, r in zip(s, sp):
-            if ord(ch) in PEMBENTUK_HARAKAT:
-                rep = PEMBENTUK_HARAKAT[ord(ch)]
-                if rep:
-                    out.append(rep); sp_out.extend([r] * len(rep))
-            elif PRESENTASI.match(ch):
-                nf = unicodedata.normalize("NFKC", ch)
-                if nf:
-                    out.append(nf); sp_out.extend([r] * len(nf))
-            else:
-                out.append(ch); sp_out.append(r)
-        s, sp = "".join(out), sp_out
-    for pola, rep in ((TAGS, ""), (HARAKAT, ""), (HORMAT, " ")):
-        s, sp = ganti(s, sp, pola, rep)
-    if "شئ" in s:
-        s, sp = ganti(s, sp, SYAI, "شيء")
-    if "شي" in s:
-        s, sp = ganti(s, sp, SYAI_TANPA_HAMZAH, lambda m: m.group(1) + "شيء")
-    s = s.translate(SAMA_TABEL)
-    for dari, ke in EJAAN:
-        if dari in s:
-            s, sp = ganti(s, sp, re.compile(re.escape(dari)), ke)
-    if "ابن" in s:
-        s, sp = ganti(s, sp, IBNU, "بن")
-    jaga = [i for i, ch in enumerate(s) if "ء" <= ch <= "ي"]
-    return "".join(s[i] for i in jaga), [sp[i][0] for i in jaga], [sp[i][1] for i in jaga]
-
-
 def ruas_halaman(p, bagian):
     """Teks `padat` satu bagian rekaman dan ruas halamannya [(awal, akhir, hal_awal, hal_akhir)]; dihitung sekali per rekaman.
     حاشية tanpa penanda ⦗n⦘ di rekaman banyak halaman: halaman tiap catatan tidak tercatat, jadi ruasnya = seluruh rekaman."""

@@ -206,12 +206,12 @@ try {
         elseif ($t -eq 'اسم الطالب') { Ganti $p $NAMA }
         elseif ($t -eq 'السنة الهجرية') { Ganti $p $TAHUN_CETAK }
         # @qism: baris qism model; « // » = pindah baris di paragraf yang sama (bentuk dan hurufnya tetap dari templat); di jakarta barisnya di sel tabel (teksnya berakhir tanda sel char 7)
-        elseif ($M.qism -and $t.Trim([char]7, [char]13, ' ') -in 'قسم الشريعة', 'قسم الشريعة بجاكرتا') { Ganti $p (([string]$M.qism -split '\s*//\s*') -join [char]11) }
+        elseif ($M.qism -and $t.Trim().Trim([char]7) -in 'قسم الشريعة', 'قسم الشريعة بجاكرتا') { Ganti $p (([string]$M.qism -split '\s*//\s*') -join [char]11) }
     }
     if ($JAKARTA) {
         $SM = if (@($word.FontNames) -contains 'Sakkal Majalla') { 'Sakkal Majalla' } else { $TA }
         foreach ($p in @($doc.Paragraphs)) {
-            $t = $p.Range.Text.Trim([char]7, [char]13, ' '); $f = $p.Range.Font
+            $t = $p.Range.Text.Trim().Trim([char]7); $f = $p.Range.Font
             $u = switch ($t) {
                 'المشرف' { 18, 1, $SM } { $_ -eq $MUSYRIF -and $MUSYRIF } { 18, 1, $SM } { $_ -eq $JABATAN -and $JABATAN } { 18, 0, $SM }
                 { $_ -in 'إعداد الطالب:', 'إعداد الطالبة:' } { 16, 1, $SM } $NAMA { 16, 1, $SM }
@@ -468,12 +468,20 @@ try {
         SalinGaya $sh0.Range $hd.Range
         # nomor halaman: kalau kepala templat tidak memuat PAGE, nomor di kaki halaman bawaan mesin tetap dicetak
         $adaPage = @($sh0.Range.Fields | Where-Object { $_.Code.Text -match 'PAGE' }).Count -gt 0
-        foreach ($sp in @(try { @($sh0.Range.ShapeRange) } catch { })) { if ($sp.TextFrame.HasText -and @($sp.TextFrame.TextRange.Fields | Where-Object { $_.Code.Text -match 'PAGE' }).Count) { $adaPage = $true } }
+        foreach ($sp in @(try { @($sh0.Range.ShapeRange) } catch { })) {
+            try { if ($sp.TextFrame.HasText -and @($sp.TextFrame.TextRange.Fields | Where-Object { $_.Code.Text -match 'PAGE' }).Count) { $adaPage = $true } } catch {}
+        }
         if ($adaPage) { $ft.Range.Text = '' }
         # penanda judul «عنوان البحث» (kepala_kotak.docx, atau Word @templat yang belum diisi, mis. «قالب إثراء المتون
         # للباحثين») = judul (pendek) bahts ini, di teks kepala halaman dan di kotak teksnya; kurung penandanya ikut diganti.
         # Pencarian tanpa ReplaceWith + penulisan langsung ke Range.Text menghindari batas 255 aksara Find.Execute Word
-        $tempat = { @($hd.Range) + @(try { @($hd.Range.ShapeRange) | Where-Object { $_.TextFrame.HasText } | ForEach-Object { $_.TextFrame.TextRange } } catch { }) }
+        $tempat = {
+            $out = @($hd.Range)
+            foreach ($sp in @(try { @($hd.Range.ShapeRange) } catch { })) {
+                try { if ($sp.TextFrame.HasText) { $out += $sp.TextFrame.TextRange } } catch {}
+            }
+            $out
+        }
         foreach ($penanda in '(عنوان البحث)', 'عنوان البحث') {
             foreach ($r in & $tempat) {
                 $awal = $r.Start; $batas = $r.End
@@ -1402,9 +1410,11 @@ try {
     # sekitarnya, dan teks hasil PAGE di kotak itu kiri-ke-kanan. RtlRun hanya ada di Selection, dan hanya di Print Layout
     if ($kepalaTpl) {
         foreach ($sh in @(try { @($kepalaTpl.Range.ShapeRange) } catch { })) {
-            if ($sh.TextFrame.HasText -and @($sh.TextFrame.TextRange.Fields | Where-Object { $_.Code.Text -match 'PAGE' }).Count) {
-                $sh.TextFrame.TextRange.Select(); $word.Selection.RtlRun()
-            }
+            try {
+                if ($sh.TextFrame.HasText -and @($sh.TextFrame.TextRange.Fields | Where-Object { $_.Code.Text -match 'PAGE' }).Count) {
+                    $sh.TextFrame.TextRange.Select(); $word.Selection.RtlRun()
+                }
+            } catch {}
         }
     }
     $doc.SaveAs2("$Out.docx", 16)
@@ -1439,7 +1449,7 @@ finally {
             try { $v.Value = $null } catch {}
         }
     }
-    foreach ($nama in 'buang', 'pJudulT', 'celah', 'fihrisNama', 'fihrisAwal') { Remove-Variable -Name $nama -ErrorAction SilentlyContinue }
+    foreach ($nama in 'buang', 'pJudulT', 'celah', 'fihrisNama', 'fihrisAwal', 'xBm', 'ka', 'kt') { Remove-Variable -Name $nama -ErrorAction SilentlyContinue }
     [GC]::Collect(); [GC]::WaitForPendingFinalizers(); [GC]::Collect()
     try { Bersihkan-WordRakit $CATATAN_WORD 3000 } catch { Write-Output "PERINGATAN: Word milik rakit belum berhenti; catatannya disimpan: $($_.Exception.Message)" }
     try { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue } catch {}

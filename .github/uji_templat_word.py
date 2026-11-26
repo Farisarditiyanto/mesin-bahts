@@ -105,7 +105,7 @@ def utama():
 
 
 def multi_dan_judul_panjang(akar):
-    import subprocess
+    import os, subprocess
     from xml.etree import ElementTree as ET
     judul_panjang = " ".join(["دراسة فقهية تحليلية مقارنة"] * 12)
     assert len(judul_panjang) > 255
@@ -115,25 +115,27 @@ def multi_dan_judul_panjang(akar):
     ps = (
         "$ErrorActionPreference = 'Stop'\n"
         "$w = New-Object -ComObject Word.Application\n"
+        "$w.Visible = $false\n"
         "try {\n"
         "    $d = $w.Documents.Add()\n"
-        f"    $d.Content.Text = '{judul_panjang}'\n"
+        "    $d.Content.Text = $env:UJI_JUDUL_PANJANG\n"
         "    $d.Content.Font.Size = 10; $d.Content.Font.SizeBi = 10\n"
         "    $d.Content.InsertBreak(2)\n"
-        "    $d.Sections(2).Range.Text = '" + CONTOH + "'\n"
+        f"    $d.Sections(2).Range.Text = '{CONTOH}'\n"
         "    $h2 = $d.Sections(2).Headers(1); $h2.LinkToPrevious = $false\n"
         "    $h2.Range.Text = '(عنوان البحث)'\n"
         "    $s1 = $h2.Shapes.AddTextbox(1, 50, 20, 60, 24)\n"
         "    [void]$s1.TextFrame.TextRange.Fields.Add($s1.TextFrame.TextRange, 33)\n"
         "    $s2 = $h2.Shapes.AddTextbox(1, 200, 20, 80, 24)\n"
         "    $s2.TextFrame.TextRange.Text = 'HeaderNote'\n"
-        f"    $d.SaveAs2('{tpl}', 16)\n"
+        "    $d.SaveAs2($env:UJI_TPL_PATH, 16)\n"
         "    $d.Close(0)\n"
         "} finally {\n"
         "    try { $w.Quit([ref]0) } catch {}\n"
         "}\n"
     )
-    subprocess.run(["powershell", "-NoProfile", "-Command", ps], check=True)
+    env = dict(os.environ, UJI_JUDUL_PANJANG=judul_panjang, UJI_TPL_PATH=str(tpl))
+    subprocess.run(["powershell", "-NoProfile", "-Command", ps], check=True, env=env)
     (f / "naskah.txt").write_text(KEPALA.replace(JUDUL, judul_panjang), encoding="utf8")
     r = bahts(akar, "rakit", "multi", batas=1800)
     assert r.returncode == 0, r.stdout + r.stderr

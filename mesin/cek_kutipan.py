@@ -16,8 +16,8 @@ from dasar import (
     RUJUKAN_AYAT, TIDAK_KETEMU, WAQFEYA_BUKTI)
 from kitab_lokal import (
     nomor_hadits,
-    cari_di, gabung, halaman_janggal, kitab, rangkaian_kitab, rekaman, rekaman_dulu, rentang_halaman, susunan_bagian,
-    tempat_kitab, urut_juz)
+    cari_di, gabung, halaman_janggal, kitab, rangkaian_kitab, rekaman, rekaman_dulu, rekaman_urut, rentang_halaman,
+    susunan_bagian, tempat_kitab, urut_juz)
 
 NASKAH_TULISAN = re.compile("(?:الكتاب|البحث) (?:مخطوط|غير مطبوع)")  # nomornya nomor lembar naskah tulisan/ketikan
 # tambahan peneliti di dalam kutipan: «[هكذا]» sesudah salah yang disalin apa adanya, atau kata yang dibetulkan di dalam
@@ -237,7 +237,7 @@ def _menyimpang(sid, juz, p1, p2, teks):
         return ""
     raw = re.sub(r"\s+", " ", norma.HARAKAT.sub("", norma.TAGS.sub("", " ".join(g["body"] for g in gabung(sid, juz, p1, p2)))))
     raw = norma.PENANDA.sub(" ", raw)
-    kitab_padat, _, akhir_raw = norma.padat_peta(raw)
+    kitab_padat = norma.padat(raw)
     kata = teks.split()
     lo, hi = 0, len(kata) - 1  # awalan sepanjang kata[:lo] ada di matan; kata[:hi+1] tidak (kutipan utuhnya tidak ketemu)
     while lo < hi:
@@ -251,7 +251,13 @@ def _menyimpang(sid, juz, p1, p2, teks):
         return ""
     akhir = kitab_padat.find(awalan) + len(awalan)
     awal_kata = [m.start() for m in re.finditer(r"\S+", raw)]
-    a = bisect.bisect_left(awal_kata, akhir_raw[akhir - 1])
+    a, z = 0, len(awal_kata)  # kata pertama yang mulai sesudah awalan; panjang `padat` awalan teks naik bersama letaknya
+    while a < z:
+        mid = (a + z) // 2
+        if len(norma.padat(raw[:awal_kata[mid]])) >= akhir:
+            z = mid
+        else:
+            a = mid + 1
     di_kitab = raw[awal_kata[a]:].split()[0].strip(".,،؛:!؟\"«»()") if a < len(awal_kata) else "(akhir halaman)"
     return f"cocok {lo} dari {len(kata)} kata sampai «…{' '.join(kata[max(0, lo - 3):lo])}», lalu naskah «{kata[lo]}», kitab «{di_kitab}»"
 
@@ -372,7 +378,7 @@ def _cek(b, pot, perhatian, kutipan, rinci, pengantar, bersisipan=False):
         e = _cek_bagian(b, x, kutipan, perhatian, rinci)
         if e:
             return e
-    rr = sorted(rekaman(sid, juz, p1, p2), key=lambda r: (r.get("page_num") or 0, r.get("page_id") or 0))
+    rr = rekaman_urut(sid, juz, p1, p2)
     if len(bagian) > 1:
         jarak = [j for j in (berurutan(rr, sisi, bagian) for sisi, _ in norma.BAGIAN) if j is not None]
         if not jarak:
@@ -466,13 +472,22 @@ def susunan_kitab(rr, bagian, celah, ujung, dalam):
                     if samar and r.get("page_num") != norma.per_halaman(r)[-1][0]:
                         tak_pasti.append((a, z))
             offset += len(t) + 1
-        pd, mulai_raw, akhir_raw = norma.padat_peta(raw)
+        pd, panjang = norma.padat(raw), {}
         if q[0] not in pd:
             continue
         rek = {"body": raw}
         angka = angka_kitab(raw)
-        mulai = lambda k: mulai_raw[k] if k < len(pd) else len(raw)  # letak huruf ke-k
-        akhir = lambda k: akhir_raw[k - 1] if k > 0 else 0  # sesudah huruf terakhir sebelum huruf ke-k
+
+        def sesudah(k):  # letak di raw tepat sesudah huruf `padat` ke-k
+            lo, hi = 0, len(raw)
+            while lo < hi:
+                mid = (lo + hi) // 2
+                if mid not in panjang:
+                    panjang[mid] = len(norma.padat(raw[:mid]))
+                lo, hi = (lo, mid) if panjang[mid] > k else (mid + 1, hi)
+            return lo
+        mulai = lambda k: sesudah(k) - 1 if k < len(pd) else len(raw)  # letak huruf ke-k
+        akhir = lambda k: sesudah(k - 1) if k > 0 else 0  # sesudah huruf terakhir sebelum huruf ke-k
         def di_halaman(a, z):
             n = bisect.bisect_right(sah, (a, float("inf"))) - 1
             return n >= 0 and sah[n][0] <= a and z <= sah[n][1]

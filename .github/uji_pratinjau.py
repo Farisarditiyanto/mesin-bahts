@@ -32,18 +32,21 @@ def utama():
             )
 
         try:
-            # Folder sementara lama (>1 jam) dibersihkan; folder baru (sesi bersamaan) tetap utuh
-            lama = Path(tempfile.mkdtemp(prefix="bahts-pratinjau-uji-"))
-            baru = Path(tempfile.mkdtemp(prefix="bahts-pratinjau-uji-"))
-            dibuat.append(baru)
+            # Folder sementara lama (>1 jam) dibersihkan; folder baru (sesi bersamaan) dan folder bahts lain tetap utuh
+            lama = Path(tempfile.mkdtemp(prefix="bahts-pratinjau-uji__"))
+            lain = Path(tempfile.mkdtemp(prefix="bahts-pratinjau-uji-lain__"))
+            baru = Path(tempfile.mkdtemp(prefix="bahts-pratinjau-uji__"))
+            dibuat.extend([baru, lain])
             lalu = time.time() - 7200
             os.utime(lama, (lalu, lalu))
+            os.utime(lain, (lalu, lalu))
 
             # Semua halaman -> grid 2×2 PNG sah di TEMP (folder bahts tetap bersih)
             r = jalankan()
             assert r.returncode == 0, r.stdout + r.stderr
             assert not lama.exists(), "folder pratinjau lama (>1 jam) tidak dibersihkan"
             assert baru.exists(), "folder pratinjau aktif (<1 jam) ikut terhapus"
+            assert lain.exists(), "folder pratinjau bahts lain yang berawalan mirip ikut terhapus"
             baris = [x for x in r.stdout.splitlines() if ": " in x]
             assert len(baris) >= 2 and baris[0].startswith("grid 1 (hal 1-4):"), r.stdout
             for b in baris:

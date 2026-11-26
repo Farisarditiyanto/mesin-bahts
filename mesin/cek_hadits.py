@@ -7,7 +7,7 @@ import cocok
 import norma
 import shamela
 from dasar import ANGKA_LATIN, ELIPSIS, POTONGAN_MIN, TAKHRIJ_AWAL, ekor
-from kitab_lokal import bagian_kitab, bersih_hadits, kepala_hadits, rekaman
+from kitab_lokal import bagian_kitab, bersih_hadits, kepala_hadits, rekaman, rekaman_urut
 
 # «رقم الحديث (2408)، 4/1873», «برقم 2205، 2/262», «رقم: 27، ص24» (kitab satu jilid): nomor tepat sebelum juz/halaman
 # tercetak, jadi bukan nomor riwayat kitab lain di takhrij itu. Dibaca sesudah angka Arab diganti 0-9.
@@ -27,18 +27,13 @@ DERAJAT_TIDAK_ADA = re.compile(r"لم (?:اقف|اجد) علي (?:من )?(?:حك
 MUNDUR_KEPALA = 3  # halaman ke belakang tempat kepala hadits yang dinukil masih dicari
 
 
-def _rekaman_urut(sid, juz, p1, p2):
-    # urut halaman lalu page_id: di Shamela rekaman judul bab kadang ditaruh di akhir berkas walau page_num-nya sama
-    return sorted(rekaman(sid, juz, p1, p2), key=lambda r: (r.get("page_num") or 0, r.get("page_id") or 0))
-
-
 @shamela.cache_kitab()
 def hadits_bernomor(sid, juz, p1, p2, nomor):
     """(rr, ruas): rekaman di sekitar juz/p1-p2 (hadits bisa mulai beberapa halaman sebelum lafaz yang dinukil) dan
     [(matan, حاشية)] tiap kepala `nomor`: matan dari kepala itu sampai kepala hadits berikutnya, حاشية = catatan rekaman
     yang memuat matan itu (di سنن أبي داود ط. الألباني derajat tiap hadits ada di situ). ruas None = halaman tanpa kepala
     hadits (tidak bisa dinilai); [] = nomor itu bukan kepala di sana."""
-    rr = _rekaman_urut(sid, juz, max(1, p1 - MUNDUR_KEPALA), p2)
+    rr = rekaman_urut(sid, juz, max(1, p1 - MUNDUR_KEPALA), p2)
     tubuh = [r.get("body") or "" for r in rr]
     baris, kepala, batas = kepala_hadits("\n".join(tubuh))
     if not kepala:
@@ -165,7 +160,7 @@ def hadits_janggal(taraf_h, rawi_h, kutipan, terbukti, sekitar):
     namanya yang khas («أبو هريرة» → «هريرة»); «ابن مسعود» dan «عبد الله بن عمر» juga cocok dengan «عبد الله» (kitab
     hadits menyebut العبادلة begitu). Tidak terbaca = perhatian."""
     # sanad dan lafaz hadits bisa berlanjut ke halaman sesudah halaman bukti (Muslim 2/943: «سمع جابر» di 944)
-    rujukan = [_rekaman_urut(b.sid, b.juz, max(1, b.p1 - MUNDUR_KEPALA), b.p2 + 1) for b in terbukti]
+    rujukan = [rekaman_urut(b.sid, b.juz, max(1, b.p1 - MUNDUR_KEPALA), b.p2 + 1) for b in terbukti]
     teks = " ".join(r.get(b) or "" for rr in rujukan for r in rr for b in ("body", "footnotes"))
     kata = lambda t: [norma.padat(w) for w in norma.norm(t).split()]  # norm: «عز وجل»/«﷿» dibuang di kedua sisi
     lepas = lambda ww: ww | {w[1:] for w in ww if w[:1] in cocok.SAMBUNG}  # «وإني» di kitab = «إني» di طرف
@@ -197,7 +192,7 @@ def hadits_janggal(taraf_h, rawi_h, kutipan, terbukti, sekitar):
                     k -= 1
                 blok.append("".join(pp[k:i + 1]))
     if not blok:
-        blok = ["".join(r.get("body") or "" for b in terbukti for r in _rekaman_urut(*b.tempat))]
+        blok = ["".join(r.get("body") or "" for b in terbukti for r in rekaman_urut(*b.tempat))]
     rawi = kata(rawi_h)
     # nama khas: kata pertama dan kata sesudah «بن/أبي/أم…» («أنس بن مالك» → أنس، مالك; «أبو هريرة» → هريرة); satu saja
     # cukup, karena isnad sering hanya «عن أنس» atau «عن المقدام»
@@ -219,7 +214,7 @@ NOMOR_DI_KITAB = re.compile(r"(?<![\d٠-٩/])[\d٠-٩]+(?:\s*/\s*[\d٠-٩]+)?\s*
 
 def hadits_lain(b, kutipan_h, mk):
     """Di halaman bukti b, kutipan {H:} dan mk hanya ditemukan di hadits bernomor yang berbeda («٢٤٢ - …» vs «٢٤٤ - …»)."""
-    raw = norma.TAGS.sub(" ", "\n".join(r.get("body") or "" for r in _rekaman_urut(*b.tempat)))
+    raw = norma.TAGS.sub(" ", "\n".join(r.get("body") or "" for r in rekaman_urut(*b.tempat)))
     blok = [norma.padat(x) for x in NOMOR_DI_KITAB.split(raw)]
     qh, qm = norma.padat(kutipan_h)[:20], norma.padat(mk)[:20]
     ih, im = {i for i, x in enumerate(blok) if qh and qh in x}, {i for i, x in enumerate(blok) if qm and qm in x}

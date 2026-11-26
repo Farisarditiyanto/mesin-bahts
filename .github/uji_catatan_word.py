@@ -99,7 +99,7 @@ def format_catatan(akar):
                  and (rpr := rn.find("w:rPr", NS)) is not None and rpr.find("w:szCs", NS) is not None]
     assert luar_refs == ["36"], f"ukuran rujukan catatan matan bukan 18 pt (36): {luar_refs}"
     hal2 = PdfReader(f / "hasil.pdf").pages[1].extract_text() or ""
-    assert "١" in hal2 or "1" in hal2, hal2
+    assert "حاشية" in hal2 and "الثانية" in hal2 and ("(١)" in hal2 or "(1)" in hal2), hal2
     print("lolos format catatan Word: **tebal**, ((merah)), dan ukuran rujukan #J (16 pt) tetap sesudah NomorCatatan", flush=True)
 
 

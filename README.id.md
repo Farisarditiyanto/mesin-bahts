@@ -19,7 +19,7 @@ README ini peta untuk agent. Pemakai cukup menempel tautan repo ini ke [coding a
 | Untuk | coding agent yang bisa menjalankan perintah; pemakainya mahasiswa penulis bahts |
 | Aturan kerja | [`AGENTS.md`](AGENTS.md) |
 | Pintu perintah | `python mesin/bahts.py <perintah>` |
-| Alur | `periksa` → `baru` → cari bahan → `ambil` → tulis `naskah.txt` & `pustaka` → `cek` (`dirasat-cek` bila perlu) → `rakit` → pemeriksa (`peta`, `bukti`, `pratinjau`) → `cek` dan `rakit` ulang (`tahap` memeriksa kemajuan; `tahap`/`cek` mendukung `--json`) |
+| Alur | `periksa` → `baru` → cari bahan → `ambil` → tulis `naskah.txt` & `pustaka` → `cek` (`dirasat-cek` bila perlu) → `rakit` → pemeriksa (`peta`, `bukti`, `pratinjau`) → `cek` dan `rakit` ulang (`tahap` memeriksa kemajuan) |
 | Connector MCP | `shamela` (wajib), `qurangallery`, `turath`, `hadithunlocked`, `tafsir`, `quran` |
 | Kebutuhan | disebut `python mesin/bahts.py periksa`; `rakit` butuh Windows + Microsoft Word |
 | Versi | [rilis](https://github.com/Farisarditiyanto/mesin-bahts/releases), [`CHANGELOG.md`](CHANGELOG.md) |
@@ -81,10 +81,10 @@ Kebutuhan komputer dan cara membereskannya ada di satu tempat: `python mesin/bah
 | Unduh kitab | `ambil <id>` atau `ambil <folder>`; Waqfeya: `ambil w<nomor>` | `kitab/<id>/`, `kitab/waqfeya/w<nomor>/` |
 | Data cetak | `kartu <id>`, `pustaka <folder>` | rujukan pertama dan draf المصادر dari kitab berbukti |
 | Baca teks | `cari`, `teks`, `bab`, `halaman` | teks lokal untuk disalin persis |
-| Periksa | `cek <folder>` (`--jejak` untuk kutipan yang tidak ketemu, `--json` untuk keluaran terstruktur); cek DOI online: `dirasat-cek <folder>` | `GAGAL: n`, perhatian, `NASKAH_SHA256` |
+| Periksa | `cek <folder>` (`--jejak` untuk kutipan yang tidak ketemu); cek DOI online: `dirasat-cek <folder>` | `GAGAL: n`, perhatian, `NASKAH_SHA256` |
 | Pemeriksa | opsional `peta <folder>`, `bukti <folder> [awal-akhir]` | peta struktur/sumber/busur argumen offline ([`dok/audit.md`](dok/audit.md)), teks halaman di sekitar tiap catatan kaki (Shamela, Waqfeya, dan PDF penelitian), dan paragraf isi tanpa catatan kaki |
 | Rakit | `rakit <folder> [--fasl n]` (Windows + Word) | `.docx` + `.pdf` (sampul, catatan kaki, المصادر والمراجع, الفهارس), `HALAMAN_ISI`, `HALAMAN` |
-| Status | `tahap <folder> [--json]` | `NASKAH=`, `HASIL=`, `RAKIT=`, `BERIKUTNYA` |
+| Status | `tahap <folder>` | `NASKAH=`, `HASIL=`, `RAKIT=`, `BERIKUTNYA` |
 | Diagram | `diagram <folder>` (Node.js + Chrome/Edge) | tiap `<nama>.mmd` (Mermaid) jadi `<nama>.png`, dicetak lewat `#G` |
 | Pratinjau visual | `pratinjau <folder> [halaman]` | halaman PDF hasil `rakit` jadi gambar PNG grid 2×2 di TEMP (atau 1 halaman penuh) untuk cek tata letak |
 
@@ -99,7 +99,7 @@ Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumenn
 - `<<sid|juz|hal|#123>>` lolos hanya kalau 123 kepala hadits di awal baris halaman itu («123 - حدثنا», «36 - (123)», «(123) - حدثنا»); nomor ayat dan nomor catatan ditolak. Ini membuktikan nomornya ada, bukan lafaznya.
 - Takhrij «رقم الحديث (123)، 4/56.» yang langsung diikuti bukti: nomornya harus kepala hadits di sekitar halaman itu, lafaz buktinya harus di hadits bernomor itu. Hasilnya perhatian, bukan `GAGAL`.
 - `cek --jejak`: kutipan yang tidak ketemu dicari di kitab lain yang sudah diunduh, paling banyak 3 kitab per teks; lafaz yang sedikit berbeda ditunjuk sebagai «Paling mirip»; kutipan yang menyambung ke halaman berikutnya ditunjuk rentangnya (ص21-22). Hanya petunjuk. Kitab yang tidak terbaca dilewati dengan peringatan «jejak belum lengkap». Pencarian pertama menyiapkan teks kitab, jadi bisa lama.
-- Sumber di luar Shamela: `<<luar|berkas.pdf|hal>>` hanya ditunjuk halamannya, tidak pernah diloloskan. Kitab Waqfeya `<<w…|berkas|hal>>`: lafaznya tidak dinilai `cek` karena OCR salah huruf; pemeriksa membacanya di scan. `GAGAL` hanya kalau penandanya rusak, kitab belum diunduh, berkas atau halamannya tidak ada (`rusak`), atau kutipan paling sedikit 25 huruf (`LAIN_MIN`) dengan kecocokan OCR di halaman itu kurang dari 60% (`LIPUT_BUKAN`) terbaca persis di halaman lain.
+- Sumber di luar Shamela: `<<luar|berkas.pdf|hal>>` hanya ditunjuk halamannya, tidak pernah diloloskan. Kitab Waqfeya `<<w…|berkas|hal>>`: lafaznya tidak dinilai `cek` karena OCR salah huruf; pemeriksa membacanya di scan. `GAGAL` hanya kalau penandanya rusak, kitab belum diunduh, berkas atau halamannya tidak ada, atau kutipan paling sedikit 25 huruf dengan kecocokan OCR di halaman itu kurang dari 60% terbaca persis di halaman lain.
 - Cara menukil (perhatian, bukan `GAGAL`): kalimat di luar tanda petik yang 8 kata atau lebih berurutan sama persis dengan halaman buktinya, nukilan makna tanpa «انظر:», kutipan lafaz yang hanya diantar «قال …:» tetapi dirujuk «انظر:», dan kutipan lebih dari 60 kata. Batas kata = aturan repo. Apakah nukilan makna setia pada halaman buktinya tidak dinilai: bukti berpotongan hanya membuktikan potongannya.
 - Takhrij di luar Shahihain tanpa derajat (dan tanpa «ولم أقف على حكم …») = `GAGAL`.
 - Perhatian wajib ditangani: tiap baris dicetak dengan kodenya («! 3f9a2c baris …»), lalu dibereskan di naskah, atau diterima dengan `terima <kode> <alasan>` di `riset.txt` kalau memang tidak bisa dibereskan. Selama ada yang belum ditangani, `tahap` mencetak `NASKAH=PERHATIAN` dan `rakit` mencetak «BELUM SELESAI». Perhatian `riset.txt` tidak bisa diterima. Alasannya tidak dinilai mesin: itu tugas pemeriksa langkah 5.

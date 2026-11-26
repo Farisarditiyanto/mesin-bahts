@@ -30,7 +30,7 @@ def cli_dalam_proses(akar, *argumen):
 
     out, err = Keluaran(), Keluaran()
     skrip = Path(akar) / "mesin" / "bahts.py"
-    with patch.object(sys, "argv", [str(skrip), *map(str, argumen)]), \
+    with contextlib.chdir(akar), patch.object(sys, "argv", [str(skrip), *map(str, argumen)]), \
             contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
         try:
             runpy.run_path(str(skrip), run_name="__main__")

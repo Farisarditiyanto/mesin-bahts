@@ -41,12 +41,11 @@ It does NOT cover the following. Their rights stay with their owners.
    which is embedded in the font file. Publisher's site:
    https://fonts.qurancomplex.gov.sa
 
-3. mesin/sampul.doc, mesin/sampul_qism.docx, mesin/sampul_jakarta.docx, and
-   mesin/kepala_kotak.docx: the cover and page-header templates. sampul.doc
-   follows a course template of معهد العلوم الإسلامية والعربية في جاكرتا;
-   sampul_qism.docx follows the cover model of قسم الشريعة;
-   sampul_jakarta.docx and kepala_kotak.docx follow the cover and header
-   models of قسم الشريعة بجاكرتا. The name and the logo of
+3. mesin/sampul.doc, mesin/sampul_qism.docx, and mesin/sampul_jakarta.docx:
+   the cover templates. sampul.doc follows a course template of
+   معهد العلوم الإسلامية والعربية في جاكرتا; sampul_qism.docx follows the cover
+   model of قسم الشريعة; sampul_jakarta.docx follows the cover model of
+   قسم الشريعة بجاكرتا. The name and the logo of
    جامعة الإمام محمد بن سعود الإسلامية belong to the university (logo file: the university's
    visual identity page, https://imamu.edu.sa/Visualidentity/Pages/default.aspx,
    approved logo as published in April 2025). This project is

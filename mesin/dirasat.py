@@ -10,17 +10,12 @@ di kunci_openalex.txt, di samping folder mesin/; berkas itu tidak ada → dibaca
 (untuk komputer yang tidak menyimpan berkas, mis. cloud). Tanpa kunci: jatah sehari sekitar 50 kali `dirasat`, dan `dirasat-pdf`
 hanya bisa memakai tautan PDF akses terbuka (salinan yang disimpan OpenAlex butuh kunci). Dengan kunci: sekitar 300 kali `dirasat` atau 100 PDF sehari; jatah kembali penuh tiap 00.00 UTC.
 """
-import datetime, functools, json, logging, os, re, time, typing, unicodedata, urllib.error, urllib.parse
+import datetime, functools, json, logging, os, re, time, unicodedata, urllib.error, urllib.parse
 from pathlib import Path
 
-from rapidfuzz import fuzz
-
 import norma
-import shamela
-import waqfeya
 from berkas import sementara
-from cek_rujukan import bentuk_judul, judul_di_baris, judul_shamela
-from dasar import ANGKA_LATIN, ARAH, NASAB, RUJUK_ULANG, TandaRusak, akhir_catatan, akhir_rumus, perintah
+from dasar import ANGKA_LATIN, ARAH, TandaRusak, akhir_catatan, akhir_rumus, perintah
 from jaringan import GAGAL_JARINGAN, JAWABAN_ASING, SEBAB_ASING, buka
 
 KUNCI = Path(__file__).parent.parent / "kunci_openalex.txt"
@@ -32,8 +27,8 @@ KOLOM = ("id,title,publication_year,publication_date,type,language,cited_by_coun
          "primary_location,best_oa_location,doi,has_content,abstract_inverted_index,is_retracted")
 CROSSREF = "https://api.crossref.org/works/"
 DOI_HANDLE = "https://doi.org/api/handles/"
-UNPAYWALL = "https://api.unpaywall.org/v2/"
-EMAIL_SOPAN = "96983971+Farisarditiyanto@users.noreply.github.com"
+NASAB = frozenset("بن ابن بنت ابو ابي ابا ام عبد".split())
+RUJUK_ULANG = re.compile(r"(?:المرجع|المصدر)\s+(?:السابق|نفسه)")
 MAKNA_MAKS = 50  # OpenAlex menjawab pencarian makna paling banyak sebanyak ini
 KATA_POOL_MAKS = 200  # OpenAlex per_page maksimum untuk kolam perankingan ulang (--urut)
 DOAJ_POOL_MAKS = 100  # DOAJ pageSize maksimum
@@ -64,7 +59,7 @@ def _kunci():
 
 def _buka(url, waktu=WAKTU_CARI):
     """Buka alamat (kunci OpenAlex ikut hanya ke openalex.org); penolakan OpenAlex yang dikenal dijadikan kalimat."""
-    kepala = {"User-Agent": f"bahts/1 (https://github.com/Farisarditiyanto/Bahts; mailto:{EMAIL_SOPAN})"}
+    kepala = {"User-Agent": "bahts/1 (+https://github.com/Farisarditiyanto/mesin-bahts)"}
     openalex = (urllib.parse.urlsplit(url).hostname or "").endswith(".openalex.org")
     if openalex and _kunci():
         kepala["Authorization"] = "Bearer " + _kunci()
@@ -471,50 +466,9 @@ def _simpan_pdf(isi, tujuan, nomor, asal=""):
     print(f"Jadi: {tujuan} ({len(isi) / 1e6:.1f} MB){ket}")
 
 
-def _norm_judul(teks):
-    ar = norma.norm(teks or "")
-    la = " ".join(re.findall(r"[a-z0-9]+", _huruf_latin(teks)))
-    return " ".join(x for x in (ar, la) if x)
-
-
-def _cek_judul_pdf(berkas, judul):
-    nj = _norm_judul(judul)
-    if not nj:
-        return
-    from pypdf import PdfReader
-    from pypdf.errors import PyPdfError
-    try:
-        teks = " ".join(p.extract_text() or "" for p in PdfReader(berkas).pages[:2])
-    except (OSError, PyPdfError, ValueError, TypeError, KeyError, IndexError):
-        return
-    nt = _norm_judul(teks)
-    if len(nt) < 40:
-        return
-    skor = round(fuzz.token_set_ratio(nj, nt))
-    if skor < 45:
-        print(f"PERINGATAN: teks awal PDF kurang cocok dengan judul katalog ({skor}%): pastikan berkasnya benar")
-
-
-def _pdf_unpaywall(doi, judul_asli):
-    url = f"{UNPAYWALL}{urllib.parse.quote(doi, safe='/')}?email={urllib.parse.quote(EMAIL_SOPAN)}"
-    try:
-        with _buka(url, WAKTU_CARI) as r:
-            d = json.load(r)
-    except urllib.error.HTTPError as e:
-        return [], f"Unpaywall HTTP {e.code}"
-    except (*GAGAL_JARINGAN, OSError, *JAWABAN_RUSAK) as e:
-        return [], f"Unpaywall gagal: {e}"
-    nj, nu = _norm_judul(judul_asli), _norm_judul(d.get("title") or "")
-    if nj and nu and fuzz.token_set_ratio(nj, nu) < 55:
-        return [], "Unpaywall: judul catatan tidak cocok"
-    kandidat = [d.get("best_oa_location") or {}] + list(d.get("oa_locations") or ())
-    urls = list(dict.fromkeys(loc.get("url_for_pdf") for loc in kandidat if loc.get("url_for_pdf")))
-    return (urls, "") if urls else ([], "Unpaywall tidak mencatat tautan PDF akses terbuka")
-
-
 def pdf(nomor, folder):
     """Unduh salinan PDF sebuah penelitian (nomor OpenAlex W… atau DOI) ke folder bahts, supaya isinya bisa dibaca:
-    salinan OpenAlex kalau tersimpan (butuh kunci), lalu tautan PDF akses terbuka karya itu (termasuk Unpaywall)."""
+    salinan OpenAlex kalau tersimpan (butuh kunci), lalu tautan PDF akses terbuka karya itu."""
     sel = id_karya(nomor)
     if not sel:
         raise ValueError(f"«{nomor}» bukan nomor OpenAlex (W123…) atau DOI (10.…/…)")
@@ -551,25 +505,11 @@ def pdf(nomor, folder):
         try:
             with _buka(url, WAKTU_PDF) as r:
                 _simpan_pdf(r.read(), tujuan, nomor, asal=f"{nama} {url}")
-            _cek_judul_pdf(tujuan, meta.get("judul"))
             return
         except (*GAGAL_JARINGAN, OSError, ValueError) as e:  # ditolak, HTTP 4xx/5xx, koneksi, bukan PDF, tidak utuh: tempat berikutnya
             sebab.append(f"{nama} {url}: {e}")
     if not meta["pdf_calon"]:
         sebab.append("OpenAlex tidak mencatat tautan PDF akses terbuka")
-    if meta.get("doi"):
-        up_urls, up_alasan = _pdf_unpaywall(meta["doi"], meta.get("judul"))
-        sudah_url = set(meta["pdf_calon"])
-        for url in [u for u in up_urls if u not in sudah_url]:
-            try:
-                with _buka(url, WAKTU_PDF) as r:
-                    _simpan_pdf(r.read(), tujuan, nomor, asal=f"Unpaywall {url}")
-                _cek_judul_pdf(tujuan, meta.get("judul"))
-                return
-            except (*GAGAL_JARINGAN, OSError, ValueError) as e:
-                sebab.append(f"Unpaywall {url}: {e}")
-        if up_alasan:
-            sebab.append(up_alasan)
     raise SystemExit(f"PDF {nomor} tidak terunduh:\n  - " + "\n  - ".join(sebab)
                      + f"\nBuka tautan aslinya di peramban, lalu simpan PDF-nya di folder bahts: {meta['tautan'] or '-'}")
 
@@ -633,6 +573,19 @@ def _bersih_doi(raw):
     return d.lower() if re.fullmatch(r"10\.\d{4,}/\S+", d) else ""
 
 
+def _tanggal_crossref(obj):
+    bagian = (obj or {}).get("date-parts") or []
+    if bagian and bagian[0]:
+        angka = [x for x in bagian[0] if isinstance(x, int)]
+        if angka:
+            return tuple((angka + [0, 0, 0])[:3])
+    ts = (obj or {}).get("timestamp")
+    if isinstance(ts, (int, float)):
+        d = datetime.datetime.fromtimestamp(ts / 1000, datetime.UTC)
+        return (d.year, d.month, d.day)
+    return (0, 0, 0)
+
+
 def _uraikan_crossref(msg, doi=""):
     tahun = None
     for kunci in ("published-print", "published-online", "issued", "created"):
@@ -641,17 +594,23 @@ def _uraikan_crossref(msg, doi=""):
             tahun = bagian[0][0]
             break
     updated_by = msg.get("updated-by") or ()
-    dicabut = (any((u.get("type") or "").lower() == "retraction" for u in updated_by)
-               or bool((msg.get("relation") or {}).get("is-retracted-by")))
-    peringatan = []
-    for u in updated_by:
-        jenis = (u.get("type") or "").lower()
-        if jenis in ("expression-of-concern", "withdrawal"):
+    status_cabut, peringatan = [], []
+    for i, u in enumerate(updated_by):
+        jenis = (u.get("type") or "").lower().replace("_", "-")
+        if jenis in ("retraction", "reinstatement"):
+            status_cabut.append((_tanggal_crossref(u.get("updated")), i, jenis))
+        elif jenis in ("expression-of-concern", "withdrawal"):
             peringatan.append(f"Crossref: {jenis}")
     for u in msg.get("update-to") or ():
-        jenis = (u.get("type") or "").lower()
+        jenis = (u.get("type") or "").lower().replace("_", "-")
         if jenis in ("retraction", "expression-of-concern", "withdrawal"):
             peringatan.append(f"pemberitahuan {jenis} untuk {u.get('DOI') or '-'}")
+    if status_cabut:
+        status_cabut.sort()
+        dicabut = status_cabut[-1][2] == "retraction"
+    else:
+        dicabut = bool((msg.get("relation") or {}).get("is-retracted-by"))
+    peringatan = list(dict.fromkeys(peringatan))
     doi_fix = _doi(msg.get("DOI") or doi)
     return {
         "judul": (msg.get("title") or [""])[0],
@@ -885,121 +844,23 @@ def _konteks_pengenal(baris, ids):
     return out
 
 
-class KandidatR(typing.NamedTuple):
-    skor_akhir: float
-    skor_judul: float
-    karya: dict
-    sumber: str
-    beda: list
-    belum: list
-
-
-def _rujukan_lokal(baris):
-    polos = re.sub(r"[^ء-ي\s]", "", norma.norm(baris)).strip()
-    if polos in ("القران الكريم", "المصحف الشريف"):
-        return True
-    for sid in shamela.punya():
-        try:
-            if judul_di_baris(bentuk_judul(shamela.info(sid)), baris):
-                return True
-        except (LookupError, OSError, ValueError, SystemExit):
-            continue
-    if (shamela.ROOT / shamela.KATALOG).exists() and judul_shamela(baris)[1]:
-        return True
-    if waqfeya.FOLDER.is_dir():
-        for d in waqfeya.FOLDER.iterdir():
-            if d.is_dir() and waqfeya.NOMOR.fullmatch(d.name) and waqfeya.ada(d.name):
-                try:
-                    j = waqfeya.data(d.name).get("judul") or ""
-                    if j and judul_di_baris(bentuk_judul({"title_ar": j}), baris):
-                        return True
-                except (LookupError, OSError, ValueError, SystemExit):
-                    continue
-    return False
-
-
-def _ekstrak_kueri_r(baris):
-    bersih = ARAH.sub("", baris).replace("**", " ").strip()
-    m_judul = re.search(r"__(.+?)__", bersih)
-    judul_calon = m_judul[1].strip() if m_judul else ""
-    polos = re.sub(r"__+", " ", bersih)
-    polos = re.sub(r"\s+", " ", re.sub(r"https?://\S+|<<[^<>]+>>", " ", polos)).strip(" .،,؛:-")
-    if not judul_calon:
-        segmen = [s.strip() for s in re.split(r"[.،,;؛]", polos) if len(_norm_judul(s).split()) >= 2]
-        if segmen:
-            judul_calon = max(segmen, key=lambda s: len(_norm_judul(s).split()))
-    kata = [w for w in _norm_judul(polos).split() if not w.isdigit()]
-    if len(kata) < 3:
-        return None, None
-    return polos[:240], (judul_calon or polos)[:180]
-
-
-def _kandidat_rujukan_tanpa_id(kueri, judul_calon):
-    kandidat = []
-    if judul_calon:
-        oa_url = OPENALEX + "?" + urllib.parse.urlencode({"filter": f"title.search:{judul_calon}", "per_page": 5, "select": KOLOM})
-        try:
-            with _buka(oa_url) as r:
-                for item in json.load(r).get("results") or ():
-                    kandidat.append((_uraikan_openalex(item), "OpenAlex"))
-        except (*GAGAL_JARINGAN, Ditolak, OSError, *JAWABAN_RUSAK):
-            pass
-    cr_url = f"{CROSSREF}?{urllib.parse.urlencode({'query.bibliographic': kueri, 'rows': 5})}"
-    try:
-        with _buka(cr_url) as r:
-            for item in (json.load(r).get("message") or {}).get("items") or ():
-                kandidat.append((_uraikan_crossref(item), "Crossref"))
-    except (*GAGAL_JARINGAN, OSError, *JAWABAN_RUSAK):
-        pass
-    return kandidat
-
-
-def _nilai_kandidat_r(baris, judul_calon, kandidat):
-    nj_baris = _norm_judul(baris)
-    nj_calon = _norm_judul(judul_calon or baris)
-    terbaik = None
-    for w, sumber in kandidat:
-        nj_w = _norm_judul(w.get("judul") or "")
-        if len(nj_w.split()) < 2:
-            continue
-        skor = 0.6 * fuzz.token_set_ratio(nj_w, nj_baris) + 0.4 * fuzz.token_sort_ratio(nj_w, nj_calon)
-        beda, belum = _banding_rujukan(baris, w, ringkas=False)
-        penalti = (10 if beda else 0) + (5 if any("nama" in x for x in belum) else 0)
-        nilai = KandidatR(skor - penalti, skor, w, sumber, beda, belum)
-        if terbaik is None or (nilai.skor_akhir, nilai.skor_judul) > (terbaik.skor_akhir, terbaik.skor_judul):
-            terbaik = nilai
-    return terbaik
-
-
 def cek_rujukan(folder):
-    """Verifikasi online DOI, nomor OpenAlex (W…), dan baris #R tanpa pengenal di `naskah.txt` (OpenAlex + Crossref):
+    """Verifikasi online DOI dan nomor OpenAlex (W…) di `naskah.txt` (OpenAlex + Crossref + doi.org):
     mendeteksi DOI tidak terdaftar, karya dicabut, dan petunjuk metadata per baris.
     Kode keluar: 1 untuk ID tidak ditemukan/karya dicabut, 2 kalau layanan atau metadata perlu diperiksa, 0 lainnya."""
     naskah = Path(folder) / "naskah.txt"
     if not naskah.exists():
         raise SystemExit(f"Naskah tidak ditemukan: {naskah}")
-    entri, baris_naskah, r_tanpa_id = {}, {}, []
-    di_r = False
+    entri, baris_naskah = {}, {}
     for n, baris in enumerate(naskah.read_text(encoding="utf-8-sig").splitlines(), 1):
-        s = baris.lstrip()
-        if s.startswith("#R"):
-            di_r = True
-            continue
-        if s.startswith("#"):
-            di_r = False
-            continue
-        if not s or s.startswith("@"):
+        if not baris.strip() or baris.lstrip().startswith("@"):
             continue
         baris = baris.translate(ANGKA_LATIN)
         if ids := _pengenal(baris):
             baris_naskah[n] = _konteks_pengenal(baris, ids)
             for sel in ids:
                 entri.setdefault(sel, []).append(n)
-        elif di_r and not _rujukan_lokal(baris):
-            kueri, j_calon = _ekstrak_kueri_r(baris)
-            if kueri:
-                r_tanpa_id.append((n, baris, kueri, j_calon))
-    if not entri and not r_tanpa_id:
+    if not entri:
         print(f"Tidak ada DOI atau nomor OpenAlex (W…) di {naskah.name}.")
         return 0
     fatal, perlu, lengkap, galat = 0, 0, 0, 0
@@ -1054,31 +915,6 @@ def cek_rujukan(folder):
                 perlu += 1
                 status = "TIDAK COCOK" if beda else "PERIKSA METADATA"
                 print(f"    ! baris {n}: {status} ({'; '.join(beda + belum)})")
-    for n, baris, kueri, j_calon in r_tanpa_id:
-        kandidat = _kandidat_rujukan_tanpa_id(kueri, j_calon)
-        terbaik = _nilai_kandidat_r(baris, j_calon, kandidat)
-        if not terbaik or terbaik.skor_judul < 65:
-            perlu += 1
-            print(f"  ! baris {n} [#R tanpa ID]: TIDAK TERKONFIRMASI di OpenAlex/Crossref (periksa manual)")
-            continue
-        skor, w, sumber, beda, belum = terbaik.skor_judul, terbaik.karya, terbaik.sumber, terbaik.beda, terbaik.belum
-        judul = ARAH.sub("", w.get("judul") or "-")
-        penulis = "، ".join((w.get("peneliti") or [])[:3]) or "-"
-        ringkas = f"«{judul[:80]}» ({penulis}, {w.get('tahun') or '-'}) [{sumber}]"
-        if w.get("dicabut"):
-            fatal += 1
-            print(f"  ✗ baris {n} [#R tanpa ID]: DICABUT (RETRACTED) — {ringkas}")
-            continue
-        if skor >= 80 and not beda and not any("nama" in x for x in belum):
-            lengkap += 1
-            print(f"  • baris {n} [#R tanpa ID]: COCOK ({round(skor)}%) — {ringkas}")
-            if w.get("peringatan"):
-                perlu += 1
-                print(f"    ! baris {n}: PERINGATAN CROSSREF ({'; '.join(w['peringatan'])})")
-        else:
-            perlu += 1
-            alasan = "; ".join(beda + belum) or f"skor judul {round(skor)}%"
-            print(f"  ! baris {n} [#R tanpa ID]: PERIKSA METADATA ({alasan}) — {ringkas}")
-    print(f"\nRingkasan dirasat-cek ({len(entri) + len(r_tanpa_id)} pengenal): {lengkap} rekaman, {perlu} perlu dicek, "
+    print(f"\nRingkasan dirasat-cek ({len(entri)} pengenal): {lengkap} rekaman, {perlu} perlu dicek, "
           f"{fatal} fatal (tidak ditemukan/dicabut), {galat} gagal memeriksa.")
     return 1 if fatal else 2 if perlu or galat else 0

@@ -19,7 +19,7 @@ This README is a map for agents. The user only pastes this repository's link int
 | For | coding agents that can run commands; the end user is a student writing a bahts |
 | Working rules | [`AGENTS.md`](AGENTS.md) (in Indonesian) |
 | Command entry point | `python mesin/bahts.py <perintah>` |
-| Flow | `periksa` → `baru` → gather sources → `ambil` → write `naskah.txt` & `pustaka` → `cek` (`dirasat-cek` if needed) → `rakit` → reviewer (`peta`, `bukti`, `pratinjau`) → `cek` and `rakit` again (`tahap` tracks state; `tahap`/`cek` support `--json`) |
+| Flow | `periksa` → `baru` → gather sources → `ambil` → write `naskah.txt` & `pustaka` → `cek` (`dirasat-cek` if needed) → `rakit` → reviewer (`peta`, `bukti`, `pratinjau`) → `cek` and `rakit` again (`tahap` tracks state) |
 | MCP connectors | `shamela` (required), `qurangallery`, `turath`, `hadithunlocked`, `tafsir`, `quran` |
 | Requirements | listed by `python mesin/bahts.py periksa`; `rakit` needs Windows + Microsoft Word |
 | Version | [releases](https://github.com/Farisarditiyanto/mesin-bahts/releases), [`CHANGELOG.md`](CHANGELOG.md) |
@@ -83,10 +83,10 @@ Computer requirements and how to fix them are in one place: `python mesin/bahts.
 | Download a book | `ambil <id>` or `ambil <folder>`; Waqfeya: `ambil w<nomor>` | `kitab/<id>/`, `kitab/waqfeya/w<nomor>/` |
 | Publication data | `kartu <id>`, `pustaka <folder>` | first reference and المصادر draft from cited books |
 | Read the text | `cari`, `teks`, `bab`, `halaman` | local text to copy exactly |
-| Check | `cek <folder>` (`--jejak` for quotations that are not found, `--json` for structured output); online DOI check: `dirasat-cek <folder>` | `GAGAL: n`, perhatian, `NASKAH_SHA256` |
+| Check | `cek <folder>` (`--jejak` for quotations that are not found); online DOI check: `dirasat-cek <folder>` | `GAGAL: n`, perhatian, `NASKAH_SHA256` |
 | Reviewer | optional `peta <folder>`, `bukti <folder> [awal-akhir]` | offline structure/source/claim-arc overview ([`dok/audit.md`](dok/audit.md)), the page text around each footnote (Shamela, Waqfeya, and research PDFs), and body paragraphs without a footnote |
 | Build | `rakit <folder> [--fasl n]` (Windows + Word) | `.docx` + `.pdf` (cover, footnotes, المصادر والمراجع, الفهارس), `HALAMAN_ISI`, `HALAMAN` |
-| Status | `tahap <folder> [--json]` | `NASKAH=`, `HASIL=`, `RAKIT=`, `BERIKUTNYA` |
+| Status | `tahap <folder>` | `NASKAH=`, `HASIL=`, `RAKIT=`, `BERIKUTNYA` |
 | Diagrams | `diagram <folder>` (Node.js + Chrome/Edge) | each `<nama>.mmd` (Mermaid) becomes `<nama>.png`, printed through `#G` |
 | Visual preview | `pratinjau <folder> [halaman]` | built PDF pages as 2×2 PNG grids in TEMP (or a single page) for layout review |
 
@@ -101,7 +101,7 @@ Every command = `python mesin/bahts.py <perintah>`. Full list with arguments: `p
 - `<<sid|juz|hal|#123>>` passes only if 123 is a hadith head at the start of a line on that page («123 - حدثنا», «36 - (123)», «(123) - حدثنا»); verse numbers and note numbers are rejected. This proves the number is there, not the wording.
 - A takhrij «رقم الحديث (123)، 4/56.» followed directly by evidence: the number must be a hadith head around that page, and the evidence wording must be in the hadith with that number. The result is a perhatian, not `GAGAL`.
 - `cek --jejak`: a quotation that is not found is searched for in the other downloaded books, at most 3 books per text; slightly different wording is pointed out as «Paling mirip»; a quotation that continues onto the next page is shown with its range (ص21-22). A hint only. A book that cannot be read is skipped with the warning «jejak belum lengkap». The first search prepares the book text, so it can take long.
-- Sources outside Shamela: `<<luar|berkas.pdf|hal>>` only gets its page pointed out, it is never passed. Waqfeya books `<<w…|berkas|hal>>`: `cek` does not judge the wording because the OCR gets letters wrong; the reviewer reads it in the scan. `GAGAL` only if the marker is malformed, the book is not downloaded, the file or page does not exist (`rusak`), or a quotation of at least 25 letters (`LAIN_MIN`) with under 60% OCR match on the cited page (`LIPUT_BUKAN`) appears verbatim on another page.
+- Sources outside Shamela: `<<luar|berkas.pdf|hal>>` only gets its page pointed out, it is never passed. Waqfeya books `<<w…|berkas|hal>>`: `cek` does not judge the wording because the OCR gets letters wrong; the reviewer reads it in the scan. `GAGAL` only if the marker is malformed, the book is not downloaded, the file or page does not exist, or a quotation of at least 25 letters with under 60% OCR match on the cited page appears verbatim on another page.
 - Ways of quoting (perhatian, not `GAGAL`): a sentence outside quotation marks with 8 or more consecutive words identical to its evidence page, a paraphrase without «انظر:», a verbatim quotation only introduced by «قال …:» but referenced with «انظر:», and a quotation longer than 60 words. The word limits are repository rules. Whether a paraphrase is faithful to its evidence page is not judged: evidence with a fragment only proves the fragment.
 - A takhrij outside the Sahihayn without a grade (and without «ولم أقف على حكم …») = `GAGAL`.
 - Every perhatian must be handled: each line is printed with its code («! 3f9a2c baris …»), then fixed in the manuscript, or accepted with `terima <kode> <alasan>` in `riset.txt` if it really cannot be fixed. While any is unhandled, `tahap` prints `NASKAH=PERHATIAN` and `rakit` prints «BELUM SELESAI». A perhatian from `riset.txt` cannot be accepted. The reason is not judged by the machine: that is the step 5 reviewer's job.

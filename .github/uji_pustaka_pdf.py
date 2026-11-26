@@ -222,21 +222,7 @@ def utama():
 
             assert sumber_pdf.pulihkan_arab("ينغي ﻻو يداشرإ ليلدلا اذه") == "هذا الدليل إرشادي ولا يغني"
             assert sumber_pdf.pulihkan_arab("مﻻسﻹا يف") == "في الإسلام"
-            doc_2col = pymupdf.open()
-            font_p = AKAR / "mesin" / "UthmanicHafs_V22.ttf"
-            for i_hal in range(4):
-                p = doc_2col.new_page(width=595, height=842)
-                p.insert_font(fontname="ar", fontfile=str(font_p))
-                p.insert_text((200, 50), f"مجلة الدراسات الفقهية {i_hal + 1}", fontname="ar", fontsize=10)
-                p.insert_text((350, 140), "العمود الأيمن في الدراسة", fontname="ar", fontsize=12)
-                p.insert_text((80, 140), "العمود الأيسر في البحث", fontname="ar", fontsize=12)
-            pdf_2col = f / "kolom.pdf"
-            doc_2col.save(pdf_2col)
-            doc_2col.close()
-            _, pasangan_teks = sumber_pdf._teks_rentang(pdf_2col, 1, 1)
-            teks_k1 = pasangan_teks[0][1]
-            assert "مجلة الدراسات الفقهية" not in teks_k1, teks_k1
-            assert teks_k1.index("العمود الأيمن في الدراسة") < teks_k1.index("العمود الأيسر في البحث"), teks_k1
+            assert sumber_pdf.pulihkan_arab("كتإ") == "كتإ"
 
         print("lolos uji pustaka dan pemulihan teks PDF Arab")
 

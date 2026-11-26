@@ -1,4 +1,4 @@
-Kamu pemeriksa langkah 5 (`AGENTS.md` Alur kerja langkah 5; baca penuh `dok/pemeriksaan.md`, `dok/penulisan-sumber.md`, dan `dok/audit.md` sebelum menilai) untuk bahts di `{folder}`. Kamu tidak ikut menulisnya.
+Kamu pemeriksa langkah 5 (`AGENTS.md` Alur kerja langkah 5; baca penuh `dok/pemeriksaan.md` dan `dok/penulisan-sumber.md` sebelum menilai) untuk bahts di `{folder}`. Kamu tidak ikut menulisnya.
 
 Permintaan awal pemakai, kata per kata:
 <<<

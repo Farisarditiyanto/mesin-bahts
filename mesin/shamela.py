@@ -1257,7 +1257,7 @@ def teks(sid, frasa, lebar=260, maks=3, potongan=False):
 
 
 JUDUL = re.compile(r"""<span\b(?=[^>]*\bdata-type\s*=\s*(?:"title"|'title'))
-    (?=[^>]*\bid\s*=\s*["']?toc-(?P<nomor>\d+)\b)[^>]*>(?P<teks>.*?)</span>""", re.S | re.X)  # tanda judul di matan; nomornya = shamela_title_id di toc
+    (?=[^>]*\bid\s*=\s*["']?toc-(?P<nomor>\d+)\b)[^>]*>""", re.X)  # tanda judul di matan; nomornya = shamela_title_id di toc
 
 
 def judul_calon(p, toc, c, h, bagian, page_ids=None):

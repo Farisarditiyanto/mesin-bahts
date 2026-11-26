@@ -17,7 +17,7 @@ from dasar import AD, HORMAT_CETAK
 from norma import per_halaman
 
 KONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f￾￿]")  # karakter kendali: bukan teks kitab
-JUDUL = shamela.JUDUL
+JUDUL = re.compile(shamela.JUDUL.pattern + r"(?P<teks>.*?)</span>", re.S | re.X)
 PEMISAH_HTML = frozenset(("br", "p", "div", "li", "tr", "td", "th"))
 BARIS = re.compile(r"\r\n?|\n")
 NAMA_TERLARANG = re.compile(r'[\\/:*?"<>|\x00-\x1f]')  # tidak boleh di nama berkas Windows

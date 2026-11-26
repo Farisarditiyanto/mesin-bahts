@@ -14,7 +14,6 @@ BOOL_FORMAT = {"catatan_ulang_tiap_halaman", "mulakhas_berjarak"}
 NON_NEGATIF = {"jarak_paragraf", "jarak_judul", "jarak_sebelum_sub"}
 BERKAS_DOK = lambda: [AKAR / "AGENTS.md", *sorted((AKAR / "dok").glob("*.md")),
                       AKAR / "README.md", AKAR / "README.id.md", AKAR / "README.ar.md"]
-JANGAN_ADA_DI_DOK = {"mesin/_tmp", "mesin/UthmanicHafs_V22.ttf"}
 JALUR_BACKTICK = re.compile(r"(?<![A-Za-z0-9_./-])((?:dok|\.github|mesin|contoh)/[^\s,;:)'\"<>`]+)")
 TAUTAN_MD = re.compile(r"\]\(([^)\s]+)\)|src=\"([^\"]+)\"")
 
@@ -54,7 +53,7 @@ def cek_tautan_dan_path():
                 salah.append(f"{rel}: tautan rusak «{tujuan}»")
         for isi in re.findall(r"`([^`\n]+)`", teks):
             for tok in JALUR_BACKTICK.findall(isi):
-                if any(c in tok for c in "<>{}…") or tok.rstrip("/") in JANGAN_ADA_DI_DOK:
+                if any(c in tok for c in "<>{}…"):
                     continue
                 if "*" in tok:
                     if not any(AKAR.glob(tok)):
