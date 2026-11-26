@@ -45,7 +45,14 @@ def huruf_ada(nama):
 
 
 def font_terpasang():
-    return any((d / FONT).exists() for d in (FONT_PEMAKAI, FONT_SISTEM))
+    """Font mushaf terpasang di berkas font Windows dan terdaftar di registry."""
+    if os.name != "nt":
+        return any((d / FONT).exists() for d in (FONT_PEMAKAI, FONT_SISTEM))
+    nama_mushaf = re.sub(r"\s*\(.*\)$", "", FONT_NAMA).casefold()
+    return any(
+        (jalur.name.casefold() == FONT.casefold() or satu.casefold() == nama_mushaf) and jalur.exists()
+        for satu, jalur in terdaftar()
+    )
 
 
 def pasang_font(sumber):

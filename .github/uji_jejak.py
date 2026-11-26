@@ -20,18 +20,17 @@ Yang diuji:
   bendera di depan folder, jumlah kitab yang dicari, kutipan berawalan sama, sumber kitab lain yang rusak,
   kutipan lintas halaman, batas sambungan halaman, dan folder bergaris miring.
 """
-import gzip, json, os, re, shlex, shutil, subprocess, sys, tempfile
+import atexit, gzip, json, os, re, shlex, shutil, subprocess, sys, tempfile
 from pathlib import Path
-from bantu import salin_mesin
+from bantu import REPO, bahts, salin_mesin
 
 sys.stdout.reconfigure(encoding="utf-8")  # konsol Windows (cp1252) tidak bisa mencetak ✗ dan huruf Arab
 
-REPO = Path(__file__).resolve().parent.parent
-# Perpustakaan dan naskah percobaan terpisah dari data pemakai, tetap di TEMP sebagai arsip uji.
-AKAR = Path(tempfile.mkdtemp(prefix="bahts-uji-jejak-"))
+SEMENTARA = tempfile.TemporaryDirectory(prefix="bahts-uji-jejak-")
+atexit.register(SEMENTARA.cleanup)
+AKAR = Path(SEMENTARA.name)
 salin_mesin(AKAR, ("_meta", "11223", "2348"))
 shutil.copytree(REPO / "contoh", AKAR / "contoh", ignore=shutil.ignore_patterns("*.docx", "*.pdf", "laporan.txt"))
-BAHTS = AKAR / "mesin" / "bahts.py"
 ASLI = AKAR / "contoh" / "naskah.txt"
 KUTIPAN = "توحيد الربوبية وهو إفراد الله تعالى بالخلق والملك والتدبير"
 KUTIPAN_NU = "فإنها دار نفاد لا محل إخلاد، ومركب عبور لا منزل حبور"
@@ -43,8 +42,7 @@ KUTIPAN_LINTAS = "إننا في هذا اللقاء الذي نرجو أن يف�
 
 
 def jalan(folder, *tambahan):
-    r = subprocess.run([sys.executable, str(BAHTS), "cek", str(folder), *tambahan], cwd=AKAR,
-                       capture_output=True, text=True, encoding="utf-8", timeout=60)
+    r = bahts(AKAR, "cek", folder, *tambahan, batas=60)
     return r.returncode, (r.stdout or "") + (r.stderr or "")
 
 
@@ -61,9 +59,9 @@ def tulis_dua(folder, satu, bukti_satu, dua, bukti_dua):
     (folder / "naskah.txt").write_text(isi, encoding="utf-8")
 
 
-folder = AKAR / "naskah uji"
-folder.mkdir()
-try:
+def utama():
+    folder = AKAR / "naskah uji"
+    folder.mkdir()
     # 1. Kitab yang dirujuk salah: kutipan asli 11223 halaman 5, tetapi buktinya menunjuk 2348.
     tulis(folder, "<<2348|-|5>>")
     kode, keluar = jalan(folder)
@@ -132,8 +130,7 @@ try:
     assert "petunjuk dari kitab lain" not in keluar, keluar
 
     # 8. Bendera saja = kurang argumen, bukan nama folder.
-    r = subprocess.run([sys.executable, str(BAHTS), "cek", "--jejak"], cwd=AKAR,
-                       capture_output=True, text=True, encoding="utf-8", timeout=60)
+    r = bahts(AKAR, "cek", "--jejak", batas=60)
     pesan = (r.stdout or "") + (r.stderr or "")
     assert r.returncode != 0 and "kurang argumen" in pesan, pesan
 
@@ -174,8 +171,7 @@ try:
 
     def bendera_di_depan():
         tulis(folder, "<<2348|-|5>>")
-        r = subprocess.run([sys.executable, str(BAHTS), "cek", "--jejak", str(folder)], cwd=AKAR,
-                           capture_output=True, encoding="utf8", timeout=60)
+        r = bahts(AKAR, "cek", "--jejak", folder, batas=60)
         assert r.returncode == 1 and "11223 ج- ص5" in r.stdout, r.stdout + r.stderr
 
     def hitungan_kitab():
@@ -310,8 +306,7 @@ try:
     def folder_bergaris_miring():
         # Tab di terminal Windows menulis «folder\»: di dalam tanda petik \" menelan penutupnya.
         tulis(folder, "<<2348|-|5>>")
-        r = subprocess.run([sys.executable, str(BAHTS), "cek", str(folder) + os.sep], cwd=AKAR,
-                           capture_output=True, encoding="utf8", timeout=60)
+        r = bahts(AKAR, "cek", str(folder) + os.sep, batas=60)
         perintah = next(b.split("cari di kitab lain yang sudah diunduh: ", 1)[1]
                         for b in r.stdout.splitlines() if "cari di kitab lain" in b)
         r = subprocess.run(perintah if sys.platform == "win32" else shlex.split(perintah),
@@ -334,7 +329,8 @@ try:
                      ("kitab lain rusak tidak menghentikan jejak", kitab_rusak)):
         uji(nama, fn)
     assert not gagal, gagal
-finally:
-    print("arsip uji:", AKAR)
 
-print("uji jejak: semua sesuai")
+
+if __name__ == "__main__":
+    utama()
+    print("uji jejak: semua sesuai")

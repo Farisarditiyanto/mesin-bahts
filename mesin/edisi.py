@@ -381,6 +381,22 @@ def _baris_waqfeya(w, b, wq):
     return f"  [{ada:3s}] Waqfeya {w} | {b['judul']} — {b['pengarang'] or '?'} ({b['halaman']} hal, {b['jumlah_berkas']} berkas){cat}"
 
 
+def _cari_katalog(item_iter, ambil_judul, ambil_peng, wajib_q, wajib_p, kata_q, kata_p):
+    pres, padat = norma.PRESENTASI.search, norma.padat
+    hasil = []
+    for key, val in item_iter:
+        peng = ambil_peng(val)
+        if wajib_p and not (all(c in peng for c in wajib_p) or pres(peng)):
+            continue
+        raw = ambil_judul(val) + " " + peng
+        if wajib_q and not (all(c in raw for c in wajib_q) or pres(raw)):
+            continue
+        blob = padat(raw)
+        if all(k in blob for k in kata_q) and (not kata_p or all(k in padat(peng) for k in kata_p)):
+            hasil.append((key, val))
+    return hasil
+
+
 def cetak(kueri, pengarang="", maks=15, wq=None):
     """`edisi <kueri|sid|w…> [pengarang]`: cari kandidat satu karya lintas Shamela dan Waqfeya (offline)."""
     by_id, by_group = _shamela_dasar()
@@ -408,7 +424,7 @@ def cetak(kueri, pengarang="", maks=15, wq=None):
             if "terkait" in hubs and ("sama" not in hubs or s2 in satu_grup):
                 sh_terkait.add(s2)
                 continue
-            if "sama" not in hubs or cocok_pengarang(peng, peng2, wafat, r2.get("main_author_death_hijri")) != "sama":
+            if "sama" not in hubs or not _pengarang_terima(peng, peng2, wafat, r2.get("main_author_death_hijri")):
                 continue
             if _beda_riwayat(r["title_ar"], r2["title_ar"]):
                 riwayat_lain.add(s2)
@@ -467,32 +483,15 @@ def cetak(kueri, pengarang="", maks=15, wq=None):
     if not kata_q:
         raise SystemExit('Tulis judul kitab, nomor Shamela, atau nomor Waqfeya (mis. `edisi "تفسير القرطبي"`).')
     wajib_q, wajib_p = _huruf_wajib(kata_q), _huruf_wajib(kata_p)
-    pres, padat = norma.PRESENTASI.search, norma.padat
-    sh_hits = []
-    for sid, r in by_id.items():
-        peng_s = r.get("main_author_name_ar") or ""
-        if wajib_p and not (all(c in peng_s for c in wajib_p) or pres(peng_s)):
-            continue
-        raw = (r.get("title_ar") or "") + " " + peng_s
-        if wajib_q and not (all(c in raw for c in wajib_q) or pres(raw)):
-            continue
-        blob = padat(raw)
-        if all(k in blob for k in kata_q) and (not kata_p or all(k in padat(peng_s) for k in kata_p)):
-            sh_hits.append((sid, r))
+    padat = norma.padat
+    sh_hits = _cari_katalog(by_id.items(), lambda r: r.get("title_ar") or "", lambda r: r.get("main_author_name_ar") or "",
+                            wajib_q, wajib_p, kata_q, kata_p)
     q_gabung = "".join(kata_q)
     sh_hits.sort(key=lambda x: (not padat(x[1].get("title_ar") or "").startswith(q_gabung), len(x[1].get("title_ar") or ""), x[0]))
     wq_hits = []
     if wq is not None and wq.KATALOG.exists():
-        for w, b in wq.katalog_ringkas().items():
-            peng_w = b["pengarang"]
-            if wajib_p and not (all(c in peng_w for c in wajib_p) or pres(peng_w)):
-                continue
-            raw = b["judul"] + " " + peng_w
-            if wajib_q and not (all(c in raw for c in wajib_q) or pres(raw)):
-                continue
-            blob = padat(raw)
-            if all(k in blob for k in kata_q) and (not kata_p or all(k in padat(peng_w) for k in kata_p)):
-                wq_hits.append((w, b))
+        wq_hits = _cari_katalog(wq.katalog_ringkas().items(), lambda b: b["judul"], lambda b: b["pengarang"],
+                                wajib_q, wajib_p, kata_q, kata_p)
         wq_hits.sort(key=lambda x: (not padat(x[1]["judul"]).startswith(q_gabung), len(x[1]["judul"])))
     print(f"HASIL LINTAS-KATALOG «{q}»" + (f" ({pengarang})" if pengarang else "")
           + f": {len(sh_hits)} Shamela, {len(wq_hits)} Waqfeya")

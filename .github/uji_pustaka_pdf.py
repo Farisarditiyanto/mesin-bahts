@@ -220,6 +220,10 @@ def utama():
             assert "(٢٠٢١)" in out_b, out_b
             assert KETERANGAN_PDF in out_b, out_b
 
+            assert sumber_pdf.pulihkan_arab("ينغي ﻻو يداشرإ ليلدلا اذه") == "هذا الدليل إرشادي ولا يغني"
+            assert sumber_pdf.pulihkan_arab("مﻻسﻹا يف") == "في الإسلام"
+            assert sumber_pdf.pulihkan_arab("كتإ") == "كتإ"
+
         # 4. Pemeriksaan integritas struktur PDF (`cek` + `bukti`): bersih, sisa bait sesudah %%EOF, /Count tidak
         #    konsisten, dan tabel xref rusak yang memicu peringatan perbaikan pypdf.
         import io as _io

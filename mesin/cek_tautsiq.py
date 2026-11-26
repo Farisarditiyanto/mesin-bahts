@@ -6,7 +6,7 @@ import re
 
 import norma
 import shamela
-from dasar import ANGKA_LATIN, BUKAN_RUJUKAN, ekor
+from dasar import ANGKA_LATIN, BUKAN_RUJUKAN, MERUJUK_KATA, ekor
 from gelar import GELAR, KUNCI_NAMA, nama_bergelar
 from kitab_lokal import bagian_kitab
 from cek_hadits import takhrij
@@ -111,7 +111,7 @@ def pemisah_sumber(isi, terbukti):
         if (any(not a[m.end():].strip() for m in PERANTARA.finditer(a))
                 or re.search(r"(?<![ء-ي])و?في\s+[^:،؛.]{1,40}:\s*$", a)):
             continue
-        ujung = re.sub(r"\s*و?(?:انظر|ينظر|راجع)\s*:?\s*$", "", a).rstrip()
+        ujung = re.sub(rf"\s*و?(?:{MERUJUK_KATA})\s*:?\s*$", "", a).rstrip()
         # Judul singkat yang tidak dikenali bisa masih di ujung potongan sebelumnya: «…ص10؛ والسبل، |الصنعاني…».
         # Satu bidang di antara «؛» dan nama pengarang itu adalah judulnya, bukan koma antarsumber.
         if "؛" in ujung and re.fullmatch(r"\s*[ء-ي][^،,؛]*[،,]\s*", ujung.rsplit("؛", 1)[1]):

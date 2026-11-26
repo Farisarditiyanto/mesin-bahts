@@ -2,10 +2,9 @@
 """`pratinjau <folder> [halaman]`: halaman PDF hasil `rakit` yang terakhir (seluruh naskah atau potongan --fasl) jadi
 gambar PNG di folder baru di TEMP: grid 2×2 (urut kanan-ke-kiri), atau satu halaman penuh kalau satu nomor diminta.
 Untuk pemeriksa langkah 5 menilai tata letak (sampul, tepi, tabel #J, gambar #G, rumus #E, halaman hampir kosong)."""
-import re, sys, tempfile
+import contextlib, re, shutil, sys, tempfile, time
 from pathlib import Path
 
-import olah
 import tahap
 from dasar import perintah
 
@@ -14,6 +13,34 @@ KEPALA = 22  # pt: ruang label «hal N / total» di atas tiap halaman
 SKALA_GRID = 1.6  # ±115 DPI per halaman A4: matan masih terbaca, berkasnya ringan
 SKALA_SATU = 2.0  # ±144 DPI untuk satu halaman penuh
 POSISI = ((1, 0), (0, 0), (1, 1), (0, 1))  # (kolom, baris) halaman ke-1..4 di grid: mulai kanan atas
+UMUR_PRATINJAU_DETIK = 3600
+
+
+def _berkas(folder):
+    try:
+        teks = (folder / "naskah.txt").read_text(encoding="utf-8-sig")
+    except UnicodeDecodeError:
+        sys.exit(f"{folder.name}/naskah.txt bukan UTF-8: simpan ulang sebagai UTF-8, lalu ulangi.")
+    berkas = ""
+    for baris in teks.splitlines():
+        if baris.startswith("@"):
+            k, _, v = baris[1:].partition(":")
+            if k.strip() == "berkas":
+                berkas = v.strip()
+    return berkas or folder.name
+
+
+def _bersihkan_lama(induk, awalan, umur=UMUR_PRATINJAU_DETIK):
+    batas = time.time() - umur
+    try:
+        calon = [p for p in induk.iterdir()
+                 if p.name.startswith(awalan) and p.is_dir() and not p.is_symlink() and not p.is_junction()]
+    except OSError:
+        return
+    for p in calon:
+        with contextlib.suppress(OSError):
+            if p.stat().st_mtime < batas:
+                shutil.rmtree(p, ignore_errors=True)
 
 
 def _halaman(rentang, total):
@@ -37,13 +64,15 @@ def render(folder, jalur, rentang=None):
         import pymupdf
     except ImportError:
         sys.exit(f"`pratinjau` butuh pustaka pymupdf: jalankan `{perintah('periksa')}`")
-    pdf = tahap.terakhir(tahap.hasil_rakit(folder, olah.periksa(folder))).pdf
+    pdf = tahap.pdf_terakhir(folder, _berkas(folder))
     if pdf is None or not pdf.is_file():
         sys.exit(f"PDF hasil rakit belum ada di folder ini: jalankan `{perintah(f'rakit "{jalur}"')}` dulu")
+    awalan = f"bahts-pratinjau-{folder.name}__"
+    _bersihkan_lama(Path(tempfile.gettempdir()), awalan)
     with pymupdf.open(pdf) as doc:
         total = len(doc)
         indeks = _halaman(rentang, total)
-        tujuan = Path(tempfile.mkdtemp(prefix=f"bahts-pratinjau-{folder.name}-"))
+        tujuan = Path(tempfile.mkdtemp(prefix=awalan))
         if len(indeks) == 1:
             keluar = tujuan / f"hal_{indeks[0] + 1}.png"
             doc[indeks[0]].get_pixmap(matrix=pymupdf.Matrix(SKALA_SATU, SKALA_SATU), alpha=False).save(keluar)

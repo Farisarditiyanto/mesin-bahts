@@ -21,7 +21,7 @@ LIGATUR_HORMAT = re.compile(r"[﵀-﵏﷾﷿]")
 # variasi ejaannya ditangani di EJAAN
 SAMA = (("إ", "ا"), ("أ", "ا"), ("آ", "ا"), ("ٱ", "ا"), ("ٲ", "ا"), ("ٳ", "ا"), ("ى", "ي"), ("ة", "ه"), ("ؤ", "و"), ("ئ", "ي"),
         ("ی", "ي"), ("ے", "ي"), ("ۓ", "ي"), ("ک", "ك"), ("ڪ", "ك"), ("ە", "ه"), ("ھ", "ه"), ("ۀ", "ه"), ("ہ", "ه"), ("ۃ", "ه"),
-        ("ں", "ن"), ("ٮ", "ب"))
+        ("\u06c2", "ه"), ("\u06cd", "ي"), ("ں", "ن"), ("ٮ", "ب"))
 # Pasangan ejaan yang diterima sesudah SAMA; penggantian ini juga berlaku di dalam kata berimbuhan.
 # Jangan menyamakan bentuk kata yang berbeda: تساءل (kata kerja) dan تساؤل (kata benda),
 # juga مائة/مئة karena «مائه» dapat berarti «airnya».
@@ -33,6 +33,15 @@ EJAAN = (("سماوات", "سموات"), ("اسحاق", "اسحق"), ("داوو�
 BUKAN_HURUF = re.compile(r"[^ء-ي0-9]+")
 BUKAN_ABJAD = re.compile(r"[^ء-ي]+")
 PRESENTASI = re.compile(r"[\u0675-\u0678\ufb50-\ufdfc\ufe70-\ufefc]")  # bentuk presentasi yang dipecah NFKC (﷽ ﷾ ﷿ tidak)
+# Bentuk sajian harakat terpisah/tengah (U+FE70..FE7F, U+FC5E..FC63, U+FCF2..FCF4) menjadi spasi/tatwil + harakat
+# saat dinormalisasi NFKC; dibersihkan menjadi harakat sambung murni agar tidak menyisipkan spasi di tengah kata.
+PEMBENTUK_HARAKAT = str.maketrans({
+    cp: unicodedata.normalize("NFKC", chr(cp)).lstrip(" \u0640")
+    for lo, hi in ((0xFE70, 0xFE80), (0xFC5E, 0xFC64), (0xFCF2, 0xFCF5))
+    for cp in range(lo, hi)
+    if unicodedata.normalize("NFKC", chr(cp)).startswith((" ", "\u0640"))
+})
+SAMA_TABEL = str.maketrans(dict(SAMA))
 SYAI = re.compile(r"شئ(?![ء-ي])")
 SYAI_TANPA_HAMZAH = re.compile(r"(?<![ء-ي])([وفبلك]{0,2}(?:ال)?)شي(?![ء-ي])")  # «شي» = «شيء»; «يمشي», «شيئا» tidak
 IBNU = re.compile(r"(?<![ء-ي])ابن(?![ء-ي])")
@@ -50,14 +59,13 @@ def norm(s):
     if "﷽" in s:  # ligatur basmalah: dijabarkan, bukan dibuang (NFKC tidak memecahnya)
         s = s.replace("﷽", " بسم الله الرحمن الرحيم ")
     if PRESENTASI.search(s):
-        s = unicodedata.normalize("NFKC", s)
+        s = unicodedata.normalize("NFKC", s.translate(PEMBENTUK_HARAKAT))
     s = HORMAT.sub(" ", HARAKAT.sub("", TAGS.sub("", s)))
     if "شئ" in s:  # ejaan lama «شئ» = «شيء»; «شئت» (kehendak) tidak ikut
         s = SYAI.sub("شيء", s)
     if "شي" in s:  # ketikan Shamela tanpa hamzah: «كل شي» = «كل شيء»
         s = SYAI_TANPA_HAMZAH.sub(r"\1شيء", s)
-    for dari, ke in SAMA:
-        s = s.replace(dari, ke)  # str.replace jauh lebih cepat daripada regex untuk ganti satu huruf
+    s = s.translate(SAMA_TABEL)
     for dari, ke in EJAAN:
         if dari in s:
             s = s.replace(dari, ke)

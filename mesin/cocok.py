@@ -202,7 +202,7 @@ def letak_asli(raw, q, ke=0):
     if j < 0:  # bacaan raw berbeda dari teks `padat` rekaman: kembali ke yang pertama
         j = pr.find(q)
     awal = [m.start() for m in re.finditer(r"\S+", raw)]
-    if j <= 0 or not awal:
+    if not q or j < 0 or not awal:
         return 0
     lo, hi = 0, len(awal) - 1
     while lo < hi:

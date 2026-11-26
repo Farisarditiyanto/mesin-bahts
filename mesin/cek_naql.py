@@ -49,12 +49,24 @@ def _nash(isi):
     return takhrij(isi) or norma.HARAKAT.sub("", isi).lstrip().startswith(BUKAN_NUKILAN)
 
 
+def _buang_kutipan(penggal, mk):
+    s = seragam(penggal)
+    if not mk:
+        return s
+    if mk in s:
+        return s.replace(mk, " ")
+    k = max(s.rfind('"'), s.rfind("»"))
+    if k >= 0 and s[:k].lstrip() and mk.endswith(s[:k]):
+        return s[k + 1:]
+    return s
+
+
 def salinan(penggal, mk, isi, terbukti):
     """Perhatian kalau teks penulis sebelum catatan kaki (di luar tanda petik) memuat SALIN_MIN kata atau lebih yang
     berurutan sama persis dengan halaman buktinya, atau None: itu lafaz kitab, bukan إعادة الصياغة."""
     if _nash(isi) or not terbukti:
         return None
-    pasangan = _kata(luar_petik(seragam(penggal).replace(mk, " ") if mk else penggal))
+    pasangan = _kata(luar_petik(_buang_kutipan(penggal, mk)))
     kata = [k for k, _ in pasangan]
     if len(kata) < SALIN_MIN:
         return None

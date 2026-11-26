@@ -11,7 +11,7 @@ import sumber_pdf
 import waqfeya
 from cek_kutipan import bagian_kutipan
 from dasar import ELIPSIS, JUDUL_BAB, KUTIPAN_MIN, LUAR, WAQFEYA_BUKTI, perintah
-from kitab_lokal import Bukti, akhir_rekaman, rekaman
+from kitab_lokal import Bukti, akhir_rekaman, rekaman_urut
 from olah import periksa
 
 SEKITAR = 300  # huruf teks kitab yang dicetak `bukti` sebelum dan sesudah letak kutipan
@@ -26,7 +26,7 @@ def _teks_halaman(sid, juz, p1, p2, bagian):
     """Teks asli (tanpa tag dan harakat) bagian rekaman halaman p1..p2 saja, tiap halaman diawali ⦗n⦘.
     حاشية tanpa penanda halaman di rekaman banyak halaman: seluruhnya, ditandai ⦗awal-akhir⦘ (seperti `halaman`)."""
     out = []
-    for r in sorted(rekaman(sid, juz, p1, p2), key=lambda r: r.get("page_num") or 0):
+    for r in rekaman_urut(sid, juz, p1, p2):
         pp = norma.per_halaman(r, bagian)
         if len(pp) == 1:
             a, z = r.get("page_num"), akhir_rekaman(r)
@@ -94,7 +94,7 @@ def _penunjuk_bukti(b, kutipan):
     hasil = [f"kitab: {m['title_ar']} — {m.get('main_author_name_ar') or '?'}"]
     bagian_q = [x for x in ELIPSIS.split(kutipan or "") if len(norma.padat(x)) >= KUTIPAN_MIN]
     q = norma.padat(bagian_q[0]) if bagian_q else ""
-    rr = sorted(rekaman(sid, juz, p1, p2), key=lambda r: r.get("page_num") or 0)
+    rr = rekaman_urut(sid, juz, p1, p2)
     # rantai judul di letak kutipan; kutipan tidak ketemu (atau melintasi rekaman) -> judul di awal halaman p1
     letak_judul = None
     for r in rr if q else ():

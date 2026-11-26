@@ -51,6 +51,7 @@ def bentuk_ayat(teks):
 def rujukan_ayat(isi):
     """(nama surat, teks nomornya) rujukan ayat di awal catatan kaki «سورة X، آية: n», «انظر: سورة X…», «X، آية: n»,
     «X: n», «(X: n)», «[X: n]», «X/n», «الآية n من سورة X»; None kalau awalnya bukan nama surat atau tanpa nomor."""
+    isi = norma.HARAKAT.sub("", isi)
     m = RUJUKAN_LAIN.match(isi)
     nama, angka = (m[1], isi[m.end():]) if m else (None, "")
     if not m or norma.padat(nama) not in SURAH_PADAT:

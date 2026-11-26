@@ -122,6 +122,18 @@ def hasil_rakit(folder, cek):
     return ada
 
 
+def pdf_terakhir(folder, berkas):
+    """Path PDF hasil `rakit` yang terakhir (seluruh naskah atau potongan --fasl), tanpa perlu menjalankan `cek`."""
+    folder = Path(folder)
+    calon = [(folder / produk.laporan(), folder / produk.pdf(berkas))]
+    for fasl, lap in produk.potongan(folder):
+        label = produk.label_potongan(_baris(lap), fasl)
+        pdf = None if label is None else folder / produk.pdf(produk.nama_potongan(berkas, label, fasl))
+        calon.append((lap, pdf))
+    ada = [(lap, pdf) for lap, pdf in calon if lap.is_file()]
+    return max(ada, key=lambda x: x[0].stat().st_mtime)[1] if ada else calon[0][1]
+
+
 def terakhir(hasil):
     """Produk yang terakhir dirakit (laporan paling baru), seluruh naskah atau potongan --fasl; belum ada laporan sama
     sekali = seluruh naskah. Dirakit utuh lalu bertahap: potongannya yang menentukan langkah berikutnya."""

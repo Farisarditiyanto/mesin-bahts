@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Pembantu bersama tes `.github/uji_*.py`: salinan mesin di TEMP, pintu pemakai (`bahts.py`), dan ada-tidaknya Word."""
-import os, shutil, subprocess, sys
+"""Pembantu bersama tes `.github/uji_*.py`: salinan mesin di TEMP, pintu pemakai (`bahts.py`), CLI dalam proses, dan ada-tidaknya Word."""
+import contextlib, io, os, runpy, shutil, subprocess, sys
 from pathlib import Path
+from unittest.mock import patch
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -19,6 +20,30 @@ def bahts(akar, *argumen, batas=None):
     """Jalankan `python mesin/bahts.py …` di `akar` seperti pemakai; keluaran dibaca sebagai UTF-8."""
     return subprocess.run([sys.executable, str(akar / "mesin" / "bahts.py"), *map(str, argumen)], cwd=akar,
                           capture_output=True, encoding="utf8", timeout=batas, env=dict(os.environ, PYTHONIOENCODING="utf8"))
+
+
+def cli_dalam_proses(akar, *argumen):
+    """Jalankan `mesin/bahts.py` di `akar` dalam proses Python ini (untuk tes yang mem-patch modul): (kode, stdout, stderr)."""
+    class Keluaran(io.StringIO):
+        def reconfigure(self, **kw):
+            pass
+
+    out, err = Keluaran(), Keluaran()
+    skrip = Path(akar) / "mesin" / "bahts.py"
+    with contextlib.chdir(akar), patch.object(sys, "argv", [str(skrip), *map(str, argumen)]), \
+            contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        try:
+            runpy.run_path(str(skrip), run_name="__main__")
+            kode = 0
+        except SystemExit as e:
+            if e.code is None:
+                kode = 0
+            elif isinstance(e.code, int):
+                kode = e.code
+            else:
+                kode = 1
+                err.write(str(e.code) + "\n")
+    return kode, out.getvalue(), err.getvalue()
 
 
 def tanpa_word():

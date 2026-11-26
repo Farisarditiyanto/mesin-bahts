@@ -6,12 +6,18 @@ membaliknya per huruf. Glyph sambungan (mis. «لا», «في», «لله») dip
 sehingga ikut terbalik: «الله» tersalin «هللا», «المقدمة» «املقدمة». Word juga kadang memetakan glyph harakat ke huruf
 lain (syaddah jadi «ن»). Yang diubah hanya peta glyph -> huruf (ToUnicode); tampilan halaman tidak berubah.
 """
-import os, re, unicodedata
+import enum, os, re, unicodedata
 
 import huruf
 from berkas import sementara
 from dasar import ANGKA_LATIN, bentuk_kitab
 from norma import norm, padat
+
+
+class JenisNomor(enum.Enum):
+    LATIN = 1
+    HINDI = 2
+    LAIN = 3
 
 ARAB = re.compile(r"[\u0600-\u06ff\ufb50-\ufdff\ufe70-\ufeff]")
 HARAKAT = re.compile(r"[\u064b-\u065f\u0670]")
@@ -241,7 +247,8 @@ def periksa(pdf, bahan):
         # kaki halaman = nomor halaman saja (@templat yang nomornya di kepala halaman: tidak diperiksa)
         kaki = re.sub(r"[\s\u200c\u200e\u200f]", "", "".join(t for y, x, u, t, _ in potong if y < TEPI))
         if kaki:
-            nomor[i] = kaki.isascii() and kaki.isdigit()   # ٠-٩ terbaca benar sesudah betulkan (_gid)
+            nomor[i] = (JenisNomor.LATIN if (kaki.isascii() and kaki.isdigit())
+                        else JenisNomor.HINDI if kaki.isdigit() else JenisNomor.LAIN)
         isi = [p for p in potong if TEPI < p[0] < tinggi - TEPI]
         gambar_isi = [g for g in gambar if g[1] > TEPI and g[0] < tinggi - TEPI]
         if not isi and not gambar_isi:
@@ -272,11 +279,12 @@ def periksa(pdf, bahan):
             if akhir.endswith(":") and not disusul_isi:   # disusul gambar #G atau rumus #E = tidak terpisah
                 ujung.append(i)
     if hindi:
-        salah = [i for i, latin in nomor.items() if latin]
-    else:   # @nomor abjad: halaman sebelum nomor 1 bernomor huruf, bukan angka
-        pertama = min((i for i, latin in nomor.items() if latin), default=None)
+        salah = [i for i, j in nomor.items() if j is JenisNomor.LATIN]
+    else:
+        pertama = min((i for i, j in nomor.items() if j is JenisNomor.LATIN), default=None)
         abjad = rencana["abjad"] if "abjad" in rencana else meta.get("nomor") in ("abjad", "mukadimah")
-        salah = [i for i, latin in nomor.items() if not latin and not (abjad and (pertama is None or i < pertama))]
+        salah = [i for i, j in nomor.items()
+                 if j is not JenisNomor.LATIN and not (abjad and j is JenisNomor.LAIN and (pertama is None or i < pertama))]
     if salah:
         jenis, lawan = ("0123", "٠١٢٣ (bawaan)") if hindi else ("bukan 0123", "0123 (@angka: latin)")
         pesan.append(f"nomor halaman tercetak {jenis} padahal @angka {lawan} di {len(salah)} halaman "

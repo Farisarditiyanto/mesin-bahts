@@ -14,10 +14,10 @@ import functools, logging, os, re, unicodedata
 from collections import Counter
 from pathlib import Path
 
-from norma import HARAKAT, padat
+from dasar import ARAH
+from norma import HARAKAT, PEMBENTUK_HARAKAT, padat
 
 ARAB = re.compile(r"[؀-ۿ]")
-ARAH = re.compile(r"[\u200e\u200f\u202a-\u202e\u2066-\u2069]")
 KATA_ARAB = re.compile(r"[ء-ي]+")
 # Sebagian pembaca PDF membalik teks visual per titik kode, sehingga harakat berpindah ke depan kata.
 HARAKAT_LEPAS = re.compile(r"(?<!\S)[\u064b-\u065f\u0670]+(?=[ء-ي])")
@@ -152,7 +152,7 @@ def _terbalik_visual(baris):
     skor_balik = skor_normal = 0
     ada_kuat = False
     for k in kata:
-        if k[0] in "ةىئ":  # huruf akhir/tengah yang tidak pernah mengawali kata Arab baku
+        if k[0] in "ةىئ" or k.endswith("لإا"):  # huruf awal/ekor yang tidak pernah di posisi itu pada kata Arab baku
             skor_balik += 3
             ada_kuat = True
         if k in BALIK_KHAS:
@@ -182,14 +182,20 @@ def _balik_baris_visual(baris):
     return LTR_SEGMEN.sub(lambda m: m.group(0)[::-1], dibalik)
 
 
+def _normal_tanpa_spasi_harakat(teks):
+    return unicodedata.normalize("NFKC", (teks or "").translate(PEMBENTUK_HARAKAT))
+
+
 def pulihkan_arab(teks):
-    """Pulihkan ekstraksi PDF Arab yang rusak: normalisasi NFKC, buang penanda BiDi tersembunyi, balik baris
-    visual-reversed secara konservatif, dan betulkan ligatur Word PDF yang pasti terbalik («هللا» -> «الله»)."""
-    teks = ARAH.sub("", unicodedata.normalize("NFKC", teks or ""))
+    """Pulihkan ekstraksi PDF Arab yang rusak: buang penanda BiDi tersembunyi, balik baris visual-reversed
+    sebelum NFKC (agar ligatur lam-alif ﻻ/ﻷ/ﻹ/ﻵ tidak terbalik menjadi «ال»), normalkan bentuk sajian via NFKC
+    tanpa menyisipkan spasi harakat, dan betulkan ligatur Word PDF yang pasti terbalik («هللا» -> «الله»)."""
+    teks = ARAH.sub("", teks or "")
     baris_out = []
     for b in teks.splitlines():
-        if _terbalik_visual(b):
+        if _terbalik_visual(_normal_tanpa_spasi_harakat(b)):
             b = _balik_baris_visual(b)
+        b = _normal_tanpa_spasi_harakat(b)
         for dari, ke in LIGATUR_WORD:
             if dari in b:
                 b = b.replace(dari, ke)
@@ -209,10 +215,11 @@ def _ada(halaman, kutipan):
 
 def _olah_halaman(halaman):
     """(tuple sidik halaman (dipulihkan + urutan kata dibalik), jumlah huruf Arab) untuk satu halaman pypdf."""
-    mentah = unicodedata.normalize("NFKC", halaman.extract_text() or "")  # bentuk tampilan (ﻣﻠﻒ, ﳌ) -> huruf biasa
-    t = pulihkan_arab(mentah)
+    raw = halaman.extract_text() or ""
+    t = pulihkan_arab(raw)
+    nfkc = _normal_tanpa_spasi_harakat(raw)
     # Pemulihan satu baris tidak membuang pencocokan lama untuk baris lain di halaman yang sama.
-    ekstraksi = (t,) if t == mentah else (t, mentah)
+    ekstraksi = (t,) if t == nfkc else (t, nfkc)
     varian = tuple(dict.fromkeys(s for teks in ekstraksi for s in (_sidik(teks), _sidik_urutan_balik(teks))))
     return varian, len(ARAB.findall(t))
 

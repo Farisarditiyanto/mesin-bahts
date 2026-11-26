@@ -23,6 +23,7 @@ $TA = [string]$FMT.huruf; $QF = 'KFGQPC HAFS Uthmanic Script'
 $uMatan = [single]$FMT.matan; $uCatatan = [single]$FMT.catatan; $uJudul = [single]$FMT.judul   # ukuran huruf (Word minta angka pecahan)
 $uJudulSub = [single]$FMT.judul_sub                      # ukuran #B/#M/#S
 $uAyat = [single]$FMT.ayat                               # ukuran ayat di matan dan فهرس الآيات
+$uTabel = [single][Math]::Ceiling(($uMatan + $uCatatan) / 2)   # sel #J: di antara matan dan catatan kaki (teks_pdf.periksa membaca huruf ini sebagai matan)
 $uLatin = [single]$FMT.latin                             # paragraf #L (Times New Roman); judul «#L **…**» 2 poin lebih besar. Times sebesar matan Arab tampak jauh lebih besar dan Abstract luber
 $ULANG = if ($FMT.catatan_ulang_tiap_halaman) { 2 } else { 0 }   # nomor catatan kaki: 2 = mulai ulang tiap halaman, 0 = bersambung
 $SPASI = [single]$FMT.spasi                              # jarak baris matan dan judul (kali satu baris); catatan kaki dan فهرس tetap satu spasi
@@ -140,6 +141,27 @@ try {
             if ($p.Range.ComputeStatistics(1) -gt $n) { $pf.LeftIndent = [single]($tepi - 6); $pf.RightIndent = [single]($tepi - 6); break }
         }
     }
+    function MuatSampul($judulPars, $ukAwal, $rapat) {
+        # ComputeStatistics(2) requires Print Layout view; Draft view suppresses pagination.
+        $doc.ActiveWindow.View.Type = 3
+        $doc.Content.InsertParagraphAfter()
+        $uk = $ukAwal; $kecil = $false
+        while ($uk -gt 14 -and $doc.ComputeStatistics(2) -gt 1) {
+            $uk--; $kecil = $true
+            foreach ($q in @($judulPars)) {
+                if ($q -and $q.Range.Font.SizeBi -gt $uk) { Huruf $q.Range.Font $null $uk }
+            }
+        }
+        if ($kecil) {
+            foreach ($q in @($judulPars)) { if ($q) { $q.LeftIndent = 0; $q.RightIndent = 0; $u = $q.Range.Font.SizeBi; Seimbang $q $u $u } }
+        }
+        & $rapat
+        if ($doc.ComputeStatistics(2) -gt 1) {
+            Write-Output "PERINGATAN: judul terlalu panjang untuk sampul $($RENCANA.sampul): sampulnya jadi dua halaman. Pendekkan @judul."
+        }
+        [void]$doc.Paragraphs.Last.Range.Delete()
+        Draft
+    }
     # logo جامعة الإمام berwarna = gambar word/media/image2.png sampul_jakarta.docx (bytes PNG), dipakai @logo: berwarna dan
     # @sampul: tengah (.github/uji_struktur.py menjaga gambarnya)
     Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
@@ -184,12 +206,12 @@ try {
         elseif ($t -eq 'اسم الطالب') { Ganti $p $NAMA }
         elseif ($t -eq 'السنة الهجرية') { Ganti $p $TAHUN_CETAK }
         # @qism: baris qism model; « // » = pindah baris di paragraf yang sama (bentuk dan hurufnya tetap dari templat); di jakarta barisnya di sel tabel (teksnya berakhir tanda sel char 7)
-        elseif ($M.qism -and $t.Trim([char]7, [char]13, ' ') -in 'قسم الشريعة', 'قسم الشريعة بجاكرتا') { Ganti $p (([string]$M.qism -split '\s*//\s*') -join [char]11) }
+        elseif ($M.qism -and $t.Trim().Trim([char]7) -in 'قسم الشريعة', 'قسم الشريعة بجاكرتا') { Ganti $p (([string]$M.qism -split '\s*//\s*') -join [char]11) }
     }
     if ($JAKARTA) {
         $SM = if (@($word.FontNames) -contains 'Sakkal Majalla') { 'Sakkal Majalla' } else { $TA }
         foreach ($p in @($doc.Paragraphs)) {
-            $t = $p.Range.Text.Trim(); $f = $p.Range.Font
+            $t = $p.Range.Text.Trim().Trim([char]7); $f = $p.Range.Font
             $u = switch ($t) {
                 'المشرف' { 18, 1, $SM } { $_ -eq $MUSYRIF -and $MUSYRIF } { 18, 1, $SM } { $_ -eq $JABATAN -and $JABATAN } { 18, 0, $SM }
                 { $_ -in 'إعداد الطالب:', 'إعداد الطالبة:' } { 16, 1, $SM } $NAMA { 16, 1, $SM }
@@ -203,38 +225,20 @@ try {
     # huruf judul model (dari templat: PT Bold Heading) belum terpasang = Word diam-diam memakai huruf lain: pakai huruf profil tebal
     $hJudul = $pJudul.Range.Font.NameBi
     if (@($word.FontNames) -notcontains $hJudul) {
-        Write-Output "PERINGATAN: huruf $hJudul (judul sampul qism) belum terpasang di Windows: judul dicetak $TA tebal. Pasang hurufnya, lalu rakit lagi."
+        Write-Output "PERINGATAN: huruf $hJudul (judul sampul $($RENCANA.sampul)) belum terpasang di Windows: judul dicetak $TA tebal. Pasang hurufnya, lalu rakit lagi."
         Huruf $pJudul.Range.Font $TA $null 1
     }
     Seimbang $pJudul $(if ($JAKARTA) { 22 } else { 24 }) 18   # judul 24 seperti model (jakarta 22), dikecilkan sampai 18 supaya muat satu baris
     if ($JUDUL2) { Seimbang $pSub 18 16 }
     else { Huruf $pSub.Range.Font $null 2; $pSub.SpaceBefore = 0 }   # tanpa sub-judul: tanpa celah
-    # judul sangat panjang: sampul tetap satu halaman, judul dan sub-judul dikecilkan sampai 14.
-    # Jumlah halaman dihitung di Print Layout, dengan satu paragraf sementara untuk baris pemisah bagian sesudah sampul
-    $doc.ActiveWindow.View.Type = 3
-    $doc.Content.InsertParagraphAfter()
-    $uk = $pJudul.Range.Font.SizeBi; $kecil = $false
-    while ($uk -gt 14 -and $doc.ComputeStatistics(2) -gt 1) {
-        $uk--; $kecil = $true
-        foreach ($q in @($pJudul, $pSub)) {
-            if ($q.Range.Font.SizeBi -gt $uk) { Huruf $q.Range.Font $null $uk }
+    MuatSampul @($pJudul, $pSub) $pJudul.Range.Font.SizeBi {
+        $pTahun = @($doc.Paragraphs) | Where-Object { $_.Range.Text.Trim() -eq 'العام الجامعي' } | Select-Object -First 1
+        while ($pTahun -and $doc.ComputeStatistics(2) -gt 1 -and $pTahun.SpaceBefore -gt 0) { $pTahun.SpaceBefore = [Math]::Max(0, $pTahun.SpaceBefore - 10) }
+        foreach ($q in @($doc.Paragraphs)) {
+            if ($doc.ComputeStatistics(2) -le 1) { break }
+            if ($q.SpaceBefore -gt 0) { $q.SpaceBefore = 0 }
         }
     }
-    if ($kecil) {                                        # baris berubah sesudah dikecilkan: ratakan lagi
-        foreach ($q in @($pJudul, $pSub)) { $q.LeftIndent = 0; $q.RightIndent = 0; $u = $q.Range.Font.SizeBi; Seimbang $q $u $u }
-    }
-    # masih dua halaman: jarak di atas «العام الجامعي» dipendekkan, lalu jarak antarbagian lain
-    $pTahun = @($doc.Paragraphs) | Where-Object { $_.Range.Text.Trim() -eq 'العام الجامعي' } | Select-Object -First 1
-    while ($doc.ComputeStatistics(2) -gt 1 -and $pTahun.SpaceBefore -gt 0) { $pTahun.SpaceBefore = [Math]::Max(0, $pTahun.SpaceBefore - 10) }
-    foreach ($q in @($doc.Paragraphs)) {
-        if ($doc.ComputeStatistics(2) -le 1) { break }
-        if ($q.SpaceBefore -gt 0) { $q.SpaceBefore = 0 }
-    }
-    if ($doc.ComputeStatistics(2) -gt 1) {
-        Write-Output "PERINGATAN: judul terlalu panjang untuk sampul qism: sampulnya jadi dua halaman. Pendekkan @judul."
-    }
-    [void]$doc.Paragraphs.Last.Range.Delete()
-    Draft
     }
     elseif ($RENCANA.sampul -eq 'tengah') {
     # @sampul: tengah = model خطة dosen المعهد, disusun di sini tanpa templat: logo berwarna di tengah atas dengan rasio
@@ -286,17 +290,9 @@ try {
     $celah = @(); foreach ($n in $nCelah) { $celah += $doc.Paragraphs.Item($n) }
     foreach ($p in $pJudulT) { Seimbang $p 18 16 }        # judul yang tidak muat satu baris: dikecilkan sampai 16, lalu diratakan
     # sampul tetap satu halaman: judul dikecilkan sampai 14, lalu celah lembaga/qism dipendekkan
-    $doc.ActiveWindow.View.Type = 3
-    $doc.Content.InsertParagraphAfter()
-    $uk = 18; $kecil = $false
-    while ($uk -gt 14 -and $doc.ComputeStatistics(2) -gt 1) { $uk--; $kecil = $true; foreach ($p in $pJudulT) { if ($p.Range.Font.SizeBi -gt $uk) { Huruf $p.Range.Font $null $uk } } }
-    if ($kecil) { foreach ($p in $pJudulT) { $p.LeftIndent = 0; $p.RightIndent = 0; $u = $p.Range.Font.SizeBi; Seimbang $p $u $u } }   # baris berubah: ratakan lagi
-    foreach ($p in $celah) { if ($doc.ComputeStatistics(2) -gt 1) { $p.SpaceBefore = 6 } }
-    if ($doc.ComputeStatistics(2) -gt 1) {
-        Write-Output "PERINGATAN: judul terlalu panjang untuk sampul tengah: sampulnya jadi dua halaman. Pendekkan @judul."
+    MuatSampul $pJudulT 18 {
+        foreach ($p in $celah) { if ($doc.ComputeStatistics(2) -gt 1) { $p.SpaceBefore = 6 } }
     }
-    [void]$doc.Paragraphs.Last.Range.Delete()
-    Draft
     }
     elseif ($RENCANA.sampul -eq 'templat') {
     # @templat: Word mahasiswa sendiri; halaman pertamanya jadi sampul apa adanya, kepala halamannya dipakai di bagian isi
@@ -453,7 +449,18 @@ try {
     $ftIsi = $null; $bagianDepan = $sec.Index
     if ($KEPALA_KOTAK -and -not $TPL) { $TPL = $word.Documents.Open("$dir\kepala_kotak.docx", $false, $true); $doc.Activate() }
     if ($TPL) {                                          # kepala halaman @templat (nomor halamannya di situ): kaki halaman dikosongkan
-        $hd = $sec.Headers(1); $sh0 = $TPL.Sections(1).Headers(1); $hd.Range.FormattedText = $sh0.Range.FormattedText
+        function KepalaKosong($h) {
+            $nShape = try { $h.Range.ShapeRange.Count } catch { 0 }
+            return ($h.Range.Text.Trim() -eq '') -and ($h.Range.Fields.Count -eq 0) -and ($nShape -eq 0) -and ($h.Range.InlineShapes.Count -eq 0)
+        }
+        $sh0 = $TPL.Sections(1).Headers(1)
+        if (KepalaKosong $sh0) {
+            for ($s = 2; $s -le $TPL.Sections.Count; $s++) {
+                $cand = $TPL.Sections($s).Headers(1)
+                if (-not (KepalaKosong $cand)) { $sh0 = $cand; break }
+            }
+        }
+        $hd = $sec.Headers(1); $hd.Range.FormattedText = $sh0.Range.FormattedText
         # FormattedText membawa format langsung saja; arah, rata, dan garis dari gaya «Header» templat disalin per paragraf
         while ($hd.Range.Paragraphs.Count -gt $sh0.Range.Paragraphs.Count) {
             [void]$hd.Range.Paragraphs.Last.Previous(1).Range.Characters.Last.Delete()   # tanda paragraf (bukan $doc.Range: kepala halaman cerita lain)
@@ -461,15 +468,31 @@ try {
         SalinGaya $sh0.Range $hd.Range
         # nomor halaman: kalau kepala templat tidak memuat PAGE, nomor di kaki halaman bawaan mesin tetap dicetak
         $adaPage = @($sh0.Range.Fields | Where-Object { $_.Code.Text -match 'PAGE' }).Count -gt 0
-        foreach ($sp in $sh0.Shapes) { if ($sp.TextFrame.HasText -and @($sp.TextFrame.TextRange.Fields | Where-Object { $_.Code.Text -match 'PAGE' }).Count) { $adaPage = $true } }
+        foreach ($sp in @(try { @($sh0.Range.ShapeRange) } catch { })) {
+            try { if ($sp.TextFrame.HasText -and @($sp.TextFrame.TextRange.Fields | Where-Object { $_.Code.Text -match 'PAGE' }).Count) { $adaPage = $true } } catch {}
+        }
         if ($adaPage) { $ft.Range.Text = '' }
         # penanda judul «عنوان البحث» (kepala_kotak.docx, atau Word @templat yang belum diisi, mis. «قالب إثراء المتون
-        # للباحثين») = judul (pendek) bahts ini, di teks kepala halaman dan di kotak teksnya; kurung penandanya ikut diganti
-        $tempat = { @($hd.Range) + @(try { @($hd.Range.ShapeRange) | Where-Object { $_.TextFrame.HasText } | ForEach-Object { $_.TextFrame.TextRange } } catch { }) }
+        # للباحثين») = judul (pendek) bahts ini, di teks kepala halaman dan di kotak teksnya; kurung penandanya ikut diganti.
+        # Pencarian tanpa ReplaceWith + penulisan langsung ke Range.Text menghindari batas 255 aksara Find.Execute Word
+        $tempat = {
+            $out = @($hd.Range)
+            foreach ($sp in @(try { @($hd.Range.ShapeRange) } catch { })) {
+                try { if ($sp.TextFrame.HasText) { $out += $sp.TextFrame.TextRange } } catch {}
+            }
+            $out
+        }
         foreach ($penanda in '(عنوان البحث)', 'عنوان البحث') {
             foreach ($r in & $tempat) {
-                $f = $r.Find; $f.ClearFormatting(); $f.Replacement.ClearFormatting()
-                [void]$f.Execute($penanda, $true, $false, $false, $false, $false, $true, 0, $false, $JUDUL_KEPALA, 2)
+                $awal = $r.Start; $batas = $r.End
+                while ($awal -lt $batas) {
+                    $cari = $r.Duplicate; $cari.SetRange($awal, $batas)
+                    $f = $cari.Find; $f.ClearFormatting(); $f.Forward = $true; $f.Wrap = 0
+                    if (-not $f.Execute($penanda, $true, $false, $false, $false, $false, $true, 0) -or $cari.Start -lt $awal -or $cari.End -gt $batas) { break }
+                    $delta = $JUDUL_KEPALA.Length - $cari.Text.Length
+                    $cari.Text = $JUDUL_KEPALA
+                    $awal = $cari.End; $batas += $delta
+                }
             }
         }
         if ((@(& $tempat | ForEach-Object { $_.Text }) -join ' ') -match 'عنوان البحث' -and $JUDUL_KEPALA -notmatch 'عنوان البحث') {
@@ -613,21 +636,22 @@ try {
     # nomor catatan kaki = tanda buatan sendiri, bukan nomor otomatis Word: nomor otomatis Word selalu 0-9
     # (Options.ArabicNumeral tidak berlaku untuknya). Nomornya dibetulkan NomorCatatan sesudah halaman tersusun.
     $asalCatatan = New-Object System.Collections.ArrayList   # nomor urut Word -> indeks bahan (bukti diam/potongan bisa melompat)
-    function Catatan($idx) {
+    function Catatan($idx, $size = $uMatan) {
         [void]$asalCatatan.Add($idx)
         $awal = $sel.Start
-        Tulis '(' $TA $uMatan 0 1
+        Tulis '(' $TA $size 0 1
         $fn = @(BuatCatatan $sel.Range $idx (Angka ($doc.Footnotes.Count + 1)))[-1]
         $doc.Range($fn.Reference.End, $fn.Reference.End).Select()
-        Tulis ')' $TA $uMatan 0 1
+        Tulis ')' $TA $size 0 1
         # «(١)» kanan-ke-kiri: tanpa itu kurungnya terbalik di sekitar angka ٠-٩
         $doc.Range($awal, $sel.Start).Select(); $word.Selection.RtlRun(); $sel.Collapse(0)
     }
     function BuatCatatan($rg, $idx, $nomor) {
         $c = $DATA.catatan[$idx]
-        $fn = $doc.Footnotes.Add($rg, $nomor, (' ' + (TeksRuns $c.runs)))
+        $teks = TeksRuns $c.runs
+        $fn = $doc.Footnotes.Add($rg, $nomor, (' ' + $teks))
         $fr = $fn.Range                                  # mulai dari spasi di depan teks; tanda + spasi Word di depannya
-        Huruf $fr.Font $TA $uCatatan 0; $fr.Font.Superscript = 0
+        Huruf $fr.Font $TA $uCatatan 0; $fr.Font.Superscript = 0; $fr.Font.Color = -16777216
         $fp = $fr.Paragraphs(1); $fp.ReadingOrder = 0; $fp.Alignment = 3
         $fr.Select(); $word.Selection.RtlRun()
         if ($c.al) {   # @angka_ayat: latin: angka di run kiri-ke-kanan dicetak Word 0-9 walau angka konteks
@@ -635,9 +659,9 @@ try {
                 $l = $fn.Range; $l.SetRange($fr.Start + 1 + $a.Index, $fr.Start + 1 + $a.Index + $a.Length); $l.Select(); $word.Selection.LtrRun()
             }
         }
-        Tautan $fn.Range ($fr.Start + 1) (TeksRuns $c.runs)
-        LatinLtr $fn.Range ($fr.Start + 1) (TeksRuns $c.runs)
-        Latin $fn.Range ($fr.Start + 1) (TeksRuns $c.runs) $uCatatan
+        Tautan $fn.Range ($fr.Start + 1) $teks
+        LatinLtr $fn.Range ($fr.Start + 1) $teks
+        Latin $fn.Range ($fr.Start + 1) $teks $uCatatan
         $fr.ParagraphFormat.SpaceBefore = 0; $fr.ParagraphFormat.SpaceAfter = 0; $fr.ParagraphFormat.LineSpacingRule = 0
         $off = 1
         $fnOmml = New-Object System.Collections.ArrayList
@@ -645,6 +669,11 @@ try {
             $len = 0
             if ($null -ne $r.t) { $len = $r.t.Length } elseif ($r.pg) { $len = $PENANDA_HALAMAN.Length } elseif ($r.omml) { $len = 1; [void]$fnOmml.Add(@{ pos = ($fr.Start + $off); omml = $r.omml }) }
             if ($r.q) { $q = $fn.Range; $q.SetRange($fr.Start + $off, $fr.Start + $off + $len); Huruf $q.Font $QF }
+            elseif ($len -and ($r.b -or $r.m)) {
+                $q = $fn.Range; $q.SetRange($fr.Start + $off, $fr.Start + $off + $len)
+                Huruf $q.Font $null $null 1
+                if ($r.m) { $q.Font.Color = $MERAH }
+            }
             if ($r.pg) {
                 $q = $fn.Range.Duplicate; $q.SetRange($fr.Start + $off, $fr.Start + $off + $len)
                 $script:nRujukanHalaman++; $nama = "pgn_$script:nRujukanHalaman"
@@ -670,7 +699,8 @@ try {
         # saat panel itu masih terbuka menjatuhkan WINWORD.EXE (0x800706BE), jadi panel ditutup dulu.
         if ($doc.ActiveWindow.Panes.Count -gt 1) { $doc.ActiveWindow.Panes(2).Close() }
         $ref = $fn.Reference
-        $ref.Font.Superscript = 1; Huruf $ref.Font $TA $uMatan
+        $uRef = if ($ref.Information(12)) { $uTabel } else { $uMatan }
+        $ref.Font.Superscript = 1; Huruf $ref.Font $TA $uRef
         $ref.Select(); $word.Selection.RtlRun()
         return $fn
     }
@@ -754,7 +784,7 @@ try {
     }
     function Runs($runs, $size, $paksaTebal, $paksaMerah) {
         foreach ($r in $runs) {
-            if ($null -ne $r.fn) { Catatan $r.fn }
+            if ($null -ne $r.fn) { Catatan $r.fn $size }
             elseif ($r.z) {                               # rumuz sumber: huruf kecil cokelat terangkat tanpa kurung, menempel sebelum nomor catatan kaki
                 $awal = $sel.Start; Tulis (' ' + $r.z) $TA $size 1 1 $COKLAT
                 $doc.Range($awal, $sel.Start).Select(); $word.Selection.RtlRun(); $sel.Collapse(0)
@@ -835,8 +865,8 @@ try {
                 $ftIsi.PageNumbers.NumberStyle = 0; $ftIsi.PageNumbers.RestartNumberingAtSection = $true; $ftIsi.PageNumbers.StartingNumber = 1
                 $pb = $false
             }
-            $diMulakhas = $MULAKHAS_JARAK -and $blk.k -eq 'K' -and $blk.judul -match '^(ال)?ملخص' -and $blk.judul -notmatch 'الأجنبية|الإنجليزية'
-            $spasiAktif = if ($blk.k -eq 'K' -and $blk.judul -match '^(ال)?ملخص') { $SPASI_MULAKHAS } else { $SPASI }
+            $diMulakhas = $MULAKHAS_JARAK -and ($i -in @($RENCANA.mulakhas.berjarak))
+            $spasiAktif = if ($i -in @($RENCANA.mulakhas.spasi)) { $SPASI_MULAKHAS } else { $SPASI }
             $nT++; $bm = "t_$nT"
             if ($i -eq $RENCANA.awal_isi) { $bmMuqaddimah = $bm }   # awal halaman isi (HALAMAN_ISI)
             $dua = $RENCANA.judul_dua_baris."$i"             # @judul_fasl: dua_baris (olah.judul_dua_baris); فهرس tetap $blk.judul
@@ -875,7 +905,6 @@ try {
             $rf = $tbl.Range.ParagraphFormat
             $rf.ReadingOrder = 0; $rf.FirstLineIndent = 0; $rf.LeftIndent = 0; $rf.RightIndent = 0
             $rf.SpaceBefore = 0; $rf.SpaceAfter = 0; $rf.LineSpacingRule = 0; $rf.KeepWithNext = 0; $rf.PageBreakBefore = 0
-            $uTabel = [single][Math]::Ceiling(($uMatan + $uCatatan) / 2)   # sel sempit: di antara matan dan catatan kaki (teks_pdf.periksa membaca huruf ini sebagai matan)
             for ($r = 0; $r -lt $baris.Count; $r++) {
                 $isi = @($baris[$r].sel)
                 for ($c = 0; $c -lt $nk; $c++) {
@@ -956,7 +985,7 @@ try {
         elseif ($blk.k -eq 'V') {                         # bait syair: di tengah, tanpa awal alinea
             Para 1 2 0
             HalamanBaru $pb
-            Runs $blk.runs $uMatan $false
+            Runs $blk.runs $uMatan $false $false
             # bait terakhir dari deretan bait menempel ke paragraf sesudahnya (syarahnya): bait di baris akhir halaman
             # dengan syarah di halaman berikutnya pindah bersama pengantarnya (yang berakhir «:» sudah menempel).
             # Bait yang disusul bait lagi, atau pengantar bait lain («…:» atau label tebal seperti «الشرح»), tidak
@@ -993,14 +1022,14 @@ try {
         elseif ($null -ne $RENCANA.ihda."$i") {           # @ihda: tengah = paragraf الإهداء rata tengah, tebal, berjarak, tanpa menjorok
             Para 1 $RENCANA.ihda."$i" 0
             HalamanBaru $pb
-            Runs $blk.runs $uMatan $true
+            Runs $blk.runs $uMatan $true $false
             $sel.TypeParagraph()
         }
         else {
             if ($diMulakhas) { Para 3 $(if ($DATA.blok[$i - 1].k -eq 'K') { 0 } else { 6 }) 0 } else { Para 3 $(if ($i -gt 0 -and $DATA.blok[$i - 1].k -eq 'J') { 6 } else { 0 }) ($word.CentimetersToPoints(0.8)); $sel.ParagraphFormat.SpaceAfter = $JARAK_P }   # sesudah tabel: berjarak
             HalamanBaru $pb
             $awal = $sel.Start
-            Runs $blk.runs $uMatan $false
+            Runs $blk.runs $uMatan $false $false
             $teks = @($blk.runs | Where-Object { $_.t -and $_.t.Trim() })
             $biasa = @($teks | Where-Object { -not $_.m })    # lafaz matn ((…)) tetap merah: tidak dihitung
             $w = @($biasa | Where-Object { $_.w } | ForEach-Object { $_.w } | Select-Object -Unique)
@@ -1035,19 +1064,19 @@ try {
         Huruf $tbl.Range.Font $TA $uMatan 0
         return $tbl
     }
-    function Sel($tbl, $r, $c, $teks, $align, $bold) {
+    function Sel($tbl, $r, $c, $teks, $align, $bold, $ukuran = $uMatan) {
         $rg = $tbl.Cell($r, $c).Range
         $rg.Text = $teks
-        Huruf $rg.Font $TA $uMatan $bold
+        Huruf $rg.Font $TA $ukuran $bold
         $rg.ParagraphFormat.Alignment = $align
         Tautan $rg $rg.Start $teks
-        Latin $rg $rg.Start $teks $uMatan
+        Latin $rg $rg.Start $teks $ukuran
     }
 
     # sel berisi **tebal** dan __miring__ (@pustaka_gaya: muallif): teks ditulis tanpa tandanya, lalu tiap ruas diberi gayanya
-    function SelGaya($tbl, $r, $c, $teks) {
+    function SelGaya($tbl, $r, $c, $teks, $ukuran = $uMatan) {
         $polos = $teks -replace '\*\*|__', ''
-        Sel $tbl $r $c $polos 3 0
+        Sel $tbl $r $c $polos 3 0 $ukuran
         $rg0 = $tbl.Cell($r, $c).Range.Start; $pos = 0; $b = $false; $it = $false
         foreach ($m in [regex]::Split($teks, '(\*\*|__)')) {
             if ($m -eq '**') { $b = -not $b; continue }; if ($m -eq '__') { $it = -not $it; continue }
@@ -1068,13 +1097,11 @@ try {
     $tb = Tabel $n @(1.3, 13.7) 0
     for ($r = 1; $r -le $n; $r++) {
         $no = if ($adaQuran -and $r -eq 1 -and -not $PUSTAKA_MUALLIF) { '-' } else { (Angka ($r - $geser)) + '.' }
-        Sel $tb $r 1 $no 1 0
-        if ($PUSTAKA_MUALLIF) { SelGaya $tb $r 2 $DATA.pustaka[$r - 1] } else { Sel $tb $r 2 $DATA.pustaka[$r - 1] 3 0 }
+        Sel $tb $r 1 $no 1 0 $U_PUSTAKA
+        if ($PUSTAKA_MUALLIF) { SelGaya $tb $r 2 $DATA.pustaka[$r - 1] $U_PUSTAKA } else { Sel $tb $r 2 $DATA.pustaka[$r - 1] 3 0 $U_PUSTAKA }
     }
-    Huruf $tb.Range.Font $null $U_PUSTAKA
     for ($r = 1; $r -le $n; $r++) {
         $rg = $tb.Cell($r, 2).Range; $polos = $(if ($PUSTAKA_MUALLIF) { $DATA.pustaka[$r - 1] -replace '\*\*|__', '' } else { $DATA.pustaka[$r - 1] })
-        Latin $rg $rg.Start $polos $U_PUSTAKA
         if ($RENCANA.pustaka_ltr[$r - 1]) {   # rujukan asing utuh: paragraf kiri-ke-kanan rata kiri, nomornya tetap di kolom kanan
             $rg.ParagraphFormat.ReadingOrder = 1; $rg.ParagraphFormat.Alignment = 0
             # seluruh teksnya satu run kiri-ke-kanan Times (juga kurung, tanda petik, angka, dan titik di luar rentang Latin)
@@ -1411,7 +1438,15 @@ try {
     $doc.ActiveWindow.View.Type = 3
     # nomor halaman di kotak teks kepala @templat ikut angka Arab (@angka): Word memilih angka menurut arah teks di
     # sekitarnya, dan teks hasil PAGE di kotak itu kiri-ke-kanan. RtlRun hanya ada di Selection, dan hanya di Print Layout
-    if ($kepalaTpl) { foreach ($sh in $kepalaTpl.Shapes) { if ($sh.TextFrame.HasText) { $sh.TextFrame.TextRange.Select(); $word.Selection.RtlRun() } } }
+    if ($kepalaTpl) {
+        foreach ($sh in @(try { @($kepalaTpl.Range.ShapeRange) } catch { })) {
+            try {
+                if ($sh.TextFrame.HasText -and @($sh.TextFrame.TextRange.Fields | Where-Object { $_.Code.Text -match 'PAGE' }).Count) {
+                    $sh.TextFrame.TextRange.Select(); $word.Selection.RtlRun()
+                }
+            } catch {}
+        }
+    }
     $doc.SaveAs2("$Out.docx", 16)
     $word.ScreenUpdating = $true                         # tanpa ini garis bingkai/kepala halaman tidak ikut ke PDF
     $word.Options.ArabicNumeral = $NUMERAL               # pengaturan milik seluruh Word pemakai: dipastikan lagi tepat sebelum PDF
@@ -1438,8 +1473,15 @@ finally {
     try { foreach ($d in @($word.Documents)) { $d.Close($false) } } catch {}
     try { $word.Options.ArabicNumeral = $numeralLama } catch {}
     try { $word.Quit([ref]0) } catch {}                   # Quit menerima argumen ref; Quit(0) selalu gagal
-    try { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($word) } catch {}
-    try { Bersihkan-WordRakit $CATATAN_WORD } catch { Write-Output "PERINGATAN: Word milik rakit belum berhenti; catatannya disimpan: $($_.Exception.Message)" }
+    foreach ($v in Get-Variable -Scope Local) {
+        if ($null -ne $v.Value -and [Runtime.InteropServices.Marshal]::IsComObject($v.Value)) {
+            try { [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($v.Value) } catch {}
+            try { $v.Value = $null } catch {}
+        }
+    }
+    foreach ($nama in 'buang', 'pJudulT', 'celah', 'fihrisNama', 'fihrisAwal', 'xBm', 'ka', 'kt') { Remove-Variable -Name $nama -ErrorAction SilentlyContinue }
+    [GC]::Collect(); [GC]::WaitForPendingFinalizers(); [GC]::Collect()
+    try { Bersihkan-WordRakit $CATATAN_WORD 3000 } catch { Write-Output "PERINGATAN: Word milik rakit belum berhenti; catatannya disimpan: $($_.Exception.Message)" }
     try { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue } catch {}
     try { $pegangKunci.Close() } catch {}
 }

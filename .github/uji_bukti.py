@@ -9,15 +9,16 @@ Yang diuji (kalau rusak, pemeriksa membaca teks yang salah tanpa sadar):
 - `bukti contoh <baris>` hanya mencetak baris itu, dan tiap baris keluaran diawali «baris n»;
 - paragraf isi tanpa catatan kaki ikut dicetak (pemeriksa menilai klaim yang tidak bersumber), المقدمة/الخاتمة tidak.
 """
-import json, shutil, subprocess, sys, tempfile
+import atexit, json, shutil, sys, tempfile
 from pathlib import Path
-from bantu import salin_mesin
+from bantu import REPO, bahts, salin_mesin
 
 sys.stdout.reconfigure(encoding="utf-8")  # konsol Windows (cp1252) tidak bisa mencetak huruf Arab
 sys.stderr.reconfigure(encoding="utf-8")  # pesan assert juga memuat huruf Arab
 
-REPO = Path(__file__).resolve().parent.parent
-AKAR = Path(tempfile.mkdtemp(prefix="bahts-uji-bukti-"))
+SEMENTARA = tempfile.TemporaryDirectory(prefix="bahts-uji-bukti-")
+atexit.register(SEMENTARA.cleanup)
+AKAR = Path(SEMENTARA.name)
 salin_mesin(AKAR, ("_meta", "11223"))
 shutil.copytree(REPO / "contoh", AKAR / "contoh", ignore=shutil.ignore_patterns("*.docx", "*.pdf", "laporan.txt", "jebakan"))
 sys.path.insert(0, str(AKAR / "mesin"))
@@ -33,8 +34,7 @@ assert B_KUTIP == B_AYAT + 1, (B_AYAT, B_KUTIP)
 
 
 def jalan(*argumen):
-    r = subprocess.run([sys.executable, str(AKAR / "mesin" / "bahts.py"), *argumen], cwd=AKAR,
-                       capture_output=True, text=True, encoding="utf-8", timeout=120)
+    r = bahts(AKAR, *argumen, batas=120)
     return r.returncode, r.stdout + r.stderr
 
 
@@ -45,7 +45,7 @@ def teks_kitab(keluar, hal):
     return baris[0].split(f" ج- ص{hal}: ", 1)[1]
 
 
-try:
+def utama():
     kode, keluar = jalan("bukti", "contoh")
     print(keluar)
     assert kode == 0, kode
@@ -167,7 +167,8 @@ try:
     kode, keluar = jalan("bukti", "contoh", str(B_KUTIP))
     assert kode == 0 and "kutipan TIDAK ditemukan di teks PDF, awal halaman" in keluar.splitlines()[-1], keluar
     print("lolos: bukti PDF <<luar|berkas.pdf|hal>> mencetak cuplikan teks utuh (tanpa memotong kutipan) dan menandai halaman scan")
-finally:
-    print("arsip uji:", AKAR)
 
-print("uji bukti: semua sesuai")
+
+if __name__ == "__main__":
+    utama()
+    print("uji bukti: semua sesuai")

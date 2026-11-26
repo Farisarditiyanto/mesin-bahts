@@ -32,6 +32,7 @@ SAMPUL_SAYA = AKAR / "sampul_saya.txt"  # data sampul pemakai (@kunci: nilai); m
 DATA_DIRI = ("nama", "nim", "jenis", "fasl", "thalibah", "sampul")  # milik satu orang (sampul = kampusnya): tidak disalin dari SAMPUL_SAYA ke bahts/<orang>/…
 NAMA_FOLDER = r"[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+){0,2}"  # nama folder bahts yang diterima `baru`: «ikhlas» atau «bahts/<orang>/<topik>»
 BUKAN_BAHTS = {"mesin", "kitab"}
+PERANGKAT_WINDOWS = re.compile(r"(?i:CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|COM[1-9¹²³]|LPT[1-9¹²³])(?:\..*)?")
 PUSTAKA = ("pyarrow", "pypdf", "fontTools", "rapidfuzz")  # nama modul; nama pemasangannya di requirements.txt
 
 
@@ -165,6 +166,8 @@ def folder_bahts(nama):
 
 def baru(nama, judul):
     nama = nama.removeprefix("./").removeprefix(".\\").replace("\\", "/")
+    if any(PERANGKAT_WINDOWS.fullmatch(x) for x in Path(nama).parts if x):
+        sys.exit(f"Nama folder «{nama}»: nama perangkat Windows (CON, NUL, PRN, AUX, COM1-9, LPT1-9) tidak bisa dipakai.")
     if Path(nama).is_absolute() or ".." in nama.split("/"):  # jalur lengkap atau naik folder: yang di dalam repo dipakai
         jalur = (AKAR / nama).resolve()
         if not jalur.is_relative_to(AKAR.resolve()):
@@ -240,6 +243,11 @@ def cek(nama, jejak=False):
     return len(hasil.ctx.galat)
 
 
+def _tahap(nama):
+    import tahap
+    print("\n".join(tahap.baris(tahap.baca(folder_bahts(nama), jalur_ketik(nama)))))
+
+
 def angka(teks, apa):
     """Argumen angka (maks, lebar): ditolak dengan pesan yang bisa dipahami kalau bukan bilangan bulat 1 ke atas."""
     try:
@@ -297,7 +305,8 @@ class Bendera:
 
 POTONGAN = Bendera("--potongan", ganda="--potongan disebut lebih dari sekali")  # frasa boleh cocok di tengah kata
 JEJAK = Bendera("--jejak", ganda="--jejak disebut lebih dari sekali")
-FASL = Bendera("--fasl", "--fasl perlu nomor #F, mis. --fasl 2")
+FASL = Bendera("--fasl", "--fasl perlu nomor #F, mis. --fasl 2", lambda x: x.startswith("--"),
+               "--fasl disebut lebih dari sekali; rentang ditulis --fasl 1-2")
 KE = Bendera("--ke", "--ke perlu nama folder", lambda x: x.startswith("--"))
 SARING = tuple(Bendera(n, f"{n} butuh nilai, mis. {n} {contoh}", lambda x: not x.strip(" ,،"),
                        f"{n} disebut dua kali; nilai ganda ditulis dengan koma, mis. {n} {contoh},…")
@@ -361,6 +370,7 @@ def halaman(sid, juz, hal):
     a, z = int(m[1]), int(m[2])
     if not a <= z < a + HALAMAN_MAKS:
         sys.exit(f"Rentang halaman {hal}: tulis awal-akhir dengan awal ≤ akhir, paling banyak {HALAMAN_MAKS} halaman.")
+    shamela.wajib_ada(sid)
     ada = False
     for h in range(a, z + 1):
         print(f"===== [{sid}] {juz}/{h} =====")
@@ -386,17 +396,6 @@ def ketemu(n):
         sys.exit(1)
 
 
-def perintah_cek(a):
-    """`cek <folder> [--jejak]`: bendera boleh sebelum/sesudah folder; bendera saja = kurang argumen."""
-    folder, k = pisah(a, PERINTAH["cek"].bendera)
-    bentuk = PERINTAH["cek"].bantuan().split("\n")[0]
-    if not folder:
-        sys.exit(f"Perintah «cek» kurang argumen. Bentuknya:\n  {bentuk}")
-    if len(folder) != 1 or folder[0].startswith("--"):
-        sys.exit(f"Argumen perintah «cek» tidak dikenal atau berlebih: {a}\nBentuknya:\n{bentuk}")
-    sys.exit(1 if cek(folder[0], jejak="jejak" in k) else 0)
-
-
 def perintah_bukti(a):
     """`bukti <folder> [baris|awal-akhir]`: penunjuk untuk pemeriksa (lihat penunjuk.bukti); 0 yang dicetak = kode keluar 1."""
     import penunjuk
@@ -409,42 +408,12 @@ def perintah_bukti(a):
     ketemu(penunjuk.bukti(folder_bahts(a[0]), dari, sampai))
 
 
-def perintah_peta(a):
-    """`peta <folder>`: peta struktur, sijil sumber/mazhab, busur argumen, hadits, dan `terima` (lihat peta.cetak)."""
-    import peta
-    peta.cetak(folder_bahts(a[0]))
-
-
-def perintah_edisi(a):
-    """`edisi <kueri|sid|w…> [pengarang]`: rekonsiliasi edisi lintas katalog Shamela & Waqfeya (lihat edisi.cetak)."""
-    import edisi, waqfeya
-    ketemu(edisi.cetak(a[0], a[1] if len(a) > 1 else "", wq=waqfeya))
-
-
-def perintah_pustaka(a):
-    """`pustaka <folder>`: susun draf `#R` dari kitab berbukti di catatan kaki (lihat pustaka.cetak)."""
-    import pustaka
-    pustaka.cetak(folder_bahts(a[0]))
-
-
-def perintah_tahap(a):
-    """`tahap <folder>`: keadaan bahts dibaca ulang dari barang aslinya; mesin keadaannya di tahap.py. Folder bahts dan
-    bahan `cek` di mesin/_tmp tidak disentuh."""
-    import tahap
-    print("\n".join(tahap.baris(tahap.baca(folder_bahts(a[0]), jalur_ketik(a[0])))))
-
-
-def perintah_rakit(a):
-    """`rakit <folder> [--fasl n]`: bendera boleh sebelum/sesudah folder. Alurnya di rakit.py."""
-    a, k = pisah(a, PERINTAH["rakit"].bendera)
-    if len(a) != 1 or a[0].startswith("--"):
-        raise ValueError(f"argumen tidak dikenal atau berlebih: {a}")
+def _rakit(nama, fasl=None):
     if os.name != "nt":
-        galat = cek(a[0])
+        galat = cek(nama)
         sys.exit(f"Belum dirakit: {galat} galat harus beres dulu." if galat else
                  f"{BUTUH_WORD} Naskahnya sudah lolos `cek`.")
-    import rakit
-    rakit.rakit(folder_bahts(a[0]), jalur_ketik(a[0]), k.get("fasl"))
+    _mod("rakit").rakit(folder_bahts(nama), jalur_ketik(nama), fasl)
 
 
 def perintah_pratinjau(a):
@@ -464,9 +433,6 @@ def perintah_ekspor(a):
 
 def perintah_dirasat(a, **k):
     """`dirasat "<kata kunci|W…|DOI>" [maks] [saringan] [--dari t] [--sampai t] [--bahasa b] [--urut u]`."""
-    for x in a:
-        if x.startswith("--"):
-            raise ValueError(f"bendera «{x}» tidak dikenal")
     import dirasat
     dirasat.cari(a[0], *(angka(x, "maks") for x in a[1:2]), *a[2:], **k)
 
@@ -506,7 +472,8 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
              lambda a: baru(a[0], a[1]), 2, 2),
     Perintah("cek <folder> [--jejak]", "periksa naskah: tanda, ayat, dan semua bukti <<...>> ke kitab lokal;\n"
              "--jejak: teks yang tidak ada di kitabnya dicari di kitab lain yang sudah diunduh",
-             perintah_cek, 0, None, (JEJAK,)),
+             lambda a, **k: sys.exit(1 if cek(a[0], jejak=k.get("jejak", False)) else 0),
+             1, 1, (JEJAK,)),
     Perintah("bukti <folder> [baris|awal-akhir]", "untuk pemeriksa: tiap catatan kaki berbukti <<sid|juz|hal>>, <<w…>>, atau\n"
              "<<luar|berkas.pdf|hal>> (kalimat yang dibuktikan, isi catatan kaki, nama kitab/PDF, bab,\n"
              "dan teks halaman itu di sekitar kutipan) dan teks tiap ayat {Q:} persis seperti tercetak,\n"
@@ -516,20 +483,19 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
     Perintah("peta <folder>", "ringkasan opsional untuk penulis dan pemeriksa, tanpa internet:\n"
              "struktur dan jumlah kata/catatan kaki, daftar sumber dan inventaris kitab mazhab,\n"
              "busur argumen (المقدمة ↔ الترجيح/الخلاف ↔ الخاتمة), daftar {H:…}, dan semua `terima` riset.txt",
-             perintah_peta, 1, 1),
+             lambda a: _mod("peta").cetak(folder_bahts(a[0])), 1, 1),
     Perintah("pustaka <folder>", "susun draf baris #R (المصادر والمراجع) siap tempel langsung dari `kartu` kitab berbukti\n"
              "di catatan kaki (sesuai @pustaka_gaya, tanpa gelar, urut abjad, tanpa internet), sekaligus\n"
              "menunjukkan data cetak yang cocok dan judul yang edisinya perlu dicek",
-             perintah_pustaka, 1, 1),
+             lambda a: _mod("pustaka").cetak(folder_bahts(a[0])), 1, 1),
     Perintah("rakit <folder> [--fasl n]", "cek, lalu rakit .docx + .pdf (Word) ke dalam folder itu; --fasl 2 (atau 1-2): hanya #F\n"
              "ke-2, untuk bahts yang dikumpulkan bertahap per فصل (lihat `tanda`); `cek` tetap\n"
              "memeriksa seluruh naskah",
-             perintah_rakit, 1, None, (FASL,)),
+             lambda a, **k: _rakit(a[0], k.get("fasl")), 1, 1, (FASL,)),
     Perintah("tahap <folder>", "tahap bahts sekarang dan satu langkah berikutnya: naskah (GAGAL/PERHATIAN/LOLOS), hasil\n"
              "rakit (BELUM/TERKINI/USANG, juga tiap --fasl), rakit yang sedang jalan, folder .rakit-*\n"
-             "dan _arsip/rakit-*. Folder bahts tidak disentuh; untuk sesi baru yang tidak tahu bahts\n"
-             "ini sampai mana",
-             perintah_tahap, 1, 1),
+             "dan _arsip/rakit-*. Folder bahts tidak disentuh",
+             lambda a: _tahap(a[0]), 1, 1),
     Perintah("ubah <folder> [pembanding]", "bandingkan naskah.txt sekarang dengan salinan terakhir hasil `rakit` (atau berkas\n"
              "pembanding / git HEAD) tanpa internet: rentang baris berubah (untuk `bukti <folder> <awal-akhir>`)\n"
              "serta bukti <<…>>, penanda, angka, dan kata syarat fikih yang hilang atau bertambah",
@@ -551,7 +517,7 @@ DAFTAR = (  # urutan dan judul kelompok = teks bantuan
     Perintah('edisi "<judul|id|w…>" [pengarang]', "cari kandidat cetakan di Shamela dan Waqfeya tanpa internet: pisahkan\n"
              "riwayat lain serta karya terkait (شرح/مختصر/حاشية), dan jembatani\n"
              "judul alternatif («تفسير القرطبي» ↔ «الجامع لأحكام القرآن») dengan filter pengarang anti-kerabat/nisbah",
-             perintah_edisi, 1, 2),
+             lambda a: ketemu(_mod("edisi").cetak(a[0], a[1] if len(a) > 1 else "", wq=_mod("waqfeya"))), 1, 2),
     Perintah('temukan "<frasa>" [maks] [--mazhab m,…] [--kitab id,…] [--halaman n]', "\n"
              "cari frasa di isi SEMUA kitab Shamela (turath.io, butuh internet) -> kitab + juz/halaman; 20 hasil\n"
              "tiap halaman. --mazhab: hanya kitab fikih mazhab itu; --kitab: hanya kitab itu, walau belum\n"
@@ -657,10 +623,10 @@ if __name__ == "__main__":
             a, k = pisah(a, p.bendera)
         if len(a) < p.paling_sedikit:
             sys.exit(f"Perintah «{cmd}» kurang argumen. Bentuknya:\n{bentuk}")
-        if p.paling_banyak is not None and len(a) > p.paling_banyak:
-            # argumen berlebih ditolak, bukan ditelan: `halaman 1679 - 8 9` jangan diam-diam mengabaikan 9
+        if p.paling_banyak is not None and (len(a) > p.paling_banyak or any(x.startswith("--") for x in a)):
             bendera = [x for x in a if x.startswith("--")]
-            sys.exit(f"Argumen perintah «{cmd}» tidak dikenal atau berlebih: {a[p.paling_banyak:]}"
+            lebih = bendera or a[p.paling_banyak:]
+            sys.exit(f"Argumen perintah «{cmd}» tidak dikenal atau berlebih: {lebih}"
                      + (f" (perintah «{cmd}» tidak punya bendera {', '.join(bendera)})" if bendera else "")
                      + f"\nBentuknya:\n{bentuk}")
         p.jalankan(a, **k)

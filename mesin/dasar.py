@@ -99,7 +99,9 @@ def tanpa_catatan(teks):
 
 
 AD = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
+ARAH = re.compile(r"[\u200e\u200f\u202a-\u202e\u2066-\u2069]")
 MERUJUK_KATA = "[أا]نظر|ينظر|ي?راجع"  # tanda nukilan makna di catatan kaki (أبو سليمان، كتابة البحث العلمي، ص114)
+MERUJUK_AWAL = re.compile(rf"^(?:{MERUJUK_KATA})(?![ء-ي])")
 # @tanpa: anzhur: kata MERUJUK_KATA di awal catatan kaki, sesudah «؛»/titik, atau «، و…» tidak dicetak; pemisah dan
 # spasinya tetap. Rujukan silang «انظر: ص{P:…}» tetap: tanpa kata itu nomor halamannya tidak terbaca sebagai rujukan
 TANPA_ANZHUR = re.compile(rf"(?P<pra>^\s*|[؛.]\s*|،\s*(?=و))و?(?:{MERUJUK_KATA})\s*:(?!\s*ص\s*\{{P:)\s*")

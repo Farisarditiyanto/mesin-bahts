@@ -108,6 +108,7 @@ def utama():
         sampul_tengah(akar)
         bait_menempel(akar)
         jarak_mabhath(akar)
+        jakarta_mahad_dan_mulakhas(akar)
 
 
 def bait_menempel(akar):
@@ -242,6 +243,50 @@ def sampul_tengah(akar):
     print(f"lolos sampul tengah Word: logo {x1 - x0:.0f}×{y1 - y0:.0f} pt (rasio gambar {lebar}×{tinggi}), baris tengah, "
           f"@jenis/@nim tidak tercetak, judul panjang {max(ukuran)} pt satu halaman; judul فصل dua baris (فهرس satu baris); "
           "الإهداء tengah tebal")
+
+
+def jakarta_mahad_dan_mulakhas(akar):
+    from xml.etree import ElementTree as ET
+    ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+    w = "{" + ns["w"] + "}"
+    tulis(akar, "jakarta",
+          "@model: jakarta\n@judul: اختبار نموذج جاكرتا\n@nama: طالب\n@sifat: طالب مقيد\n@nim: 4300123\n"
+          "@musyrif: د. مشرف\n@jabatan: أستاذ مشارك\n@berkas: uji\n@tanpa: hadits\n@minimal_halaman: 0\n",
+          "#K المقدمة\nنص قصير.\n#K الخاتمة\nنتائج.\n#R المصادر\nالقرآن الكريم.\n")
+    rj = bahts(akar, "rakit", "jakarta", batas=1800)
+    assert rj.returncode == 0, rj.stdout + rj.stderr
+    with zipfile.ZipFile(akar / "jakarta" / "uji.docx") as z:
+        hdr_j = " ".join("".join(ET.fromstring(z.read(n)).itertext()) for n in z.namelist() if re.fullmatch(r"word/header\d+\.xml", n))
+    assert "اختبار نموذج جاكرتا" in hdr_j and "عنوان البحث" not in hdr_j, hdr_j
+    with pymupdf.open(akar / "jakarta" / "uji.pdf") as doc:
+        spans_j = [(s["font"], s["size"], s["text"]) for b in doc[0].get_text("dict")["blocks"]
+                   for ln in b.get("lines", []) for s in ln["spans"] if s["text"].strip()]
+    qism_spans = [(f, u, t) for f, u, t in spans_j if "قسم الشريعة بجاكرتا" in t]
+    assert qism_spans and all("Traditional" in f and 15.5 <= u <= 16.5 for f, u, _ in qism_spans), qism_spans
+    tulis(akar, "mahad",
+          "@sampul: mahad\n@format: tatbiqi_mulakhas\n@judul: اختبار غلاف المعهد\n@jenis: بحث صفي للمستوى الثامن\n"
+          "@nama: طالب\n@nim: 4300123\n@fasl: الفصل الدراسي الأول\n@musyrif: د. مشرف\n@berkas: uji\n"
+          "@tanpa: ayat, hadits, maudhuat, pustaka\n@minimal_halaman: 0\n",
+          "#K المُلَخَّص\nالفقرة الأولى من الملخص العربي.\nالفقرة الثانية من الملخص العربي.\n"
+          "#K المُلَخَّص بِاللُّغَةِ الأَجْنَبِيَّةِ\n#L **Abstract**\n#L English abstract paragraph.\n"
+          "#K المقدمة\nفقرة المقدمة العادية.\n#K الخاتمة\nانتهى.\n")
+    rm = bahts(akar, "rakit", "mahad", batas=1800)
+    assert rm.returncode == 0, rm.stdout + rm.stderr
+    with zipfile.ZipFile(akar / "mahad" / "uji.docx") as z:
+        doc_m = ET.fromstring(z.read("word/document.xml"))
+    paras = { "".join(p.itertext()).strip(): p for p in doc_m.findall(".//w:body/w:p", ns) if "".join(p.itertext()).strip() }
+    sp = lambda key: paras[key].find("w:pPr/w:spacing", ns)
+    ind = lambda key: paras[key].find("w:pPr/w:ind", ns)
+    assert sp("الفقرة الأولى من الملخص العربي.").attrib.get(f"{w}line") == "360", ET.tostring(paras["الفقرة الأولى من الملخص العربي."], encoding="unicode")
+    assert sp("الفقرة الثانية من الملخص العربي.").attrib.get(f"{w}before") == "120", ET.tostring(paras["الفقرة الثانية من الملخص العربي."], encoding="unicode")
+    assert (ind("الفقرة الثانية من الملخص العربي.") is None or ind("الفقرة الثانية من الملخص العربي.").attrib.get(f"{w}firstLine", "0") == "0")
+    assert sp("English abstract paragraph.").attrib.get(f"{w}line") == "360"
+    sp_mq = sp("فقرة المقدمة العادية.")
+    assert sp_mq is None or (sp_mq.attrib.get(f"{w}line", "240") == "240" and sp_mq.attrib.get(f"{w}before", "0") == "0")
+    with pymupdf.open(akar / "mahad" / "uji.pdf") as doc:
+        hal1 = doc[0].get_text()
+    assert "المعهد" in hal1 or "بحث" in hal1, hal1
+    print("lolos @model/@sampul jakarta, @sampul mahad, dan #K المُلَخَّص berharakat")
 
 
 if __name__ == "__main__":

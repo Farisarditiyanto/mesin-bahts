@@ -21,7 +21,7 @@
 | لمن | وكيل برمجي يستطيع تشغيل الأوامر؛ والمستخدم طالب يكتب بحثًا |
 | قواعد العمل | [`AGENTS.md`](AGENTS.md) (بالإندونيسية) |
 | مدخل الأوامر | `python mesin/bahts.py <perintah>` |
-| المسار | `baru` ← جمع المادة ← `ambil` ← كتابة `naskah.txt` ← `cek` ← `rakit` ← المراجِع ← إعادة `cek` و`rakit` |
+| المسار | `periksa` ← `baru` ← جمع المادة ← `ambil` ← كتابة `naskah.txt` و`pustaka` ← `cek` (و`dirasat-cek` عند الحاجة) ← `rakit` ← المراجِع (`peta` و`bukti` و`pratinjau`) ← إعادة `cek` و`rakit` (`tahap` لمتابعة المرحلة) |
 | موصِّلات MCP | `shamela` (إلزامي)، `qurangallery`، `turath`، `hadithunlocked`، `tafsir`، `quran`، `qaf` |
 | المتطلبات | يذكرها `python mesin/bahts.py periksa`؛ ويحتاج `rakit` إلى Windows وMicrosoft Word |
 | الإصدار | [الإصدارات](https://github.com/Farisarditiyanto/mesin-bahts/releases)، [`CHANGELOG.md`](CHANGELOG.md) |
@@ -107,7 +107,7 @@ python mesin/bahts.py periksa
 - `<<sid|juz|hal|#123>>` لا يجتاز إلا إذا كان 123 رأس حديث في أول سطر من تلك الصفحة («123 - حدثنا»، «36 - (123)»، «(123) - حدثنا»)؛ وتُرفض أرقام الآيات والحواشي. وهذا يثبت وجود الرقم لا اللفظ.
 - التخريج «رقم الحديث (123)، 4/56.» المتبوع مباشرة بدليل: يجب أن يكون الرقم رأس حديث قرب تلك الصفحة، وأن يكون لفظ الدليل في الحديث ذي الرقم نفسه. والنتيجة تنبيه لا `GAGAL`.
 - `cek --jejak`: النقل غير الموجود يُبحث عنه في الكتب المنزَّلة الأخرى، بحدٍّ أقصى 3 كتب لكل نص؛ واللفظ المختلف قليلًا يُشار إليه بـ«Paling mirip»؛ والنقل الممتد إلى الصفحة التالية يُذكر مداه (ص21-22). وهي دلالة فقط. الكتاب الذي تتعذر قراءته يُتجاوز مع تحذير «jejak belum lengkap». أول بحث يُهيِّئ نص الكتاب، فقد يطول.
-- المصادر خارج الشاملة: `<<luar|berkas.pdf|hal>>` يُشار إلى صفحتها فقط، ولا تُجاز أبدًا. كتب الوقفية `<<w…|berkas|hal>>`: لا يحكم `cek` على لفظها لأن النص المستخرج آليا فيه أخطاء حروف؛ يقرؤه المراجِع في المصورة. و`GAGAL` فقط إذا لم يُنزَّل الكتاب، أو لم توجد الصفحة، أو وُجد النقل بنصه في صفحة أخرى.
+- المصادر خارج الشاملة: `<<luar|berkas.pdf|hal>>` يُشار إلى صفحتها فقط، ولا تُجاز أبدًا. كتب الوقفية `<<w…|berkas|hal>>`: لا يحكم `cek` على لفظها لأن النص المستخرج آليا فيه أخطاء حروف؛ يقرؤه المراجِع في المصورة. و`GAGAL` فقط إذا فسدت صيغة الإحالة، أو لم يُنزَّل الكتاب، أو لم يوجد الملف أو الصفحة، أو وُجد نقل من ٢٥ حرفًا فأكثر بنسبة مطابقة آلية دون ٦٠٪ في الصفحة المذكورة بنصِّه في صفحة أخرى.
 - طرق النقل (تنبيه perhatian، لا `GAGAL`): جملة خارج علامتي التنصيص توافق صفحة الدليل في ثماني كلمات متتالية فأكثر، ونقل بالمعنى بلا «انظر:»، واقتباس نصي مسبوق بـ«قال …:» فقط وموثق بـ«انظر:»، واقتباس يزيد على ستين كلمة. وحدّ الكلمات من قواعد المستودع. أما مطابقة النقل بالمعنى لصفحة الدليل فلا يُحكم فيها: الدليل ذو القطعة لا يثبت إلا قطعته.
 - تخريج حديث خارج الصحيحين بلا درجة (وبلا «ولم أقف على حكم …») = `GAGAL`.
 - كل تنبيه (perhatian) يجب التعامل معه: يُطبع كل سطر برمزه («! 3f9a2c baris …»)، ثم يُصلَح في النص، أو يُقبَل بسطر `terima <الرمز> <السبب>` في `riset.txt` إن تعذر إصلاحه. وما دام فيه تنبيه لم يُتعامل معه يطبع `tahap` القيمة `NASKAH=PERHATIAN` ويطبع `rakit` «BELUM SELESAI». ولا تُقبَل تنبيهات `riset.txt`. ولا تحكم الآلة في السبب: ذلك عمل المراجِع في الخطوة 5.
@@ -148,8 +148,8 @@ python mesin/bahts.py periksa
 | `mesin/naskah_baru.txt`، `riset_baru.txt` | الهيكل الذي يُنشئه `baru` |
 | `contoh/` | `naskah.txt` و`riset.txt` نموذجيان، و`jebakan/` للاختبار |
 | `.mcp.json`، `opencode.json` | قائمة الموصِّلات (`opencode.json` نسخة لـOpenCode) |
-| `dok/` | `mutamad.md` (الكتب المعتمدة في كل مذهب)، `uji-riset.md`، `takhrij.md` |
-| `.github/` | `uji_*.py`، `workflows/tes.yml` |
+| `dok/` | [`pemakai-baru.md`](dok/pemakai-baru.md)، [`pengaturan-bahts.md`](dok/pengaturan-bahts.md)، [`riset-alat.md`](dok/riset-alat.md)، [`pemeriksaan.md`](dok/pemeriksaan.md)، [`penulisan-sumber.md`](dok/penulisan-sumber.md)، [`audit.md`](dok/audit.md)، [`mutamad.md`](dok/mutamad.md)، [`mengubah-mesin.md`](dok/mengubah-mesin.md)، [`standar.svg`](dok/standar.svg)، [`uji-riset.md`](dok/uji-riset.md)، [`takhrij.md`](dok/takhrij.md) |
+| `.github/` | `uji_*.py`، [`bantu.py`](.github/bantu.py)، [`workflows/tes.yml`](.github/workflows/tes.yml)، [`workflows/rilis.yml`](.github/workflows/rilis.yml)، [`uji_word_startup.ps1`](.github/uji_word_startup.ps1)، [`uji_pemeriksa/prompt.md`](.github/uji_pemeriksa/prompt.md) (`.github/uji_pemeriksa/`) |
 | `kitab/`، `bahts/`، `sampul_saya.txt`، `keluaran_saya.txt`، `kunci_openalex.txt` | بيانات المستخدم على حاسوبه، خارج git |
 
 ### تعديل الآلة
