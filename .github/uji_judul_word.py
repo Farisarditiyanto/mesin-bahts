@@ -48,9 +48,11 @@ def baris(hal):
     hasil = []
     for b in hal.get_text("dict")["blocks"]:
         for ln in b.get("lines", []):
-            sp = [s for s in ln["spans"] if s["text"].strip()]
+            # span di bawah 2 pt = ekor judul #F 1 pt putih untuk kepala berjalan (kepala.ps1 Ekor-Berjalan): tak terlihat
+            sp = [s for s in ln["spans"] if s["text"].strip() and s["size"] >= 2]
             if sp:
-                hasil.append((" ".join(s["text"] for s in sp), *ln["bbox"], all("Bold" in s["font"] or s["flags"] & 16 for s in sp)))
+                kotak = (min(s["bbox"][0] for s in sp), ln["bbox"][1], max(s["bbox"][2] for s in sp), ln["bbox"][3])
+                hasil.append((" ".join(s["text"] for s in sp), *kotak, all("Bold" in s["font"] or s["flags"] & 16 for s in sp)))
     # potongan sebaris (mis. «الرقم الجامعي:» dan nomornya) = satu baris
     gabung = []
     for t, x0, y0, x1, _, tb in sorted(hasil, key=lambda h: h[2]):

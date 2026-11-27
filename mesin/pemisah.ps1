@@ -62,6 +62,7 @@ function Halaman-Pemisah($p, $bm, $bingkai) {
     Para 1 0 0; $sel.ParagraphFormat.KeepWithNext = -1
     [void]$doc.Bookmarks.Add($bm, $sel.Range)
     Tulis ([string]$p.judul[0]) $HURUF_HIAS ([Math]::Round($uJudul * 1.8)) 1 0
+    Ekor-Berjalan ([string]$p.judul[1])                  # kepala berjalan halaman sesudahnya = judul utuh (kepala.ps1)
     $sel.TypeParagraph()
     if ($p.judul[1]) { Para 1 12 0; Tulis ([string]$p.judul[1]) $TJ ($uJudul + 4) 1 0; $sel.TypeParagraph() }
     if ($p.pengantar) { Para 1 36 0; Tulis ([string]$p.pengantar) $TJ $uJudulSub 1 0; $sel.TypeParagraph() }

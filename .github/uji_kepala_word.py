@@ -3,7 +3,8 @@
 Runner tanpa Word melaporkan lewati.
 
 Naskah uji: sampul, الإهداء, المقدمة dua halaman (bercatatan kaki), مبحث, الخاتمة, lalu فهرس الموضوعات. Yang dijaga:
-letak judul dan nomor tiap bentuk di halaman isi (judul bagian yang berjalan ikut #K/#F, ganjil/genap bergantian),
+letak judul dan nomor tiap bentuk di halaman isi (judul bagian yang berjalan ikut #K/#F, #F dua baris tetap utuh satu
+baris, judul berjalan yang terlalu panjang diperingatkan, ganjil/genap bergantian),
 halaman depan (الإهداء) dan belakang (فهرس) tanpa kepala dengan nomor polos di tengah kaki, sampul tanpa nomor, tidak
 ada halaman kosong sisipan Word (ganjil/genap atau pemisah bagian), tanpa PERINGATAN nomor halaman, bintang kecil
 setinggi baris judul dengan nomor di tengahnya, dan garis pemisah catatan kaki 4,5 cm di kanan. `@kepala: kotak`
@@ -57,6 +58,20 @@ def rakit(akar, kepala):
     return pymupdf.open(stream=(f / "uji.pdf").read_bytes(), filetype="pdf")   # tanpa memegang berkasnya (TEMP dibersihkan)
 
 
+def berjalan_panjang(akar):
+    """@kepala: bagian dengan #F dua baris yang utuhnya lebih panjang daripada satu baris kepala: PERINGATAN menyebut
+    judul itu; judul pendek tidak diperingatkan."""
+    f = akar / "berjalan_panjang"
+    f.mkdir()
+    (f / "naskah.txt").write_text(
+        f"@judul: {JUDUL}\n@nama: طالب\n@berkas: uji\n@tanpa: ayat, hadits, alam, firaq, pustaka\n@minimal_halaman: 0\n"
+        f"@kepala: bagian\n#K المقدمة\n{ISI}\n#F المبحث الأول: {JUDUL_PANJANG}\n{ISI}\n#K الخاتمة\n{ISI}\n", encoding="utf8")
+    r = bahts(akar, "rakit", f.name, batas=1800)
+    assert r.returncode == 0, r.stdout + r.stderr
+    pesan = [b for b in r.stdout.splitlines() if "PERINGATAN" in b and "judul bagian" in b]
+    assert len(pesan) == 1 and "المبحث الأول" in pesan[0] and "@kepala: bagian" in pesan[0], r.stdout
+
+
 def kotak(akar):
     """@kepala: kotak + judul panjang + #E yang turun baris: rakit jadi; di kepala halaman isi judul rata kanan, tanpa
     kasyidah, tidak masuk kotak nomor di kiri; PERINGATAN @kepala_judul. Mengembalikan jumlah baris judul."""
@@ -100,8 +115,8 @@ def utama():
     if alasan := tanpa_word():
         print("lewati uji kepala halaman Word: " + alasan)
         return
-    # #F «المبحث الأول: …» dicetak dua baris (@judul_fasl bawaan dua_baris): judul berjalan = baris pertamanya
-    j, fasl = rata(JUDUL), rata(FASL.split(":")[0])
+    # #F «المبحث الأول: …» dicetak dua baris (@judul_fasl bawaan dua_baris), tetapi judul berjalan = judul #F utuh
+    j, fasl = rata(JUDUL), rata(FASL)
     with tempfile.TemporaryDirectory(prefix="bahts-kepala-word-") as t:
         akar = Path(t)
         salin_mesin(akar)
@@ -159,9 +174,10 @@ def utama():
             assert len(garis) == 1, f"@kepala: {k}: garis pemisah catatan kaki: {garis}"
             g = garis[0]
             assert abs(g.width - 4.5 * CM) < 3 and abs(g.x1 - (w - 3.5 * CM)) < 3, f"@kepala: {k}: garis pemisah {g}"
+        berjalan_panjang(akar)
         baris = kotak(akar)
         print(f"lolos kepala halaman Word: {len(pdf)} bentuk @kepala hanya di halaman isi, {n} halaman tanpa sisipan; "
-              f"الإهداء dan فهرس bernomor polos di kaki; bintang {luar.width / CM:.2f} cm bernomor di tengah; garis pemisah "
+              f"الإهداء dan فهرس bernomor polos di kaki; judul berjalan = #F utuh, judul panjang diperingatkan; bintang {luar.width / CM:.2f} cm bernomor di tengah; garis pemisah "
               f"catatan kaki 4,5 cm di kanan; kotak + #E turun baris: judul {baris} baris di samping kotak nomor")
 
 

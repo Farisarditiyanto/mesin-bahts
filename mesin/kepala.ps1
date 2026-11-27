@@ -20,6 +20,18 @@ function Gaya-Berjalan {
     return $g
 }
 
+# judul #F dua baris (@judul_fasl: dua_baris/kotak/pemisah): baris pertamanya saja yang bergaya $GAYA_BERJALAN, jadi
+# STYLEREF hanya membaca «المبحث الأول». Sisanya («: تعريف …») ditulis juga di ujung baris pertama itu, 1 pt putih
+# selebar 1% dan dirapatkan: tidak terlihat dan tidak menggeser baris, tetapi ikut dibaca STYLEREF, jadi kepala berjalan memuat judul
+# utuh. Teks tersembunyi (Font.Hidden) tidak dibaca STYLEREF (dicoba di Word). Dipanggil di kursor rakit.ps1 ($sel, Tulis)
+function Ekor-Berjalan($ekor) {
+    if (-not $ekor) { return }
+    $awal = $sel.Start
+    Tulis (': ' + $ekor) $TA 1 0 0 16777215              # 16777215 = putih
+    $f = $doc.Range($awal, $sel.Start).Font; $f.Scaling = 1; $f.Spacing = -2   # skala 1% saja masih ±36 pt (diukur di PDF)
+    $sel.Font.Scaling = 100; $sel.Font.Spacing = 0
+}
+
 # paragraf kepala/kaki yang kosong: kanan-ke-kiri, rata $rata (0 kanan, 1 tengah), huruf profil, tanpa tab dan garis
 function HF-Baru($hf, $rata = 0) {
     $hf.LinkToPrevious = $false
@@ -177,6 +189,32 @@ function Periksa-Kepala($sec, $jenis) {
     if ($jenis -notin 'klasik', 'bintang', 'kotak') { return }
     $baris = $sec.Headers(1).Range.Paragraphs(1).Range.ComputeStatistics(1)   # 1 = wdStatisticLines
     if ($baris -gt 1) { Write-Output "PERINGATAN: judul di kepala halaman (@kepala: $jenis) tidak muat satu baris ($baris baris): tulis judul pendeknya di @kepala_judul, lalu rakit lagi." }
+}
+
+# judul bagian berjalan (bagian, bagian_hias, bergantian: judul #K/#F utuh $judul) yang tidak muat satu baris kepala
+# halaman: diukur di dokumen Word sementara selebar bidang teks $lebar pt (bagian: dikurangi tempat nomor di kiri),
+# huruf dan ukuran kepala, lalu diperingatkan. Judul bagian berjalan tidak punya padanan @kepala_judul: judulnya sendiri
+# yang dipendekkan. bergantian juga memeriksa judul bahts di halaman genap ($bahts)
+function Periksa-Berjalan($jenis, $judul, $bahts, $lebar) {
+    if ($jenis -notin 'bagian', 'bagian_hias', 'bergantian') { return }
+    $sisa = if ($jenis -eq 'bergantian') { $lebar } else { $lebar - $word.CentimetersToPoints(1.5) }
+    $uji = $word.Documents.Add(); $doc.Activate()
+    try {
+        $p = $uji.Paragraphs(1)
+        $p.ReadingOrder = 0; $p.Alignment = 0; $p.LeftIndent = 0; $p.RightIndent = 0; $p.FirstLineIndent = 0
+        $ps = $uji.Sections(1).PageSetup; $ps.LeftMargin = 36; $ps.RightMargin = [single]($ps.PageWidth - 36 - $sisa)
+        $daftar = @($judul | ForEach-Object { @{ t = $_; nama = "judul bagian «$_»" } })
+        if ($jenis -eq 'bergantian') { $daftar += @{ t = $bahts; nama = 'judul bahts (halaman genap)' } }
+        foreach ($j in $daftar) {
+            $r = $uji.Range(0, $uji.Content.End - 1); $r.Text = [string]$j.t
+            Huruf $r.Font $TA ([single]$FMT.ukuran_kepala) ([int]($jenis -ne 'bergantian'))
+            $baris = $uji.Paragraphs(1).Range.ComputeStatistics(1)   # 1 = wdStatisticLines
+            if ($baris -gt 1) {
+                $jalan = if ($j.nama -like 'judul bahts*') { 'tulis judul pendeknya di @kepala_judul' } else { 'pendekkan judul itu di naskah, atau pilih @kepala lain' }
+                Write-Output "PERINGATAN: $($j.nama) tidak muat satu baris di kepala halaman (@kepala: $jenis, $baris baris): $jalan, lalu rakit lagi."
+            }
+        }
+    } finally { $uji.Close(0); $doc.Activate() }
 }
 
 # garis pemisah catatan kaki: $FMT.garis_catatan cm di kanan. Tanda pemisah bawaan Word (lebarnya tetap) diganti garis

@@ -851,6 +851,7 @@ try {
         $kotak = $JUDUL_KOTAK -and $k -eq 'F'; $awalJudul = $sel.Start
         if ($kotak) { Tulis $teks $HURUF_HIAS ($uJudul + 8) 1 0 }   # @judul_fasl: kotak = baris pertama besar, keduanya sebesar judul
         else { Tulis $teks $TJ $(if ($k -in 'B', 'M') { $uJudulSub } else { $uJudul }) 1 0 }
+        if ($kedua -and $k -in 'K', 'F') { Ekor-Berjalan $kedua }   # kepala berjalan = judul utuh (kepala.ps1)
         $sel.TypeParagraph()
         if ($kedua) {
             Para $(if ($k -in $KANAN) { 3 } else { 1 }) $(if ($kotak) { 0 } else { 6 }) 0
@@ -1344,6 +1345,7 @@ try {
     # garisnya ikut ke kiri kalau tidak disetel di sini
     $pk = $sec.PageSetup; Garis-Catatan ($pk.PageWidth - $pk.LeftMargin - $pk.RightMargin)
     Periksa-Kepala $doc.Sections($nIsi) $KEPALA
+    Periksa-Berjalan $KEPALA @($toc | Where-Object { $_.lvl -eq 0 } | ForEach-Object { $_.t }) $JUDUL_KEPALA ($pk.PageWidth - $pk.LeftMargin - $pk.RightMargin)
     # Dokumen selalu berakhir dengan satu paragraf kosong: sisa TypeParagraph sesudah blok terakhir, atau paragraf wajib
     # Word sesudah tabel terakhir (فهرس). Isi yang pas memenuhi halaman mendorongnya ke halaman baru: PDF berakhir dengan
     # halaman kosong yang hanya bernomor. Sesudah paragraf biasa (bahts tanpa المصادر dan فهرس), tanda paragraf
