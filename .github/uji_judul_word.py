@@ -161,7 +161,7 @@ def utama():
         assert datar[0].height > datar[1].height and datar[-1].height > datar[-2].height, f"garis tebal kotak di dalam: {datar}"
         # @pustaka_gaya bawaan = judul_tebal: «•» tanpa nomor
         mas = doc[cari(doc, "المصادر دار طيبة")].get_text()
-        assert mas.count("•") == 3 and "١." not in mas, mas
+        assert mas.count("•") == 3 and "١." not in mas.split(), mas   # nomor «١.» = sel sendiri; «١٤٢٠.» bukan nomor
         print("lolos Word: judul #F di kotak bergaris di atas halaman, isinya menyusul di halaman yang sama; المصادر bawaan "
               "berbutir «•»")
 

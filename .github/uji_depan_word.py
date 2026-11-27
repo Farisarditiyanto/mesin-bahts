@@ -65,8 +65,9 @@ def utama():
         assert not re.search(r"[٠-٩0-9]", hal[1].replace("٢", "")), f"halaman ayat bernomor: {hal[1]!r}"
         assert "الإهداء" in hal[2] and "فهرس الموضوعات" in hal[3] and "المقدمة" in hal[4], hal[:5]
         assert "فهرس الموضوعات" not in "".join(hal[5:]), "فهرس الموضوعات tercetak lagi di belakang"
-        baris_mq = next(x for x in hal[3].split("\n") if "المقدمة" in x)
-        assert "١" in baris_mq or "1" in baris_mq, f"nomor halaman المقدمة di فهرس: {baris_mq!r}"
+        # فهرس bawaan bertitik (@maudhuat: titik): nomornya sesudah deret titik, bisa di baris teks PDF berikutnya
+        baris_mq = re.search(r"المقدمة[\s.]*([٠-٩0-9]+)", hal[3])
+        assert baris_mq and baris_mq[1] in ("١", "1"), f"nomor halaman المقدمة di فهرس: {hal[3]!r}"
         semua = "".join(hal)
         # «انظر:» hilang, pemisah «؛» tetap berspasi, rujukan silang «انظر: ص…» tetap utuh
         assert "كتاب ما" in semua and "كتاب آخر" in semua, semua
@@ -94,7 +95,7 @@ def utama():
                + "".join(f"#F الفصل {f}: الموضوع {f}\n#B المبحث 1 من الفصل {f}\n{kalimat}\n" for f in range(1, 10))
                + "#K الخاتمة\n" + kalimat + "\n#R المصادر\nالقرآن الكريم.\n")
         x91 = ("@judul: اختبار الصفحات الأولى\n@nama: طالب\n@berkas: uji\n@minimal_halaman: 0\n@basmalah: ya\n"
-               "@ayat_pembuka: 12:2-3\n@maudhuat_letak: awal\n@tanpa: anzhur\n")
+               "@ayat_pembuka: 12:2-3\n@maudhuat_letak: awal\n@tanpa: anzhur\n@maudhuat: tabel\n")  # tabel: pas satu halaman
         for nama, kepala in (("pas", x91 + "@nomor: mukadimah\n"), ("pas_polos", x91)):
             tulis(akar, nama, kepala, isi)
             r = bahts(akar, "rakit", nama, batas=1800)
