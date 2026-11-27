@@ -137,7 +137,7 @@ def format_baris(info_kartu, gaya="judul"):
     if info_kartu["tahun"] and info_kartu["tahun"] not in (info_kartu["cetakan"] or ""):
         rinci.append(info_kartu["tahun"])
     ekor_data = "، ".join(rinci)
-    if gaya == "muallif":
+    if gaya != "judul":  # muallif, judul_tebal (olah.pustaka_judul_dulu membaca bentuk ini)
         nama = f"**{info_kartu['pengarang']}**" if info_kartu["pengarang"] else ""
         if nama and info_kartu["wafat"]:
             nama += f" (ت {info_kartu['wafat']})"

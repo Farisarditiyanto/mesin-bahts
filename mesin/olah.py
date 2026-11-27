@@ -25,6 +25,8 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       @sampul: tengah juga qism.
                       Opsional: musyrif, jabatan (kosong atau "-" = tidak tercetak), thalibah (ya = sampul mencetak «اسم الطالبة»),
                       basmalah (ya = satu halaman ﷽ huruf Arabic Typesetting sesudah sampul; bawaan: tidak ada),
+                      tamma (ya = halaman penutup «تمّ بحمد الله وتوفيقه» dan shalawat di tengah, sesudah الفهارس (halaman
+                      terakhir), tanpa nomor halaman; bawaan: tidak ada),
                       ayat_pembuka (s:a atau s:a-b = satu halaman ayat itu, rasm Utsmani, dengan «[السورة: a]» di bawahnya,
                       sesudah sampul (dan basmalah), tanpa nomor halaman, tidak masuk فهرس الآيات; mis. «@ayat_pembuka: 12:2»),
                       sampul (qism = model قسم الشريعة, bawaan: logo, judul besar, sub-judul « - …» dalam kurung kalau ada,
@@ -32,7 +34,12 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       tengah = model خطة dosen المعهد: logo berwarna di tengah atas (rasio gambarnya dijaga), lalu semua
                       baris rata tengah tebal: «معهد العلوم الإسلامية والعربية في إندونيسيا», @qism (« // » = pindah baris),
                       judul, «إعداد الطالب/الطالبة: @nama», «إشراف: @musyrif» (tanpa @musyrif tidak tercetak), @tahun;
-                      jenis, nim, fasl, jabatan, dan sifat tidak tercetak di model ini),
+                      jenis, nim, fasl, jabatan, dan sifat tidak tercetak di model ini;
+                      kop = sampul polos tanpa logo dan bingkai, semua tebal: kop bertingkat di kanan atas (المملكة العربية
+                      السعودية، وزارة التعليم، جامعة الإمام محمد بن سعود الإسلامية، معهد العلوم الإسلامية والعربية في
+                      إندونيسيا، lalu @qism, bawaan قسم الشريعة), judul besar, @jenis, «إعداد الطالب:» + nama + nim, «إشراف:» +
+                      musyrif + jabatan, «العام الجامعي» + @tahun; tanpa_kop = tanpa kop: judul di atas, إعداد dan إشراف di
+                      tengah halaman, جامعة الإمام + المعهد + @qism + tahun di bawah, semua tebal rata tengah),
                       judul_sampul (hanya @sampul: tengah: @judul persis ditambah « // » di tempat judul pindah baris di
                       sampul, mis. «المدح في العصر العباسي // لامية مروان بن أبي حفصة في مدح المهدي»; kata yang beda
                       dari @judul = GAGAL; « - » sub-judul di tempat pindah baris boleh dibuang, tidak tercetak di ujung
@@ -82,9 +89,11 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       «… الآية n» | الصفحة, berjudul فهرس الآيات الكريمة | titik = tanpa tabel: nama tiap surat, lalu
                       «﴿… n﴾ ...... ص» per ayat, n = nomor ayat bermotif mushaf), fihris_hadits (tabel | ringkas = الأحاديث | الصفحة,
                       berjudul فهرس الأحاديث الشريفة), maudhuat (tabel | titik = baris bertitik-titik ke nomor halaman;
-                      #S «❖ …» ikut), maudhuat_letak (akhir | awal = فهرس الموضوعات di depan, tepat sebelum المقدمة
+                      baris #K/#F dan nomornya tebal; #S «❖ …» ikut, tanpa «❖»), maudhuat_letak (akhir | awal = فهرس الموضوعات di depan, tepat sebelum المقدمة
                       (atau #F pertama), sesudah الإهداء/الشكر; tidak memuat dirinya sendiri), pustaka_gaya (judul | muallif = القرآن الكريم ikut bernomor; **…** tebal, __…__ miring
-                      di baris #R, mis. «**ابن كثير، إسماعيل بن عمر** (ت 774هـ). __تفسير القرآن العظيم__. …»),
+                      di baris #R, mis. «**ابن كثير، إسماعيل بن عمر** (ت 774هـ). __تفسير القرآن العظيم__. …» |
+                      judul_tebal = baris #R ditulis seperti muallif, tercetak tanpa nomor «• **تفسير القرآن العظيم**.
+                      لإسماعيل بن عمر ابن كثير (ت: ٧٧٤هـ). …» urut judul; baris tanpa __judul__ = GAGAL),
                       judul_kanan (B, M, atau keduanya: judul itu rata kanan, bawaan di tengah), fihris (baru | sambung =
                       المصادر dan فهرس sesudah yang pertama menyambung di halaman yang sama), sifat (baris di bawah
                       nama di sampul, mis. «الطالب بقسم الشريعة للفترة الصباحية»), qism (baris qism di sampul qism/jakarta
@@ -93,7 +102,13 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       rujukan_ayat (catatan | matan = [^سورة …، آية: n.] dicetak «[السورة: n]» tepat sesudah ayatnya)
                       judul_fasl (- | dua_baris = judul #F dipecah di titik dua pertama jadi dua baris tengah:
                       «#F الفصل الأول: المقدمة» tercetak «الفصل الأول» lalu «المقدمة»; فهرس الموضوعات tetap satu baris.
-                      Tanpa #F bertitik dua = GAGAL)
+                      Tanpa #F bertitik dua = GAGAL | pemisah = tiap #F di halaman pemisah sendiri tanpa nomor (tetap
+                      terhitung): judul besar (dipecah di titik dua pertama), «وفيه مطلبان:» (kata dan bilangannya dari judul
+                      #B di bawahnya: فصل/مبحث/مطلب/فرع/مسألة) dan daftar judul #B-nya rata tengah tanpa ikon; isi mulai
+                      halaman berikutnya; فهرس الموضوعات menunjuk halaman pemisah itu | pemisah_bingkai = sama, di dalam
+                      bingkai ganda bersudut bulat (luar tebal, dalam tipis) di halaman itu saja | kotak = judul #F di kotak
+                      bergaris ganda tebal-tipis di atas halaman (baris kedua sesudah titik dua lebih kecil), isi langsung
+                      menyusul. Tanpa #F = GAGAL)
                       ihda (- | tengah = paragraf di bawah «#K الإهداء» rata tengah, tebal, tanpa awal alinea menjorok,
                       dengan celah satu baris kosong (atau jarak_paragraf profil kalau lebih besar) di atas tiap paragraf;
                       tanpa «#K الإهداء» berparagraf = GAGAL)
@@ -256,9 +271,15 @@ IKUT_FORMAT = {"judul_sub": "judul", "ayat": "matan", "huruf_judul": "huruf", "s
 # jakarta = mesin/sampul_jakarta.docx: model qism dengan «قسم الشريعة بجاكرتا», logo berwarna, baris @sifat di bawah nama,
 # nomor mahasiswa tanpa «الرقم الجامعي:»; tengah = disusun rakit.ps1 tanpa templat: logo berwarna sampul_jakarta.docx di
 # tengah atas (rasio gambarnya dijaga), lalu baris-baris rata tengah: LEMBAGA_TENGAH, @qism, judul, إعداد, إشراف, tahun
+# kop = disusun rakit.ps1 tanpa templat dan tanpa logo/bingkai, semua tebal: kop bertingkat di kanan atas (KOP + @qism),
+# judul besar, @jenis, إعداد + nama + nim, إشراف + musyrif, العام الجامعي; tanpa_kop = judul di atas, إعداد/إشراف di
+# tengah halaman, KOP_BAWAH + @qism + tahun di bawah, semua tebal rata tengah. Baris tiap sampul susunan: _sampul_susun
 SAMPUL = {"qism": ("judul", "nama"), "mahad": ("judul", "jenis", "nama", "nim", "fasl"), "jakarta": ("judul", "nama"),
-          "tengah": ("judul", "nama", "qism")}
+          "tengah": ("judul", "nama", "qism"), "kop": ("judul", "nama"), "tanpa_kop": ("judul", "nama")}
 LEMBAGA_TENGAH = "معهد العلوم الإسلامية والعربية في إندونيسيا"  # baris pertama sampul tengah (model خطة dosen المعهد)
+QISM = "قسم الشريعة"  # qism sampul qism (kop gambar sampul_qism.docx); @qism menggantinya
+KOP_BAWAH = ("جامعة الإمام محمد بن سعود الإسلامية", LEMBAGA_TENGAH)  # kop sampul qism tanpa baris negara
+KOP = ("المملكة العربية السعودية", "وزارة التعليم", *KOP_BAWAH)
 HALAMAN_BARU = ("B", "M")  # judul yang bisa dibuat mulai halaman baru lewat @halaman_baru; K dan F selalu
 TANPA = ("ayat", "hadits", *(f.kunci for f in FIHRIS_NAMA), "maudhuat", "pustaka")  # فهرس dan المصادر yang boleh dibuang lewat @tanpa (bagian_akhir)
 # @tanpa yang bukan bagian: anzhur = «انظر:»/«ينظر:»/«راجع:» di catatan kaki tidak dicetak (dosen minta hasyiyah tanpa
@@ -281,12 +302,15 @@ GAYA = {"kepala": ("klasik", "-", "kotak", "bagian", "bagian_hias", "bintang", "
         "fihris_hadits": ("tabel", "ringkas"),  # ringkas = الأحاديث | الصفحة, tanpa kolom الراوي
         "maudhuat": ("tabel", "titik"),      # titik = baris bertitik-titik ke nomor halaman, tanpa tabel; #S «❖ …» ikut
         "maudhuat_letak": ("akhir", "awal"),  # awal = فهرس الموضوعات sesudah الإهداء/الشكر, tepat sebelum المقدمة (atau #F pertama)
-        "pustaka_gaya": ("judul", "muallif"),  # muallif = القرآن الكريم ikut bernomor; **…** tebal dan __…__ miring di #R
+        "pustaka_gaya": ("judul", "muallif", "judul_tebal"),  # muallif = القرآن الكريم ikut bernomor; **…** tebal dan __…__ miring di #R;
+                                                              # judul_tebal = baris muallif dicetak «• **judul**. لفلان (ت: …). data» (pustaka_judul_dulu)
         "judul_kanan": ("-", "B", "M", "B, M"),  # judul #B/#M rata kanan (bawaan: di tengah)
         "fihris": ("baru", "sambung"),  # sambung = المصادر/فهرس sesudah yang pertama menyambung di halaman yang sama
         "rujukan_ayat": ("catatan", "matan"),  # matan = [^سورة …، آية: n.] dicetak «[السورة: n]» tepat sesudah ayatnya
         "logo": ("-", "berwarna"),  # berwarna = sampul qism dengan logo berwarna dari sampul_jakarta.docx, sisanya tetap
-        "judul_fasl": ("-", "dua_baris"),  # dua_baris = judul #F «الفصل الأول: المقدمة» dicetak dua baris (judul_dua_baris)
+        "judul_fasl": ("-", "dua_baris", "pemisah", "pemisah_bingkai", "kotak"),  # dua_baris = judul #F «الفصل الأول: المقدمة»
+        # dicetak dua baris (judul_dua_baris); pemisah = halaman pemisah sendiri tanpa nomor (halaman_pemisah), _bingkai = di
+        # dalam bingkai ganda bersudut bulat; kotak = judul #F di kotak bergaris ganda tebal-tipis, isi langsung menyusul
         "ihda": ("-", "tengah")}  # tengah = paragraf di bawah «#K الإهداء» rata tengah, tebal, berjarak (paragraf_ihda)
 # @model: satu nama untuk sekumpulan pilihan di atas (dan @sampul, @format, @pustaka, @catatan_kaki); kunci yang ditulis
 # sendiri di naskah tetap menang, jadi model bisa dicampur, mis. «@model: jakarta» + «@sampul: qism»
@@ -396,8 +420,9 @@ def potong(d, fasl):
     if dari > 1:  # sampul dan halaman bernomor huruf (@nomor) hanya di potongan pertama
         meta["tanpa_sampul"] = True
         meta.pop("nomor", None)
-    if sampai < len(awal_f):
+    if sampai < len(awal_f):  # المصادر, الفهارس, dan halaman penutup (@tamma) hanya di potongan terakhir
         meta["tanpa"] = ", ".join(TANPA)
+        meta.pop("tamma", None)
 
     def runs(rr):
         return [r for x in rr for r in x["runs"]]
@@ -735,7 +760,7 @@ YA_TIDAK = Data(sah=("ya",), pesan="«{nilai}» tidak dikenal: tulis «ya», ata
 # tahapan itu = urutan GAGAL di laporan
 DATA = {
     "judul": TEKS, "jenis": TEKS, "nama": TEKS, "nim": TEKS, "fasl": TEKS, "musyrif": TEKS, "jabatan": TEKS,
-    "thalibah": YA_TIDAK, "basmalah": YA_TIDAK,
+    "thalibah": YA_TIDAK, "basmalah": YA_TIDAK, "tamma": YA_TIDAK,
     "sampul": Data(sah=tuple(SAMPUL), bawaan="qism", pisah="، ", baca=str.lower),
     "tahun": TEKS, "berkas": Data(), "ayat_pembuka": Data(),
     "format": Data(sah=tuple(FORMAT), bawaan="imam", pisah="، ",
@@ -802,6 +827,99 @@ def judul_dua_baris(blok):
     return dua
 
 
+JUDUL_FASL_PEMISAH = ("pemisah", "pemisah_bingkai")  # @judul_fasl yang mencetak halaman pemisah (halaman_pemisah)
+# kata judul sub-bagian -> (tunggal, mutsanna, jamak, tamyiz 11-99, muannats): «وفيه مطلبان»، «وفيه ثلاثة مطالب»
+KATA_BAGIAN = {"فصل": ("فصل", "فصلان", "فصول", "فصلا", False), "مبحث": ("مبحث", "مبحثان", "مباحث", "مبحثا", False),
+               "مطلب": ("مطلب", "مطلبان", "مطالب", "مطلبا", False), "فرع": ("فرع", "فرعان", "فروع", "فرعا", False),
+               "مسألة": ("مسألة", "مسألتان", "مسائل", "مسألة", True)}
+# bilangan 3-10 berlawanan jenis dengan ma'dudnya: mudzakkar (مطلب) -> ثلاثة، muannats (مسألة) -> ثلاث
+SATUAN = {False: ("ثلاثة", "أربعة", "خمسة", "ستة", "سبعة", "ثمانية", "تسعة", "عشرة"),
+          True: ("ثلاث", "أربع", "خمس", "ست", "سبع", "ثماني", "تسع", "عشر")}
+PULUHAN = ("عشرون", "ثلاثون", "أربعون", "خمسون", "ستون", "سبعون", "ثمانون", "تسعون")
+
+
+def kata_jumlah(n, kata):
+    """«مطلب واحد»، «مطلبان»، «ثلاثة مطالب»، «أحد عشر مطلبا»، «واحد وعشرون مطلبا»: n sub-bagian berkata judul `kata`
+    (KATA_BAGIAN): bilangan 3-10 berlawanan jenis, tamyiz 11-99 tunggal manshub."""
+    tunggal, dua, jamak, tamyiz, muannats = KATA_BAGIAN[kata]
+    satuan = SATUAN[muannats]
+    satu, dua_angka = ("واحدة", "اثنتان") if muannats else ("واحد", "اثنان")
+    if n == 1:
+        return f"{tunggal} {satu}"
+    if n == 2:
+        return dua
+    if n <= 10:
+        return f"{satuan[n - 3]} {jamak}"
+    if n <= 19:
+        awal = {11: "إحدى" if muannats else "أحد", 12: "اثنتا" if muannats else "اثنا"}.get(n) or satuan[n - 13]
+        return f"{awal} {'عشرة' if muannats else 'عشر'} {tamyiz}"
+    if n <= 99:
+        sat = n % 10
+        depan = "" if not sat else (satu if sat == 1 else dua_angka if sat == 2 else satuan[sat - 3]) + " و"
+        return f"{depan}{PULUHAN[n // 10 - 2]} {tamyiz}"
+    return f"{n} {jamak}"
+
+
+def _kata_judul(judul):
+    """Kata bagian di awal judul («المبحث الأول: …» -> «مبحث»), atau None."""
+    awal = norma.HARAKAT.sub("", judul).split(maxsplit=1)[:1]
+    kata = awal[0].removeprefix("ال") if awal else ""
+    return kata if kata in KATA_BAGIAN else None
+
+
+def halaman_pemisah(blok):
+    """@judul_fasl: pemisah/pemisah_bingkai -> {indeks blok #F: {judul: [baris besar, baris kedua], pengantar: «وفيه
+    مطلبان:», anak: [judul #B di bawahnya]}}. Kata bagiannya dari judul #B-nya (kalau semuanya sama), lalu dari judul
+    #F (فصل -> مبحث، مبحث -> مطلب، باب -> فصل); tidak dikenal -> «وفيه:». Tanpa #B: hanya judulnya."""
+    hasil = {}
+    for i, b in enumerate(blok):
+        if b["k"] != "F":
+            continue
+        anak = []
+        for c in blok[i + 1:]:
+            if c["k"] in ("K", "F", "R"):
+                break
+            if c["k"] == "B":
+                anak.append(c["judul"])
+        a, titik, c = b["judul"].partition(":")
+        isi = {"judul": [a.strip(), c.strip()] if titik and a.strip() and c.strip() else [b["judul"], ""], "anak": anak,
+               "pengantar": ""}
+        if anak:
+            kata_anak = {_kata_judul(t) for t in anak}
+            induk = _kata_judul(b["judul"])
+            kata = (next(iter(kata_anak)) if len(kata_anak) == 1 and None not in kata_anak
+                    else {"فصل": "مبحث", "مبحث": "مطلب", "باب": "فصل"}.get(induk))
+            dhamir = "وفيها" if induk == "مسألة" else "وفيه"
+            isi["pengantar"] = f"{dhamir} {kata_jumlah(len(anak), kata)}:" if kata else f"{dhamir}:"
+        hasil[str(i)] = isi  # kunci teks: bahan JSON
+    return hasil
+
+
+# baris #R @pustaka_gaya: muallif: «**pengarang** (ت …هـ). __judul__. data cetak» (pengarang boleh tidak ada)
+BARIS_MUALLIF = re.compile(r"^(?:\*\*(?P<nama>.+?)\*\*\s*(?:\((?P<wafat>[^)]*)\))?\s*[.،]?\s*)?__(?P<judul>.+?)__\s*[.،]?\s*(?P<sisa>.*)$")
+
+
+def pustaka_judul_dulu(baris):
+    """@pustaka_gaya: judul_tebal: baris #R muallif -> «**judul**. لفلان (ت: …هـ). data cetak»; nama «ابن كثير،
+    إسماعيل بن عمر» dibalik jadi «إسماعيل بن عمر ابن كثير». None = bukan bentuk muallif."""
+    m = BARIS_MUALLIF.match(baris.strip())
+    if not m:
+        return None
+    bagian = [f"**{m['judul'].strip()}**"]
+    if m["nama"]:
+        nama = m["nama"].strip()
+        if "،" in nama:
+            akhir, _, depan = nama.partition("،")
+            nama = f"{depan.strip()} {akhir.strip()}"
+        nama = "لل" + nama[2:] if nama.startswith("ال") else "ل" + nama
+        if m["wafat"]:
+            nama += " (" + re.sub(r"^ت\s*:?\s*", "ت: ", m["wafat"].strip()) + ")"
+        bagian.append(nama)
+    if m["sisa"].strip(" ."):
+        bagian.append(m["sisa"].strip().rstrip("."))
+    return ". ".join(bagian) + "."
+
+
 def paragraf_ihda(blok):
     """Indeks paragraf (P) di bawah «#K الإهداء» sampai judul berikutnya (@ihda: tengah)."""
     hasil, dalam = [], False
@@ -826,6 +944,9 @@ def _terapkan_model_gaya(ctx):
     if meta["judul_fasl"] == "dua_baris" and not judul_dua_baris(blok):
         ctx.galat.append(ctx.di("@judul_fasl") + "@judul_fasl: dua_baris memerlukan judul #F bertitik dua, mis. "
                          "«#F الفصل الأول: المقدمة» (tercetak «الفصل الأول» lalu «المقدمة»)")
+    elif meta["judul_fasl"] != "-" and not any(b["k"] == "F" for b in blok):
+        ctx.galat.append(ctx.di("@judul_fasl") + f"@judul_fasl: {meta['judul_fasl']} memerlukan judul #F (فصل, atau مبحث "
+                         "di bahts pendek tanpa فصل)")
     if meta["ihda"] == "tengah" and not paragraf_ihda(blok):
         ctx.galat.append(ctx.di("@ihda") + "@ihda: tengah memerlukan «#K الإهداء» dengan paragraf di bawahnya")
     if meta["rujukan_ayat"] == "matan":  # [^سورة …، آية: n.] jadi «[السورة: n]» di matan, catatan kakinya tidak dicetak
@@ -863,6 +984,11 @@ def _cek_bentuk(ctx):
                      "lalu tulis satu kitab per baris di bawahnya")
     elif "#R" in di_baris and not pustaka:
         galat.append(di("#R") + "المصادر والمراجع masih kosong: tulis satu kitab per baris sesudah #R")
+    if meta["pustaka_gaya"] == "judul_tebal":  # judulnya dibaca dari tanda __…__ (pustaka_judul_dulu)
+        for n, t in ctx.pustaka_baris:
+            if not adalah_mushaf(t) and not pustaka_judul_dulu(t):
+                galat.append(f"baris {n}: @pustaka_gaya: judul_tebal membaca baris #R berbentuk «**pengarang** (ت …هـ). "
+                             f"__judul__. data cetak» (seperti muallif; `pustaka <folder>` menyusunnya): «{t[:40]}» tanpa __judul__")
     if not meta["berkas"]:
         meta["berkas"] = folder.name
     if re.search(r'[<>:"/\\|?*\x00-\x1f]', meta["berkas"]):
@@ -894,9 +1020,10 @@ def _urutkan_fihris(ctx):
     pustaka, ayat_idx, hadits_idx = ctx.pustaka, ctx.ayat_idx, ctx.hadits_idx
     quran = [p for p in pustaka if adalah_mushaf(p)]  # tanpa nomor, paling atas
     pengarang = ctx.meta.get("pustaka_gaya") == "muallif"
+    judul_dulu = ctx.meta.get("pustaka_gaya") == "judul_tebal"  # urut judul yang tercetak di depan, bukan pengarang
     # rujukan Arab dulu, lalu rujukan asing (pustaka_asing), masing-masing urut abjad
     pustaka = quran + sorted([p for p in pustaka if p not in quran],
-                             key=lambda p: (pustaka_asing(p), kunci_urut(p, pengarang)))
+                             key=lambda p: (pustaka_asing(p), kunci_urut((judul_dulu and pustaka_judul_dulu(p)) or p, pengarang)))
     for a in ayat_idx:
         a["surah"] = SURAH[a["s"] - 1]
     hadits_idx.sort(key=lambda h: kunci_urut(h["t"]))
@@ -1033,9 +1160,10 @@ def perkiraan_halaman(d):
     blok, malahiq = d["blok"][:i_r], d["blok"][i_r + 1:]  # @malahiq: akhir = sesudah #R
     # الإهداء dst. sebelum المقدمة bukan halaman isi, dengan atau tanpa @nomor (sama dengan HALAMAN_ISI)
     mula = rencana["awal_isi"] or 0
-    isi = halaman(blok[mula:])
+    isi = halaman(blok[mula:]) + len(rencana["pemisah"])  # halaman pemisah (@judul_fasl) di dalam halaman isi
     rinci = {"sampul": 1 + rencana["basmalah"] + bool(rencana["ayat_pembuka"]) if not rencana["buang_sampul"] else 0,
-             "sebelum المقدمة": halaman(blok[:mula]) if mula else 0, "الملاحق": halaman(malahiq) if malahiq else 0}
+             "sebelum المقدمة": halaman(blok[:mula]) if mula else 0, "الملاحق": halaman(malahiq) if malahiq else 0,
+             "penutup": int(rencana["tamma"])}
     judul = sum(b["k"] in JUDUL_FIHRIS for b in blok)  # baris فهرس الموضوعات
     dicetak = {b["jenis"] for b in rencana["bagian"]}
     for nama, jenis, n, per in (("المصادر", "pustaka", len(d["pustaka"]), 12), ("فهرس الآيات", "ayat", len(d["ayat"]), 26),
@@ -1167,6 +1295,7 @@ def _cek_tata_letak(ctx):
                              f"sesudahnya mulai halaman baru: tulis paragraf pengantar di bawahnya (kaitannya dengan bagian "
                              f"sebelumnya dan isinya, mis. وفيه مطلبان…, tanpa klaim baru tanpa bukti)")
         elif (a["k"] in ("F", "B") and b["k"] in ("B", "M") and "FBM".index(b["k"]) > "FBM".index(a["k"])
+              and not (a["k"] == "F" and meta["judul_fasl"] in JUDUL_FASL_PEMISAH)  # halaman pemisah = pengantarnya
               and not re.search(r"تمهيد|مدخل", norma.HARAKAT.sub("", b["judul"]))):  # judul «تمهيد» di bawahnya = pengantar itu sendiri
             # فصل/مبحث yang langsung disusul مبحث/مطلب-nya: judul bertumpuk tanpa تمهيد (dikeluhkan dosen)
             perhatian.append(f"baris {a['n']}: judul «{a['judul'][:40]}» langsung disusul judul «{b['judul'][:40]}» "
@@ -1382,6 +1511,12 @@ def rencana_cetak(d):
         except TandaRusak:  # sudah GAGAL di _cek_sampul
             pass
     fmt = format_cetak(d["format"])
+    # @judul_fasl: pemisah = judul #F di halaman sendiri; isi sesudahnya (blok berikutnya selain #H) mulai halaman baru
+    pemisah = halaman_pemisah(blok) if meta.get("judul_fasl") in JUDUL_FASL_PEMISAH else {}
+    for i in map(int, pemisah):
+        j = next((j for j in range(i + 1, len(blok)) if blok[j]["k"] != "H"), None)
+        if j is not None and blok[j]["k"] != "R" and j not in halaman_baru:
+            halaman_baru = sorted([*halaman_baru, j])
     mulakhas = [(i, j) for i, b in enumerate(blok)
                 if b["k"] == "K" and MULAKHAS.match(j := norma.HARAKAT.sub("", b["judul"]))]
     return {"format": fmt, "sampul": sampul,
@@ -1394,8 +1529,17 @@ def rencana_cetak(d):
             "abjad": meta.get("nomor") in ("abjad", "mukadimah"), "nomor_satu": nomor_satu, "halaman_baru": halaman_baru,
             "awal_isi": awal_isi, "maudhuat_awal": maudhuat_awal, "ayat_pembuka": pembuka,
             "judul_kanan": [t for t in daftar(meta, "judul_kanan") if t != GAYA["judul_kanan"][0]],
-            "tengah": _sampul_tengah(meta, sub, judul) if sampul == "tengah" else None,
-            "judul_dua_baris": judul_dua_baris(blok) if meta.get("judul_fasl") == "dua_baris" else {},
+            "susun": _sampul_susun(meta, sub, judul, sampul) if sampul in SAMPUL_SUSUN else None,
+            # @judul_fasl: dua_baris dan kotak = judul #F dua baris (kotak: baris kedua lebih kecil); pemisah: halaman_pemisah
+            "judul_fasl": meta.get("judul_fasl"),
+            "judul_dua_baris": judul_dua_baris(blok) if meta.get("judul_fasl") in ("dua_baris", "kotak") else {},
+            "pemisah": pemisah,
+            # @tamma: halaman penutup «تمّ بحمد الله وتوفيقه» sesudah الفهارس (halaman terakhir), tanpa nomor
+            "tamma": meta.get("tamma") == "ya",
+            # @pustaka_gaya: judul_tebal: baris المصادر yang tercetak (urutannya = d["pustaka"], urut judul)
+            "pustaka_butir": [f"**{p.replace('**', '').replace('__', '').strip()}**" if adalah_mushaf(p)
+                              else pustaka_judul_dulu(p) or p for p in d.get("pustaka", [])]
+            if meta.get("pustaka_gaya") == "judul_tebal" else None,
             "ihda": _jarak_ihda(blok, fmt) if meta.get("ihda") == "tengah" else {},
             "jarak_sub": _jarak_sub(blok, fmt),
             "mufradat": baris_mufradat(blok),
@@ -1443,18 +1587,54 @@ def _jarak_ihda(blok, fmt):
             for i in paragraf_ihda(blok)}
 
 
-def _sampul_tengah(meta, sub, judul):
-    """Baris-baris sampul tengah dari atas ke bawah, sesudah logo. Judul: per « // » di @judul_sampul, atau @judul
-    (sub-judul « - …» baris sendiri). @jenis, @nim, @fasl, @jabatan, dan @sifat tidak tercetak (model خطة dosen)."""
+SAMPUL_SUSUN = ("tengah", "kop", "tanpa_kop")  # sampul yang disusun rakit.ps1 baris demi baris (_sampul_susun), tanpa templat
+TAHUN_SAMPUL = "{tahun}"  # diganti rakit.ps1 dengan tahun sampul (@tahun, atau tahun ajaran hijriah yang dihitung di sana)
+
+
+def _isi(meta, k):
+    """Nilai @k yang tercetak: kosong atau «-» = tidak ada."""
+    v = meta.get(k, "").strip()
+    return "" if v == "-" else v
+
+
+def _sampul_susun(meta, sub, judul, model):
+    """Sampul yang disusun rakit.ps1 tanpa templat: {logo, baris}. Tiap baris {t, uk (pt), atas (pt di atasnya), jenis
+    (judul = huruf judul sampul, dikecilkan kalau tidak muat; lentur = sisa tinggi halaman dibagi ke jarak di atas
+    baris-baris ini; kop = baris kop bertingkat di kanan atas), celah (jaraknya dipendekkan dulu kalau sampul meluap),
+    hias (huruf judul hias rakit.ps1, PT Bold Heading)}.
+    Semua tebal. tengah = model خطة dosen المعهد (logo berwarna di atas; ukuran dan jarak dari contoh PDF-nya; @jenis,
+    @nim, @fasl, @jabatan, @sifat tidak tercetak); kop dan tanpa_kop: lihat SAMPUL. Judul: per « // » di @judul_sampul
+    (tengah), atau @judul dengan sub-judul « - …» baris sendiri."""
     judul_baris = ([PISAH_SUB.sub("", b).strip() for b in meta["judul_sampul"].split("//") if PISAH_SUB.sub("", b).strip()]
                    if meta.get("judul_sampul")
                    else [sub.group(1).strip(), sub.group(2).strip()] if sub else [judul])
-    musyrif = meta.get("musyrif", "")
-    return {"lembaga": LEMBAGA_TENGAH,
-            "qism": [b.strip() for b in meta.get("qism", "").split("//") if b.strip() not in ("", "-")],  # «-» = tanpa baris qism
-            "judul": judul_baris,
-            "nama": ("إعداد الطالبة: " if meta.get("thalibah") == "ya" else "إعداد الطالب: ") + meta.get("nama", ""),
-            "musyrif": f"إشراف: {musyrif}" if musyrif and musyrif != "-" else ""}
+    qism = [b.strip() for b in meta.get("qism", "").split("//") if b.strip() not in ("", "-")]  # «-» = tanpa baris qism
+    musyrif, jabatan, nim, jenis = _isi(meta, "musyrif"), _isi(meta, "jabatan"), _isi(meta, "nim"), _isi(meta, "jenis")
+    talib = "إعداد الطالبة" if meta.get("thalibah") == "ya" else "إعداد الطالب"
+
+    def b(t, uk, atas, jenis=""):
+        return {"t": t, "uk": uk, "atas": atas, "jenis": jenis, "celah": False, "hias": False}
+    if model == "tengah":  # jarak baris ke baris di contoh 33,6 pt = tinggi baris TA 18 + 6 pt; celah = satu baris lagi
+        baris = [{**b(LEMBAGA_TENGAH, 18, 39), "celah": True}, *(b(q, 18, 6) for q in qism), *(b(j, 18, 6, "judul") for j in judul_baris),
+                 b(f"{talib}: {meta.get('nama', '')}", 18, 6), *([b(f"إشراف: {musyrif}", 18, 6)] if musyrif else []),
+                 b(TAHUN_SAMPUL, 18, 6)]
+        baris[1] = {**baris[1], "atas": 6 + 33.6, "celah": True}
+        return {"logo": True, "baris": baris}
+    utama = [{**b(judul_baris[0], 32, 0, "judul"), "hias": True}, *(b(j, 20, 6, "judul") for j in judul_baris[1:]),
+             *([b(jenis, 16, 14)] if jenis else [])]
+    pelajar = [b(f"{talib}:" if model == "kop" else talib, 16, 0), b(meta.get("nama", ""), 20, 4),
+               *([b(f"الرقم الجامعي: {nim}", 16, 2)] if nim else [])]
+    pembimbing = [b("إشراف:" if model == "kop" else "إشراف", 16, 24), b(musyrif, 20, 4),
+                  *([b(jabatan, 16, 2)] if jabatan else [])] if musyrif else []
+    if model == "kop":  # kop bertingkat kanan atas, lalu isi bertumpuk dengan jarak tetap (tanpa (٠٣٢): kode resmi kampus lain)
+        kop = [{**b(t, 14, 0 if not i else 2), "jenis": "kop"} for i, t in enumerate([*KOP, *(qism or [QISM])])]
+        baris = [*kop, {**utama[0], "atas": 60}, *utama[1:], {**pelajar[0], "atas": 40}, *pelajar[1:], *pembimbing,
+                 b(f"العام الجامعي {TAHUN_SAMPUL}", 18, 40)]
+    else:  # tanpa_kop: judul di atas, إعداد/إشراف di tengah, kampus dan tahun di bawah; sisa halaman ke dua jarak lentur
+        bawah = [b(t, 16, 4) for t in [*KOP_BAWAH, *(qism or [QISM]), TAHUN_SAMPUL]]
+        baris = [{**utama[0], "atas": 24}, *utama[1:], {**pelajar[0], "jenis": "lentur"}, *pelajar[1:], *pembimbing,
+                 {**bawah[0], "jenis": "lentur"}, *bawah[1:]]
+    return {"logo": False, "baris": baris}
 
 
 def _bahan(ctx, blok, profil, quran, sumber, sidik_naskah):
