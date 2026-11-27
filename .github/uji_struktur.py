@@ -441,7 +441,20 @@ def utama():
         cek("urutan pustaka muallif", gaya)
         urut = [p.split("،")[0].strip("*") for p in json.loads(bahan(f).read_text(encoding="utf8"))["pustaka"]]
         assert urut == ["القرآن الكريم.", "الترمذي", "أبو داود", "العثيمين", "ابن كثير"], urut
-        hasil.append("standar أبو سليمان: الخاتمة, المقدمة رسالة, urutan pustaka muallif")
+        # judul pendek sebelum judul yang diawali kata yang sama: «الكتاب، سيبويه» sebelum «الكتاب الفريد»,
+        # «معاني القرآن، الفراء» sebelum «معاني القرآن وإعرابه» (tanda baca jangan terurut sesudah spasi)
+        pendek = dasar.replace(
+            "رسالة في القضاء والقدر، محمد بن صالح بن محمد العثيمين، دار الوطن، 1423هـ.",
+            "رسالة في القضاء والقدر، محمد بن صالح بن محمد العثيمين، دار الوطن، 1423هـ.\n"
+            "الكتاب الفريد في إعراب القرآن المجيد، المنتجب الهمداني، دار الزمان، 1427هـ.\n"
+            "الكتاب، سيبويه، مكتبة الخانجي، 1408هـ.\n"
+            "معاني القرآن وإعرابه، الزجاج، عالم الكتب، 1408هـ.\n"
+            "معاني القرآن، الفراء، الدار المصرية، د.ت.")
+        cek("urutan pustaka judul pendek", pendek)
+        urut = [p.split("،")[0] for p in json.loads(bahan(f).read_text(encoding="utf8"))["pustaka"]]
+        assert urut.index("الكتاب") < urut.index("الكتاب الفريد في إعراب القرآن المجيد"), urut
+        assert urut.index("معاني القرآن") < urut.index("معاني القرآن وإعرابه"), urut
+        hasil.append("standar أبو سليمان: الخاتمة, المقدمة رسالة, urutan pustaka muallif dan judul pendek")
 
         # `tahap`: keadaan dibaca ulang dari barang aslinya. Yang diam-diam menyesatkan: PDF lama dilaporkan TERKINI sesudah
         # naskah diubah, folder .rakit-* tanpa penanda disuruh/dibiarkan dibuang, atau rakit yang jalan tidak terlihat.
