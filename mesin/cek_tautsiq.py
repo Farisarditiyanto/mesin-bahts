@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Bentuk rujukan (التوثيق) menurut عبد الوهاب أبو سليمان، كتابة البحث العلمي (Shamela 8350): data cetak lengkap di
-rujukan pertama tiap kitab (ص170), beberapa sumber dipisah «؛» (ص176 no. 15), dan nama tanpa gelar (ص175-176 no. 11).
-Semuanya perhatian, tidak pernah GAGAL: bentuk, bukan kebenaran isi."""
+rujukan pertama tiap kitab (ص170), «المصدر نفسه» hanya untuk sumber catatan kaki tepat sebelumnya (ص170-172), beberapa
+sumber dipisah «؛» (ص176 no. 15), nama tanpa gelar (ص175-176 no. 11), dan «ص»/«ج» tanpa titik (ص179). Urutan unsur
+rujukan (judul dulu, lalu pengarang) dan juz/hal «7/43» = aturan repo; kitab itu mendahulukan pengarang dan menulis
+«ج٢، ص٣٩» (ص134، 170). Semuanya perhatian, tidak pernah GAGAL: bentuk, bukan kebenaran isi."""
 import re
 
 import norma
@@ -130,3 +132,30 @@ def gelar(teks, apa):
         return None
     return (f"gelar «{g}» di depan nama: buang gelarnya («تحقيق: عبد الله التركي»; `kartu` sudah tanpa gelar) "
             f"(أبو سليمان، كتابة البحث العلمي، ص175-176){ekor(teks, apa=apa)}")
+
+
+# «المصدر نفسه»، «المرجع نفسه»، «نفس المصدر»: mengulang sumber catatan kaki tepat sebelumnya (ص170-172)
+NAFSIH = re.compile(r"(?<![ء-ي])(?:(?:ال)?(?:مصدر|مرجع)\s+نفسه|نفس\s+(?:ال)?(?:مصدر|مرجع))(?![ء-ي])")
+
+
+def sumber_nafsih(isi, sumber, sumber_lalu):
+    """Perhatian kalau catatan kaki «المصدر نفسه» berbukti sumber (`sumber`: nomor kitab, «luar|berkas», «w…») yang tidak
+    satu pun ada di catatan kaki tepat sebelumnya (`sumber_lalu`), atau None. Catatan kaki tanpa bukti di salah satunya
+    (penjelasan, ayat) tidak dinilai."""
+    if not sumber or not sumber_lalu or sumber & sumber_lalu or not NAFSIH.search(norma.HARAKAT.sub("", isi)):
+        return None
+    return (f"«المصدر نفسه» untuk sumber yang bukan sumber catatan kaki tepat sebelumnya: tulis judul ringkasnya "
+            f"(judul، pengarang، juz/hal) (أبو سليمان، كتابة البحث العلمي، ص170-172){ekor(isi)}")
+
+
+# «ص.٣٢»، «ج. ٢»: titik sesudah ص/ج terbaca nol di depan angkanya (ص179)
+TITIK_SINGKATAN = re.compile(r"(?<![ء-ي.])([صج])\s*\.\s*(?=[0-9٠-٩])")
+
+
+def titik_singkatan(isi):
+    """Perhatian kalau «ص»/«ج» di luar kutipan diberi titik sebelum angkanya, atau None."""
+    m = TITIK_SINGKATAN.search(luar_petik(seragam(isi)))
+    if not m:
+        return None
+    return (f"«{m[0].strip()}…»: tulis «{m[1]}» tanpa titik («ص32»، «ج2»): titik sesudahnya terbaca nol "
+            f"(أبو سليمان، كتابة البحث العلمي، ص179){ekor(isi)}")

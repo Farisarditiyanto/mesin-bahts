@@ -9,14 +9,14 @@ import norma
 import produk
 import rumus
 from berkas import sementara
-from cek_seluruh import (KEPALA_PERHATIAN, RISET, periksa_dirasat, periksa_khatimah, periksa_muqaddimah, periksa_riset,
-                         porsi_kutipan)
+from cek_seluruh import (KEPALA_PERHATIAN, RISET, kata_ganti_penulis, panjang_mulakhas, periksa_dirasat, periksa_khatimah,
+                         periksa_muqaddimah, periksa_riset, porsi_kutipan)
 from cek_ayat import ayat
-from cek_rujukan import kitab_tanpa_pustaka, rujukan_halaman
+from cek_rujukan import kitab_tanpa_pustaka, pustaka_tak_dirujuk, rujukan_halaman
 from cek_sumber import standar_baris
 from cek_tautsiq import gelar
 from dasar import (AD, ANGKA_LATIN, ANZHUR, BUKAN_RUJUKAN, HERE, HORMAT_CETAK, HURUF_LATIN, JUDUL_BAB, JUDUL_FIHRIS, JUDUL_ISI, LUAR,
-                   SUBJUDUL, SURAH, TINGKAT_JUDUL, DICABUT, TandaRusak, akhir_catatan, akhir_rumus, baca_anzhur, daftar, perintah,
+                   MULAKHAS, MULAKHAS_ASING, SUBJUDUL, SURAH, TINGKAT_JUDUL, DICABUT, TandaRusak, akhir_catatan, akhir_rumus, baca_anzhur, daftar, perintah,
                    profil_format, tanpa_catatan)
 from petik import kutipan_semua, luar_petik
 from laporan import gabung_kembar
@@ -168,7 +168,9 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       selebar halaman; baris pertamanya = kepala (tebal, rata tengah, berlatar abu-abu, diulang di halaman
                       berikutnya). Sel berisi angka saja (mis. «24», «12,5٪», «1442هـ/2021م», «10-20», «$300») rata
                       tengah; sel teks rata kanan. Tiap baris tabel itu harus sama jumlah selnya. Sel boleh memuat catatan kaki dan kutipan berbukti
-                      (dicek seperti paragraf). Judul tabelnya ditulis sebagai #S atau paragraf sebelum baris #J pertama
+                      (dicek seperti paragraf). Judul tabel: «#J جدول: …» tepat di atas baris #J pertama = «جدول (١): …»
+                      bernomor urut, tebal di tengah; sumbernya: «#J المصدر: …» tepat di bawah baris terakhir (boleh
+                      bercatatan kaki). Keduanya pilihan; tanpa itu judulnya #S atau paragraf sebelum baris #J pertama
   #G berkas | keterangan   gambar (PNG/JPG di folder bahts) di tengah halaman, selebar paling banyak lebar teks dan setinggi
                       paling banyak 70% halaman; keterangan (boleh kosong) tercetak di bawahnya, tanpa catatan kaki.
                       Diagram Mermaid: tulis <nama>.mmd di folder bahts, `python mesin/bahts.py diagram <folder>`, lalu
@@ -667,8 +669,12 @@ def _baris_tabel(ctx, n, k, t):
     except TandaRusak as e:
         ctx.galat.append(f"{e} :: #J {t[:40]}")
         return
+    if len(sel) == 1 and (m := KETERANGAN_TABEL.match(sel[0])):
+        _keterangan_tabel(ctx, n, m)
+        return
     if len(sel) < 2 or not all(sel):
-        ctx.galat.append(f"#J butuh paling sedikit dua sel berisi, dipisah « | » :: #J {t[:40]}")
+        ctx.galat.append(f"#J butuh paling sedikit dua sel berisi, dipisah « | » (atau «#J جدول: …» / «#J المصدر: …») "
+                         f":: #J {t[:40]}")
         return
     sebelum = ctx.blok[-1] if ctx.blok else None
     if sebelum and sebelum["k"] == "J" and len(sebelum["sel"]) != len(sel):
@@ -707,6 +713,30 @@ def sel_angka(blok):
         if c:
             hasil[str(i)] = c
     return hasil
+
+
+# «#J جدول: judul» tepat di atas baris pertama tabel, «#J المصدر: sumber» tepat di bawah baris terakhirnya: «يُوضع لكل
+# جدول رَقْم وعنوان» dan sumbernya di bawahnya (أبو سليمان، كتابة البحث العلمي، ص219-220). Nomor «جدول (n):» urut naskah
+KETERANGAN_TABEL = re.compile(r"(جدول|المصدر)\s*:\s*(\S.*)")
+BLOK_KETERANGAN = {"جدول": "JT", "المصدر": "JS"}  # k blok: judul tabel (sebelum #J) dan sumbernya (sesudah #J)
+
+
+def _keterangan_tabel(ctx, n, m):
+    """Judul tabel bernomor (blok JT, tebal di tengah, tanpa catatan kaki) atau sumber tabel (blok JS, boleh bercatatan
+    kaki); letaknya terhadap baris #J dinilai `_cek_tata_letak`."""
+    runs = _urai_aman(ctx, m[2])
+    if runs is None:
+        return
+    k = BLOK_KETERANGAN[m[1]]
+    if k == "JT":
+        if any("fn" in r for r in runs):
+            ctx.galat.append(f"#J جدول: judul tabel tanpa catatan kaki: tulis sumbernya di «#J المصدر: …» :: {m[0][:40]}")
+            return
+        nomor = 1 + sum(b["k"] == "JT" for b in ctx.blok)
+        runs = [{"t": f"جدول ({nomor}): ", "b": True}, *({**r, "b": True} if "t" in r else r for r in runs)]
+    else:
+        runs = [{"t": "المصدر: ", "b": True}, *runs]
+    ctx.blok.append({"k": k, "runs": runs, "n": n})
 
 
 def _baris_latin(ctx, n, k, t):
@@ -947,7 +977,7 @@ def _pilih(ctx, kunci):
 
 def _cek_sesudah_naskah(ctx):
     """Yang baru bisa dinilai sesudah semua baris dibaca: standar sumber bagian terakhir,
-    porsi kutipan, الدراسات السابقة, dan {P:} yang menunjuk {A:}/{H:}."""
+    porsi kutipan, الدراسات السابقة, المقدمة/الخاتمة/الملخص, kata ganti orang pertama, dan {P:} yang menunjuk {A:}/{H:}."""
     blok, catatan, hadits_idx, galat = ctx.blok, ctx.catatan, ctx.hadits_idx, ctx.galat
     perhatian = ctx.perhatian
     perhatian += standar_baris(ctx.standar); ctx.standar.clear()
@@ -955,6 +985,8 @@ def _cek_sesudah_naskah(ctx):
     perhatian += periksa_dirasat(blok, catatan)
     perhatian += periksa_muqaddimah(blok, ctx.meta.get("jenis", ""))
     perhatian += periksa_khatimah(blok)
+    perhatian += panjang_mulakhas(blok)
+    perhatian += kata_ganti_penulis(blok)
     for r in ctx.rujuk_silang:
         if r["k"] not in ctx.jangkar:
             dulu = any(h["k"] == "h_" + r["k"] for h in hadits_idx)
@@ -1261,12 +1293,16 @@ def _cek_jumlah_kitab(ctx, quran):
 
 
 def _cek_kitab_pustaka(ctx):
-    """Kitab berbukti di catatan kaki yang tidak ada di المصادر والمراجع = perhatian (cek_rujukan.kitab_tanpa_pustaka).
+    """Kitab berbukti di catatan kaki yang tidak ada di المصادر والمراجع, dan baris المصادر yang tidak dirujuk catatan kaki
+    mana pun = perhatian (cek_rujukan.kitab_tanpa_pustaka, pustaka_tak_dirujuk).
     Tidak dinilai: @tanpa: pustaka (sumber cukup di catatan kaki), dan #R yang kosong atau tidak ada (sudah GAGAL di
     _cek_bentuk)."""
     if "pustaka" in daftar(ctx.meta, "tanpa") or not ctx.pustaka:
         return
-    ctx.perhatian += kitab_tanpa_pustaka(ctx.penunjuk, [(n, t) for n, t in ctx.pustaka_baris if not adalah_mushaf(t)])
+    pustaka = [(n, t) for n, t in ctx.pustaka_baris if not adalah_mushaf(t)]
+    ctx.perhatian += kitab_tanpa_pustaka(ctx.penunjuk, pustaka)
+    ctx.perhatian += pustaka_tak_dirujuk(ctx.penunjuk, pustaka,
+                                         ["".join(r.get("t") or "" for r in c["runs"]) for c in ctx.catatan])
 
 
 def kurang_halaman(meta, halaman):
@@ -1465,6 +1501,10 @@ def _cek_tata_letak(ctx):
             perhatian.append(f"baris {a['n']}: judul «{a['judul'][:40]}» langsung disusul judul «{b['judul'][:40]}» "
                              f"tanpa paragraf pengantar: tulis pengantar di bawahnya (isinya dan pembagiannya: "
                              f"{'وفيه مبحثان' if a['judul'].startswith('الفصل') or (a['k'] == 'F' and not a['judul'].startswith('المبحث')) else 'وفيه مطلبان'}…)")
+    for a, b, c in zip([{"k": ""}] + blok, blok, blok[1:] + [{"k": ""}]):
+        if b["k"] == "JT" and c["k"] != "J" or b["k"] == "JS" and a["k"] != "J":
+            galat.append(f"baris {b['n']}: «#J {'جدول' if b['k'] == 'JT' else 'المصدر'}: …» harus tepat "
+                         f"{'di atas baris #J pertama' if b['k'] == 'JT' else 'di bawah baris #J terakhir'} tabelnya")
     for anak, induk in _anak_tunggal(blok):
         perhatian.append(f"baris {anak['n']}: sub-bagian tunggal «{anak['judul'][:40]}» di bawah «{induk['judul'][:40]}»: "
                          "bagian yang dipecah semestinya paling sedikit dua (tambah pasangannya, atau satukan isinya "
@@ -1548,8 +1588,6 @@ def _angka_cetak(ctx):
 
 
 MALAHIQ = re.compile(r"(ال)?ملاحق|ملحق")
-MULAKHAS = re.compile(r"^(?:ال)?ملخص")
-MULAKHAS_ASING = re.compile(r"ال[أا]جنبي[ةه]|ال[إا]نجليزي[ةه]")
 
 
 def _malahiq(ctx):

@@ -125,8 +125,10 @@ def utama():
             "@judul: فحص الجدول\n@nama: فلان\n@berkas: b2\n@sampul: QISM\n@logo: berwarna\n"
             "@rujukan_ayat: matan\n@tanpa: pustaka, ayat, hadits, maudhuat\n@minimal_halaman: 0\n"
             "#K المقدمة\nنص.\n#F الفصل الأول\n"
+            "#J جدول: الآية وبيانها\n"
             "#J الآية | البيان\n"
             "#J {Q:1:3}[^سورة الفاتحة، آية: 3.] | شرح[^حاشية جدول.]\n"
+            "#J المصدر: إعداد الباحث.\n"
             "#K الخاتمة\nأهم النتائج: تم.\n",
             encoding="utf8",
         )
@@ -144,7 +146,15 @@ def utama():
         assert len(isi_fn) == 1 and "حاشية جدول" in isi_fn[0], f"catatan kaki di tabel: {isi_fn}"
         teks_tabel = "\n".join("".join(tb.itertext()) for tb in xml2.findall(".//w:tbl", NS))
         assert "[الفاتحة: ٣]" in teks_tabel, f"rujukan ayat matan hilang di sel #J: {teks_tabel}"
-        print("lolos tabel Word (sampul qism + @logo: berwarna + catatan & ayat matan di #J)", flush=True)
+        # 4) «#J جدول: …» = paragraf «جدول (١): …» yang menempel tepat sebelum tabelnya, «#J المصدر: …» tepat sesudahnya
+        W = f"{{{NS['w']}}}"
+        badan2 = list(xml2.find("w:body", NS))
+        i_tbl = next(i for i, e in enumerate(badan2) if e.tag == W + "tbl" and "البيان" in "".join(e.itertext()))
+        judul_tbl, sumber_tbl = ("".join(badan2[i].itertext()).strip() for i in (i_tbl - 1, i_tbl + 1))
+        assert judul_tbl == "جدول (١): الآية وبيانها", f"judul tabel sebelum tabel: «{judul_tbl}»"
+        assert sumber_tbl == "المصدر: إعداد الباحث.", f"sumber tabel sesudah tabel: «{sumber_tbl}»"
+        assert badan2[i_tbl - 1].find("w:pPr/w:keepNext", NS) is not None, "judul tabel tidak menempel ke tabelnya"
+        print("lolos tabel Word (sampul qism + @logo: berwarna + catatan & ayat matan di #J + judul/sumber tabel)", flush=True)
 
 
 if __name__ == "__main__":

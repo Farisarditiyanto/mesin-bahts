@@ -7,7 +7,7 @@ import typing
 import norma
 import shamela
 import waqfeya
-from dasar import ANGKA_LATIN, LUAR, RENTANG_MAKS, WAQFEYA_BUKTI, ekor, perintah
+from dasar import ANGKA_LATIN, LUAR, RENTANG_MAKS, TAKHRIJ_AWAL, WAQFEYA_BUKTI, ekor, perintah
 from kitab_lokal import bagian_kitab, kitab_meta, rekaman
 from laporan import ringkas_rentang
 
@@ -130,7 +130,7 @@ def tercetak(isi, juz):
     """Rentang halaman yang tercetak di catatan kaki untuk juz ini: [(awal, akhir)]. Angka ٠-٩ dibaca seperti 0-9.
     «ص» harus berdiri sebagai kata («النص 5» bukan halaman), boleh disambung و/ف («وص6»). Rentang boleh «-» atau «–»;
     «ص5، 7», «ص5 و7», «1/5، 7» = halaman 5 dan 7 (angka sesudah koma atau و yang bukan tahun atau juz/halaman).
-    «ص: 5» dan «الصفحة 5» sama dengan «ص5».
+    «ص: 5», «ص.5» (perhatian cek_tautsiq.titik_singkatan) dan «الصفحة 5» sama dengan «ص5».
     Halaman bahts sendiri («ص3 من هذا البحث», «ص3 من البحث», «ص3 من هذه الرسالة/المذكرة») bukan halaman kitab."""
     isi = re.sub(r"\d+(?:\s*(?:[-–]|[،,]\s*و?|\s+و)\s*\d+)*\s*(?=من\s+(?:(?:هذا\s+)?البحث|هذه\s+(?:الرسالة|المذكرة)))",
                  " ", isi.translate(ANGKA_LATIN))
@@ -139,7 +139,7 @@ def tercetak(isi, juz):
     satu = rf"{rentang}(?![\d/]|(?:\s*[-–]\s*\d+)*\s*(?:/|هـ|ه(?!\w)|م(?!\w)))"
     daftar = rf"(?:\s*(?:[،,]\s*و?|\s+و)\s*(?!{tahun}){satu})*"
     if juz == "-":
-        pola = rf"(?<![\wـ])(?:[وف]?ص|الصفحة)\s*:?\s*({satu}{daftar})"
+        pola = rf"(?<![\wـ])(?:[وف]?ص|الصفحة)\s*[:.]?\s*({satu}{daftar})"
     else:
         pola = rf"(?<![\d/]){re.escape(juz)}\s*/\s*({satu}{daftar})"
     return [(int(a), int(b or a)) for m in re.findall(pola, isi) for a, b in re.findall(r"(\d+)(?:\s*[-–]\s*(\d+))?", m)]
@@ -152,7 +152,7 @@ JUZ_TERCETAK = re.compile(r"(?<![\w/])(\d{1,2})\s*/\s*\d+(?![\d/])(?!\s*(?:هـ|
 # «ج1، ص55», «ج1/ص55», «ج ١ ص ٥٥», «الجزء 1، ص55», «الجزء الأول، الصفحة 55» (sesudah ANGKA_LATIN) = «1/55»
 URUTAN = {"الأول": 1, "الاول": 1, "الثاني": 2, "الثالث": 3, "الرابع": 4, "الخامس": 5, "السادس": 6, "السابع": 7,
           "الثامن": 8, "التاسع": 9, "العاشر": 10}
-JUZ_ARAB = re.compile(rf"(?<![\wـ])(?:ج|الجزء)\s*:?\s*(\d{{1,2}}|{'|'.join(URUTAN)})\s*[،,/]?\s*(?:ص|الصفحة)\s*:?\s*(?=\d)")
+JUZ_ARAB = re.compile(rf"(?<![\wـ])(?:ج|الجزء)\s*[:.]?\s*(\d{{1,2}}|{'|'.join(URUTAN)})\s*[،,/]?\s*(?:ص|الصفحة)\s*[:.]?\s*(?=\d)")
 
 
 def juz_arab(t):
@@ -462,9 +462,10 @@ def _tanpa_al(kata):
     return [k[2:] if k.startswith("ال") and len(k) > 4 else k for k in kata]
 
 
-def kitab_tanpa_pustaka(penunjuk, pustaka_baris):
-    """Perhatian tiap kitab berbukti (<<sid|…>>, <<w…|…>>, <<luar|berkas|…>>) di catatan kaki yang tidak ada di baris #R
-    (`pustaka_baris`: [(nomor, teks)] tanpa القرآن الكريم).
+def _padanan(penunjuk, pustaka_baris):
+    """(kitab, calon, ciri) tiap kitab berbukti (<<sid|…>>, <<w…|…>>, <<luar|berkas|…>>) di catatan kaki: catatan kaki
+    pertamanya, nomor baris #R (`pustaka_baris`: [(nomor, teks)] tanpa القرآن الكريم) yang menyebutnya, dan ciri
+    pengarangnya.
     Catatan kaki dipecah di «؛» (beberapa sumber satu hal); tiap bukti dipasangkan dengan bagian yang menyebut judulnya,
     atau dengan satu-satunya bagian kalau catatan kaki itu hanya berbukti satu kitab. Kitab Shamela dan Waqfeya ada di
     #R kalau satu baris menyebut judulnya (`judul_di_baris`: katalog, kartu, atau judul seperti di catatan kakinya) dan
@@ -474,7 +475,6 @@ def kitab_tanpa_pustaka(penunjuk, pustaka_baris):
     luar bagian milik kitab lain, termuat utuh di tepat satu baris #R."""
     baris = {n: kata_rujukan(t) for n, t in pustaka_baris}
     awal_baris = {n: _judul_baris(t) for n, t in pustaka_baris}
-    pengarang_baris = {n: _tanpa_al(_tanpa_judul(t)) for n, t in pustaka_baris}
     kitab, data = {}, {}  # kunci -> catatan kaki pertama, judul/pengarang tertulis, bagian; kunci -> _kitab_bukti
     for p in penunjuk:
         if "bukti" not in p:
@@ -533,6 +533,14 @@ def kitab_tanpa_pustaka(penunjuk, pustaka_baris):
             k["nama"] = f"«{(k['tertulis'] or k['bagian'])[0]}» (<<{kunci}|…>>)"
             calon[kunci] = {n for n, _ in pustaka_baris if judul and _skor_judul_siap(judul, baris[n], awal_baris[n]) > 0
                             or any(termuat(j, baris[n]) for j in bentuk)}
+    return kitab, calon, ciri
+
+
+def kitab_tanpa_pustaka(penunjuk, pustaka_baris):
+    """Perhatian tiap kitab berbukti (<<sid|…>>, <<w…|…>>, <<luar|berkas|…>>) di catatan kaki yang tidak ada di baris #R
+    (`pustaka_baris`: [(nomor, teks)] tanpa القرآن الكريم); padanannya: `_padanan`."""
+    kitab, calon, ciri = _padanan(penunjuk, pustaka_baris)
+    pengarang_baris = {n: _tanpa_al(_tanpa_judul(t)) for n, t in pustaka_baris}
     hasil = []
     for kunci, nn in calon.items():
         lain = set().union(*(v for x, v in calon.items() if x != kunci))
@@ -559,4 +567,34 @@ def kitab_waqfeya(isi, kitab, *, cek_shamela=True):
             hasil.append(f"«{judul}» ada di Shamela (nomor {'، '.join(map(str, persis))}): kalau edisinya sama, "
                          f"ambil kitab Shamela itu lalu tulis <<sid|juz|hal>> (dicek `cek`); edisi Waqfeya sengaja "
                          f"dipakai (mis. edisi yang diminta dosen) → «terima <kode> <alasan>»{ekor(isi)}")
+    return hasil
+
+
+MUKHARRIJ_KATA = [kata_rujukan(b) for bb in MUKHARRIJ for b in bb]
+
+
+def pustaka_tak_dirujuk(penunjuk, pustaka_baris, catatan):
+    """Perhatian baris #R (`pustaka_baris`) yang tidak dirujuk catatan kaki mana pun (`catatan`: teks tiap catatan kaki):
+    kitab yang «ليست لها صلة بالبحث؛ وإنما توضع لمجرد شهرتها» (أبو سليمان، كتابة البحث العلمي، ص203-204). Dirujuk = dipadankan ke kitab berbukti (`_padanan`),
+    judulnya utuh, dua kata pertamanya (judul ringkas), atau empat kata berurutan darinya ada di sebuah catatan kaki,
+    atau judulnya memuat nama
+    mukharrij yang disebut catatan kaki takhrij («صحيح البخاري» untuk «أخرجه البخاري»). Satu kalimat untuk semua baris
+    (gabung_kembar menjadikannya satu baris «baris n, m: …»)."""
+    _, calon, _ = _padanan(penunjuk, pustaka_baris)
+    terpakai = set().union(*calon.values())
+    kata_fn = [kata_rujukan(re.sub(r"<<[^<>]*>>", " ", t)) for t in catatan]
+    takhrij = [k for t, k in zip(catatan, kata_fn) if TAKHRIJ_AWAL.match(t)]
+    mukharrij = [m for m in MUKHARRIJ_KATA if any(termuat(m, k) for k in takhrij)]
+    hasil = []
+    for n, t in pustaka_baris:
+        judul = _judul_baris(t)
+        if n in terpakai or not judul or any(termuat(m, judul) for m in mukharrij):
+            continue
+        # judul utuh, dua kata pertamanya, atau empat kata berurutan darinya («قرار مجمع الفقه الإسلامي الدولي رقم 139»
+        # untuk catatan kaki «مجمع الفقه الإسلامي الدولي، قرار رقم 139»)
+        potong = [judul, judul[:2]] + [judul[i:i + 4] for i in range(len(judul) - 3)]
+        if any(termuat(p, k) for k in kata_fn for p in potong):
+            continue
+        hasil.append(f"baris {n}: baris المصادر والمراجع ini tidak dirujuk di catatan kaki mana pun: hapus kalau memang "
+                     f"tidak dipakai, atau rujuk di tempat yang memakainya (أبو سليمان، كتابة البحث العلمي، ص203-204)")
     return hasil
