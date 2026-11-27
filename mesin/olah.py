@@ -1107,15 +1107,18 @@ def pustaka_judul_dulu(baris):
 def pustaka_judul_tebal(baris):
     """@pustaka_gaya: judul_tebal: baris #R tercetak. Bentuk muallif dibalik (pustaka_judul_dulu); baris lain
     «judul، pengarang، …» = judul (teks sebelum «،» atau «.» pertama) tebal, sisanya apa adanya. Baris yang sudah
-    bertanda **/__ dan rujukan asing (pustaka_asing: judulnya tidak selalu di depan) tercetak apa adanya."""
+    bertanda **/__ dan yang awalnya tanpa huruf Arab (rujukan asing «Pengarang. Judul …» walau berekor «اطلع عليه في»:
+    judulnya tidak di depan) tercetak apa adanya."""
     if adalah_mushaf(baris):
         return f"**{baris.replace('**', '').replace('__', '').strip()}**"
     if (dibalik := pustaka_judul_dulu(baris)) is not None:
         return dibalik
-    if "**" in baris or "__" in baris or pustaka_asing(baris):
+    if "**" in baris or "__" in baris:
         return baris
     m = re.match(r"\s*([^،.]*[^،.\s])\s*[،.]", baris)
-    return f"{baris[:m.start(1)]}**{m[1]}**{baris[m.end(1):]}" if m else baris
+    if not m or pustaka_asing(m[1]):
+        return baris
+    return f"{baris[:m.start(1)]}**{m[1]}**{baris[m.end(1):]}"
 
 
 def paragraf_ihda(blok):
