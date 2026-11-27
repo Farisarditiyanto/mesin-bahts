@@ -982,6 +982,19 @@ try {
                 Para 1 0 0; $sel.ParagraphFormat.LineSpacingRule = 4; $sel.ParagraphFormat.LineSpacing = 2; $sel.TypeParagraph()
             }
         }
+        elseif ($blk.k -eq 'JT') {                        # «#J جدول: …» (olah._keterangan_tabel): «جدول (n): …» tebal di tengah, menempel ke tabelnya
+            Para 1 6 0
+            HalamanBaru $pb
+            Runs $blk.runs $uTabel $true
+            $sel.ParagraphFormat.KeepWithNext = -1
+            $sel.TypeParagraph()
+        }
+        elseif ($blk.k -eq 'JS') {                        # «#J المصدر: …» di bawah tabel: rata kanan, huruf catatan kaki
+            Para 0 3 0
+            Runs $blk.runs $uCatatan $false
+            $sel.ParagraphFormat.SpaceAfter = 6
+            $sel.TypeParagraph()
+        }
         elseif ($blk.k -eq 'G') {                         # gambar: di tengah, paling lebar = lebar teks, paling tinggi 70% halaman
             Para 1 6 0
             HalamanBaru $pb

@@ -439,6 +439,17 @@ def utama():
             "كلام آخر في اللغة.\n#K المقدمة\n", 1)
         out = cek("bab isi bernama mirip", bab)
         assert "المقدمة belum" not in out and "الخاتمة belum" not in out, out
+        # الملخص paling banyak 300 kata (ص225); ringkasan Arab dan Latin (#L) di bawah judul yang sama dihitung sendiri-sendiri
+        def mulakhas(n, latin=False):
+            isi = "#L " + "word " * n if latin else "كلمة " * n
+            return dasar.replace("#K المقدمة\n", f"#K الملخص\n{isi.strip()}\n#K المقدمة\n", 1)
+        assert "301 kata (العربية)" in cek("الملخص 301 kata", mulakhas(301))
+        assert "301 kata (اللاتينية)" in cek("Abstract 301 kata", mulakhas(301, True))
+        assert "paling banyak 300 kata" not in cek("الملخص 300 kata", mulakhas(300))
+        # baris المصادر yang tidak dirujuk catatan kaki mana pun (ص203-204); contoh asli: semua dirujuk
+        out = cek("#R tidak dirujuk", dasar.rstrip("\n") + "\nكتاب آخر غير مذكور في الحواشي، مؤلف وهمي، دار الفكر، 1430هـ.\n")
+        assert "tidak dirujuk di catatan kaki mana pun" in out, out
+        assert "tidak dirujuk di catatan kaki" not in asli, asli
         # urutan المصادر gaya muallif: «ابن/أبو» tidak dihitung, «ابن كثير» di ك sesudah «الترمذي» (ص204)
         gaya = dasar.replace("@format: imam_ayat16", "@format: imam_ayat16\n@pustaka_gaya: muallif").replace(
             "رسالة في القضاء والقدر، محمد بن صالح بن محمد العثيمين، دار الوطن، 1423هـ.",
