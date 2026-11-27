@@ -190,16 +190,13 @@ def jarak_mabhath(akar):
 
 
 def baris_pdf(hal):
-    """Baris teks satu halaman PDF: (teks, tengah x, huruf span pertama), urut dari atas. Span di bawah 2 pt (ekor judul
-    #F 1 pt putih untuk kepala berjalan, kepala.ps1 Ekor-Berjalan) tidak terlihat, jadi tidak dihitung."""
+    """Baris teks satu halaman PDF: (teks, tengah x, huruf span pertama), urut dari atas."""
     hasil = []
     for b in hal.get_text("dict")["blocks"]:
         for ln in b.get("lines", []):
-            sp = [s for s in ln["spans"] if s["size"] >= 2]
-            teks = "".join(s["text"] for s in sp).strip()
+            teks = "".join(s["text"] for s in ln["spans"]).strip()
             if teks:
-                x0, x1 = min(s["bbox"][0] for s in sp), max(s["bbox"][2] for s in sp)
-                hasil.append((teks, (x0 + x1) / 2, sp[0]["font"], ln["bbox"][1]))
+                hasil.append((teks, (ln["bbox"][0] + ln["bbox"][2]) / 2, ln["spans"][0]["font"], ln["bbox"][1]))
     return sorted(hasil, key=lambda x: x[3])
 
 

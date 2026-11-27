@@ -1623,6 +1623,16 @@ def batas_kepala(blok, awal_isi, bagian):
     return mulai, [{**b, "belakang": True} if j == i else b for j, b in enumerate(bagian)]
 
 
+KEPALA_BERJALAN = ("bagian", "bagian_hias", "bergantian")  # @kepala yang memuat judul #K/#F yang sedang berjalan
+
+
+def judul_berjalan(blok, kepala_mulai):
+    """{indeks blok: judul utuh} tiap #K/#F halaman isi (dari kepala_mulai sampai #R): di tiap judul itu rakit.ps1 membuka
+    bagian Word baru yang kepalanya memuat judul itu (kepala.ps1), juga judul #F yang dicetak dua baris (@judul_fasl)."""
+    i_r = next((i for i, b in enumerate(blok) if b["k"] == "R"), len(blok))
+    return {str(i): b["judul"] for i, b in enumerate(blok[:i_r]) if b["k"] in JUDUL_BAB and i >= (kepala_mulai or 0)}
+
+
 def rencana_cetak(d):
     """Rencana cetak bahan `d`: tiap keputusan «apa yang dicetak dan di mana» sebagai nilai jadi. rakit.ps1 hanya
     membacanya (di sana tidak ada aturan, bawaan, atau pengurai @data sendiri); perkiraan_halaman juga. Seluruhnya
@@ -1673,6 +1683,7 @@ def rencana_cetak(d):
     return {"format": fmt, "sampul": sampul,
             "kepala": "templat" if meta.get("templat") else meta.get("kepala"),  # bentuknya: mesin/kepala.ps1
             "kepala_mulai": kepala_mulai,
+            "judul_berjalan": judul_berjalan(blok, kepala_mulai) if meta.get("kepala") in KEPALA_BERJALAN else {},
             # baris المصادر tanpa huruf Arab dicetak kiri-ke-kanan (rata kiri), nomornya tetap di kanan
             "pustaka_ltr": [pustaka_asing(p) for p in d.get("pustaka", [])],
             "logo_berwarna": sampul == "qism" and not buang_sampul and meta.get("logo") == "berwarna",

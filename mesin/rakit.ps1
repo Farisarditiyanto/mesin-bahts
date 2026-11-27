@@ -464,7 +464,6 @@ try {
     # nomor halaman dihitung mulai dari المقدمة (bagian isi); kepala dari berkas Word (kotak, @templat) disalin di bawah,
     # dengan nomor di kaki halaman bawaan sampai ternyata kepala itu sudah memuat nomor
     $ft = $sec.Footers(1)
-    [void](Gaya-Berjalan)                                 # sumber judul bagian berjalan (STYLEREF) di kepala halaman
     Pasang-Kepala $sec $(if ($KEPALA -in 'kotak', 'templat') { '-' } else { $KEPALA }) $JUDUL_KEPALA
     $ft.PageNumbers.RestartNumberingAtSection = $true; $ft.PageNumbers.StartingNumber = 1
     if ($ABJAD) { $ft.PageNumbers.NumberStyle = 46 }     # wdPageNumberStyleArabicLetter1: أ ب ت
@@ -551,6 +550,12 @@ try {
         $s = Bagian-Baru $sudah
         for ($k = $bagianDepan; $k -lt $s.Index; $k++) { Pasang-Kepala $doc.Sections($k) '-' $JUDUL_KEPALA }
         $script:nIsi = $s.Index
+    }
+    # judul #K/#F halaman isi untuk kepala berjalan (kepala.ps1): bagian Word baru di judul ini (kecuali kursor sudah di
+    # awal bagian Word: @nomor, awal isi, judul pertama), kepalanya memuat judul utuh sebagai teks tetap
+    function Kepala-Berjalan($berjalan) {
+        $s = Bagian-Baru ($sel.Start -eq $sel.Sections(1).Range.Start)
+        Ganti-Berjalan $s $KEPALA $JUDUL_KEPALA ([string]$berjalan)
     }
     $st = $doc.Styles.Item(-30)                          # Footnote Text
     Huruf $st.Font $TA $uCatatan
@@ -842,7 +847,6 @@ try {
     }
     # $kedua = baris kedua judul (@judul_fasl: dua_baris): paragraf sendiri, rata dan ukuran sama, menempel ke baris pertama
     function Judul($teks, $bm, $pb, $k = '', $kedua = '', $atas = 6) {
-        if ($k -in 'K', 'F', '') { $sel.Style = $GAYA_BERJALAN }   # judul bagian berjalan di kepala halaman (kepala.ps1); paragraf sesudahnya Normal lagi
         Para $(if ($k -in $KANAN) { 3 } else { 1 }) $atas 0  # @judul_kanan: #B/#M rata kanan seperti #S; $atas = olah._jarak_sub
         $sel.ParagraphFormat.KeepWithNext = -1
         # di awal bagian Word (halaman belakang, Bagian-Baru) halamannya sudah baru: pindah halaman lagi = halaman kosong
@@ -851,7 +855,6 @@ try {
         $kotak = $JUDUL_KOTAK -and $k -eq 'F'; $awalJudul = $sel.Start
         if ($kotak) { Tulis $teks $HURUF_HIAS ($uJudul + 8) 1 0 }   # @judul_fasl: kotak = baris pertama besar, keduanya sebesar judul
         else { Tulis $teks $TJ $(if ($k -in 'B', 'M') { $uJudulSub } else { $uJudul }) 1 0 }
-        if ($kedua -and $k -in 'K', 'F') { Ekor-Berjalan $kedua }   # kepala berjalan = judul utuh (kepala.ps1)
         $sel.TypeParagraph()
         if ($kedua) {
             Para $(if ($k -in $KANAN) { 3 } else { 1 }) $(if ($kotak) { 0 } else { 6 }) 0
@@ -917,6 +920,8 @@ try {
                 $pb = $false
             }
             if ($i -eq $RENCANA.kepala_mulai) { Kepala-Mulai ($i -eq $RENCANA.nomor_satu); $pb = $false }
+            $berjalan = $RENCANA.judul_berjalan."$i"     # bagian, bagian_hias, bergantian: judul ini di kepala bagian Word baru
+            if ($berjalan) { Kepala-Berjalan $berjalan; $pb = $false }
             $diMulakhas = $MULAKHAS_JARAK -and ($i -in @($RENCANA.mulakhas.berjarak))
             $spasiAktif = if ($i -in @($RENCANA.mulakhas.spasi)) { $SPASI_MULAKHAS } else { $SPASI }
             $nT++; $bm = "t_$nT"
@@ -1330,7 +1335,11 @@ try {
     # Tiap field PAGE kepala/kaki halaman (1 utama, 3 genap) yang bukan sambungan bagian sebelumnya
     function NomorRtl($hf) {
         if ($hf.LinkToPrevious) { return }                 # bagian pertama tidak pernah bersambung
-        foreach ($f in @($hf.Range.Fields | Where-Object { $_.Code.Text -match '^\s*PAGE(\s|$)' })) {
+        $semua = @($hf.Range.Fields)
+        foreach ($f in @($semua | Where-Object { $_.Code.Text -match '^\s*PAGE(\s|$)' })) {
+            # PAGE di dalam kode field lain (hitungan ganjil/genap IF @kepala: bergantian) tidak tercetak: hasilnya tidak
+            # pernah kanan-ke-kiri, dan memeriksanya memberi PERINGATAN palsu
+            if (@($semua | Where-Object { $_.Code.Start -lt $f.Code.Start -and $f.Code.End -le $_.Code.End }).Count) { continue }
             $r = $hf.Range.Duplicate; $r.SetRange($f.Code.Start - 1, $f.Result.End + 1)
             for ($k = 1; $k -le 2; $k++) {
                 $doc.Activate(); $r.Select(); $word.Selection.RtlRun()

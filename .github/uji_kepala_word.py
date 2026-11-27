@@ -53,7 +53,7 @@ def rakit(akar, kepala):
     (f / "naskah.txt").write_text(NASKAH.format(kepala=f"@kepala: {kepala}\n" if kepala else ""), encoding="utf8")
     r = bahts(akar, "rakit", nama, batas=1800)
     assert r.returncode == 0, r.stdout + r.stderr
-    for jebak in ("nomor halaman tercetak", "halaman kosong"):
+    for jebak in ("nomor halaman bisa tercetak", "halaman kosong"):
         assert jebak not in r.stdout, f"@kepala: {kepala}: PERINGATAN «{jebak}»\n{r.stdout}"
     return pymupdf.open(stream=(f / "uji.pdf").read_bytes(), filetype="pdf")   # tanpa memegang berkasnya (TEMP dibersihkan)
 
@@ -151,6 +151,18 @@ def utama():
             assert harap in atas and bawah == nomor[i], ("bergantian", i + 1, atas, bawah)
         for i, (atas, bawah) in kepala["bintang"].items():
             assert j in atas and nomor[i] in atas and not bawah, ("bintang", i + 1, atas, bawah)
+        # judul #F dua baris: dua baris tengah di halamannya, judul utuh sekali di kepala, tanpa teks ganda di lapisan teks
+        # PDF; di فهرس الموضوعات satu baris
+        for k, doc in pdf.items():
+            hal = doc[4]; w = hal.rect.width
+            isi = [(sp["text"].strip(), (sp["bbox"][0] + sp["bbox"][2]) / 2) for b in hal.get_text("dict")["blocks"]
+                   for ln in b.get("lines", ()) for sp in ln["spans"] if sp["bbox"][1] > TEPI - 8 and sp["text"].strip()]   # judul di atas bidang teks (71 pt)
+            dua = [x for t, x in isi if rata(t) in (fasl.split(":")[0], fasl.split(":")[1])]
+            assert len(dua) == 2 and all(abs(x - (w - 3.5 * CM + 2.5 * CM) / 2) < 15 for x in dua), (k, "judul #F", isi[:4])
+            semua = rata(hal.get_text())
+            assert semua.count(fasl.split(":")[1]) == (2 if k in ("bagian", "bagian_hias") else 1), (k, "teks ganda", semua)
+            daftar = [rata(ln) for ln in doc[6].get_text().split("\n")]
+            assert any(fasl.split(":")[0] in x and fasl.split(":")[1] in x for x in daftar), (k, "فهرس satu baris", daftar)
         hias = [g for g in pdf["bagian_hias"][2].get_image_info() if g["bbox"][1] < TEPI]
         assert hias and not [g for g in pdf["bagian"][2].get_image_info() if g["bbox"][1] < TEPI], "hiasan kitab bagian_hias"
         # bintang: kecil (setinggi baris judul, ±0,7 cm), nomornya di tengah bintang

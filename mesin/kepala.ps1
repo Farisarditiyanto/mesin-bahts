@@ -7,30 +7,11 @@
 # Di paragraf kanan-ke-kiri Word membaca perataan dan posisi tab dari kanan: Alignment 0 = rata kanan, tab 2 (rata
 # «kanan») di posisi selebar bidang teks = ujung kirinya tepat di tepi kiri. LeftIndent = sisi kanan.
 
-# gaya paragraf judul #K/#F dan judul فهرس (rakit.ps1 `Judul`): sumber STYLEREF judul bagian berjalan. Berbasis Normal
-# tanpa ubahan, jadi tampilan judul tetap dari format langsungnya
-$GAYA_BERJALAN = 'Judul Bahts Berjalan'
-
-function Gaya-Berjalan {
-    $g = try { $doc.Styles.Item($GAYA_BERJALAN) } catch { $null }
-    if (-not $g) {
-        $g = $doc.Styles.Add($GAYA_BERJALAN, 1)          # 1 = wdStyleTypeParagraph
-        $g.BaseStyle = -1; $g.NextParagraphStyle = -1    # -1 = wdStyleNormal
-    }
-    return $g
-}
-
-# judul #F dua baris (@judul_fasl: dua_baris/kotak/pemisah): baris pertamanya saja yang bergaya $GAYA_BERJALAN, jadi
-# STYLEREF hanya membaca «المبحث الأول». Sisanya («: تعريف …») ditulis juga di ujung baris pertama itu, 1 pt putih
-# selebar 1% dan dirapatkan: tidak terlihat dan tidak menggeser baris, tetapi ikut dibaca STYLEREF, jadi kepala berjalan memuat judul
-# utuh. Teks tersembunyi (Font.Hidden) tidak dibaca STYLEREF (dicoba di Word). Dipanggil di kursor rakit.ps1 ($sel, Tulis)
-function Ekor-Berjalan($ekor) {
-    if (-not $ekor) { return }
-    $awal = $sel.Start
-    Tulis (': ' + $ekor) $TA 1 0 0 16777215              # 16777215 = putih
-    $f = $doc.Range($awal, $sel.Start).Font; $f.Scaling = 1; $f.Spacing = -2   # skala 1% saja masih ±36 pt (diukur di PDF)
-    $sel.Font.Scaling = 100; $sel.Font.Spacing = 0
-}
+# Judul bagian berjalan (bagian, bagian_hias, bergantian) = judul #K/#F utuh sebagai teks tetap di kepala bagian Word-nya:
+# tiap #K/#F halaman isi membuka bagian Word baru (rakit.ps1 Kepala-Berjalan; daftarnya olah.rencana_cetak
+# judul_berjalan). Bukan STYLEREF: judul #F dua baris (@judul_fasl) ditulis dua paragraf, jadi STYLEREF hanya membaca baris
+# pertamanya, dan pindah baris manual (Chr 11) di satu paragraf ikut tercetak sebagai pindah baris di kepala (dicoba di
+# Word); SET/REF di kepala memberi nilai SET terakhir dokumen, bukan yang berlaku di halaman itu
 
 # paragraf kepala/kaki yang kosong: kanan-ke-kiri, rata $rata (0 kanan, 1 tengah), huruf profil, tanpa tab dan garis
 function HF-Baru($hf, $rata = 0) {
@@ -51,23 +32,21 @@ function HF-Teks($hf, $teks, $tebal = 0, $ukuran = $FMT.ukuran_kepala) {
     $r = HF-Ujung $hf; $r.InsertAfter($teks); Huruf $r.Font $TA ([single]$ukuran) $tebal
 }
 
-# $kode: 'PAGE' atau 'STYLEREF "…"'
+# $kode: 'PAGE' atau field lain
 function HF-Field($hf, $kode, $tebal = 0, $ukuran = $FMT.ukuran_kepala) {
     $f = $hf.Range.Fields.Add((HF-Ujung $hf), -1, $kode, $false)   # -1 = wdFieldEmpty: jenisnya dari kodenya
     $r = $hf.Range.Duplicate; $r.SetRange($f.Code.Start - 1, $f.Result.End + 1)
     Huruf $r.Font $TA ([single]$ukuran) $tebal
 }
 
-function HF-Berjalan($hf, $tebal) { HF-Field $hf "STYLEREF `"$GAYA_BERJALAN`"" $tebal }
-
-# { IF { = { PAGE } - INT({ PAGE } / 2) * 2 } = 1 "{ STYLEREF judul bagian }" "$genap" }: halaman ganjil judul bagian
-# berjalan, genap $genap. Bukan kepala ganjil/genap Word (OddAndEvenPagesHeaderFooter): dengannya Word menyisipkan
+# { IF { = { PAGE } - INT({ PAGE } / 2) * 2 } = 1 "$ganjil" "$genap" }: halaman ganjil $ganjil (judul bagian berjalan),
+# genap $genap. Bukan kepala ganjil/genap Word (OddAndEvenPagesHeaderFooter): dengannya Word menyisipkan
 # halaman kosong di PDF supaya nomor ١ bagian isi jatuh di halaman fisik ganjil (sesudah sampul = halaman fisik 2).
 # Tanpa MOD: pemisah argumennya mengikuti pengaturan daerah Windows («,» atau «;»). Field di dalam field dibuat dengan
 # menimpa penandanya di kode field luar (Fields.Add pada rentang yang tidak kosong menggantinya)
-function HF-GanjilGenap($hf, $genap) {
-    $genap = $genap -replace '"', '\"'
-    $luar = $hf.Range.Fields.Add((HF-Ujung $hf), -1, "IF @M = 1 `"@S`" `"$genap`"", $false)
+function HF-GanjilGenap($hf, $ganjil, $genap) {
+    $ganjil = $ganjil -replace '"', '\"'; $genap = $genap -replace '"', '\"'
+    $luar = $hf.Range.Fields.Add((HF-Ujung $hf), -1, "IF @M = 1 `"$ganjil`" `"$genap`"", $false)
     # penanda diganti dari yang paling belakang: letak penanda sebelumnya di kode tidak bergeser
     function Tanam($field, $penanda, $kode) {
         $c = $field.Code; $i = $c.Text.LastIndexOf($penanda)
@@ -75,7 +54,6 @@ function HF-GanjilGenap($hf, $genap) {
         $r = $c.Duplicate; $r.SetRange($c.Start + $i, $c.Start + $i + $penanda.Length)
         return $hf.Range.Fields.Add($r, -1, $kode, $false)
     }
-    [void](Tanam $luar '@S' "STYLEREF `"$GAYA_BERJALAN`"")
     $sisa = Tanam $luar '@M' '= @P - INT(@P / 2) * 2'
     [void](Tanam $sisa '@P' 'PAGE'); [void](Tanam $sisa '@P' 'PAGE')
     $r = $hf.Range.Duplicate; $r.SetRange($luar.Code.Start - 1, $luar.Result.End + 1); Huruf $r.Font $TA ([single]$FMT.ukuran_kepala) 0
@@ -133,8 +111,9 @@ function Bintang-Nomor($hd, $pusat, $tengah, $lebar) {
     }
 }
 
-# kepala dan kaki halaman bagian isi $sec (bagian Word sesudahnya mewarisinya) menurut @kepala $jenis
-function Pasang-Kepala($sec, $jenis, $judul) {
+# kepala dan kaki halaman bagian isi $sec (bagian Word sesudahnya mewarisinya) menurut @kepala $jenis; $judul = judul bahts,
+# $berjalan = judul #K/#F bagian Word ini (bagian, bagian_hias, bergantian)
+function Pasang-Kepala($sec, $jenis, $judul, $berjalan = '') {
     $ps = $sec.PageSetup
     $lebar = $ps.PageWidth - $ps.LeftMargin - $ps.RightMargin
     $u = [single]$FMT.ukuran_kepala
@@ -151,10 +130,11 @@ function Pasang-Kepala($sec, $jenis, $judul) {
         }
         { $_ -in 'bagian', 'bagian_hias' } {             # judul bagian berjalan tebal kanan, nomor kiri, garis penuh
             $t = [Math]::Round($u * 1.6)
-            HF-Tinggi $hd $t; HF-Tab $hd $lebar 2
-            HF-Berjalan $hd 1; HF-Teks $hd "`t"; HF-Field $hd 'PAGE'
-            HF-Garis $hd 1 8                             # 8 = 1 pt
+            HF-Tinggi $hd $t; HF-Tab $hd $lebar 2; HF-Garis $hd 1 8   # 8 = 1 pt
+            # hiasan dipasang selagi paragraf kepala masih kosong: sesudah tab dan nomor, Top gambar ditolak Word
+            # («Parameter value was out of acceptable range») kalau paragrafnya diawali tab (judul berjalan kosong)
             if ($jenis -eq 'bagian_hias') { Hias-Kitab $hd $t }
+            if ($berjalan) { HF-Teks $hd $berjalan 1 }; HF-Teks $hd "`t"; HF-Field $hd 'PAGE'
         }
         'bintang' {                                      # judul kanan, nomor di dalam bintang di pojok kiri, garis tebal-tipis
             # bintang setinggi baris judul, nomornya sedikit lebih kecil daripada judul supaya tiga angka tetap di dalamnya
@@ -174,12 +154,23 @@ function Pasang-Kepala($sec, $jenis, $judul) {
             Bintang-Nomor $hd $pusat $tengah $bintang
         }
         'bergantian' {                                   # ganjil: judul bagian berjalan; genap: judul bahts; nomor di kaki
-            HF-Baru $hd 1; HF-GanjilGenap $hd $judul; HF-Garis $hd 1 4
+            HF-Baru $hd 1; HF-GanjilGenap $hd $berjalan $judul; HF-Garis $hd 1 4
             KakiNomor $ft
         }
         'kaki' { KakiNomor $ft '-' }
         default { KakiNomor $ft }                        # '-' (dan kotak/@templat: kepala dari Word, nomor di kaki kalau kepala itu tanpa nomor)
     }
+}
+
+# kepala bagian Word $sec (salinan kepala bagian sebelumnya) memuat judul berjalan $berjalan: bagian/bagian_hias = teks
+# sebelum tab nomor diganti, hiasan dan nomor tetap (memasang ulang hiasan di kepala bagian salinan ditolak Word:
+# «Parameter value was out of acceptable range» pada Top gambar); bergantian = dipasang ulang (tanpa gambar)
+function Ganti-Berjalan($sec, $jenis, $judul, $berjalan) {
+    if ($jenis -eq 'bergantian') { Pasang-Kepala $sec $jenis $judul $berjalan; return }
+    $hd = $sec.Headers(1)
+    $i = $hd.Range.Text.IndexOf("`t")
+    $r = $hd.Range.Duplicate; $r.SetRange($hd.Range.Start, $hd.Range.Start + [Math]::Max($i, 0))
+    $r.Text = $berjalan; Huruf $r.Font $TA ([single]$FMT.ukuran_kepala) 1
 }
 
 # judul bahts di kepala (klasik, bintang, kotak) yang tidak muat satu baris mendorong nomor halaman keluar dari tempatnya
