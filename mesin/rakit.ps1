@@ -27,7 +27,8 @@ $uMatan = [single]$FMT.matan; $uCatatan = [single]$FMT.catatan; $uJudul = [singl
 $uJudulSub = [single]$FMT.judul_sub                      # ukuran #B/#M/#S
 $uAyat = [single]$FMT.ayat                               # ukuran ayat di matan dan فهرس الآيات
 $uTabel = [single][Math]::Ceiling(($uMatan + $uCatatan) / 2)   # sel #J: di antara matan dan catatan kaki (teks_pdf.periksa membaca huruf ini sebagai matan)
-$uLatin = [single]$FMT.latin                             # paragraf #L (Times New Roman); judul «#L **…**» 2 poin lebih besar. Times sebesar matan Arab tampak jauh lebih besar dan Abstract luber
+$uKutipan = [single]$FMT.ukuran_kutipan; $tepiKutipan = [single]$FMT.tepi_kutipan   # #Q: ukuran huruf dan jorok kanan-kiri (cm)
+$uLatin = [single]$FMT.latin                          # paragraf #L (Times New Roman); judul «#L **…**» 2 poin lebih besar. Times sebesar matan Arab tampak jauh lebih besar dan Abstract luber
 $ULANG = if ($FMT.catatan_ulang_tiap_halaman) { 2 } else { 0 }   # nomor catatan kaki: 2 = mulai ulang tiap halaman, 0 = bersambung
 $SPASI = [single]$FMT.spasi                              # jarak baris matan dan judul (kali satu baris); catatan kaki dan فهرس tetap satu spasi
 $MULAKHAS_JARAK = [bool]$FMT.mulakhas_berjarak   # paragraf di bawah #K الملخص/ملخص البحث: berjarak 6 pt, tanpa awal alinea menjorok
@@ -1028,6 +1029,15 @@ try {
                 $nT++; [void]$doc.Bookmarks.Add("t_$nT", $sel.Range); [void]$toc.Add(@{ t = $blk.judul; bm = "t_$nT"; lvl = 1 })
             }
             Tulis $blk.judul $TJ $uJudulSub 1 0
+            $sel.TypeParagraph()
+        }
+        elseif ($blk.kutipan_blok) {                     # #Q kutipan blok: paragraf sendiri, menjorok di dua sisi, tanpa awal alinea
+            Para 3 6 0
+            HalamanBaru $pb
+            $sel.ParagraphFormat.LeftIndent = $word.CentimetersToPoints($tepiKutipan)
+            $sel.ParagraphFormat.RightIndent = $word.CentimetersToPoints($tepiKutipan)
+            $sel.ParagraphFormat.SpaceAfter = [single][Math]::Max([single]6, $JARAK_P)
+            Runs $blk.runs $uKutipan $false
             $sel.TypeParagraph()
         }
         elseif ($null -ne $RENCANA.ihda."$i") {           # @ihda: tengah = paragraf الإهداء rata tengah, tebal, berjarak, tanpa menjorok

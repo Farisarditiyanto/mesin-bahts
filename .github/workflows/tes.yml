@@ -75,6 +75,8 @@ jobs:
       - run: python .github/uji_pratinjau.py
       # Isi tiap catatan kaki tetap miliknya saat nomor diulang per halaman, juga di potongan --fasl; tanpa Word = lewati.
       - run: python .github/uji_catatan_word.py
+      # #Q kutipan blok menjorok kanan-kiri, @anzhur: ينظر di tiap catatan kaki nukilan makna; tanpa Word = lewati.
+      - run: python .github/uji_kutipan_word.py
       # Bahts tanpa المصادر/فهرس yang isinya pas memenuhi halaman tidak berakhir dengan halaman kosong; tanpa Word = lewati.
       - run: python .github/uji_akhir_word.py
       - run: python .github/uji_fihris_ayat_word.py
