@@ -63,8 +63,16 @@ def utama():
                     assert jc.get(f"{{{NS['w']}}}val") != "right", "isi sel tabel #J tercetak rata kiri (jc=right di paragraf RTL)"
         W = f"{{{NS['w']}}}"
 
+        # paragraf sel tanpa w:jc sendiri mengikuti gaya Normal dokumen (rakit menyetelnya rata tengah)
+        with zipfile.ZipFile(folder / f"{berkas}.docx") as z:
+            gaya = ET.fromstring(z.read("word/styles.xml"))
+        normal = next(s for s in gaya.findall("w:style", NS) if s.get(W + "styleId") == "Normal")
+        jc_normal = normal.find("w:pPr/w:jc", NS)
+        jc_normal = jc_normal.get(W + "val") if jc_normal is not None else "left"
+
         def jc(tc):
-            return {j.get(W + "val") for j in tc.iter(W + "jc")}
+            return {(p.find("w:pPr/w:jc", NS).get(W + "val") if p.find("w:pPr/w:jc", NS) is not None else jc_normal)
+                    for p in tc.iter(W + "p")}
         sel = [tr.findall("w:tc", NS) for tr in tabel[len(kolom)].findall("w:tr", NS)]
         dapat = [["center" in jc(tc) for tc in tr] for tr in sel]
         isi_sel = [["".join(tc.itertext()) for tc in tr] for tr in sel]
@@ -72,9 +80,23 @@ def utama():
         print(f"lolos tabel Word: {len(tabel)} tabel, kolom {lebar}, sel angka rata tengah", flush=True)
 
         # @format: baku: ukuran dalam setengah poin, awal alinea dan tepi dalam twip (1 cm = 567)
+        # ukuran efektif run berteks: szCs run, kalau tidak ada dari gaya paragrafnya (dan gaya induknya, sampai Normal)
+        gaya_id = {s.get(W + "styleId"): s for s in gaya.findall("w:style", NS)}
+
+        def ukuran_gaya(sid):
+            while sid in gaya_id:
+                s = gaya_id[sid]
+                if (sz := s.find("w:rPr/w:szCs", NS)) is not None:
+                    return sz.get(W + "val")
+                induk = s.find("w:basedOn", NS)
+                sid = induk.get(W + "val") if induk is not None else None
+            return None
+
         def ukuran(p):
-            return {r.find("w:rPr/w:szCs", NS).get(W + "val") for r in p.iter(W + "r")
-                    if (r.findtext("w:t", "", NS)).strip() and r.find("w:rPr/w:szCs", NS) is not None}
+            ps = p.find("w:pPr/w:pStyle", NS)
+            dasar = ukuran_gaya(ps.get(W + "val") if ps is not None else "Normal")
+            return {(r.find("w:rPr/w:szCs", NS).get(W + "val") if r.find("w:rPr/w:szCs", NS) is not None else dasar)
+                    for r in p.iter(W + "r") if r.findtext("w:t", "", NS).strip() and r.find("w:rPr/w:rStyle", NS) is None}
         par = next(p for p in xml.iter(W + "p") if "فقرة المتن للاختبار" in "".join(p.itertext()))
         assert ukuran(par) == {"32"}, f"matan baku harus 16 pt (szCs 32), dapat {ukuran(par)}"
         ind = par.find("w:pPr/w:ind", NS)
