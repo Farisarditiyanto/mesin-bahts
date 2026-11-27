@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 sys.stdout.reconfigure(encoding="utf-8")
 from uji_semua import kitab_ci
-from bantu import SAMPUL_UJI, salin_mesin
+from bantu import SAMPUL_UJI, cli_dalam_proses, salin_mesin
 REPO = Path(__file__).resolve().parent.parent
 SEMENTARA = tempfile.TemporaryDirectory(prefix="bahts-perintah-")
 atexit.register(SEMENTARA.cleanup)
@@ -109,6 +109,27 @@ if os.name == "nt":
     baris_sm = [b for b in out.splitlines() if "Sakkal Majalla" in b]
     if not baris_sm or "jakarta" not in baris_sm[0]:
         gagal.append(f"periksa: Sakkal Majalla harus menyebut profil jakarta (huruf_judul); dapat {baris_sm!r}")
+    # Nama huruf di daftar huruf Windows bisa berbentuk PostScript tanpa spasi («NotoNaskhArabic-Regular (TrueType)»):
+    # profil «Noto Naskh Arabic» tetap terbaca terpasang. Daftarnya ditiru (runner tanpa huruf itu), periksa sungguhan
+    sys.path.insert(0, str(AKAR / "mesin"))
+    import huruf
+    profil_jalur = AKAR / "mesin" / "format.json"
+    profil_asli = profil_jalur.read_bytes()
+    profil = json.loads(profil_asli)
+    profil["uji_noto"] = {**profil["imam"], "huruf": "Noto Naskh Arabic"}
+    profil_jalur.write_text(json.dumps(profil, ensure_ascii=False), encoding="utf8")
+    tiruan = [("NotoNaskhArabic-Regular", Path("NotoNaskhArabic-Regular.ttf")), ("Traditional Arabic", Path("trado.ttf"))]
+    try:
+        with patch.object(huruf, "terdaftar", lambda: iter(tiruan)):
+            kode, out, err = cli_dalam_proses(AKAR, "periksa")
+    finally:
+        profil_jalur.write_bytes(profil_asli)
+    baris_noto = [b for b in out.splitlines() if "Noto Naskh Arabic" in b]
+    if not baris_noto or not baris_noto[0].startswith("SIAP"):
+        gagal.append(f"periksa: «Noto Naskh Arabic» terdaftar sebagai «NotoNaskhArabic-Regular» harus SIAP; dapat {baris_noto!r} {err[-300:]!r}")
+    baris_sm = [b for b in out.splitlines() if "Sakkal Majalla" in b]
+    if not baris_sm or not baris_sm[0].startswith("BELUM"):
+        gagal.append(f"periksa: Sakkal Majalla tidak ada di daftar tiruan, harus BELUM; dapat {baris_sm!r}")
 
 # `hadits`: juz/halaman layanan bisa dari edisi lain (uji pakai: Ibn Majah 2192 «3/311» edisi Risalah, padahal edisi lokal
 # 1198 = 2/738; takhrij yang memercayainya tidak lolos `cek`). Riwayat yang kitabnya sudah diunduh diberi juz/halaman kepala

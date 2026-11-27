@@ -16,6 +16,18 @@
     "judul": 20,
     "catatan_ulang_tiap_halaman": true
   },
+  "baku": {
+    "_sumber": "bawaan bahts baru: دليل كتابة خطة البحث والرسائل العلمية (كلية الآداب، جامعة الملك سعود) hlm. 26-28 (Traditional Arabic, matan 16, catatan kaki 12, satu spasi, awal alinea 1,5 cm, tepi atas/bawah/kanan/kiri 2,5/2,5/3/2,5 cm); ayat 14 dan judul #K/#F serta sub-judul 18 dipilih pemakai (pedoman: ayat 16, judul 22)",
+    "huruf": "Traditional Arabic",
+    "matan": 16,
+    "ayat": 14,
+    "catatan": 12,
+    "judul": 18,
+    "judul_sub": 18,
+    "catatan_ulang_tiap_halaman": true,
+    "tepi_kanan": 3,
+    "awal_alinea": 1.5
+  },
   "imam_ayat16_bersambung": {
     "_sumber": "sama dengan «imam_ayat16», kecuali nomor catatan kaki bersambung (١، ٢، ٣ … sampai akhir bahts), tidak mulai ١ lagi tiap halaman; untuk dosen atau mahasiswa yang memintanya",
     "huruf": "Traditional Arabic",

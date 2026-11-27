@@ -79,6 +79,7 @@ $JARAK_FIHRIS = [single]14                # pt sesudah judul المصادر dan 
 $U_PUSTAKA = [single]$FMT.ukuran_pustaka   # ukuran huruf المصادر
 $FIHRIS_SAMBUNG = $M.fihris -eq 'sambung'  # فهرس sesudah yang pertama menyambung di halaman yang sama
 $TEPI_KANAN = [single]$FMT.tepi_kanan   # cm
+$AWAL_ALINEA = [single]$FMT.awal_alinea   # cm awal baris pertama paragraf matan menjorok
 
 # satu rakit dalam satu waktu: rakit kedua berhenti di sini, sebelum mematikan Word milik rakit pertama (kunci lepas sendiri saat proses ini selesai).
 # rakit.py menunggu kunci ini lepas sebelum rakit berikutnya (rakit.ps1 yang Python-nya dimatikan masih memegangnya).
@@ -936,7 +937,7 @@ try {
             [void]$toc.Add(@{ t = $blk.judul; bm = $bm; lvl = $lvl })
         }
         elseif ($blk.k -eq 'J') {                         # tabel: baris #J berturut-turut; baris pertama = kepala
-            $baris = @($blk)
+            $baris = @($blk); $i0 = $i                    # $i0 = blok baris pertama (kunci $RENCANA.sel_angka)
             while ($i + 1 -lt $DATA.blok.Count -and $DATA.blok[$i + 1].k -eq 'J') { $i++; $baris += $DATA.blok[$i] }
             Para 1 6 0
             HalamanBaru $pb
@@ -963,7 +964,8 @@ try {
                     $x = $tbl.Cell($r + 1, $c + 1).Range
                     # isi rata kanan (bukan rata kanan-kiri: jarak kata melebar di sel sempit). Paragrafnya RTL, jadi rata
                     # kanan = awal baris = 0; nilai 2 disimpan jc="right" = ujung akhir = rata KIRI di halaman.
-                    $x.ParagraphFormat.Alignment = $(if ($r -eq 0) { 1 } else { 0 })
+                    # Kepala dan sel angka (olah.sel_angka) rata tengah
+                    $x.ParagraphFormat.Alignment = $(if ($r -eq 0 -or $c -in @($RENCANA.sel_angka."$($i0 + $r)")) { 1 } else { 0 })
                     $x.Collapse(1); $x.Select()
                     Runs $isi[$c] $uTabel ($r -eq 0)
                 }
@@ -1087,7 +1089,7 @@ try {
             $sel.TypeParagraph()
         }
         else {
-            if ($diMulakhas) { Para 3 $(if ($DATA.blok[$i - 1].k -eq 'K') { 0 } else { 6 }) 0 } else { Para 3 $(if ($i -gt 0 -and $DATA.blok[$i - 1].k -eq 'J') { 6 } else { 0 }) ($word.CentimetersToPoints(0.8)); $sel.ParagraphFormat.SpaceAfter = $JARAK_P }   # sesudah tabel: berjarak
+            if ($diMulakhas) { Para 3 $(if ($DATA.blok[$i - 1].k -eq 'K') { 0 } else { 6 }) 0 } else { Para 3 $(if ($i -gt 0 -and $DATA.blok[$i - 1].k -eq 'J') { 6 } else { 0 }) ($word.CentimetersToPoints($AWAL_ALINEA)); $sel.ParagraphFormat.SpaceAfter = $JARAK_P }   # sesudah tabel: berjarak
             HalamanBaru $pb
             Runs $blk.runs $uMatan $false
             if ((Pengantar $blk) -and (Menempel $i)) { $sel.ParagraphFormat.KeepWithNext = -1 }
