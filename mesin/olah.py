@@ -24,7 +24,8 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
   @kunci: nilai       data sampul, di awal naskah; kunci tidak dikenal = GAGAL (salah ketik tidak diabaikan). Wajib: judul dan nama; @sampul: mahad juga jenis ("-" = tidak tercetak), nim, fasl;
                       @sampul: tengah juga qism.
                       Opsional: musyrif, jabatan (kosong atau "-" = tidak tercetak), thalibah (ya = sampul mencetak «اسم الطالبة»),
-                      basmalah (ya = satu halaman ﷽ huruf Arabic Typesetting sesudah sampul; bawaan: tidak ada),
+                      basmalah (ya = satu halaman ﷽ huruf Arabic Typesetting sesudah sampul; utsmani = halaman itu berisi
+                      «بسم الله الرحمن الرحيم» rasm Utsmani huruf mushaf; bawaan: tidak ada),
                       tamma (ya = halaman penutup «تمّ بحمد الله وتوفيقه» dan shalawat di tengah, sesudah الفهارس (halaman
                       terakhir), tanpa nomor halaman; bawaan: tidak ada),
                       ayat_pembuka (s:a atau s:a-b = satu halaman ayat itu, rasm Utsmani, dengan «[السورة: a]» di bawahnya,
@@ -844,7 +845,9 @@ YA_TIDAK = Data(sah=("ya",), pesan="«{nilai}» tidak dikenal: tulis «ya», ata
 # tahapan itu = urutan GAGAL di laporan
 DATA = {
     "judul": TEKS, "jenis": TEKS, "nama": TEKS, "nim": TEKS, "fasl": TEKS, "musyrif": TEKS, "jabatan": TEKS,
-    "thalibah": YA_TIDAK, "basmalah": YA_TIDAK, "tamma": YA_TIDAK,
+    "thalibah": YA_TIDAK,
+    "basmalah": Data(sah=("ya", "utsmani"), pesan="«{nilai}» tidak dikenal: tulis «ya» atau «utsmani», atau hapus barisnya"),
+    "tamma": YA_TIDAK,
     "sampul": Data(sah=tuple(SAMPUL), bawaan="qism", pisah="، ", baca=str.lower),
     "tahun": TEKS, "berkas": Data(), "ayat_pembuka": Data(),
     "format": Data(sah=tuple(FORMAT), bawaan="imam", pisah="، ",
@@ -1094,6 +1097,9 @@ def kunci_urut(s, pengarang=False):
         s = re.sub(r"^(?:(?:ابن|أبو|أبي|أبا|ابو|ابي|ابا)\s+)+", "", s)
     if not s.startswith("الله"):
         s = re.sub(r"^ال", "", s)
+    # tanda baca = akhir judul/nama, diurutkan sebelum spasi: «الكتاب، سيبويه» sebelum «الكتاب الفريد»
+    # («،» U+060C dan «.» lebih besar dari spasi, jadi judul yang lebih panjang naik duluan)
+    s = re.sub("[،؛,.:;]", "\x01", s)
     return re.sub("[إأآ]", "ا", s)
 
 
@@ -1403,6 +1409,7 @@ def _cek_tata_letak(ctx):
                                   "atau «-» kalau tidak ada")
     for kunci in (k for k, sifat in DATA.items() if sifat is YA_TIDAK):
         _pilih(ctx, kunci)
+    _pilih(ctx, "basmalah")  # ya / utsmani
 
 
 def _profil(ctx):
@@ -1670,7 +1677,9 @@ def rencana_cetak(d):
             "pustaka_ltr": [pustaka_asing(p) for p in d.get("pustaka", [])],
             "logo_berwarna": sampul == "qism" and not buang_sampul and meta.get("logo") == "berwarna",
             "judul_sampul": [sub.group(1).strip(), sub.group(2).strip()] if sub else [judul, ""],
-            "buang_sampul": buang_sampul, "basmalah": meta.get("basmalah") == "ya" and not buang_sampul,
+            "buang_sampul": buang_sampul, "basmalah": meta.get("basmalah") in ("ya", "utsmani") and not buang_sampul,
+            # @basmalah: utsmani = teks Al-Fatihah:1 huruf mushaf, bukan ligatur ﷽ Arabic Typesetting
+            "basmalah_utsmani": ayat("1:1")[0] if meta.get("basmalah") == "utsmani" and not buang_sampul else None,
             "abjad": meta.get("nomor") in ("abjad", "mukadimah"), "nomor_satu": nomor_satu, "halaman_baru": halaman_baru,
             "awal_isi": awal_isi, "maudhuat_awal": maudhuat_awal, "ayat_pembuka": pembuka,
             "judul_kanan": [t for t in daftar(meta, "judul_kanan") if t != GAYA["judul_kanan"][0]],

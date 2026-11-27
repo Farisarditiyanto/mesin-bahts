@@ -413,7 +413,7 @@ try {
     [void]$sel.EndKey(6)
     if ($RENCANA.basmalah) {                             # halaman ﷽ sesudah sampul, masih di bagian sampul (tanpa nomor)
         $hB = 'Arabic Typesetting'                       # ﷽ huruf ini = satu kaligrafi utuh; Traditional Arabic hanya mencetak «بسم»
-        if (@($word.FontNames) -notcontains $hB) { Write-Output "PERINGATAN: huruf $hB belum terpasang di Windows: halaman basmalah dicetak $TA."; $hB = $TA }
+        if (-not $RENCANA.basmalah_utsmani -and @($word.FontNames) -notcontains $hB) { Write-Output "PERINGATAN: huruf $hB belum terpasang di Windows: halaman basmalah dicetak $TA."; $hB = $TA }
         $sel.InsertBreak(7)
         $sel.ClearFormatting()
         # Word membuang jarak atas paragraf sesudah pindah halaman: turun ke tengah lewat satu paragraf kosong bertinggi pas
@@ -422,8 +422,15 @@ try {
         $sel.ParagraphFormat.LineSpacingRule = 4; $sel.ParagraphFormat.LineSpacing = [single][Math]::Max(1, ($psS.PageHeight - $psS.TopMargin - $psS.BottomMargin) / 2 - 40)
         $sel.TypeParagraph()
         $sel.ParagraphFormat.Alignment = 1; $sel.ParagraphFormat.LineSpacingRule = 0
-        Huruf $sel.Font $hB 72 0
-        $sel.TypeText([string][char]0xFDFD)
+        if ($RENCANA.basmalah_utsmani) {                 # @basmalah: utsmani = teks Al-Fatihah:1 huruf mushaf (lebar ±14 cm)
+            $sel.ParagraphFormat.ReadingOrder = 0; $sel.RtlRun()
+            Huruf $sel.Font $QF 40 0
+            $sel.TypeText([string]$RENCANA.basmalah_utsmani)
+        }
+        else {
+            Huruf $sel.Font $hB 72 0
+            $sel.TypeText([string][char]0xFDFD)
+        }
     }
     if ($RENCANA.ayat_pembuka) {                         # @ayat_pembuka: satu halaman ayat sesudah sampul (dan basmalah), tanpa nomor
         $sel.InsertBreak(7)

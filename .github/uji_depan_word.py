@@ -36,11 +36,12 @@ def utama():
         # nilai yang salah = GAGAL, bukan diabaikan diam-diam
         for nama, baris, pesan in (("ayat_salah", "@ayat_pembuka: 115:1\n", "@ayat_pembuka"),
                                    ("letak_salah", "@maudhuat_letak: tengah\n", "@maudhuat_letak"),
-                                   ("tahun_salah", "@tahun: ٢٠٢٦\n", "@tahun")):
+                                   ("tahun_salah", "@tahun: ٢٠٢٦\n", "@tahun"),
+                                   ("basmalah_salah", "@basmalah: ثلث\n", "@basmalah")):
             tulis(akar, nama, KEPALA + baris)
             r = bahts(akar, "cek", nama)
             assert r.returncode != 0 and pesan in r.stdout, r.stdout + r.stderr
-        print("lolos cek halaman depan: @ayat_pembuka, @maudhuat_letak, dan @tahun yang salah = GAGAL")
+        print("lolos cek halaman depan: @ayat_pembuka, @maudhuat_letak, @tahun, dan @basmalah yang salah = GAGAL")
         f = tulis(akar, "depan", KEPALA + "@ayat_pembuka: 12:2\n@maudhuat_letak: awal\n@tahun: ١٤٤٨ - ٢٠٢٦\n")
         r = bahts(akar, "cek", "depan")
         assert r.returncode == 0 and "GAGAL: 0" in r.stdout, r.stdout + r.stderr
@@ -114,6 +115,27 @@ def utama():
         bait_menempel(akar)
         jarak_mabhath(akar)
         jakarta_mahad_dan_mulakhas(akar)
+        basmalah_utsmani(akar)
+
+
+def basmalah_utsmani(akar):
+    """`@basmalah: utsmani`: halaman sesudah sampul = teks Al-Fatihah:1 huruf mushaf (bukan ligatur ﷽, bukan gambar),
+    tanpa nomor; nomor ١ mulai di bagian sesudahnya."""
+    tulis(akar, "basmalah", KEPALA.replace("@nomor: mukadimah\n", "") + "@basmalah: utsmani\n")
+    r = bahts(akar, "rakit", "basmalah", batas=1800)
+    assert r.returncode == 0, r.stdout + r.stderr
+    doc = pymupdf.open(akar / "basmalah" / "uji.pdf")
+    p = doc[1]
+    teks, huruf, gambar = p.get_text(), [f[3] for f in p.get_fonts()], p.get_images()
+    sesudah = doc[2].get_text()
+    doc.close()
+    # teks PDF huruf mushaf terbaca terpotong-potong dan harakatnya bergeser: cocokkan huruf dasarnya saja
+    dasar = re.sub(r"[\sً-ٰٟۖ-ۭ]", "", teks)
+    assert "﷽" not in teks and "رحيم" in dasar and "لله" in dasar, repr(teks)
+    assert any("Uthmanic" in h for h in huruf) and not gambar, (huruf, gambar)
+    assert not re.search(r"[٠-٩0-9]", teks), f"halaman basmalah bernomor: {teks!r}"
+    assert re.search("١|1", sesudah), f"nomor ١ tidak ada di halaman sesudah basmalah: {sesudah[:200]!r}"
+    print("lolos halaman depan Word: @basmalah: utsmani = teks Al-Fatihah:1 huruf mushaf, tanpa nomor")
 
 
 def bait_menempel(akar):
