@@ -6,6 +6,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Perbaikan: rumus `#E`/`{E:}` berisi huruf kendali (mis. «\beta» yang termakan escape skrip jadi U+0008) kini GAGAL di `cek` dengan barisnya, bukan menghentikan `rakit` di Word dengan «XML markup cannot be inserted».
 - Perbaikan: nomor catatan kaki yang mulai ulang tiap halaman kembali mulai (١) di tiap halaman; sebelumnya sebagian halaman bisa mulai (٢)…(٧).
 - Perbaikan: المصادر `@pustaka_gaya: judul_tebal` kini menebalkan judul baris «judul، pengarang، …» (teks sebelum «،» atau «.» pertama); rujukan asing tetap apa adanya.
 - Perbaikan: pengantar «…:» yang disusul tabel `#J` di halaman yang sama tidak lagi diperingatkan «baris terakhir matan berakhir «:»».

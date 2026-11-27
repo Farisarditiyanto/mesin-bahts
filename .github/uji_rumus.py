@@ -32,7 +32,7 @@ def utama():
         "\\frac", "\\sqrt", "\\sum", "\\int", "\\lim", "\\text", "\\mathbb", "\\left(", "\\right)", "\\left.",
         "\\right|", "\\begin{pmatrix}", "\\end{pmatrix}", "\\begin{cases}", "\\end{cases}", "\\begin{aligned}",
         "\\end{aligned}", "\\tag{1}", "\\alpha", "\\beta", "\\times", "\\leq", "\\bar", "\\hat", "\\overbrace",
-        "\\ngawur", "\\", " ",
+        "\\ngawur", "\\", " ", "\b", "\x0b", "\x0c", "\x01",
     ]
     for _ in range(300):
         s = "".join(rng.choices(potongan, k=rng.randint(0, 18)))

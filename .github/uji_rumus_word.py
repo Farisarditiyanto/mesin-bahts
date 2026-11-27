@@ -126,6 +126,19 @@ def utama():
             cwd=akar, capture_output=True, encoding="utf8", timeout=1800,
         )
         assert ru.returncode == 0 and "berakhir «:»" in ru.stdout, ru.stdout + ru.stderr
+        # «\beta»/«\varepsilon» yang termakan escape skrip jadi huruf kendali U+0008/U+000B: XML tidak sah, jadi harus
+        # GAGAL di `cek` dengan barisnya, bukan Word berhenti di tengah rakit («XML markup cannot be inserted»)
+        kendali = akar / "kendali"
+        kendali.mkdir()
+        (kendali / "naskah.txt").write_text(
+            SAMPUL_UJI + "@tanpa: pustaka\n@judul: اختبار\n@berkas: kendali\n#K المقدمة\nوالمعادلة الآتية:\n"
+            "#E Y_i = \beta_0 + \beta_1 X_{1i} + \varepsilon_i\n#K الخاتمة\nأهم النتائج: نجح.\n", encoding="utf8")
+        rk = subprocess.run(
+            [sys.executable, str(akar / "mesin" / "bahts.py"), "rakit", "kendali"],
+            cwd=akar, capture_output=True, encoding="utf8", timeout=1800,
+        )
+        assert rk.returncode != 0 and "XML markup" not in rk.stdout + rk.stderr, rk.stdout + rk.stderr
+        assert "baris 9: #E rumus memuat huruf kendali U+0008" in rk.stdout, rk.stdout + rk.stderr
         # Uji `pratinjau` pada PDF hasil rakit
         rp = subprocess.run(
             [sys.executable, str(akar / "mesin" / "bahts.py"), "pratinjau", "uji", "1"],

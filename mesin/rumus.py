@@ -14,6 +14,8 @@ escape = functools.partial(html.escape, quote=False)  # & < > saja, seperti xml.
 ARAB = re.compile(r"[؀-ۿ]")
 BATAS_DALAM = 64  # cegah rekursi berlebih pada masukan berulang «{{{{...» atau «\sqrt\sqrt...»
 HURUF_MATH = "Cambria Math"
+# huruf kendali yang lahir dari escape string: «\beta» di Python/bash = U+0008 + «eta», «\frac» = U+000C + «rac»
+KENDALI_ESCAPE = {"\a": "a", "\b": "b", "\v": "v", "\f": "f", "\x1b": "e"}
 
 # Simbol LaTeX -> (karakter Unicode, tegak?)
 # tegak=True: operator, relasi, panah, simbol tetap (sty="p"); False: variabel miring (huruf Yunani kecil)
@@ -113,6 +115,12 @@ def _token(latex):
                 j += 1
             out.append(("sp", " "))
             i = j
+        elif c < " " or c == "\x7f":
+            # huruf kendali tidak sah di XML: Word menolak seluruh OMML-nya («XML markup cannot be inserted»)
+            asal = KENDALI_ESCAPE.get(c)
+            raise TandaRusak(f"rumus memuat huruf kendali U+{ord(c):04X}" + (
+                f": «\\{asal}…» LaTeX termakan escape skrip/shell (mis. \\{asal} di string Python); "
+                "tulis naskah.txt dengan alat sunting (Edit/Write)" if asal else ""))
         elif c == "\\":
             if i + 1 >= n:
                 raise TandaRusak("rumus berakhir dengan «\\» tunggal")
