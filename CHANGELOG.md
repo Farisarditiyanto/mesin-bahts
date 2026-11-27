@@ -6,6 +6,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Perbaikan: PERINGATAN `rakit` yang memuat huruf Arab atau «» (mis. judul bagian yang tidak muat di kepala halaman) tidak lagi tercetak «????» atau membuat pemanggil gagal membaca keluaran `rakit` saat keluarannya ditangkap agent.
 - Baru (أبو سليمان، كتابة البحث العلمي): `cek` memberi perhatian untuk «المصدر نفسه» yang sumbernya bukan sumber catatan kaki sebelumnya, «ص.32»/«ج.2» bertitik (kini juga terbaca sebagai halaman), «أقول/قلنا/نرجح» di matan di luar kutipan, الملخص lebih dari 300 kata, dan baris `#R` yang tidak dirujuk catatan kaki mana pun.
 - Baru: `pustaka` menulis «د.ن، د.ط، د.ت» untuk data cetak yang tidak ada di `kartu`, «جمع وترتيب: …» untuk kitab berpengumpul, dan «المؤلف مجهول» untuk kitab tanpa pengarang.
 - Baru: tabel `#J` boleh diberi judul bernomor «#J جدول: …» (tercetak «جدول (١): …» di atas tabel) dan sumber «#J المصدر: …» di bawahnya. Kerangka `baru` memuat «حدود البحث».
