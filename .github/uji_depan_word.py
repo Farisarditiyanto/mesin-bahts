@@ -231,7 +231,8 @@ def sampul_tengah(akar):
     # judul sangat panjang: sampul tetap satu halaman, judulnya yang dikecilkan (bukan baris lain)
     panjang = " ".join(["دراسة تحليلية وصفية مقارنة لأساليب المدح في شعر الشعراء العباسيين"] * 16)
     tulis(akar, "panjang", f"@judul: {panjang}\n@sampul: tengah\n@qism: قسم اللغة العربية\n@nama: طالب\n@musyrif: د. مشرف\n"
-          "@berkas: uji\n@tanpa: hadits\n@minimal_halaman: 0\n")
+          # judul pendek di kepala halaman: yang diuji sampulnya (judul sepanjang ini di kepala = PERINGATAN tersendiri)
+          "@berkas: uji\n@tanpa: hadits\n@minimal_halaman: 0\n@kepala_judul: دراسة تحليلية\n")
     r = bahts(akar, "rakit", "panjang", batas=1800)
     assert r.returncode == 0 and "PERINGATAN" not in r.stdout, r.stdout + r.stderr
     with pymupdf.open(akar / "panjang" / "uji.pdf") as doc:

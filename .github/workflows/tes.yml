@@ -82,6 +82,8 @@ jobs:
       - run: python .github/uji_depan_word.py
       # @templat: penanda «عنوان البحث» di kepala halaman diganti @judul; sampul yang meluap tetap utuh + PERINGATAN; tanpa Word = lewati.
       - run: python .github/uji_templat_word.py
+      # tiap @kepala (judul bagian berjalan, ganjil/genap tanpa halaman sisipan, nomor di kepala/kaki) dan garis pemisah catatan kaki 4,5 cm; tanpa Word = lewati.
+      - run: python .github/uji_kepala_word.py
       # `halaman` dan `cari` mencetak isi halaman yang diminta (kitab buatan + kitab CI); berkas tulisan mesin mengikuti umask (bukan 0600)
       - run: python .github/uji_halaman.py
       # `takhrij`/`tafsir` tanpa internet: nomor halaman Shamela dari indeks (bukan urutan rekaman), indeks lama dibangun ulang
@@ -103,14 +105,16 @@ jobs:
       # gerbang bug (aturan di .ruff.toml; `ruff check` tanpa --config memakainya juga)
       - uses: astral-sh/setup-uv@v10.3.3
       - run: uvx ruff@0.17.5 check --no-cache .
-      # rakit.ps1 tidak bisa dijalankan tanpa Word; minimal harus terurai oleh Windows PowerShell 5.1 milik pemakai
+      # rakit.ps1 (dan skrip yang di-dot-source-nya) tidak bisa dijalankan tanpa Word; minimal harus terurai oleh Windows PowerShell 5.1 milik pemakai
       - name: urai rakit.ps1
         if: runner.os == 'Windows'
         shell: powershell
         run: |
           $galat = $null
-          [System.Management.Automation.Language.Parser]::ParseFile("$PWD\mesin\rakit.ps1", [ref]$null, [ref]$galat) | Out-Null
-          if ($galat) { $galat | ForEach-Object { "$($_.Extent.StartLineNumber): $($_.Message)" }; exit 1 }
+          foreach ($f in Get-ChildItem mesin\*.ps1) {
+            [System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$galat) | Out-Null
+            if ($galat) { $galat | ForEach-Object { "$($f.Name) $($_.Extent.StartLineNumber): $($_.Message)" }; exit 1 }
+          }
           # PowerShell 5.1 membaca .ps1 tanpa BOM sebagai ANSI: huruf Arab di dalamnya rusak diam-diam
           foreach ($f in Get-ChildItem mesin\*.ps1) {
             $b = [IO.File]::ReadAllBytes($f.FullName)

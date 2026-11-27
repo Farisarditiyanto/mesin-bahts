@@ -70,8 +70,15 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       halaman_baru (B, M, atau keduanya): judul itu juga mulai halaman baru, mis. dosen minta
                       مبحث dan مطلب beda halaman, مبحث = #F dan مطلب = #B → «@halaman_baru: B»
                       Tata letak per bagian, bisa dicampur (nilai pertama = bawaan):
-                      kepala (- | kotak = judul kanan, nomor halaman berbingkai kiri, garis di bawahnya; kepala_judul =
-                      judul pendek di situ, bawaan @judul), fihris_ayat (tabel | surah = السورة digabung per surat | الآية
+                      kepala (klasik = judul kanan, garis memanjang ke nomor halaman tebal di pojok kiri atas, tanpa nomor
+                      di kaki | - = tanpa kepala, nomor di tengah kaki | kotak = judul kanan, nomor halaman berbingkai
+                      kiri, garis di bawahnya | bagian = judul #K/#F berjalan (di halaman فهرس: judul فهرس itu) tebal di
+                      kanan, nomor kiri, garis selebar halaman di bawahnya | bagian_hias = bagian + hiasan kitab terbuka
+                      di tengah garis | bintang = judul kanan, nomor di dalam bintang delapan di kiri atas, garis
+                      tebal-tipis di bawahnya | bergantian = halaman genap judul bahts, halaman ganjil judul #K/#F
+                      berjalan, di tengah bergaris tipis; nomor di tengah kaki | kaki = tanpa kepala, «- ١٢ -» di tengah
+                      kaki; kepala_judul = judul pendek di kepala, bawaan @judul. Sampul tetap tanpa nomor; garis pemisah
+                      catatan kaki 4,5 cm di kanan), fihris_ayat (tabel | surah = السورة digabung per surat | الآية
                       «… الآية n» | الصفحة, berjudul فهرس الآيات الكريمة | titik = tanpa tabel: nama tiap surat, lalu
                       «﴿… n﴾ ...... ص» per ayat, n = nomor ayat bermotif mushaf), fihris_hadits (tabel | ringkas = الأحاديث | الصفحة,
                       berjudul فهرس الأحاديث الشريفة), maudhuat (tabel | titik = baris bertitik-titik ke nomor halaman;
@@ -238,9 +245,12 @@ TANDA = "\n\n".join((TANDA_NASKAH, TANDA_BERTAHAP, TANDA_RISET))
 FORMAT = profil_format()  # huruf & ukuran tiap pedoman; dipilih dengan @format
 # Kunci profil yang boleh tidak ditulis di format.json: nilai bawaannya, atau (IKUT_FORMAT) kunci lain yang nilainya dipakai.
 # rakit.ps1 tidak punya bawaan sendiri: ia membaca profil yang sudah lengkap (format_cetak)
+# garis_catatan = panjang garis pemisah catatan kaki (cm, di kanan); ukuran_kepala = teks kepala/kaki halaman,
+# ukuran_nomor_kepala = nomor halaman tebal @kepala: klasik
 BAWAAN_FORMAT = {"latin": 12, "spasi": 1, "mulakhas_berjarak": False, "jarak_paragraf": 0, "jarak_judul": 0, "tepi_kanan": 3.5,
-                 "jarak_kepala": 1.25, "jarak_sebelum_sub": 6}
-IKUT_FORMAT = {"judul_sub": "judul", "ayat": "matan", "huruf_judul": "huruf", "spasi_mulakhas": "spasi", "ukuran_pustaka": "matan"}
+                 "jarak_kepala": 1.25, "jarak_sebelum_sub": 6, "garis_catatan": 4.5}
+IKUT_FORMAT = {"judul_sub": "judul", "ayat": "matan", "huruf_judul": "huruf", "spasi_mulakhas": "spasi", "ukuran_pustaka": "matan",
+               "ukuran_kepala": "catatan", "ukuran_nomor_kepala": "matan"}
 # @sampul: model sampul bahts -> data yang wajib. mahad = mesin/sampul.doc (معهد، كلية الشريعة);
 # qism = mesin/sampul_qism.docx (قسم الشريعة: logo, judul besar, sub-judul dalam kurung kalau ada, العام الجامعي; jenis dan nim tercetak kalau diisi, fasl tidak)
 # jakarta = mesin/sampul_jakarta.docx: model qism dengan «قسم الشريعة بجاكرتا», logo berwarna, baris @sifat di bawah nama,
@@ -264,7 +274,8 @@ TIMPA = {"catatan_kaki": ("catatan_ulang_tiap_halaman", {"bersambung": False, "u
          "spasi": ("spasi", {"1": 1, "1.5": 1.5})}
 # Bagian tata letak yang bisa dicampur: tiap kunci memilih bentuk satu bagian, nilai pertama = bawaan.
 # kepala_judul = judul pendek di kepala halaman (bawaan @judul); sifat = baris di bawah nama di sampul
-GAYA = {"kepala": ("-", "kotak"),            # kotak = judul kanan, nomor halaman berbingkai kiri, garis di bawahnya
+# kepala: bentuk tiap nilai ditulis di mesin/kepala.ps1 (kotak = mesin/kepala_kotak.docx)
+GAYA = {"kepala": ("klasik", "-", "kotak", "bagian", "bagian_hias", "bintang", "bergantian", "kaki"),
         "fihris_ayat": ("tabel", "surah", "titik"),  # surah = kolom السورة (digabung per surat) | الآية «… الآية n» | الصفحة;
                                                      # titik = tanpa tabel: judul tiap surat, lalu «﴿… n﴾ ...... ص» per ayat (n bermotif mushaf)
         "fihris_hadits": ("tabel", "ringkas"),  # ringkas = الأحاديث | الصفحة, tanpa kolom الراوي
@@ -841,8 +852,9 @@ def _cek_bentuk(ctx):
     """@kepala dengan @templat, @tanpa, daftar #R, dan @berkas."""
     meta, di_baris, pustaka, galat = ctx.meta, ctx.di_baris, ctx.pustaka, ctx.galat
     folder, di = ctx.folder, ctx.di
-    if meta["kepala"] == "kotak" and meta.get("templat"):
-        galat.append(di("@kepala") + "@kepala: kotak dan @templat tidak bisa dipakai bersama: @templat sudah membawa kepala halamannya")
+    # @templat memakai kepala halamannya sendiri: bawaan @kepala (juga nilai yang tidak dikenal) dan «-» tidak berlaku
+    if meta.get("templat") and meta["kepala"] not in ("-", DATA["kepala"].bawaan):
+        galat.append(di("@kepala") + f"@kepala: {meta['kepala']} dan @templat tidak bisa dipakai bersama: @templat sudah membawa kepala halamannya")
     if "pustaka" in daftar(meta, "tanpa"):  # sumber cukup di catatan kaki (rujukan pertama tiap kitab berdata lengkap)
         if "#R" in di_baris:
             galat.append(di("#R") + "@tanpa: pustaka, tetapi ada #R: hapus #R beserta daftarnya, atau hapus «pustaka» dari @tanpa")
@@ -1373,6 +1385,7 @@ def rencana_cetak(d):
     mulakhas = [(i, j) for i, b in enumerate(blok)
                 if b["k"] == "K" and MULAKHAS.match(j := norma.HARAKAT.sub("", b["judul"]))]
     return {"format": fmt, "sampul": sampul,
+            "kepala": "templat" if meta.get("templat") else meta.get("kepala"),  # bentuknya: mesin/kepala.ps1
             # baris المصادر tanpa huruf Arab dicetak kiri-ke-kanan (rata kiri), nomornya tetap di kanan
             "pustaka_ltr": [pustaka_asing(p) for p in d.get("pustaka", [])],
             "logo_berwarna": sampul == "qism" and not buang_sampul and meta.get("logo") == "berwarna",

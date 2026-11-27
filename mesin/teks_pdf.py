@@ -192,6 +192,18 @@ def _halaman_meluap(pdf, mulai):
     return kena
 
 
+def _jenis_nomor(tepi):
+    """Jenis nomor halaman dari potongan teks kepala dan kaki halaman (@kepala: nomor di kaki, atau di kepala di samping
+    judul dan garis): potongan yang isinya angka saja (tanpa spasi, tanda arah, dan «-» pengapit @kepala: kaki).
+    Tanpa itu, potongan pendek tanpa angka = nomor huruf (@nomor: abjad); judul dan garis «____» di kepala lebih
+    panjang. None = halaman tanpa nomor (atau nomor di kotak teks kepala @templat yang tidak terbaca)."""
+    bersih = [s for s in (re.sub(r"[\s\u200c\u200e\u200f\-\u2013]", "", t) for t in tepi) if s]
+    angka = "".join(s for s in bersih if s.isdigit())
+    if angka:
+        return JenisNomor.LATIN if angka.isascii() else JenisNomor.HINDI
+    return JenisNomor.LAIN if any(len(s) <= 3 for s in bersih) else None
+
+
 def _ada(kata, teks):
     """`kata` (padat) ada di `teks`, boleh dengan urutan huruf yang tertukar: teks PDF Word membalik huruf glyph
     sambungan («بين» tersalin «بني», «الإسلام» «اإلسالم») dan kadang memindah ujung baris ke awalnya («…عند الفقهاء»
@@ -244,11 +256,9 @@ def periksa(pdf, bahan):
         lebar, tinggi = float(hal.mediabox.width), float(hal.mediabox.height)
         potong = sorted(_baris(hal), key=lambda p: -p[1])
         gambar = _gambar(hal)
-        # kaki halaman = nomor halaman saja (@templat yang nomornya di kepala halaman: tidak diperiksa)
-        kaki = re.sub(r"[\s\u200c\u200e\u200f]", "", "".join(t for y, x, u, t, _ in potong if y < TEPI))
-        if kaki:
-            nomor[i] = (JenisNomor.LATIN if (kaki.isascii() and kaki.isdigit())
-                        else JenisNomor.HINDI if kaki.isdigit() else JenisNomor.LAIN)
+        jenis = _jenis_nomor([t for y, x, u, t, _ in potong if y < TEPI or y > tinggi - TEPI])
+        if jenis:
+            nomor[i] = jenis
         isi = [p for p in potong if TEPI < p[0] < tinggi - TEPI]
         gambar_isi = [g for g in gambar if g[1] > TEPI and g[0] < tinggi - TEPI]
         if not isi and not gambar_isi:

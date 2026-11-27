@@ -136,6 +136,7 @@ Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumenn
 | `mesin/rakit.ps1`, `word.ps1`, `teks_pdf.py` | perakit Word/PDF, identitas proses Word miliknya, dan teks PDF |
 | `mesin/format.json` | profil bentuk halaman (`@format`) |
 | `mesin/sampul_qism.docx`, `sampul.doc`, `sampul_jakarta.docx`, `kepala_kotak.docx` | templat sampul dan kepala halaman |
+| `mesin/kepala.ps1`, `hias_kitab.png` | kepala dan kaki halaman tiap `@kepala`, garis pemisah catatan kaki |
 | `mesin/naskah_baru.txt`, `riset_baru.txt` | kerangka dari `baru` |
 | `contoh/` | `naskah.txt` + `riset.txt` contoh dan `jebakan/` untuk tes |
 | `.mcp.json`, `opencode.json` | daftar connector (`opencode.json` = salinan untuk OpenCode) |
