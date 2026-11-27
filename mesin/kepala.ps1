@@ -94,14 +94,16 @@ function KakiNomor($kaki, $apit = '') {
     if ($apit) { HF-Teks $kaki " $apit" 0 $uMatan }
 }
 
-# hiasan kitab terbuka di bawah lengkung (mesin/hias_kitab.png, isinya putih menutup garis) di tengah garis kepala
+# hiasan kitab terbuka di bawah lengkung (mesin/hias_kitab.png, isinya putih menutup garis) di tengah garis kepala.
+# Tepi bawah gambar bening dan piksel beningnya putih (bukan hitam): kalau tidak, tepi isi putih tampak sebagai garis
+# tipis abu-abu di bawah lengkung saat gambar dikecilkan
 function Hias-Kitab($hd, $tinggiBaris) {
     $g = $hd.Shapes.AddPicture("$dir\hias_kitab.png", $false, $true, 0, 0, $hd.Range)
     $g.LockAspectRatio = -1; $g.Width = $word.CentimetersToPoints(1.15)
     $g.WrapFormat.Type = 3                               # 3 = wdWrapNone (di depan teks): menutup garis di bawahnya
     $g.RelativeHorizontalPosition = 0; $g.Left = -999995   # tengah bidang teks (wdShapeCenter)
     $g.RelativeVerticalPosition = 2                      # dari atas paragraf kepala: kaki lengkung melewati garis sedikit
-    $g.Top = [single]($tinggiBaris + 2 - $g.Height * 0.8)
+    $g.Top = [single]($tinggiBaris + 2 - $g.Height * 0.85)   # garis di 85% tinggi gambar: masih di dalam isi putih lengkung (sampai 90%); 10% bawah gambar bening
 }
 
 # bintang delapan (ربع الحزب): persegi + persegi miring (belah ketupat) berisi putih, di belakang nomor halaman yang
