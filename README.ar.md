@@ -144,6 +144,7 @@ python mesin/bahts.py periksa
 | `mesin/rakit.ps1`، `word.ps1`، `teks_pdf.py` | مُخرِج Word/PDF، هوية عملية Word التابعة له، ونص PDF |
 | `mesin/format.json` | أنماط شكل الصفحة (`@format`) |
 | `mesin/sampul_qism.docx`، `sampul.doc`، `sampul_jakarta.docx`، `kepala_kotak.docx` | قوالب الغلاف ورأس الصفحة |
+| `mesin/kepala.ps1`، `hias_kitab.png` | رأس الصفحة وتذييلها لكل `@kepala`، وخط فصل الحواشي |
 | `mesin/naskah_baru.txt`، `riset_baru.txt` | الهيكل الذي يُنشئه `baru` |
 | `contoh/` | `naskah.txt` و`riset.txt` نموذجيان، و`jebakan/` للاختبار |
 | `.mcp.json`، `opencode.json` | قائمة الموصِّلات (`opencode.json` نسخة لـOpenCode) |

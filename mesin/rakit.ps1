@@ -12,6 +12,7 @@ trap {
 }
 $dir = $PSScriptRoot
 . "$dir\word.ps1"
+. "$dir\kepala.ps1"                     # kepala/kaki halaman isi (@kepala) dan garis pemisah catatan kaki
 $DATA = Get-Content -LiteralPath $Build -Raw -Encoding UTF8 | ConvertFrom-Json
 $M = $DATA.meta
 # Rencana cetak (olah.rencana_cetak): apa yang dicetak dan di mana sudah diputuskan di sana, termasuk bawaan profil.
@@ -59,7 +60,7 @@ $JENIS_BAGIAN = @($RENCANA.bagian | ForEach-Object { $_.jenis })   # المصا�
 $adaAy = $JENIS_BAGIAN -contains 'ayat'; $adaHd = $JENIS_BAGIAN -contains 'hadits'; $adaTo = $JENIS_BAGIAN -contains 'maudhuat'
 $ABJAD = [bool]$RENCANA.abjad            # @nomor: halaman sebelum judul $RENCANA.nomor_satu bernomor huruf, mulai judul itu ١، ٢، ٣
 # tata letak yang bisa dicampur (olah.GAYA, @model): tiap bagian memilih bentuknya sendiri
-$KEPALA_KOTAK = $M.kepala -eq 'kotak'      # kepala halaman: judul kanan, nomor halaman berbingkai kiri, garis di bawahnya
+$KEPALA = [string]$RENCANA.kepala         # bentuk kepala/kaki halaman isi (kepala.ps1); kotak dan templat = kepala dari berkas Word
 $JUDUL_KEPALA = if ($M.kepala_judul) { [string]$M.kepala_judul } else { $JUDUL }
 $AYAT_SURAH = $M.fihris_ayat -eq 'surah'   # فهرس الآيات: السورة (digabung per surat) | الآية «… الآية n» | الصفحة
 $AYAT_TITIK = $M.fihris_ayat -eq 'titik'   # فهرس الآيات tanpa tabel: nama surat, lalu «﴿… n﴾ ...... ص» per ayat (n bermotif mushaf)
@@ -432,19 +433,15 @@ try {
     $ps.TopMargin = $word.CentimetersToPoints(2.5); $ps.BottomMargin = $word.CentimetersToPoints(2.5)
     $ps.LeftMargin = $word.CentimetersToPoints(2.5); $ps.RightMargin = $word.CentimetersToPoints($TEPI_KANAN)
     $ps.HeaderDistance = $word.CentimetersToPoints([single]$FMT.jarak_kepala); $ps.FooterDistance = $word.CentimetersToPoints(1.25)
-    # pedoman: nomor halaman di tengah bawah, huruf dan ukuran sama dengan matan, dihitung mulai dari المقدمة
-    function KakiNomor($kaki) {
-        $kaki.Range.Text = ''
-        [void]$kaki.Range.Fields.Add($kaki.Range, 33)
-        $kaki.Range.ParagraphFormat.Alignment = 1
-        Huruf $kaki.Range.Font $TA $uMatan
-    }
-    $ft = $sec.Footers(1); $ft.LinkToPrevious = $false; $sec.Headers(1).LinkToPrevious = $false
-    KakiNomor $ft
+    # nomor halaman dihitung mulai dari المقدمة (bagian isi); kepala dari berkas Word (kotak, @templat) disalin di bawah,
+    # dengan nomor di kaki halaman bawaan sampai ternyata kepala itu sudah memuat nomor
+    $ft = $sec.Footers(1)
+    [void](Gaya-Berjalan)                                 # sumber judul bagian berjalan (STYLEREF) di kepala halaman
+    Pasang-Kepala $sec $(if ($KEPALA -in 'kotak', 'templat') { '-' } else { $KEPALA }) $JUDUL_KEPALA
     $ft.PageNumbers.RestartNumberingAtSection = $true; $ft.PageNumbers.StartingNumber = 1
     if ($ABJAD) { $ft.PageNumbers.NumberStyle = 46 }     # wdPageNumberStyleArabicLetter1: أ ب ت
     $ftIsi = $null; $bagianDepan = $sec.Index
-    if ($KEPALA_KOTAK -and -not $TPL) { $TPL = $word.Documents.Open("$dir\kepala_kotak.docx", $false, $true); $doc.Activate() }
+    if ($KEPALA -eq 'kotak' -and -not $TPL) { $TPL = $word.Documents.Open("$dir\kepala_kotak.docx", $false, $true); $doc.Activate() }
     if ($TPL) {                                          # kepala halaman @templat (nomor halamannya di situ): kaki halaman dikosongkan
         function KepalaKosong($h) {
             $nShape = try { $h.Range.ShapeRange.Count } catch { 0 }
@@ -787,6 +784,7 @@ try {
     }
     # $kedua = baris kedua judul (@judul_fasl: dua_baris): paragraf sendiri, rata dan ukuran sama, menempel ke baris pertama
     function Judul($teks, $bm, $pb, $k = '', $kedua = '', $atas = 6) {
+        if ($k -in 'K', 'F', '') { $sel.Style = $GAYA_BERJALAN }   # judul bagian berjalan di kepala halaman (kepala.ps1); paragraf sesudahnya Normal lagi
         Para $(if ($k -in $KANAN) { 3 } else { 1 }) $atas 0  # @judul_kanan: #B/#M rata kanan seperti #S; $atas = olah._jarak_sub
         $sel.ParagraphFormat.KeepWithNext = -1
         if ($pb) { $sel.ParagraphFormat.PageBreakBefore = -1; $sel.ParagraphFormat.SpaceBefore = 0 }
@@ -1338,22 +1336,24 @@ try {
     # semua kaki halamannya, <w:rtl/> tidak ada di kaki halaman .docx-nya, dan rakit ulang naskah yang sama benar
     # (penyebabnya belum tahu). Jadi dikerjakan di Print Layout, lalu dibaca lagi dari XML-nya dan diulang sekali
     $doc.ActiveWindow.View.Type = 3
+    # Tiap field PAGE kepala/kaki halaman (1 utama, 3 genap) yang bukan sambungan bagian sebelumnya
     function NomorRtl($hf) {
-        if (-not $hf -or -not $hf.Range.Fields.Count) { return }   # kaki halaman tanpa PAGE (@templat: nomor di kepala halaman)
-        for ($k = 1; $k -le 2; $k++) {
-            $doc.Activate(); $hf.Range.Select(); $word.Selection.RtlRun()
-            if ($hf.Range.WordOpenXML -match '<w:rtl/>') { return }
+        if ($hf.LinkToPrevious) { return }                 # bagian pertama tidak pernah bersambung
+        foreach ($f in @($hf.Range.Fields | Where-Object { $_.Code.Text -match '^\s*PAGE(\s|$)' })) {
+            $r = $hf.Range.Duplicate; $r.SetRange($f.Code.Start - 1, $f.Result.End + 1)
+            for ($k = 1; $k -le 2; $k++) {
+                $doc.Activate(); $r.Select(); $word.Selection.RtlRun()
+                if ($r.WordOpenXML -match '<w:rtl/>') { break }
+            }
+            # nomor huruf (@nomor: abjad) tidak berangka
+            if ($r.WordOpenXML -notmatch '<w:rtl/>' -and $HINDI -and $hf.PageNumbers.NumberStyle -ne 46) { Write-Output "PERINGATAN: Word tidak mau membuat nomor halaman kanan-ke-kiri: nomor halaman bisa tercetak 0123. Rakit lagi." }
         }
-        # nomor huruf (@nomor: abjad) tidak berangka
-        if ($HINDI -and $hf.PageNumbers.NumberStyle -ne 46) { Write-Output "PERINGATAN: Word tidak mau membuat nomor halaman kanan-ke-kiri: nomor halaman bisa tercetak 0123. Rakit lagi." }
     }
-    NomorRtl $ft
-    if ($ftIsi) { NomorRtl $ftIsi }
-    # garis pemisah catatan kaki di kanan: ceritanya baru ada sesudah catatan kaki pertama; dokumen @templat berangkat dari
-    # dokumen kosong yang gaya Normal-nya kiri-ke-kanan, jadi garisnya ikut ke kiri kalau tidak disetel di sini
-    foreach ($g in @($doc.Footnotes.Separator, $doc.Footnotes.ContinuationSeparator)) {
-        try { $g.ParagraphFormat.ReadingOrder = 0; $g.ParagraphFormat.Alignment = 0 } catch {}
-    }
+    foreach ($s in @($doc.Sections)) { foreach ($j in 1, 3) { NomorRtl $s.Headers($j); NomorRtl $s.Footers($j) } }
+    # garis pemisah catatan kaki: dokumen @templat berangkat dari dokumen kosong yang gaya Normal-nya kiri-ke-kanan, jadi
+    # garisnya ikut ke kiri kalau tidak disetel di sini
+    $pk = $sec.PageSetup; Garis-Catatan ($pk.PageWidth - $pk.LeftMargin - $pk.RightMargin)
+    Periksa-Kepala $sec $KEPALA
     # Dokumen selalu berakhir dengan satu paragraf kosong: sisa TypeParagraph sesudah blok terakhir, atau paragraf wajib
     # Word sesudah tabel terakhir (فهرس). Isi yang pas memenuhi halaman mendorongnya ke halaman baru: PDF berakhir dengan
     # halaman kosong yang hanya bernomor. Sesudah paragraf biasa (bahts tanpa المصادر dan فهرس), tanda paragraf
