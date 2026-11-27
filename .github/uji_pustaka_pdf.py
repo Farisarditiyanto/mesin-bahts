@@ -61,10 +61,16 @@ def utama():
         assert kode == 0 and "): 2\n" in out and "tidak dirujuk di catatan kaki mana pun" in out, out
         assert "tidak ada di المصادر والمراجع" in out, out
 
-        # 1b. Blok #R siap ditempel, dan status ditulis terpisah dari draf.
+        # 1b. Blok #R siap ditempel, dan status ditulis terpisah dari draf. Bawaan @pustaka_gaya (judul_tebal) membaca
+        # baris berbentuk muallif, jadi drafnya «**pengarang** (ت …). __judul__. …»; @pustaka_gaya: judul = bentuk lama
         kode, out_p = jalan("pustaka", "uji")
         assert kode == 0, out_p
-        assert "#R المصادر والمراجع\nالقرآن الكريم.\nرسالة في القضاء والقدر" in out_p, out_p
+        assert ("#R المصادر والمراجع\nالقرآن الكريم.\n**محمد بن صالح بن محمد العثيمين** (ت ١٤٢١هـ). "
+                "__رسالة في القضاء والقدر__.") in out_p, out_p
+        (f / "naskah.txt").write_text("@pustaka_gaya: judul\n" + hilang_r, encoding="utf8")
+        kode, out_j = jalan("pustaka", "uji")
+        assert kode == 0 and "#R المصادر والمراجع\nالقرآن الكريم.\nرسالة في القضاء والقدر" in out_j, out_j
+        (f / "naskah.txt").write_text(hilang_r, encoding="utf8")
         assert "11223: judul belum ditemukan di #R" in out_p, out_p
         assert "di luar padanan kitab berbukti" in out_p and "كتاب آخر غير مذكور" in out_p, out_p
 
@@ -124,7 +130,7 @@ def utama():
                                "الناشر: دار الوطن\rالطبعة: ١٤٢٣هـ\rعام النشر:\rالجزء: ١ - الطبعة: ٠، ١٩٠٠\r"
                                "عدد الصفحات: ٢٩")
         meta_p.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf8")
-        (f / "naskah.txt").write_text(dasar, encoding="utf8")
+        (f / "naskah.txt").write_text("@pustaka_gaya: judul\n" + dasar, encoding="utf8")
         kode, out_g = jalan("pustaka", "uji")
         baris_draf = next(s for s in out_g.splitlines() if s.startswith("رسالة في القضاء والقدر"))
         assert kode == 0 and "، محمد بن صالح بن محمد العثيمين، " in baris_draf, out_g

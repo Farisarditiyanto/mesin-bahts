@@ -87,7 +87,11 @@ def utama():
         tulis(akar, "pustaka_salah", "@pustaka_gaya: judul_tebal\n", ISI + "كتاب بلا علامة، مؤلف، 1400هـ.\n")
         r = bahts(akar, "cek", "pustaka_salah")
         assert r.returncode != 0 and "judul_tebal" in r.stdout and "كتاب بلا علامة" in r.stdout, r.stdout
-        print("lolos cek: @judul_fasl tanpa #F dan baris #R judul_tebal tanpa __judul__ = GAGAL")
+        tulis(akar, "pustaka_bawaan", "", ISI + "كتاب بلا علامة، مؤلف، 1400هـ.\n")
+        r = bahts(akar, "cek", "pustaka_bawaan")
+        assert r.returncode == 0, r.stdout   # judul_tebal sebagai bawaan: baris itu tercetak apa adanya
+        print("lolos cek: @judul_fasl tanpa #F dan baris #R judul_tebal (ditulis sendiri) tanpa __judul__ = GAGAL; "
+              "sebagai bawaan lolos")
         if alasan := tanpa_word():
             print("lewati uji judul/sampul Word: " + alasan)
             return
@@ -132,7 +136,7 @@ def utama():
         assert "توفيقه" in doc[-1].get_text() and not tepi(doc[-1]), doc[-1].get_text()
         print(f"lolos Word: sampul kop, {2} halaman pemisah tanpa nomor (فهرس menunjuknya), المصادر judul_tebal, "
               "فهرس titik tebal tanpa ❖, halaman penutup")
-        doc = rakit(akar, "bingkai", "@sampul: tanpa_kop\n@judul_fasl: pemisah_bingkai\n")
+        doc = rakit(akar, "bingkai", "@sampul: tanpa_kop\n@judul_fasl: pemisah_bingkai\n@pustaka_gaya: judul\n")
         h = doc[0].rect.height
         sampul = {kata(t): (x, y) for t, x, y, _ in baris(doc[0])}
         y = {k: sampul[kata(k)][1] for k in ("اختبار الصفحات الفاصلة", "إعداد الطالب", "جامعة الإمام محمد بن سعود الإسلامية")}
@@ -141,7 +145,11 @@ def utama():
         i = cari(doc, "وفيه مطلبان:")
         bingkai = [d["rect"] for d in doc[i].get_drawings() if d["rect"].width > w * 0.8 and d["rect"].height > h * 0.8]
         assert len(bingkai) == 2 and not [d for d in doc[i + 1].get_drawings() if d["rect"].height > h * 0.8], bingkai
-        print("lolos Word: sampul tanpa_kop (judul atas, إعداد tengah, kampus bawah), bingkai ganda di halaman pemisah saja")
+        # @pustaka_gaya: judul (bentuk lama) tetap bernomor apa adanya, tanpa «•»
+        mas = doc[cari(doc, "المصادر دار طيبة")].get_text()
+        assert "•" not in mas and "١." in mas, mas
+        print("lolos Word: sampul tanpa_kop (judul atas, إعداد tengah, kampus bawah), bingkai ganda di halaman pemisah "
+              "saja; @pustaka_gaya: judul bernomor")
         doc = rakit(akar, "kotak", "@judul_fasl: kotak\n")
         i = cari(doc, "الموضوع الأول")
         garis = [d["rect"] for d in doc[i].get_drawings() if d["rect"].y1 < h / 3]
@@ -151,10 +159,11 @@ def utama():
         # garis ganda: yang tebal di luar, di atas dan di bawah kotak
         datar = sorted((g for g in garis if g.width > w / 2), key=lambda g: g.y0)
         assert datar[0].height > datar[1].height and datar[-1].height > datar[-2].height, f"garis tebal kotak di dalam: {datar}"
-        # @pustaka_gaya bawaan tetap bernomor, tanpa «•»
+        # @pustaka_gaya bawaan = judul_tebal: «•» tanpa nomor
         mas = doc[cari(doc, "المصادر دار طيبة")].get_text()
-        assert "•" not in mas and "١." in mas, mas
-        print("lolos Word: judul #F di kotak bergaris di atas halaman, isinya menyusul di halaman yang sama; المصادر bawaan bernomor")
+        assert mas.count("•") == 3 and "١." not in mas.split(), mas   # nomor «١.» = sel sendiri; «١٤٢٠.» bukan nomor
+        print("lolos Word: judul #F di kotak bergaris di atas halaman, isinya menyusul di halaman yang sama; المصادر bawaan "
+              "berbutir «•»")
 
 
 if __name__ == "__main__":
