@@ -49,7 +49,7 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       baris; tanpa barisnya judul dipecah di « - » saja; «@qism: -» = tanpa baris qism),
                       tahun (العام الجامعي di sampul qism dan tahun sampul tengah, mis. ١٤٤٨; «١٤٤٨/١٤٤٩» tercetak «١٤٤٨/١٤٤٩ هـ»; «١٤٤٨ - ٢٠٢٦» tercetak «١٤٤٨هـ – ٢٠٢٦م»;
                       bawaan = tahun hijriah Umm al-Qura saat tahun ajaran mulai, 1 Agustus),
-                      berkas (nama file hasil), format (profil di format.json; bawaan imam),
+                      berkas (nama file hasil), format (profil di format.json; tanpa barisnya imam; kerangka bahts baru: baku),
                       catatan_kaki (bersambung = nomor catatan kaki ١، ٢، ٣ … sampai akhir bahts; ulang = mulai ١ lagi tiap halaman)
                       dan spasi (1 atau 1.5: jarak baris matan dan judul) menimpa nilai itu di profil @format; bawaan = nilai profil.
                       Kombinasi permintaan dosen dibuat dengan keduanya, mis. «@format: tatbiqi» + «@catatan_kaki: bersambung»
@@ -165,8 +165,9 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       kalau sebelumnya ada isi (mis. الملخص Arab), jadi الملخص dan Abstract tidak sehalaman;
                       langsung di bawah judul #K/#F/#B/#M tetap sehalaman dengan judulnya
   #J sel | sel | sel  satu baris tabel (mis. جدول المقارنة); sel dipisah « | ». Baris #J berturut-turut = satu tabel bergaris
-                      selebar halaman; baris pertamanya = kepala (tebal, berlatar abu-abu, diulang di halaman berikutnya).
-                      Tiap baris tabel itu harus sama jumlah selnya. Sel boleh memuat catatan kaki dan kutipan berbukti
+                      selebar halaman; baris pertamanya = kepala (tebal, rata tengah, berlatar abu-abu, diulang di halaman
+                      berikutnya). Sel berisi angka saja (mis. «24», «12,5٪», «1442هـ/2021م», «10-20», «$300») rata
+                      tengah; sel teks rata kanan. Tiap baris tabel itu harus sama jumlah selnya. Sel boleh memuat catatan kaki dan kutipan berbukti
                       (dicek seperti paragraf). Judul tabel: «#J جدول: …» tepat di atas baris #J pertama = «جدول (١): …»
                       bernomor urut, tebal di tengah; sumbernya: «#J المصدر: …» tepat di bawah baris terakhir (boleh
                       bercatatan kaki). Keduanya pilihan; tanpa itu judulnya #S atau paragraf sebelum baris #J pertama
@@ -306,9 +307,10 @@ FORMAT = profil_format()  # huruf & ukuran tiap pedoman; dipilih dengan @format
 # Kunci profil yang boleh tidak ditulis di format.json: nilai bawaannya, atau (IKUT_FORMAT) kunci lain yang nilainya dipakai.
 # rakit.ps1 tidak punya bawaan sendiri: ia membaca profil yang sudah lengkap (format_cetak)
 # garis_catatan = panjang garis pemisah catatan kaki (cm, di kanan); ukuran_kepala = teks kepala/kaki halaman,
-# ukuran_nomor_kepala = nomor halaman tebal @kepala: klasik
+# ukuran_nomor_kepala = nomor halaman tebal @kepala: klasik; awal_alinea = baris pertama paragraf matan menjorok (cm).
+# Tepi atas, bawah, dan kiri halaman isi selalu 2,5 cm; yang beda antarprofil hanya tepi_kanan
 BAWAAN_FORMAT = {"latin": 12, "spasi": 1, "mulakhas_berjarak": False, "jarak_paragraf": 0, "jarak_judul": 0, "tepi_kanan": 3.5,
-                 "jarak_kepala": 1.25, "jarak_sebelum_sub": 6, "garis_catatan": 4.5, "tepi_kutipan": 1}
+                 "jarak_kepala": 1.25, "jarak_sebelum_sub": 6, "garis_catatan": 4.5, "tepi_kutipan": 1, "awal_alinea": 0.8}
 # tepi_kutipan = jorok kanan dan kiri kutipan blok #Q (cm); ukuran_kutipan = hurufnya. Pedoman yang dipakai tidak menyebut
 # ukuran khusus: bawaannya sebesar matan
 IKUT_FORMAT = {"judul_sub": "judul", "ayat": "matan", "ukuran_kutipan": "matan", "huruf_judul": "huruf", "spasi_mulakhas": "spasi", "ukuran_pustaka": "matan",
@@ -687,6 +689,30 @@ def _baris_tabel(ctx, n, k, t):
         isi.append(runs)
     # runs = gabungan semua sel (untuk perkiraan halaman dan penghitung lain); rakit.ps1 memakai sel
     ctx.blok.append({"k": "J", "sel": isi, "runs": [r for s in isi for r in (*s, {"t": " "})], "n": n})
+
+
+# Sel #J berisi angka saja: angka Arab-Hindi/Persia/Latin, pemisah desimal dan ribuan, %/٪, tanda +/−, rentang «-»,
+# «/», «:», ×/÷/=, kurung, lambang mata uang, dan akhiran tahun هـ/م yang menempel pada angka (mis. «1442هـ/2021م», «12,5٪», «$300»)
+ANGKA_SEL = re.compile(r"[\s\d٠-٩۰-۹.,،٫٬%٪‰+\-−–—/:×÷=()$€£¥₹﷼]*[\d٠-٩۰-۹][\s\d٠-٩۰-۹.,،٫٬%٪‰+\-−–—/:×÷=()$€£¥₹﷼]*")
+TAHUN_SEL = re.compile(r"(?<=[\d٠-٩۰-۹])\s?(?:هـ|ه|م)(?![ء-ي])")
+
+
+def sel_angka(blok):
+    """{indeks blok #J: [nomor sel (0 = pertama)]} sel yang isinya angka saja (ANGKA_SEL); rakit.ps1 mencetaknya rata
+    tengah, sel teks tetap rata kanan. Sel berisi tanda pisah saja («-», «—»: nilai kosong di kolom angka) ikut. Baris
+    pertama tiap tabel = kepala (selalu rata tengah), jadi tidak ikut. Catatan kaki di sel tidak dihitung; sel berisi
+    ayat, rumus, atau penanda lain = bukan angka."""
+    hasil = {}
+    for i, b in enumerate(blok):
+        if b["k"] != "J" or i == 0 or blok[i - 1]["k"] != "J":
+            continue
+        c = [j for j, runs in enumerate(b["sel"])
+             if all(set(r) <= {"t", "b"} for r in runs if "fn" not in r)
+             and ((t := TAHUN_SEL.sub("", "".join(r["t"] for r in runs if "fn" not in r)).strip()) and t.strip("-−–—") == ""
+                  or ANGKA_SEL.fullmatch(t))]
+        if c:
+            hasil[str(i)] = c
+    return hasil
 
 
 # «#J جدول: judul» tepat di atas baris pertama tabel, «#J المصدر: sumber» tepat di bawah baris terakhirnya: «يُوضع لكل
@@ -1785,6 +1811,7 @@ def rencana_cetak(d):
             "ihda": _jarak_ihda(blok, fmt) if meta.get("ihda") == "tengah" else {},
             "jarak_sub": _jarak_sub(blok, fmt),
             "mufradat": baris_mufradat(blok),
+            "sel_angka": sel_angka(blok),
             "mulakhas": {
                 "spasi": [i for i, _ in mulakhas],
                 "berjarak": [i for i, j in mulakhas if not MULAKHAS_ASING.search(j)],

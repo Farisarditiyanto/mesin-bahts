@@ -38,10 +38,26 @@ def berkas():
     return hasil
 
 
+def _kunci(nama):
+    """Nama huruf tanpa spasi, tanda hubung, dan garis bawah, huruf kecil: «Noto Naskh Arabic» = «NotoNaskhArabic»."""
+    return re.sub(r"[\s\-_]+", "", nama).casefold()
+
+
+def _kunci_terdaftar(satu):
+    """Kunci nama huruf yang dicakup satu nama terdaftar. Satu nama bisa memuat beberapa huruf («Cambria & Cambria
+    Math»); nama gaya PostScript («NotoNaskhArabic-Regular», «NotoNaskhArabic-Bold») = huruf keluarga sebelum «-»."""
+    for x in satu.split("&"):
+        x = x.strip()
+        yield _kunci(x)
+        if "-" in x:
+            yield _kunci(x.rsplit("-", 1)[0])
+
+
 def huruf_ada(nama):
-    """Huruf `nama` terpasang di Windows, untuk semua akun atau untuk akun ini saja (daftar huruf di registry)."""
-    # satu nama terdaftar bisa memuat beberapa huruf: «Cambria & Cambria Math»
-    return any(nama.lower() in (x.strip().lower() for x in satu.split("&")) for satu, _ in terdaftar())
+    """Huruf `nama` terpasang di Windows, untuk semua akun atau untuk akun ini saja (daftar huruf di registry). Nama
+    dicocokkan tanpa membedakan spasi, tanda hubung, dan besar-kecil huruf."""
+    k = _kunci(nama)
+    return any(k in _kunci_terdaftar(satu) for satu, _ in terdaftar())
 
 
 def font_terpasang():
