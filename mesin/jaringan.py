@@ -1,31 +1,50 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Transport layanan luar: pengalihan aman, percobaan ulang, jatah, dan unduhan utuh."""
-import http.client, time, urllib.error, urllib.parse, urllib.request
+import functools, time, urllib.error, urllib.parse
 
 from berkas import sementara
 
 UA = {"User-Agent": "curl/8"}
-# unduhan yang putus/gagal di jaringan (bukan nomor kitab yang salah)
-GAGAL_JARINGAN = (urllib.error.URLError, http.client.HTTPException, ConnectionError, TimeoutError)
 COBA = 3  # tiap kitab dicoba sebanyak ini kalau unduhannya putus
 SEMENTARA = (500, 502, 503)  # jawaban HTTP yang biasanya hilang sendiri (504 tidak: OpenAlex memakainya untuk «pencarian terlalu berat»)
 
 
-class _AlihAman(urllib.request.HTTPRedirectHandler):
-    """Kunci hanya ikut pengalihan di asal yang sama (protokol, nama host, dan port), dan hanya ke http/https."""
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        if urllib.parse.urlsplit(newurl).scheme.lower() not in ("http", "https"):
-            raise urllib.error.HTTPError(req.full_url, code, f"pengalihan ke skema tidak diizinkan: {newurl}", headers, fp)
-        baru = super().redirect_request(req, fp, code, msg, headers, newurl)
+# http.client dan urllib.request (±25 ms impor) dimuat saat dipakai: perintah tanpa internet (`cek`, `cari`) tidak memakainya
+@functools.cache
+def _gagal_jaringan():
+    """Unduhan yang putus/gagal di jaringan (bukan nomor kitab yang salah)."""
+    import http.client
+    return urllib.error.URLError, http.client.HTTPException, ConnectionError, TimeoutError
 
-        def asal(url):
-            u = urllib.parse.urlsplit(url)
-            port = u.port if u.port is not None else {"http": 80, "https": 443}.get(u.scheme)
-            return u.scheme, u.hostname, port
 
-        if baru is not None and asal(req.full_url) != asal(baru.full_url):
-            baru.remove_header("Authorization")
-        return baru
+def __getattr__(nama):
+    if nama == "GAGAL_JARINGAN":
+        return _gagal_jaringan()
+    raise AttributeError(f"module {__name__!r} has no attribute {nama!r}")
+
+
+@functools.cache
+def _urllib():
+    """(urllib.request, penangan pengalihan aman)."""
+    import urllib.request
+
+    class AlihAman(urllib.request.HTTPRedirectHandler):
+        """Kunci hanya ikut pengalihan di asal yang sama (protokol, nama host, dan port), dan hanya ke http/https."""
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            if urllib.parse.urlsplit(newurl).scheme.lower() not in ("http", "https"):
+                raise urllib.error.HTTPError(req.full_url, code, f"pengalihan ke skema tidak diizinkan: {newurl}", headers, fp)
+            baru = super().redirect_request(req, fp, code, msg, headers, newurl)
+
+            def asal(url):
+                u = urllib.parse.urlsplit(url)
+                port = u.port if u.port is not None else {"http": 80, "https": 443}.get(u.scheme)
+                return u.scheme, u.hostname, port
+
+            if baru is not None and asal(req.full_url) != asal(baru.full_url):
+                baru.remove_header("Authorization")
+            return baru
+
+    return urllib.request, AlihAman
 
 
 def buka(url, data=None, kepala=UA, waktu=60):
@@ -35,14 +54,15 @@ def buka(url, data=None, kepala=UA, waktu=60):
     Hanya http/https: alamat dari data layanan (mis. pdf_url OpenAlex) bisa saja file://, dan urllib membuka berkas lokal."""
     if urllib.parse.urlsplit(url).scheme.lower() not in ("http", "https"):
         raise ValueError(f"alamat bukan http/https, tidak dibuka: {url}")
-    pembuka = urllib.request.build_opener(_AlihAman)
+    request, alih_aman = _urllib()
+    pembuka = request.build_opener(alih_aman)
     for i in range(COBA):
         try:
-            return pembuka.open(urllib.request.Request(url, data, kepala), timeout=waktu)
+            return pembuka.open(request.Request(url, data, kepala), timeout=waktu)
         except urllib.error.HTTPError as e:
             if e.code not in SEMENTARA or i == COBA - 1:
                 raise
-        except GAGAL_JARINGAN:
+        except _gagal_jaringan():
             if i == COBA - 1:
                 raise
         time.sleep(2 ** i)
@@ -104,7 +124,7 @@ def unduh_kitab(nomor, ambil):
                 break
             except LookupError as e:  # nomornya salah: diulang pun sama
                 print(f"{s}: {e}"); gagal.append(str(s)); break
-            except GAGAL_JARINGAN as e:
+            except _gagal_jaringan() as e:
                 tetap = isinstance(e, urllib.error.HTTPError) and 400 <= e.code < 500 and e.code != 429
                 if tetap or coba == COBA:
                     print(f"{s}: GAGAL mengunduh, cek internet lalu ulangi ({e!r})"); gagal.append(str(s)); break

@@ -6,6 +6,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Lebih cepat: `cari semua` tidak lagi membaca ulang seluruh pustaka kitab tiap pencarian hanya untuk memastikan berkasnya belum berubah, dan `cek` serta perintah lain tanpa internet mulai lebih cepat. Tiap folder kitab kini memuat `sidik.json` (ingatan pemeriksaan itu); aman dihapus.
 - Perbaikan: rujukan Latin yang memuat elipsis «…» atau kurung siku, atau diawali/diakhiri tanda petik («“Essay”», «Coppens’»), tercetak utuh kiri-ke-kanan di catatan kaki dan المصادر, jadi potongannya tidak lagi tertukar («Société … al-Qāsimī’s») dan tanda petiknya tetap di tempatnya.
 - Dihapus: tanda naskah muqarrar/syarah `#T` (kotak matn), `((…))` (lafaz matn merah), `@rumuz` (rumuz sumber dan catatan kaki bukti saja yang tidak dicetak), dan `@warna`. Naskah yang masih memakainya kini GAGAL di `cek` dengan jalan keluarnya (versi mesin b4dbc50 atau rilis v14.0.0); `))` tanpa `((` kini kurung biasa.
 - Perbaikan: apostrof dan tanda petik tipografis di teks Latin («al-Qāsimī’s», “…”) tercetak Times New Roman di matan, catatan kaki, dan المصادر, jadi tidak lagi tampak bercelah («al-Qāsimī’ s»).

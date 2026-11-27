@@ -119,7 +119,7 @@ class AlihProtokol(unittest.TestCase):
         # Transport TLS tidak ditiru dengan sertifikat longgar. Jalankan pembuat
         # permintaan pengalihan asli yang juga dipakai peladen lokal di atas.
         req = urllib.request.Request(awal, headers={"Authorization": BEARER})
-        return jaringan._AlihAman().redirect_request(req, None, 302, "Found", {}, akhir)
+        return jaringan._urllib()[1]().redirect_request(req, None, 302, "Found", {}, akhir)
 
     def test_https_ke_http_tanpa_kunci(self):
         req = self.alih("https://api.openalex.org:443/a", "http://api.openalex.org:443/b")
