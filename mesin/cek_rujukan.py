@@ -576,7 +576,8 @@ MUKHARRIJ_KATA = [kata_rujukan(b) for bb in MUKHARRIJ for b in bb]
 def pustaka_tak_dirujuk(penunjuk, pustaka_baris, catatan):
     """Perhatian baris #R (`pustaka_baris`) yang tidak dirujuk catatan kaki mana pun (`catatan`: teks tiap catatan kaki):
     kitab yang «ليست لها صلة بالبحث؛ وإنما توضع لمجرد شهرتها» (أبو سليمان، كتابة البحث العلمي، ص203-204). Dirujuk = dipadankan ke kitab berbukti (`_padanan`),
-    judulnya utuh atau dua kata pertamanya (judul ringkas) ada di sebuah catatan kaki, atau judulnya memuat nama
+    judulnya utuh, dua kata pertamanya (judul ringkas), atau empat kata berurutan darinya ada di sebuah catatan kaki,
+    atau judulnya memuat nama
     mukharrij yang disebut catatan kaki takhrij («صحيح البخاري» untuk «أخرجه البخاري»). Satu kalimat untuk semua baris
     (gabung_kembar menjadikannya satu baris «baris n, m: …»)."""
     _, calon, _ = _padanan(penunjuk, pustaka_baris)
@@ -589,7 +590,10 @@ def pustaka_tak_dirujuk(penunjuk, pustaka_baris, catatan):
         judul = _judul_baris(t)
         if n in terpakai or not judul or any(termuat(m, judul) for m in mukharrij):
             continue
-        if any(termuat(judul, k) or termuat(judul[:2], k) for k in kata_fn):
+        # judul utuh, dua kata pertamanya, atau empat kata berurutan darinya («قرار مجمع الفقه الإسلامي الدولي رقم 139»
+        # untuk catatan kaki «مجمع الفقه الإسلامي الدولي، قرار رقم 139»)
+        potong = [judul, judul[:2]] + [judul[i:i + 4] for i in range(len(judul) - 3)]
+        if any(termuat(p, k) for k in kata_fn for p in potong):
             continue
         hasil.append(f"baris {n}: baris المصادر والمراجع ini tidak dirujuk di catatan kaki mana pun: hapus kalau memang "
                      f"tidak dipakai, atau rujuk di tempat yang memakainya (أبو سليمان، كتابة البحث العلمي، ص203-204)")

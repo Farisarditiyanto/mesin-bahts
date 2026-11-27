@@ -170,7 +170,7 @@ def utama():
         def draf_11223(betaka, pengarang):
             meta.update(betaka_text=betaka, main_author_name_ar=pengarang, death_year_hijri=None)
             meta_p.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf8")
-            (f / "naskah.txt").write_text(dasar, encoding="utf8")
+            (f / "naskah.txt").write_text("@pustaka_gaya: judul\n" + dasar, encoding="utf8")
             kode, out = jalan("pustaka", "uji")
             assert kode == 0, out
             return next(s for s in out.splitlines() if s.startswith("رسالة في القضاء والقدر"))
