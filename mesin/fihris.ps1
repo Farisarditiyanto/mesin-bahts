@@ -50,13 +50,20 @@ function Judul-Kelompok($teks, $pertama) {
     $sel.TypeParagraph()
 }
 
+# kepala tabel فهرس bergaris penuh (juga الموضوعات di rakit.ps1): berlatar abu-abu muda, tebal huruf judul, diulang di
+# halaman sambungan. Tabel terbuka (Garis-Terbuka) tidak memakainya
+function Kepala-Abu($tbl) {
+    $baris = $tbl.Rows(1)
+    Huruf $baris.Range.Font $TJ; $baris.Range.Font.Bold = 1
+    $baris.Shading.BackgroundPatternColor = 14277081      # abu-abu muda (RGB 217,217,217)
+    $baris.HeadingFormat = -1
+}
+
 # tabel bergaris dengan kepala berlatar abu-abu (seperti #J), diulang di halaman sambungan
 function Tabel-Kepala($baris, $lebar, $kepala) {
     $tbl = Tabel ($baris + 1) $lebar 1
     for ($c = 1; $c -le $kepala.Count; $c++) { Sel $tbl 1 $c $kepala[$c - 1] 1 1 }
-    Huruf ($tbl.Rows(1).Range.Font) $TJ
-    $tbl.Rows(1).Shading.BackgroundPatternColor = 14277081   # abu-abu muda (RGB 217,217,217)
-    $tbl.Rows(1).HeadingFormat = -1
+    Kepala-Abu $tbl
     return $tbl
 }
 
@@ -122,7 +129,7 @@ function Fihris-Ayat($bg) {
         }
     }
     'surah' {
-        $tAy = Tabel ($urut.Count + 1) @(2.6, 10.4, 2.0) 1; Sel $tAy 1 1 'السورة' 1 1; Sel $tAy 1 2 'الآية' 1 1; Sel $tAy 1 3 'الصفحة' 1 1
+        $tAy = Tabel-Kepala $urut.Count @(2.6, 10.4, 2.0) @('السورة', 'الآية', 'الصفحة')
         $r = 1
         foreach ($key in $urut) {
             $r++; $a = $ay[$key]
@@ -177,7 +184,7 @@ function Fihris-Ayat($bg) {
             Sel $tAy $r 4 (Angka '00') 1 0
             Catat-Isian $a.bm $false @{ tbl = $tAy; r = $r; c = 4; tebal = 0 }
         }
-        if ($bg.bentuk -eq 'terbuka') { Garis-Terbuka $tAy }
+        if ($bg.bentuk -eq 'terbuka') { Garis-Terbuka $tAy } else { Kepala-Abu $tAy }
     }
     }
 }
@@ -200,7 +207,7 @@ function Fihris-Hadits($bg) {
         $cH = if ($ringkas) { 2 } else { 3 }
         if ($ringkas) { $tHd = Tabel ($baris.Count + 1) @(7.5, 7.5) 1; Sel $tHd 1 1 'الأحاديث' 1 1; Sel $tHd 1 2 'الصفحة' 1 1; Huruf ($tHd.Rows(1).Range.Font) $TJ }
         else { $tHd = Tabel ($baris.Count + 1) @(8.6, 4.4, 2.0) $(if ($bg.bentuk -eq 'terbuka') { 0 } else { 1 }); Sel $tHd 1 1 $bg.kolom 1 1; Sel $tHd 1 2 'الراوي' 1 1; Sel $tHd 1 3 'الصفحة' 1 1 }
-        if ($bg.bentuk -eq 'terbuka') { Garis-Terbuka $tHd }
+        if ($bg.bentuk -eq 'terbuka') { Garis-Terbuka $tHd } else { Kepala-Abu $tHd }
         $r = 1
         foreach ($h in $baris) {
             $r++
@@ -223,7 +230,7 @@ function Fihris-Nama($bg) {
     $nm = @($DATA.($bg.jenis))
     if ($bg.bentuk -eq 'titik') { foreach ($a in $nm) { Baris-Titik $a.t $null $a.k $true }; return }
     if ($bg.bentuk -eq 'nomor') { $tN = Tabel-Kepala $nm.Count @(1.2, 10.3, 3.5) @('م', $bg.kolom, 'الصفحة'); $cN = 2 }
-    else { $tN = Tabel ($nm.Count + 1) @(10.0, 5.0) 1; Sel $tN 1 1 $bg.kolom 1 1; Sel $tN 1 2 'الصفحة' 1 1; $cN = 1 }
+    else { $tN = Tabel-Kepala $nm.Count @(10.0, 5.0) @($bg.kolom, 'الصفحة'); $cN = 1 }
     $r = 1
     foreach ($a in $nm) {
         $r++

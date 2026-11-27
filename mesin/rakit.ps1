@@ -74,6 +74,7 @@ $KANAN = @($RENCANA.judul_kanan)         # judul #B/#M rata kanan
 $TJ = [string]$FMT.huruf_judul           # huruf judul (#K/#F/#B/#M/#S dan judul فهرس)
 $JARAK_P = [single]$FMT.jarak_paragraf   # pt sesudah paragraf matan
 $JARAK_J = [single]$FMT.jarak_judul      # pt sesudah judul #K/#F (baris keduanya kalau dua baris)
+$JARAK_FIHRIS = [single]14                # pt sesudah judul المصادر dan tiap فهرس: tabel/daftarnya tidak menempel ke judul
 $U_PUSTAKA = [single]$FMT.ukuran_pustaka   # ukuran huruf المصادر
 $FIHRIS_SAMBUNG = $M.fihris -eq 'sambung'  # فهرس sesudah yang pertama menyambung di halaman yang sama
 $TEPI_KANAN = [single]$FMT.tepi_kanan   # cm
@@ -1079,7 +1080,8 @@ try {
     function JudulFihris($teks, $bm) {
         $pb = $script:fihrisPertama -or -not $FIHRIS_SAMBUNG; $script:fihrisPertama = $false
         Judul $teks $bm $pb
-        if (-not $pb) { $p = $sel.Paragraphs(1).Previous(1); if ($p) { $p.SpaceBefore = 24 } }
+        $p = $sel.Paragraphs(1).Previous(1)
+        if ($p) { $p.SpaceAfter = [Math]::Max($p.SpaceAfter, $JARAK_FIHRIS); if (-not $pb) { $p.SpaceBefore = 24 } }
     }
     function Tabel($rows, $widthsCm, $garis) {
         Para 3 0 0
@@ -1168,6 +1170,7 @@ try {
     if ($diAwal) {
         $doc.Bookmarks.Item('fihris_awal').Range.Select(); $sel.Collapse(1)
         Judul $bg.judul 't_maudhuat' $true                # tidak masuk فهرس-nya sendiri, dan tidak dihitung sebagai bagian sesudah isi
+        $p = $sel.Paragraphs(1).Previous(1); $p.SpaceAfter = [Math]::Max($p.SpaceAfter, $JARAK_FIHRIS)
     } else {
     $nT++; JudulFihris $bg.judul "t_$nT"
     if (-not $titik) { [void]$toc.Add(@{ t = $bg.judul; bm = "t_$nT"; lvl = 0 }) }
@@ -1194,7 +1197,7 @@ try {
         }
     } else {
     $tTo = Tabel ($toc.Count + 1) @(13.0, 2.0) 1
-    Sel $tTo 1 1 'الموضوع' 1 1; Sel $tTo 1 2 'الصفحة' 1 1
+    Sel $tTo 1 1 'الموضوع' 1 1; Sel $tTo 1 2 'الصفحة' 1 1; Kepala-Abu $tTo   # fihris.ps1
     $r = 1
     foreach ($e in $toc) { $r++; Sel $tTo $r 1 $e.t 3 ([int]($e.lvl -eq 0)); $tTo.Cell($r, 1).Range.ParagraphFormat.RightIndent = 0; $tTo.Cell($r, 1).Range.ParagraphFormat.LeftIndent = 0; if ($e.lvl -gt 0) { $tTo.Cell($r, 1).Range.ParagraphFormat.RightIndent = $word.CentimetersToPoints(0.7 * $e.lvl) }; Sel $tTo $r 2 (Angka '00') 1 0 }
     }

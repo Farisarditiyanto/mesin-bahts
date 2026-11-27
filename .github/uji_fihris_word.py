@@ -39,17 +39,21 @@ def rakit(akar, nama, kunci):
         xml = z.read("word/document.xml").decode("utf8")
     awal = xml.find("فهرس الآيات")
     assert awal > 0, "judul فهرس الآيات tidak ada"
-    xml = xml[awal:]
+    penuh, xml = xml, xml[awal:]
     # tiap فهرس = dari judulnya sampai judul فهرس berikutnya; kemunculan pertama = judulnya (فهرس الموضوعات di akhir)
     letak = sorted((xml.find(j), j) for j in JUDUL if xml.find(j) >= 0)
     bagian = {j: xml[i:(letak[k + 1][0] if k + 1 < len(letak) else len(xml))] for k, (i, j) in enumerate(letak)}
     assert "٠٠" not in teks(xml[:letak[-1][0]]), f"{nama}: nomor halaman فهرس belum terisi (masih ٠٠)"
+    bagian["_xml"] = penuh   # seluruh document.xml: paragraf judul (sebelum teksnya) ada di situ
     return bagian
 
 
 def paragraf(x):
     """Paragraf bertulisan di `x`; `x` diawali di tengah paragraf judulnya, jadi judul itu tidak ikut."""
     return [p for p in re.findall(r"<w:p[ >].*?</w:p>", x, re.S) if teks(p).strip()]
+
+
+ABU = re.compile(r'<w:shd [^>]*w:fill="D9D9D9"')  # latar abu-abu muda kepala tabel (fihris.ps1 Kepala-Abu)
 
 
 def garis(x):
@@ -98,11 +102,21 @@ def utama():
         al = b["فهرس الأعلام"]
         assert "<w:tbl>" in al and teks(paragraf(al)[0]).strip() == "م", "@fihris_alam bawaan (nomor) tanpa kolom م"
         titik(b["فهرس الموضوعات"], "@maudhuat bawaan (titik)")
-        print("lolos bawaan: فهرس الآيات/الأحاديث terbuka (garis mendatar saja), فهرس الأعلام bernomor, الموضوعات bertitik")
+        assert not ABU.search(b["فهرس الآيات"]) and not ABU.search(b["فهرس الأحاديث"]), "tabel terbuka berlatar abu-abu"
+        # judul المصادر dan tiap فهرس berjarak ±14 pt (280 twip) dari tabel/daftar di bawahnya
+        for j in ("فهرس الآيات", "فهرس الأحاديث", "فهرس الأعلام", "فهرس الموضوعات"):
+            judul = re.search(r"<w:p[ >](?:(?!</w:p>).)*?" + j, b["_xml"], re.S)[0]
+            after = re.search(r'w:after="(\d+)"', judul)
+            assert after and int(after[1]) >= 280, f"judul {j} menempel ke isinya: {after}"
+        print("lolos bawaan: فهرس الآيات/الأحاديث terbuka (garis mendatar saja), فهرس الأعلام bernomor, الموضوعات bertitik; "
+              "judul فهرس berjarak 14 pt")
         b = rakit(akar, "tiga", "@fihris_ayat: tabel\n@fihris_hadits: huruf\n@fihris_alam: tabel\n@maudhuat: tabel\n")
         assert {"insideV", "insideH"} <= set(garis(b["فهرس الآيات"])), "@fihris_ayat: tabel tidak bergaris penuh"
         assert teks(paragraf(b["فهرس الأعلام"])[0]).strip() != "م", "@fihris_alam: tabel masih berkolom م"
         assert "<w:tbl>" in b["فهرس الموضوعات"], "@maudhuat: tabel tanpa tabel"
+        # tabel bergaris penuh: kepala abu-abu muda seperti @fihris_alam: nomor; tabel terbuka tanpa latar
+        for j in ("فهرس الآيات", "فهرس الأعلام", "فهرس الأشعار", "فهرس الموضوعات"):
+            assert ABU.search(b[j]), f"{j} bergaris penuh tanpa kepala abu-abu"
         hd = b["فهرس الأحاديث"]
         isi = [teks(p).strip() for p in paragraf(hd)]
         assert "حرف الهمزة" in isi and "حرف اللام" in isi, isi
