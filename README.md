@@ -139,6 +139,7 @@ Every command = `python mesin/bahts.py <perintah>`. Full list with arguments: `p
 | `mesin/format.json` | page layout profiles (`@format`) |
 | `mesin/sampul_qism.docx`, `sampul.doc`, `sampul_jakarta.docx`, `kepala_kotak.docx` | cover and page header templates |
 | `mesin/kepala.ps1`, `hias_kitab.png` | page headers and footers of each `@kepala`, footnote separator |
+| `mesin/pemisah.ps1` | unnumbered divider page of each #F (`@judul_fasl`) and closing page (`@tamma`) |
 | `mesin/naskah_baru.txt`, `riset_baru.txt` | the outline made by `baru` |
 | `contoh/` | sample `naskah.txt` + `riset.txt` and `jebakan/` for tests |
 | `.mcp.json`, `opencode.json` | connector list (`opencode.json` = the copy for OpenCode) |
