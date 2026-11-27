@@ -123,9 +123,11 @@ try {
             $pa = $asal.Paragraphs($i); $pt = $tujuan.Paragraphs($i)
             $pt.Format = $pa.Format
             $fa = $pa.Range.Font; $ft2 = $pt.Range.Font
-            # sifat ditulis satu-satu: $font.$nama = … pada objek COM diam-diam tidak berpengaruh
+            # sifat ditulis satu-satu: $font.$nama = … pada objek COM diam-diam tidak berpengaruh. Ukuran ditulis [single]:
+            # nilai bacaan COM yang ditulis apa adanya ke Size/SizeBi merusak pengikat COM PowerShell 5.1 untuk sifat itu, dan
+            # sesudahnya tiap penulisan bilangan bulat ke sifat itu (MuatRumus) di proses ini gagal «Specified cast is not valid»
             $T = 9999999
-            if ($fa.Size -ne $T) { $ft2.Size = $fa.Size }; if ($fa.SizeBi -ne $T) { $ft2.SizeBi = $fa.SizeBi }
+            if ($fa.Size -ne $T) { $ft2.Size = [single]$fa.Size }; if ($fa.SizeBi -ne $T) { $ft2.SizeBi = [single]$fa.SizeBi }
             if ($fa.Bold -ne $T) { $ft2.Bold = $fa.Bold }; if ($fa.BoldBi -ne $T) { $ft2.BoldBi = $fa.BoldBi }
             if ($fa.Italic -eq -1) { $ft2.Italic = -1 }; if ($fa.ItalicBi -eq -1) { $ft2.ItalicBi = -1 }
             if ($fa.NameAscii) { $ft2.NameAscii = $fa.NameAscii }; if ($fa.NameOther) { $ft2.NameOther = $fa.NameOther }; if ($fa.NameBi) { $ft2.NameBi = $fa.NameBi }
@@ -631,8 +633,8 @@ try {
         if (-not (& $turun)) { return }
         $ukuran = [int[]](($uMatan - 2)..11 | Where-Object { ($_ -eq 11) -or (([int]$uMatan - $_) % 2 -eq 0) })
         foreach ($sz in $ukuran) {
-            $omR.Font.SizeBi = $sz
-            $omR.Font.Size = [Math]::Max(9, $sz - 2)
+            $omR.Font.SizeBi = [single]$sz
+            $omR.Font.Size = [single][Math]::Max(9, $sz - 2)
             if (-not (& $turun)) { return }
         }
         if ($omml -match '<w:rtl/>') {

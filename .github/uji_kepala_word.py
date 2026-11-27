@@ -5,7 +5,9 @@ Runner tanpa Word melaporkan lewati.
 Naskah uji: sampul, المقدمة dua halaman (bercatatan kaki), مبحث, lalu فهرس الموضوعات. Yang dijaga: letak judul dan
 nomor tiap bentuk (judul bagian yang berjalan ikut #K/#F dan judul فهرس, ganjil/genap bergantian), sampul tanpa
 nomor, tidak ada halaman kosong sisipan Word (ganjil/genap), tanpa PERINGATAN nomor halaman, dan garis pemisah
-catatan kaki 4,5 cm di kanan. Semua bahan di TEMP."""
+catatan kaki 4,5 cm di kanan. `@kepala: kotak` dirakit sekali lagi dengan judul panjang dan persamaan #E yang turun
+ke baris kedua (diperkecil MuatRumus sesudah gaya kepala kepala_kotak.docx disalin): rakit jadi, judul rata kanan
+tanpa kasyidah dan tidak menimpa kotak nomor, dan PERINGATAN @kepala_judul. Semua bahan di TEMP."""
 import sys, tempfile
 from pathlib import Path
 
@@ -19,6 +21,14 @@ ISI = "هذا سطر من نص الاختبار يطول قليلا حتى يم�
 NASKAH = (f"@judul: {JUDUL}\n@nama: طالب\n@berkas: uji\n@tanpa: ayat, hadits, alam, firaq, pustaka\n"
           "@minimal_halaman: 0\n{kepala}#K المقدمة\n" + f"{ISI}[^حاشية للاختبار.]\n" + f"{ISI}\n" * 24
           + f"#F {FASL}\n{ISI}\n#K الخاتمة\n{ISI}\n")
+# judul yang lebih panjang daripada satu baris kepala kotak, dan persamaan #E (bertag dan tanpa tag) yang lebih lebar
+# daripada satu baris matan
+JUDUL_PANJANG = "زكاة الأسهم والصناديق الاستثمارية المعاصرة: دراسة فقهية محاسبية مقارنة بين المذاهب الأربعة والمعايير المحاسبية الدولية"
+RUMUS = (r"\text{زكاة أسهم الاقتناء} = \text{عدد الأسهم المملوكة} \times \text{وعاء السهم الزكوي في آخر الحول}"
+         r" \times \text{نسبة الزكاة الواجبة} \times 2.5\%")
+NASKAH_KOTAK = (f"@judul: {JUDUL_PANJANG}\n@nama: طالب\n@berkas: uji\n@tanpa: ayat, hadits, alam, firaq, pustaka\n"
+                f"@minimal_halaman: 0\n@kepala: kotak\n#K المقدمة\n{ISI}\n#E {RUMUS} \\tag{{1}}\n{ISI}\n"
+                f"#E {RUMUS}\n{ISI}\n#K الخاتمة\n{ISI}\n")
 TEPI = 72  # pt dari tepi atas/bawah kertas: kepala/kaki halaman (bidang teks mulai 2,5 cm = 71 pt)
 CM = 72 / 2.54
 
@@ -41,6 +51,37 @@ def rakit(akar, kepala):
     for jebak in ("nomor halaman tercetak", "halaman kosong"):
         assert jebak not in r.stdout, f"@kepala: {kepala}: PERINGATAN «{jebak}»\n{r.stdout}"
     return pymupdf.open(stream=(f / "uji.pdf").read_bytes(), filetype="pdf")   # tanpa memegang berkasnya (TEMP dibersihkan)
+
+
+def kotak(akar):
+    """@kepala: kotak + judul panjang + #E yang turun baris: rakit jadi; di kepala halaman isi judul rata kanan, tanpa
+    kasyidah, tidak masuk kotak nomor di kiri; PERINGATAN @kepala_judul. Mengembalikan jumlah baris judul."""
+    f = akar / "kotak_rumus"
+    f.mkdir()
+    (f / "naskah.txt").write_text(NASKAH_KOTAK, encoding="utf8")
+    r = bahts(akar, "rakit", f.name, batas=1800)
+    assert r.returncode == 0, "@kepala: kotak + #E: " + r.stdout + r.stderr
+    assert "(@kepala: kotak)" in r.stdout and "@kepala_judul" in r.stdout, "PERINGATAN judul kepala kotak panjang\n" + r.stdout
+    hal = pymupdf.open(stream=(f / "uji.pdf").read_bytes(), filetype="pdf")[1]
+    w = hal.rect.width
+    kotak = [d["rect"] for d in hal.get_drawings() if d["rect"].y1 < TEPI + 10 and 25 < d["rect"].width < 50]
+    assert kotak and kotak[0].x1 < w / 2, f"kotak nomor halaman di kiri kepala: {kotak}"
+    k = kotak[0]
+    judul = [(sp["bbox"], sp["text"]) for b in hal.get_text("dict")["blocks"] for ln in b.get("lines", ())
+             for sp in ln["spans"] if sp["bbox"][1] < TEPI - 5 and sp["text"].strip() and not sp["text"].strip().isdigit()]
+    assert judul, "judul di kepala kotak"
+    for bb, t in judul:
+        assert bb[0] >= k.x1, f"judul kepala menimpa kotak nomor (x {k.x0:.0f}-{k.x1:.0f}): «{t}» mulai x={bb[0]:.0f}"
+        assert "ـ" not in t, f"judul kepala diregang kasyidah: «{t}»"
+    kanan = w - 3.5 * CM
+    assert abs(max(bb[2] for bb, _ in judul) - kanan) < 6, f"judul kepala rata kanan (x={kanan:.0f}): {judul}"
+    garis = [d["rect"] for d in hal.get_drawings() if d["rect"].y1 < TEPI + 20 and d["rect"].height < 2]
+    assert garis and all(g.x0 < k.x0 + 1 and g.x1 > kanan - 3 for g in garis), f"garis ganda kepala selebar bidang teks: {garis}"
+    baris = sorted({round(bb[3]) for bb, _ in judul})
+    for y in baris[:-1]:   # baris yang bukan terakhir: rata kanan, tidak diregang sampai kotak nomor (rata kanan-kiri)
+        kiri = min(bb[0] for bb, _ in judul if round(bb[3]) == y)
+        assert kiri > k.x1 + 3, f"baris judul kepala y={y} diregang sampai kotak nomor (x={kiri:.0f})"
+    return len(baris)
 
 
 def rata(s):
@@ -93,8 +134,9 @@ def utama():
             assert len(garis) == 1, f"@kepala: {k}: garis pemisah catatan kaki: {garis}"
             g = garis[0]
             assert abs(g.width - 4.5 * CM) < 3 and abs(g.x1 - (w - 3.5 * CM)) < 3, f"@kepala: {k}: garis pemisah {g}"
-        print(f"lolos kepala halaman Word: {len(pdf)} bentuk @kepala, {n} halaman tanpa sisipan; "
-              "garis pemisah catatan kaki 4,5 cm di kanan")
+        baris = kotak(akar)
+        print(f"lolos kepala halaman Word: {len(pdf)} bentuk @kepala, {n} halaman tanpa sisipan; garis pemisah catatan "
+              f"kaki 4,5 cm di kanan; kotak + #E turun baris: judul {baris} baris di samping kotak nomor")
 
 
 if __name__ == "__main__":

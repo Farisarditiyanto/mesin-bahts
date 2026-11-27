@@ -166,10 +166,11 @@ function Pasang-Kepala($sec, $jenis, $judul) {
     }
 }
 
-# judul bahts di kepala (klasik, bintang) yang tidak muat satu baris mendorong nomor halaman keluar dari tempatnya dan
-# isi halaman ke bawah: diperingatkan sesudah tata halaman jadi (Print Layout), supaya ditulis @kepala_judul
+# judul bahts di kepala (klasik, bintang, kotak) yang tidak muat satu baris mendorong nomor halaman keluar dari tempatnya
+# (kotak: kepala_kotak.docx, judul rata kanan, sisi kirinya dicadangkan untuk kotak nomor) dan isi halaman ke bawah:
+# diperingatkan sesudah tata halaman jadi (Print Layout), supaya ditulis @kepala_judul
 function Periksa-Kepala($sec, $jenis) {
-    if ($jenis -notin 'klasik', 'bintang') { return }
+    if ($jenis -notin 'klasik', 'bintang', 'kotak') { return }
     $baris = $sec.Headers(1).Range.Paragraphs(1).Range.ComputeStatistics(1)   # 1 = wdStatisticLines
     if ($baris -gt 1) { Write-Output "PERINGATAN: judul di kepala halaman (@kepala: $jenis) tidak muat satu baris ($baris baris): tulis judul pendeknya di @kepala_judul, lalu rakit lagi." }
 }
