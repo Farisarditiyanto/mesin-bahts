@@ -1,7 +1,7 @@
 ﻿# SPDX-License-Identifier: AGPL-3.0-or-later
 # Halaman tanpa kepala/kaki di tengah dan akhir bagian isi: halaman pemisah tiap #F (@judul_fasl: pemisah,
 # pemisah_bingkai) dan halaman penutup (@tamma). Di-dot-source rakit.ps1 dan memakai $word, $doc, $sel, Para, Tulis,
-# Huruf, $GAYA_BERJALAN (kepala.ps1), $HURUF_HIAS, dan ukuran huruf profil miliknya. Isinya sudah diputuskan
+# Huruf, $HURUF_HIAS, dan ukuran huruf profil miliknya. Isinya sudah diputuskan
 # olah.rencana_cetak ($RENCANA.pemisah, $RENCANA.tamma); judul #B sesudah halaman pemisah mulai halaman baru lewat
 # $RENCANA.halaman_baru.
 
@@ -58,7 +58,6 @@ function Bingkai-Bulat($r) {
 function Halaman-Pemisah($p, $bm, $bingkai) {
     Halaman-TanpaNomor
     $jangkar = Turun ((Tinggi-Bidang) * 0.28)
-    $sel.Style = $GAYA_BERJALAN
     Para 1 0 0; $sel.ParagraphFormat.KeepWithNext = -1
     [void]$doc.Bookmarks.Add($bm, $sel.Range)
     Tulis ([string]$p.judul[0]) $HURUF_HIAS ([Math]::Round($uJudul * 1.8)) 1 0

@@ -7,18 +7,11 @@
 # Di paragraf kanan-ke-kiri Word membaca perataan dan posisi tab dari kanan: Alignment 0 = rata kanan, tab 2 (rata
 # «kanan») di posisi selebar bidang teks = ujung kirinya tepat di tepi kiri. LeftIndent = sisi kanan.
 
-# gaya paragraf judul #K/#F dan judul فهرس (rakit.ps1 `Judul`): sumber STYLEREF judul bagian berjalan. Berbasis Normal
-# tanpa ubahan, jadi tampilan judul tetap dari format langsungnya
-$GAYA_BERJALAN = 'Judul Bahts Berjalan'
-
-function Gaya-Berjalan {
-    $g = try { $doc.Styles.Item($GAYA_BERJALAN) } catch { $null }
-    if (-not $g) {
-        $g = $doc.Styles.Add($GAYA_BERJALAN, 1)          # 1 = wdStyleTypeParagraph
-        $g.BaseStyle = -1; $g.NextParagraphStyle = -1    # -1 = wdStyleNormal
-    }
-    return $g
-}
+# Judul bagian berjalan (bagian, bagian_hias, bergantian) = judul #K/#F utuh sebagai teks tetap di kepala bagian Word-nya:
+# tiap #K/#F halaman isi membuka bagian Word baru (rakit.ps1 Kepala-Berjalan; daftarnya olah.rencana_cetak
+# judul_berjalan). Bukan STYLEREF: judul #F dua baris (@judul_fasl) ditulis dua paragraf, jadi STYLEREF hanya membaca baris
+# pertamanya, dan pindah baris manual (Chr 11) di satu paragraf ikut tercetak sebagai pindah baris di kepala (dicoba di
+# Word); SET/REF di kepala memberi nilai SET terakhir dokumen, bukan yang berlaku di halaman itu
 
 # paragraf kepala/kaki yang kosong: kanan-ke-kiri, rata $rata (0 kanan, 1 tengah), huruf profil, tanpa tab dan garis
 function HF-Baru($hf, $rata = 0) {
@@ -39,23 +32,21 @@ function HF-Teks($hf, $teks, $tebal = 0, $ukuran = $FMT.ukuran_kepala) {
     $r = HF-Ujung $hf; $r.InsertAfter($teks); Huruf $r.Font $TA ([single]$ukuran) $tebal
 }
 
-# $kode: 'PAGE' atau 'STYLEREF "…"'
+# $kode: 'PAGE' atau field lain
 function HF-Field($hf, $kode, $tebal = 0, $ukuran = $FMT.ukuran_kepala) {
     $f = $hf.Range.Fields.Add((HF-Ujung $hf), -1, $kode, $false)   # -1 = wdFieldEmpty: jenisnya dari kodenya
     $r = $hf.Range.Duplicate; $r.SetRange($f.Code.Start - 1, $f.Result.End + 1)
     Huruf $r.Font $TA ([single]$ukuran) $tebal
 }
 
-function HF-Berjalan($hf, $tebal) { HF-Field $hf "STYLEREF `"$GAYA_BERJALAN`"" $tebal }
-
-# { IF { = { PAGE } - INT({ PAGE } / 2) * 2 } = 1 "{ STYLEREF judul bagian }" "$genap" }: halaman ganjil judul bagian
-# berjalan, genap $genap. Bukan kepala ganjil/genap Word (OddAndEvenPagesHeaderFooter): dengannya Word menyisipkan
+# { IF { = { PAGE } - INT({ PAGE } / 2) * 2 } = 1 "$ganjil" "$genap" }: halaman ganjil $ganjil (judul bagian berjalan),
+# genap $genap. Bukan kepala ganjil/genap Word (OddAndEvenPagesHeaderFooter): dengannya Word menyisipkan
 # halaman kosong di PDF supaya nomor ١ bagian isi jatuh di halaman fisik ganjil (sesudah sampul = halaman fisik 2).
 # Tanpa MOD: pemisah argumennya mengikuti pengaturan daerah Windows («,» atau «;»). Field di dalam field dibuat dengan
 # menimpa penandanya di kode field luar (Fields.Add pada rentang yang tidak kosong menggantinya)
-function HF-GanjilGenap($hf, $genap) {
-    $genap = $genap -replace '"', '\"'
-    $luar = $hf.Range.Fields.Add((HF-Ujung $hf), -1, "IF @M = 1 `"@S`" `"$genap`"", $false)
+function HF-GanjilGenap($hf, $ganjil, $genap) {
+    $ganjil = $ganjil -replace '"', '\"'; $genap = $genap -replace '"', '\"'
+    $luar = $hf.Range.Fields.Add((HF-Ujung $hf), -1, "IF @M = 1 `"$ganjil`" `"$genap`"", $false)
     # penanda diganti dari yang paling belakang: letak penanda sebelumnya di kode tidak bergeser
     function Tanam($field, $penanda, $kode) {
         $c = $field.Code; $i = $c.Text.LastIndexOf($penanda)
@@ -63,7 +54,6 @@ function HF-GanjilGenap($hf, $genap) {
         $r = $c.Duplicate; $r.SetRange($c.Start + $i, $c.Start + $i + $penanda.Length)
         return $hf.Range.Fields.Add($r, -1, $kode, $false)
     }
-    [void](Tanam $luar '@S' "STYLEREF `"$GAYA_BERJALAN`"")
     $sisa = Tanam $luar '@M' '= @P - INT(@P / 2) * 2'
     [void](Tanam $sisa '@P' 'PAGE'); [void](Tanam $sisa '@P' 'PAGE')
     $r = $hf.Range.Duplicate; $r.SetRange($luar.Code.Start - 1, $luar.Result.End + 1); Huruf $r.Font $TA ([single]$FMT.ukuran_kepala) 0
@@ -106,23 +96,24 @@ function Hias-Kitab($hd, $tinggiBaris) {
     $g.Top = [single]($tinggiBaris + 2 - $g.Height * 0.85)   # garis di 85% tinggi gambar: masih di dalam isi putih lengkung (sampai 90%); 10% bawah gambar bening
 }
 
-# bintang delapan (ربع الحزب): persegi + persegi miring (belah ketupat) berisi putih, di belakang nomor halaman yang
-# berpusat $pusat pt dari tepi kiri bidang teks; lingkaran tipis di dalamnya
-function Bintang-Nomor($hd, $pusat, $tinggiBaris) {
-    $sisi = $word.CentimetersToPoints(0.95)
-    foreach ($b in @(@(1, $sisi, 1.2), @(4, ($sisi * 1.4142), 1.2), @(9, ($sisi * 0.78), 0.6))) {   # 1 persegi, 4 belah ketupat, 9 lingkaran
+# bintang delapan (ربع الحزب) selebar $lebar pt: persegi + persegi miring (belah ketupat) bergaris tipis berisi putih, di
+# belakang nomor halaman yang berpusat $pusat pt dari tepi kiri bidang teks dan $tengah pt di bawah atas paragraf kepala
+function Bintang-Nomor($hd, $pusat, $tengah, $lebar) {
+    $sisi = $lebar / 1.4142
+    foreach ($b in @(@(4, $lebar), @(1, $sisi))) {     # 4 belah ketupat, 1 persegi
         $w = [single]$b[1]
         $sp = $hd.Shapes.AddShape($b[0], 0, 0, $w, $w, $hd.Range)
         $sp.Fill.Visible = -1; $sp.Fill.Solid(); $sp.Fill.ForeColor.RGB = 16777215
-        $sp.Line.Visible = -1; $sp.Line.ForeColor.RGB = 0; $sp.Line.Weight = [single]$b[2]
+        $sp.Line.Visible = -1; $sp.Line.ForeColor.RGB = 0; $sp.Line.Weight = [single]0.6
         $sp.WrapFormat.Type = 5                          # 5 = wdWrapBehind: nomornya di atas
         $sp.RelativeHorizontalPosition = 0; $sp.Left = [single]($pusat - $w / 2)
-        $sp.RelativeVerticalPosition = 2; $sp.Top = [single]($tinggiBaris / 2 - $w / 2)
+        $sp.RelativeVerticalPosition = 2; $sp.Top = [single]($tengah - $w / 2)
     }
 }
 
-# kepala dan kaki halaman bagian isi $sec (bagian Word sesudahnya mewarisinya) menurut @kepala $jenis
-function Pasang-Kepala($sec, $jenis, $judul) {
+# kepala dan kaki halaman bagian isi $sec (bagian Word sesudahnya mewarisinya) menurut @kepala $jenis; $judul = judul bahts,
+# $berjalan = judul #K/#F bagian Word ini (bagian, bagian_hias, bergantian)
+function Pasang-Kepala($sec, $jenis, $judul, $berjalan = '') {
     $ps = $sec.PageSetup
     $lebar = $ps.PageWidth - $ps.LeftMargin - $ps.RightMargin
     $u = [single]$FMT.ukuran_kepala
@@ -139,31 +130,47 @@ function Pasang-Kepala($sec, $jenis, $judul) {
         }
         { $_ -in 'bagian', 'bagian_hias' } {             # judul bagian berjalan tebal kanan, nomor kiri, garis penuh
             $t = [Math]::Round($u * 1.6)
-            HF-Tinggi $hd $t; HF-Tab $hd $lebar 2
-            HF-Berjalan $hd 1; HF-Teks $hd "`t"; HF-Field $hd 'PAGE'
-            HF-Garis $hd 1 8                             # 8 = 1 pt
+            HF-Tinggi $hd $t; HF-Tab $hd $lebar 2; HF-Garis $hd 1 8   # 8 = 1 pt
+            # hiasan dipasang selagi paragraf kepala masih kosong: sesudah tab dan nomor, Top gambar ditolak Word
+            # («Parameter value was out of acceptable range») kalau paragrafnya diawali tab (judul berjalan kosong)
             if ($jenis -eq 'bagian_hias') { Hias-Kitab $hd $t }
+            if ($berjalan) { HF-Teks $hd $berjalan 1 }; HF-Teks $hd "`t"; HF-Field $hd 'PAGE'
         }
         'bintang' {                                      # judul kanan, nomor di dalam bintang di pojok kiri, garis tebal-tipis
-            $t = [Math]::Round($u * 1.6); $pusat = $word.CentimetersToPoints(0.7)
+            # bintang setinggi baris judul, nomornya sedikit lebih kecil daripada judul supaya tiga angka tetap di dalamnya
+            $t = [Math]::Round($u * 1.6); $bintang = [single]($u * 1.5); $pusat = $bintang / 2 + 1; $uNo = $u - 2
             HF-Tinggi $hd $t; HF-Tab $hd $lebar 1 0 $pusat   # 1 = tab tengah: nomor berapa pun lebarnya tetap di pusat bintang
-            HF-Teks $hd "$judul`t"; HF-Field $hd 'PAGE' 1
+            HF-Teks $hd "$judul`t"; HF-Field $hd 'PAGE' 1 $uNo
+            # pusat angka: garis dasar baris setinggi tepat $t ±0,82 $t di bawah atas paragraf, angka Arab ±0,7 ukurannya
+            # (diukur di PDF); bintang dipusatkan ke situ, bukan ke tengah baris yang lebih tinggi daripada angkanya
+            $tengah = $t * 0.82 - $uNo * 0.35
             # judul panjang pindah baris sebelum sampai bintang (tab nomor di luar batas kiri itu tetap dipakai Word);
             # garisnya di paragraf kedua yang selebar bidang teks, karena garis paragraf hanya sepanjang batasnya
-            $hd.Range.ParagraphFormat.RightIndent = [single]$word.CentimetersToPoints(1.6)
+            $hd.Range.ParagraphFormat.RightIndent = [single]($bintang + $word.CentimetersToPoints(0.4))
             $hd.Range.InsertParagraphAfter()
             $p = $hd.Range.Paragraphs(2)
-            $p.RightIndent = [single]0; $p.TabStops.ClearAll(); $p.SpaceBefore = [single]5; $p.LineSpacingRule = 4; $p.LineSpacing = [single]2
+            $p.RightIndent = [single]0; $p.TabStops.ClearAll(); $p.SpaceBefore = [single]8; $p.LineSpacingRule = 4; $p.LineSpacing = [single]2
             $b = $p.Borders(-1); $b.LineStyle = 11; $b.LineWidth = 18   # -1 atas; 11 = tebal di atas, tipis di bawah; 2,25 pt
-            Bintang-Nomor $hd $pusat $t
+            Bintang-Nomor $hd $pusat $tengah $bintang
         }
         'bergantian' {                                   # ganjil: judul bagian berjalan; genap: judul bahts; nomor di kaki
-            HF-Baru $hd 1; HF-GanjilGenap $hd $judul; HF-Garis $hd 1 4
+            HF-Baru $hd 1; HF-GanjilGenap $hd $berjalan $judul; HF-Garis $hd 1 4
             KakiNomor $ft
         }
         'kaki' { KakiNomor $ft '-' }
         default { KakiNomor $ft }                        # '-' (dan kotak/@templat: kepala dari Word, nomor di kaki kalau kepala itu tanpa nomor)
     }
+}
+
+# kepala bagian Word $sec (salinan kepala bagian sebelumnya) memuat judul berjalan $berjalan: bagian/bagian_hias = teks
+# sebelum tab nomor diganti, hiasan dan nomor tetap (memasang ulang hiasan di kepala bagian salinan ditolak Word:
+# «Parameter value was out of acceptable range» pada Top gambar); bergantian = dipasang ulang (tanpa gambar)
+function Ganti-Berjalan($sec, $jenis, $judul, $berjalan) {
+    if ($jenis -eq 'bergantian') { Pasang-Kepala $sec $jenis $judul $berjalan; return }
+    $hd = $sec.Headers(1)
+    $i = $hd.Range.Text.IndexOf("`t")
+    $r = $hd.Range.Duplicate; $r.SetRange($hd.Range.Start, $hd.Range.Start + [Math]::Max($i, 0))
+    $r.Text = $berjalan; Huruf $r.Font $TA ([single]$FMT.ukuran_kepala) 1
 }
 
 # judul bahts di kepala (klasik, bintang, kotak) yang tidak muat satu baris mendorong nomor halaman keluar dari tempatnya
@@ -173,6 +180,32 @@ function Periksa-Kepala($sec, $jenis) {
     if ($jenis -notin 'klasik', 'bintang', 'kotak') { return }
     $baris = $sec.Headers(1).Range.Paragraphs(1).Range.ComputeStatistics(1)   # 1 = wdStatisticLines
     if ($baris -gt 1) { Write-Output "PERINGATAN: judul di kepala halaman (@kepala: $jenis) tidak muat satu baris ($baris baris): tulis judul pendeknya di @kepala_judul, lalu rakit lagi." }
+}
+
+# judul bagian berjalan (bagian, bagian_hias, bergantian: judul #K/#F utuh $judul) yang tidak muat satu baris kepala
+# halaman: diukur di dokumen Word sementara selebar bidang teks $lebar pt (bagian: dikurangi tempat nomor di kiri),
+# huruf dan ukuran kepala, lalu diperingatkan. Judul bagian berjalan tidak punya padanan @kepala_judul: judulnya sendiri
+# yang dipendekkan. bergantian juga memeriksa judul bahts di halaman genap ($bahts)
+function Periksa-Berjalan($jenis, $judul, $bahts, $lebar) {
+    if ($jenis -notin 'bagian', 'bagian_hias', 'bergantian') { return }
+    $sisa = if ($jenis -eq 'bergantian') { $lebar } else { $lebar - $word.CentimetersToPoints(1.5) }
+    $uji = $word.Documents.Add(); $doc.Activate()
+    try {
+        $p = $uji.Paragraphs(1)
+        $p.ReadingOrder = 0; $p.Alignment = 0; $p.LeftIndent = 0; $p.RightIndent = 0; $p.FirstLineIndent = 0
+        $ps = $uji.Sections(1).PageSetup; $ps.LeftMargin = 36; $ps.RightMargin = [single]($ps.PageWidth - 36 - $sisa)
+        $daftar = @($judul | ForEach-Object { @{ t = $_; nama = "judul bagian «$_»" } })
+        if ($jenis -eq 'bergantian') { $daftar += @{ t = $bahts; nama = 'judul bahts (halaman genap)' } }
+        foreach ($j in $daftar) {
+            $r = $uji.Range(0, $uji.Content.End - 1); $r.Text = [string]$j.t
+            Huruf $r.Font $TA ([single]$FMT.ukuran_kepala) ([int]($jenis -ne 'bergantian'))
+            $baris = $uji.Paragraphs(1).Range.ComputeStatistics(1)   # 1 = wdStatisticLines
+            if ($baris -gt 1) {
+                $jalan = if ($j.nama -like 'judul bahts*') { 'tulis judul pendeknya di @kepala_judul' } else { 'pendekkan judul itu di naskah, atau pilih @kepala lain' }
+                Write-Output "PERINGATAN: $($j.nama) tidak muat satu baris di kepala halaman (@kepala: $jenis, $baris baris): $jalan, lalu rakit lagi."
+            }
+        }
+    } finally { $uji.Close(0); $doc.Activate() }
 }
 
 # garis pemisah catatan kaki: $FMT.garis_catatan cm di kanan. Tanda pemisah bawaan Word (lebarnya tetap) diganti garis

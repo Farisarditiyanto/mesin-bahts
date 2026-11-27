@@ -11,6 +11,7 @@ from pathlib import Path
 from bantu import salin_mesin, tanpa_word
 
 NASKAH = """@format: imam_ayat16
+@pustaka_gaya: judul
 @judul: اختبار الحروف اللاتينية
 @nama: اسم الطالب
 @berkas: uji
