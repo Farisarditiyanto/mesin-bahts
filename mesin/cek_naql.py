@@ -117,6 +117,7 @@ def panjang(mk, isi):
     n = len(_kata(mk))
     if n <= KUTIPAN_MAKS:
         return None
-    return (f"kutipan {n} kata «{mk[:30]}…»: lebih dari {KUTIPAN_MAKS} kata; kutip lafaz kuncinya saja dan ringkas sisanya "
-            f"dengan «انظر:», kecuali nash yang memang harus utuh (definisi, nash pokok khilaf, kalimat yang dibantah) "
-            f"(أبو سليمان، كتابة البحث العلمي، ص112، 123، 219; batas {KUTIPAN_MAKS} kata aturan repo){ekor(isi)}")
+    return (f"kutipan {n} kata «{mk[:30]}…»: lebih dari {KUTIPAN_MAKS} kata; tulis dengan kalimat sendiri dirujuk «انظر:» "
+            f"dan kutip lafaz kuncinya saja; yang memang harus utuh (ص112: ungkapan penting, makna yang rawan bergeser, "
+            f"kalimat yang dibantah) jadikan kutipan blok «#Q \"…\"[^…]» sesudah pengantar berakhir «:» (أبو سليمان، "
+            f"كتابة البحث العلمي، ص112، 123، 219; batas {KUTIPAN_MAKS} kata aturan repo){ekor(isi)}")

@@ -267,6 +267,42 @@ def _menyimpang(sid, juz, p1, p2, teks):
 
 # awal pesan perhatian kurung siku di kutipan (bukan milik kitab): kata pembetul, dan tambahan penulis
 SISIPAN_PERHATIAN = ("kutipan bersisipan [ ] yang menggantikan teks kitab", "kutipan memuat tambahan penulis")
+# «… بتصرف.» (boleh «بتصرف يسير») di ujung catatan kaki = kutipan bertanda petik yang lafaznya sedikit diubah penulis.
+# Aturan repo: أبو سليمان tidak mengaturnya (ia memakainya sekali, «اقتبس هذا الموضوع بتصرف», ص169 حاشية); kutipan lafaz
+# baginya «كاملًا وبدون تغيير» (ص112). Kemiripannya diukur rapidfuzz partial_ratio atas kata yang disamakan tulisannya:
+# di 11223 ص5, dua-tiga kata diganti = 87, separuh kata diganti = 76, kalimat lain di halaman yang sama = 53
+TASARRUF = re.compile(r"[\s،,.]بتصرف(?:\s+يسير)?[\s.]*$")
+TASARRUF_MIRIP = 80
+TASARRUF_KATA = 6  # kutipan بتصرف yang lebih pendek cocok di sembarang halaman
+
+
+def bertasarruf(isi):
+    """Catatan kaki ini menandai kutipan sebelumnya «بتصرف»."""
+    return bool(TASARRUF.search(" " + norma.HARAKAT.sub("", isi)))
+
+
+def cek_tasarruf(b, pot, perhatian):
+    """`cek` untuk kutipan «بتصرف»: lafaz persis = perhatian (buang «بتصرف»), cukup mirip dengan satu tempat di halaman
+    bukti (TASARRUF_MIRIP) = None, selebihnya Temuan GAGAL."""
+    if not cek(b, pot, Catat(), kutipan=True, rinci=False):
+        perhatian.tambah(Temuan(f"kutipan «بتصرف» sama persis dengan kitab {b.sid} {b.juz}/{b.hal}: buang «بتصرف» dari "
+                                f"catatan kakinya (aturan repo)", pot[:40]))
+        return None
+    from rapidfuzz import fuzz
+    kata = lambda t: norma.norm(norma.PENANDA.sub(" ", AYAT_DI_KUTIPAN.sub(" ", SISIPAN.sub(" ", t)))).split()
+    bagian = [k for k in (kata(x) for x in DIPOTONG.split(pot)) if k]
+    if sum(map(len, bagian)) < TASARRUF_KATA:
+        return Temuan(f"kutipan «بتصرف» kurang dari {TASARRUF_KATA} kata: yang pendek cocok di sembarang halaman; salin "
+                      f"lafaznya persis tanpa «بتصرف» (aturan repo)", pot[:40])
+    halaman = [" ".join(kata(r.get(s) or "")) for r in gabung(b.sid, b.juz, b.p1, b.p2) for s, _ in norma.BAGIAN]
+    for k in bagian:
+        skor = max((fuzz.partial_ratio(" ".join(k), h) for h in halaman if h), default=0)
+        if skor < TASARRUF_MIRIP:
+            return Temuan(f"kutipan «بتصرف» terlalu jauh dari teks {b.sid} {b.juz}/{b.hal} (kemiripan {round(skor)}، "
+                          f"paling sedikit {TASARRUF_MIRIP}): «بتصرف» hanya untuk lafaz yang diubah sedikit; salin lafaznya "
+                          f"persis, atau buang tanda petiknya dan rujuk dengan «انظر:» (aturan repo)", pot[:40],
+                          Jenis.TIDAK_KETEMU)
+    return None
 
 
 def cek(b, pot, perhatian, *, kutipan=False, rinci=True, pengantar=""):
