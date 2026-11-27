@@ -513,6 +513,36 @@ try {
         }
         $TPL.Close(0); $TPL = $null; $doc.Activate(); $script:kepalaTpl = $hd
     }
+    # nomor bagian Word yang memegang kepala halaman isi (Periksa-Kepala, kotak teks @templat). Nomor, bukan objek Section:
+    # objek bagian terakhir tetap menunjuk bagian terakhir sesudah pemisah bagian baru disisipkan di belakangnya
+    $nIsi = $sec.Index
+    # Kepala halaman hanya di halaman isi; batasnya dari olah.batas_kepala ($RENCANA.kepala_mulai, bagian «belakang»).
+    # Bagian Word baru di kursor, mulai halaman baru, nomornya bersambung; kepala/kaki-nya salinan bagian sebelumnya
+    # (dilepas dari sambungannya: kepala isi apa pun, juga kotak dan @templat, tidak perlu dipasang ulang). Halaman
+    # pertamanya tidak beda: bagian sesudah halaman pemisah mewarisi «halaman pertama beda» (pemisah.ps1)
+    function Bagian-Baru($sudah) {
+        if (-not $sudah) {
+            $sel.InsertBreak(2)                          # 2 = wdSectionBreakNextPage
+            $doc.Sections($doc.Sections.Count).Footers(1).PageNumbers.RestartNumberingAtSection = $false
+            # paragraf kosong pembawa pemisah bagian setinggi 1 pt: halaman yang pas penuh tidak tumpah jadi halaman kosong
+            $p = $sel.Paragraphs(1).Previous(1)
+            if ($p -and $p.Range.Text.Trim([char]13, [char]12, [char]32) -eq '') {
+                Huruf $p.Range.Font $null 1; $p.SpaceBefore = 0; $p.SpaceAfter = 0; $p.LineSpacingRule = 4; $p.LineSpacing = 1
+                $p.PageBreakBefore = 0
+            }
+        }
+        $s = $doc.Sections($doc.Sections.Count)
+        $s.PageSetup.DifferentFirstPageHeaderFooter = 0
+        $s.Headers(1).LinkToPrevious = $false; $s.Footers(1).LinkToPrevious = $false
+        return $s
+    }
+    # awal isi ($sudah = kursor sudah di awal bagian Word baru, @nomor): kepala isi pindah ke bagian baru, halaman depan
+    # sebelumnya hanya bernomor di tengah kaki
+    function Kepala-Mulai($sudah) {
+        $s = Bagian-Baru $sudah
+        for ($k = $bagianDepan; $k -lt $s.Index; $k++) { Pasang-Kepala $doc.Sections($k) '-' $JUDUL_KEPALA }
+        $script:nIsi = $s.Index
+    }
     $st = $doc.Styles.Item(-30)                          # Footnote Text
     Huruf $st.Font $TA $uCatatan
     $st.ParagraphFormat.ReadingOrder = 0; $st.ParagraphFormat.Alignment = 3
@@ -806,7 +836,8 @@ try {
         if ($k -in 'K', 'F', '') { $sel.Style = $GAYA_BERJALAN }   # judul bagian berjalan di kepala halaman (kepala.ps1); paragraf sesudahnya Normal lagi
         Para $(if ($k -in $KANAN) { 3 } else { 1 }) $atas 0  # @judul_kanan: #B/#M rata kanan seperti #S; $atas = olah._jarak_sub
         $sel.ParagraphFormat.KeepWithNext = -1
-        if ($pb) { $sel.ParagraphFormat.PageBreakBefore = -1; $sel.ParagraphFormat.SpaceBefore = 0 }
+        # di awal bagian Word (halaman belakang, Bagian-Baru) halamannya sudah baru: pindah halaman lagi = halaman kosong
+        if ($pb -and $sel.Start -ne $sel.Sections(1).Range.Start) { $sel.ParagraphFormat.PageBreakBefore = -1; $sel.ParagraphFormat.SpaceBefore = 0 }
         if ($bm) { [void]$doc.Bookmarks.Add($bm, $sel.Range) }
         $kotak = $JUDUL_KOTAK -and $k -eq 'F'; $awalJudul = $sel.Start
         if ($kotak) { Tulis $teks $HURUF_HIAS ($uJudul + 8) 1 0 }   # @judul_fasl: kotak = baris pertama besar, keduanya sebesar judul
@@ -875,6 +906,7 @@ try {
                 $ftIsi.PageNumbers.NumberStyle = 0; $ftIsi.PageNumbers.RestartNumberingAtSection = $true; $ftIsi.PageNumbers.StartingNumber = 1
                 $pb = $false
             }
+            if ($i -eq $RENCANA.kepala_mulai) { Kepala-Mulai ($i -eq $RENCANA.nomor_satu); $pb = $false }
             $diMulakhas = $MULAKHAS_JARAK -and ($i -in @($RENCANA.mulakhas.berjarak))
             $spasiAktif = if ($i -in @($RENCANA.mulakhas.spasi)) { $SPASI_MULAKHAS } else { $SPASI }
             $nT++; $bm = "t_$nT"
@@ -1120,6 +1152,10 @@ try {
     # ---------- 3. Sesudah isi: المصادر والمراجع, الملاحق, الفهارس (yang dicetak, urutan, dan judulnya: $RENCANA.bagian) ----------
     $bmSesudahIsi = "t_$($nT + 1)"   # judul pertama sesudah الخاتمة (المصادر, atau فهرس pertama): HALAMAN_ISI = halamannya - 1
     foreach ($bg in $RENCANA.bagian) {
+    if ($bg.belakang) {                                  # halaman belakang: bagian Word baru, hanya bernomor di tengah kaki
+        [void]$sel.EndKey(6)
+        Pasang-Kepala (Bagian-Baru $false) '-' $JUDUL_KEPALA
+    }
     if ($bg.jenis -eq 'malahiq') {                       # @malahiq: akhir — blok sesudah #R = الملاحق, sesudah المصادر, sebelum فهرس
         $mulaiBlok = $iR + 1
         . $tulisBlok
@@ -1203,7 +1239,7 @@ try {
     $HURUF_NOMOR = 'أبتثجحخدذرزسشصضطظعغفقكلمنهوي'    # urutan nomor Word gaya 46; Information(1) tetap memberi angka
     function Hal($bm) {                                  # 1 = nomor halaman seperti yang tercetak
         $r = $doc.Bookmarks.Item($bm).Range; $n = $r.Information(1)
-        if ($ABJAD -and $r.Sections(1).Index -eq $bagianDepan) { return [string]$HURUF_NOMOR[$n - 1] }
+        if ($ABJAD -and $r.Sections(1).Footers(1).PageNumbers.NumberStyle -eq 46) { return [string]$HURUF_NOMOR[$n - 1] }
         return $n
     }
     # {P:kunci}: tiap angka punya bookmark sejak BuatCatatan, termasuk catatan kaki yang dibuat ulang NomorCatatan.
@@ -1296,7 +1332,7 @@ try {
     # garis pemisah catatan kaki: dokumen @templat berangkat dari dokumen kosong yang gaya Normal-nya kiri-ke-kanan, jadi
     # garisnya ikut ke kiri kalau tidak disetel di sini
     $pk = $sec.PageSetup; Garis-Catatan ($pk.PageWidth - $pk.LeftMargin - $pk.RightMargin)
-    Periksa-Kepala $sec $KEPALA
+    Periksa-Kepala $doc.Sections($nIsi) $KEPALA
     # Dokumen selalu berakhir dengan satu paragraf kosong: sisa TypeParagraph sesudah blok terakhir, atau paragraf wajib
     # Word sesudah tabel terakhir (فهرس). Isi yang pas memenuhi halaman mendorongnya ke halaman baru: PDF berakhir dengan
     # halaman kosong yang hanya bernomor. Sesudah paragraf biasa (bahts tanpa المصادر dan فهرس), tanda paragraf
@@ -1330,7 +1366,7 @@ try {
     # nomor halaman di kotak teks kepala @templat ikut angka Arab (@angka): Word memilih angka menurut arah teks di
     # sekitarnya, dan teks hasil PAGE di kotak itu kiri-ke-kanan. RtlRun hanya ada di Selection, dan hanya di Print Layout
     if ($kepalaTpl) {
-        foreach ($sh in @(try { @($kepalaTpl.Range.ShapeRange) } catch { })) {
+        foreach ($sh in @(try { @($doc.Sections($nIsi).Headers(1).Range.ShapeRange) } catch { })) {
             try {
                 if ($sh.TextFrame.HasText -and @($sh.TextFrame.TextRange.Fields | Where-Object { $_.Code.Text -match 'PAGE' }).Count) {
                     $sh.TextFrame.TextRange.Select(); $word.Selection.RtlRun()

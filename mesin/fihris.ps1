@@ -177,25 +177,30 @@ function Fihris-Ayat($bg) {
             Sel $tAy $r 4 (Angka '00') 1 0
             Catat-Isian $a.bm $false @{ tbl = $tAy; r = $r; c = 4; tebal = 0 }
         }
-        if ($bg.bentuk -eq 'terbuka') {                  # garis mendatar saja: atas dan bawah kepala, dan akhir tabel
-            foreach ($g in @(@(1, -1), @(1, -3), @($tAy.Rows.Count, -3))) { $x = $tAy.Rows($g[0]).Borders.Item($g[1]); $x.LineStyle = 1; $x.LineWidth = 6 }
-            $tAy.Rows(1).HeadingFormat = -1
-        }
+        if ($bg.bentuk -eq 'terbuka') { Garis-Terbuka $tAy }
     }
     }
 }
 
+# tabel tanpa garis (bentuk terbuka): garis mendatar hanya di atas dan bawah kepala dan di akhir tabel; kepala diulang
+function Garis-Terbuka($tbl) {
+    foreach ($g in @(@(1, -1), @(1, -3), @($tbl.Rows.Count, -3))) { $x = $tbl.Rows($g[0]).Borders.Item($g[1]); $x.LineStyle = 1; $x.LineWidth = 6 }
+    $tbl.Rows(1).HeadingFormat = -1
+}
+
 # فهرس الأحاديث (jenis hadits) dan فهرس الآثار (jenis atsar, selalu titik dengan القائل): bentuk $bg.bentuk
-# tabel = طرف | الراوي | الصفحة; ringkas = الأحاديث | الصفحة; titik = «طرف ...... ص», atau «طرف (الراوي) ...... ص» kalau
-# $bg.rawi; huruf = sama, dikelompokkan per حرف ($bg.kelompok)
+# terbuka = طرف | الراوي | الصفحة tanpa garis tegak (Garis-Terbuka); tabel = kolom yang sama bergaris penuh; ringkas =
+# الأحاديث | الصفحة; titik = «طرف ...... ص», atau «طرف (الراوي) ...... ص» kalau $bg.rawi; huruf = sama, dikelompokkan
+# per حرف ($bg.kelompok)
 function Fihris-Hadits($bg) {
     $baris = @($DATA.($bg.jenis))
     $kunci = { param($h) $ks = @($h.k); if ($h.lagi) { $ks += $h.lagi }; , $ks }
-    if ($bg.bentuk -in 'tabel', 'ringkas') {
+    if ($bg.bentuk -in 'terbuka', 'tabel', 'ringkas') {
         $ringkas = $bg.bentuk -eq 'ringkas'
         $cH = if ($ringkas) { 2 } else { 3 }
         if ($ringkas) { $tHd = Tabel ($baris.Count + 1) @(7.5, 7.5) 1; Sel $tHd 1 1 'الأحاديث' 1 1; Sel $tHd 1 2 'الصفحة' 1 1; Huruf ($tHd.Rows(1).Range.Font) $TJ }
-        else { $tHd = Tabel ($baris.Count + 1) @(8.6, 4.4, 2.0) 1; Sel $tHd 1 1 $bg.kolom 1 1; Sel $tHd 1 2 'الراوي' 1 1; Sel $tHd 1 3 'الصفحة' 1 1 }
+        else { $tHd = Tabel ($baris.Count + 1) @(8.6, 4.4, 2.0) $(if ($bg.bentuk -eq 'terbuka') { 0 } else { 1 }); Sel $tHd 1 1 $bg.kolom 1 1; Sel $tHd 1 2 'الراوي' 1 1; Sel $tHd 1 3 'الصفحة' 1 1 }
+        if ($bg.bentuk -eq 'terbuka') { Garis-Terbuka $tHd }
         $r = 1
         foreach ($h in $baris) {
             $r++

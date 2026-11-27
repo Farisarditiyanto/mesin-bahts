@@ -104,6 +104,8 @@ class Pemeriksaan:
     dirujuk: set = dataclasses.field(default_factory=set)  # kitab yang sudah dirujuk (rujukan pertama: cek_tautsiq.data_cetak)
     # bahan rakit selain catatan kaki dan فهرس (diisi `periksa`)
     meta: dict = dataclasses.field(default_factory=dict)  # @kunci: nilai
+    # kunci olah.GAYA yang nilainya ditulis di naskah atau diisi @model: hanya itu yang menuntut tempatnya di naskah
+    gaya_ditulis: set = dataclasses.field(default_factory=set)
     di_baris: dict = dataclasses.field(default_factory=dict)  # @kunci dan #R -> nomor barisnya (galat yang ketahuan belakangan)
     blok: list = dataclasses.field(default_factory=list)  # paragraf dan judul, urut naskah
     pustaka: list = dataclasses.field(default_factory=list)  # baris sesudah #R

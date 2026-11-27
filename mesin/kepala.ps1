@@ -106,18 +106,18 @@ function Hias-Kitab($hd, $tinggiBaris) {
     $g.Top = [single]($tinggiBaris + 2 - $g.Height * 0.85)   # garis di 85% tinggi gambar: masih di dalam isi putih lengkung (sampai 90%); 10% bawah gambar bening
 }
 
-# bintang delapan (ربع الحزب): persegi + persegi miring (belah ketupat) berisi putih, di belakang nomor halaman yang
-# berpusat $pusat pt dari tepi kiri bidang teks; lingkaran tipis di dalamnya
-function Bintang-Nomor($hd, $pusat, $tinggiBaris) {
-    $sisi = $word.CentimetersToPoints(0.95)
-    foreach ($b in @(@(1, $sisi, 1.2), @(4, ($sisi * 1.4142), 1.2), @(9, ($sisi * 0.78), 0.6))) {   # 1 persegi, 4 belah ketupat, 9 lingkaran
+# bintang delapan (ربع الحزب) selebar $lebar pt: persegi + persegi miring (belah ketupat) bergaris tipis berisi putih, di
+# belakang nomor halaman yang berpusat $pusat pt dari tepi kiri bidang teks dan $tengah pt di bawah atas paragraf kepala
+function Bintang-Nomor($hd, $pusat, $tengah, $lebar) {
+    $sisi = $lebar / 1.4142
+    foreach ($b in @(@(4, $lebar), @(1, $sisi))) {     # 4 belah ketupat, 1 persegi
         $w = [single]$b[1]
         $sp = $hd.Shapes.AddShape($b[0], 0, 0, $w, $w, $hd.Range)
         $sp.Fill.Visible = -1; $sp.Fill.Solid(); $sp.Fill.ForeColor.RGB = 16777215
-        $sp.Line.Visible = -1; $sp.Line.ForeColor.RGB = 0; $sp.Line.Weight = [single]$b[2]
+        $sp.Line.Visible = -1; $sp.Line.ForeColor.RGB = 0; $sp.Line.Weight = [single]0.6
         $sp.WrapFormat.Type = 5                          # 5 = wdWrapBehind: nomornya di atas
         $sp.RelativeHorizontalPosition = 0; $sp.Left = [single]($pusat - $w / 2)
-        $sp.RelativeVerticalPosition = 2; $sp.Top = [single]($tinggiBaris / 2 - $w / 2)
+        $sp.RelativeVerticalPosition = 2; $sp.Top = [single]($tengah - $w / 2)
     }
 }
 
@@ -145,17 +145,21 @@ function Pasang-Kepala($sec, $jenis, $judul) {
             if ($jenis -eq 'bagian_hias') { Hias-Kitab $hd $t }
         }
         'bintang' {                                      # judul kanan, nomor di dalam bintang di pojok kiri, garis tebal-tipis
-            $t = [Math]::Round($u * 1.6); $pusat = $word.CentimetersToPoints(0.7)
+            # bintang setinggi baris judul, nomornya sedikit lebih kecil daripada judul supaya tiga angka tetap di dalamnya
+            $t = [Math]::Round($u * 1.6); $bintang = [single]($u * 1.5); $pusat = $bintang / 2 + 1; $uNo = $u - 2
             HF-Tinggi $hd $t; HF-Tab $hd $lebar 1 0 $pusat   # 1 = tab tengah: nomor berapa pun lebarnya tetap di pusat bintang
-            HF-Teks $hd "$judul`t"; HF-Field $hd 'PAGE' 1
+            HF-Teks $hd "$judul`t"; HF-Field $hd 'PAGE' 1 $uNo
+            # pusat angka: garis dasar baris setinggi tepat $t ±0,82 $t di bawah atas paragraf, angka Arab ±0,7 ukurannya
+            # (diukur di PDF); bintang dipusatkan ke situ, bukan ke tengah baris yang lebih tinggi daripada angkanya
+            $tengah = $t * 0.82 - $uNo * 0.35
             # judul panjang pindah baris sebelum sampai bintang (tab nomor di luar batas kiri itu tetap dipakai Word);
             # garisnya di paragraf kedua yang selebar bidang teks, karena garis paragraf hanya sepanjang batasnya
-            $hd.Range.ParagraphFormat.RightIndent = [single]$word.CentimetersToPoints(1.6)
+            $hd.Range.ParagraphFormat.RightIndent = [single]($bintang + $word.CentimetersToPoints(0.4))
             $hd.Range.InsertParagraphAfter()
             $p = $hd.Range.Paragraphs(2)
-            $p.RightIndent = [single]0; $p.TabStops.ClearAll(); $p.SpaceBefore = [single]5; $p.LineSpacingRule = 4; $p.LineSpacing = [single]2
+            $p.RightIndent = [single]0; $p.TabStops.ClearAll(); $p.SpaceBefore = [single]8; $p.LineSpacingRule = 4; $p.LineSpacing = [single]2
             $b = $p.Borders(-1); $b.LineStyle = 11; $b.LineWidth = 18   # -1 atas; 11 = tebal di atas, tipis di bawah; 2,25 pt
-            Bintang-Nomor $hd $pusat $t
+            Bintang-Nomor $hd $pusat $tengah $bintang
         }
         'bergantian' {                                   # ganjil: judul bagian berjalan; genap: judul bahts; nomor di kaki
             HF-Baru $hd 1; HF-GanjilGenap $hd $judul; HF-Garis $hd 1 4
