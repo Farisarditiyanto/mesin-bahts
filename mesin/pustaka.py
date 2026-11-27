@@ -19,6 +19,8 @@ _BIDANG = (
     ("judul", re.compile(r"^الكتاب$")),
     ("pengarang", re.compile(r"^(?:المؤلف|المؤلفون)$")),
     ("muhaqqiq", re.compile(r"^(?:المحقق|المحققون|تحقيق(?:\s.*)?|حققه|دراسة وتحقيق|اعتنى به|أشرف على طبعه)$")),
+    # kitab berpengumpul (مجموع الفتاوى): «جمع وترتيب:»، «جمع وتعليق:»، «جمعها وبيضها:», bukan «جمع تصويري:» (penerbit)
+    ("jami", re.compile(r"^جمع(?:ه|ها)?(?:\s+و\S+)*$")),
     ("penerbit", re.compile(r"^(?:الناشر|دار النشر|مطبعة|صادر عن|تصدر عن)$")),
     ("cetakan", re.compile(r"^الطبعة$")),
     ("tahun", re.compile(r"^(?:سنة النشر|عام النشر|تاريخ النشر|النشر)$")),
@@ -100,6 +102,10 @@ def _ekstrak_kartu(m):
     for kunci, kunci_teks, nilai_mentah in _baris_kartu(m.get("betaka_text")):
         if kunci in data:
             continue
+        if kunci == "jami":
+            nilai_mentah = f"{kunci_teks}: {gelar.buang_gelar(f'{kunci_teks}: {nilai_mentah}').partition(':')[2].strip()}"
+            data[kunci] = nilai_mentah
+            continue
         # `gelar.buang_gelar` hanya mengenali «:» ASCII; kirim dengan «:» agar label ber-«：» tetap bersih dari gelar
         nilai = nilai_mentah if kunci == "judul" else gelar.buang_gelar(f"{kunci_teks}: {nilai_mentah}").partition(":")[2].strip()
         if nilai:
@@ -111,31 +117,58 @@ def _ekstrak_kartu(m):
         wafat += "هـ"
     elif m.get("death_year_hijri"):
         wafat = f"{m['death_year_hijri']}هـ"
+    jami = _bersih(data.get("jami") or "")
+    # label penerbit yang tidak dikenal _BIDANG («طبع ونشر:»، «توزيع:»): penerbitnya ada, hanya belum terbaca
+    asing = any((lb := _label(b)) and not lb[0] and re.search(r"طبع|نشر|ناشر|توزيع", norma.HARAKAT.sub("", lb[1]))
+                for b in (m.get("betaka_text") or "").replace("\r", "\n").splitlines())
+    pengarang = _bersih(pengarang)
     return {
         "judul": _bersih(judul),
-        "pengarang": _bersih(pengarang),
+        # «فإنه يدون في مكان اسم المؤلف كلمة "المؤلف مجهول"» (أبو سليمان، كتابة البحث العلمي، ص175); kitab yang hanya
+        # punya pengumpul ditulis atas nama pengumpulnya
+        "pengarang": pengarang or ("" if jami else MAJHUL),
+        "jami": jami,
         "wafat": wafat,
         # Tahun wafat muhaqqiq («محمد فؤاد عبد الباقي [ت ١٣٨٨ هـ]») bukan data cetak
         "muhaqqiq": _tanpa_wafat(data.get("muhaqqiq") or "")[0],
-        "penerbit": _bersih(data.get("penerbit") or ""),
-        "cetakan": _bersih(data.get("cetakan") or ""),
-        "tahun": _bersih(data.get("tahun") or ""),
+        "penerbit": _kosong(data.get("penerbit")) or (None if asing else ""),
+        "cetakan": _kosong(data.get("cetakan")),
+        "tahun": _kosong(data.get("tahun")),
     }
 
 
+MAJHUL = "المؤلف مجهول"
+# data cetak yang tidak ada ditulis terang-terangan, «حتى يتضح أن الكاتب لم يسهَ عن عدم ذكرها» (أبو سليمان، كتابة
+# البحث العلمي، ص85-86، 136): tanpa penerbit, cetakan, tahun. Kota (د.م) tidak bisa dipisah dari nama penerbit kartu
+TANPA = {"penerbit": "د.ن", "cetakan": "د.ط", "tahun": "د.ت"}
+
+
+def _kosong(nilai):
+    """Nilai kartu bersih; «-» (kartu «الناشر: -») = kosong."""
+    nilai = _bersih(nilai or "")
+    return "" if not nilai.strip(" -–") else nilai
+
+
 def format_baris(info_kartu, gaya="judul"):
-    """Susun satu baris `#R` siap tempel dari kamus `_ekstrak_kartu` sesuai `@pustaka_gaya` (`judul` atau `muallif`)."""
+    """Susun satu baris `#R` siap tempel dari kamus `_ekstrak_kartu` sesuai `@pustaka_gaya` (`judul` atau `muallif`).
+    Penerbit/cetakan/tahun kosong = «د.ن/د.ط/د.ت» (TANPA); None = belum terbaca, tidak ditulis."""
     rinci = []
+    if info_kartu.get("jami"):
+        rinci.append(info_kartu["jami"])
     if info_kartu["muhaqqiq"]:
         rinci.append(f"تحقيق: {info_kartu['muhaqqiq']}")
-    if info_kartu["penerbit"]:
-        rinci.append(info_kartu["penerbit"])
-    if info_kartu["cetakan"]:
-        c = info_kartu["cetakan"]
+    if info_kartu["penerbit"] is not None:  # None = belum dibaca (Waqfeya: dari scan), bukan «tidak ada»
+        rinci.append(info_kartu["penerbit"] or TANPA["penerbit"])
+    c = info_kartu["cetakan"] or ""
+    if c:
         butuh_prefix = not c.startswith(("ط", "الطبعة", "بدون", "دون")) and not re.match(r"^[\d٠-٩(]", c)
         rinci.append(f"الطبعة {c}" if butuh_prefix else c)
-    if info_kartu["tahun"] and info_kartu["tahun"] not in (info_kartu["cetakan"] or ""):
+    elif info_kartu["cetakan"] is not None:
+        rinci.append(TANPA["cetakan"])
+    if info_kartu["tahun"] and info_kartu["tahun"] not in c:
         rinci.append(info_kartu["tahun"])
+    elif info_kartu["tahun"] is not None and not info_kartu["tahun"] and not _tahun(c):  # cetakan yang memuat tahunnya («الأولى، ١٤٢٣هـ»)
+        rinci.append(TANPA["tahun"])
     ekor_data = "، ".join(rinci)
     if gaya != "judul":  # muallif, judul_tebal (olah.pustaka_judul_dulu membaca bentuk ini)
         nama = f"**{info_kartu['pengarang']}**" if info_kartu["pengarang"] else ""
@@ -290,7 +323,7 @@ def _beda_cetak(data, teks):
     tahun = _tahun(cetakan) | _tahun(_CATATAN_KARTU.sub(" ", data["tahun"]))
     urutan = {k for k in _kata(cetakan) if k in _URUTAN}
     nilai = {"muhaqqiq": _muhaqqiq_cocok(data["muhaqqiq"], kata_baris),
-             "penerbit": _penerbit_cocok(data["penerbit"], teks)}
+             "penerbit": _penerbit_cocok(data["penerbit"] or "", teks)}
     if urutan:
         nilai["cetakan"] = bool(urutan & set(kata_baris))
     elif _TANPA_CETAK.search(norma.HARAKAT.sub("", cetakan)):
@@ -354,7 +387,7 @@ def cetak(folder):
         if calon:
             catatan[wid] += " (judul ditemukan di #R baris " + ", ".join(map(str, sorted(calon))) + ")"
         draf.append(format_baris(dict(judul=d["judul"], pengarang=d["pengarang"] or "", wafat="", muhaqqiq="",
-                                      penerbit="", cetakan="", tahun=""), gaya=gaya))
+                                      penerbit=None, cetakan=None, tahun=None), gaya=gaya))
     if draf or ctx.ayat_idx:
         print("Draf kitab berbukti. Periksa data cetak dan gabungkan dengan rujukan lain di #R.")
         print("#R المصادر والمراجع")

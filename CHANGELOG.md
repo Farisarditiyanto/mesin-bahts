@@ -6,6 +6,9 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Baru (أبو سليمان، كتابة البحث العلمي): `cek` memberi perhatian untuk «المصدر نفسه» yang sumbernya bukan sumber catatan kaki sebelumnya, «ص.32»/«ج.2» bertitik (kini juga terbaca sebagai halaman), «أقول/قلنا/نرجح» di matan di luar kutipan, الملخص lebih dari 300 kata, dan baris `#R` yang tidak dirujuk catatan kaki mana pun.
+- Baru: `pustaka` menulis «د.ن، د.ط، د.ت» untuk data cetak yang tidak ada di `kartu`, «جمع وترتيب: …» untuk kitab berpengumpul, dan «المؤلف مجهول» untuk kitab tanpa pengarang.
+- Baru: tabel `#J` boleh diberi judul bernomor «#J جدول: …» (tercetak «جدول (١): …» di atas tabel) dan sumber «#J المصدر: …» di bawahnya. Kerangka `baru` memuat «حدود البحث».
 - Baru: `@basmalah: utsmani` mencetak halaman basmalah sebagai teks «بسم الله الرحمن الرحيم» rasm Utsmani huruf mushaf, bukan ligatur ﷽ Arabic Typesetting.
 - Perbaikan: urutan المصادر dan فهرس menaruh judul pendek sebelum judul lebih panjang yang diawali kata yang sama («الكتاب، سيبويه» sebelum «الكتاب الفريد»، «معاني القرآن، الفراء» sebelum «معاني القرآن وإعرابه»).
 - Perbaikan: `@kepala: kotak` (juga `@templat` dan `@model: jakarta`) bersama persamaan `#E` yang turun ke baris kedua tidak lagi menggagalkan `rakit` («Specified cast is not valid»). Judul di kepala `kotak` kini rata kanan tanpa diregang dan tidak lagi menimpa kotak nomor halaman; judul yang tidak muat satu baris di samping kotak itu = PERINGATAN sesudah `rakit` (tulis `@kepala_judul`).

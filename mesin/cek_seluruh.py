@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Pemeriksaan yang melihat seluruh naskah, bukan satu catatan kaki: jejak langkah riset (riset.txt), porsi
-kutipan per bagian, dan الدراسات السابقة."""
+kutipan per bagian, الدراسات السابقة, isi المقدمة/الخاتمة, panjang الملخص, dan kata ganti orang pertama di matan."""
 import dataclasses, itertools, os, re
 
 import norma
 from cek_ayat import ayat
-from dasar import (ANGKA_LATIN, BATAS_BAB, JUDUL_BAB, JUDUL_FIHRIS, JUDUL_ISI, TAKHRIJ_AWAL, TINGKAT_JUDUL, TandaRusak,
-                   judul_baris, tanpa_catatan)
+from dasar import (ANGKA_LATIN, BATAS_BAB, JUDUL_BAB, JUDUL_FIHRIS, JUDUL_ISI, MULAKHAS, TAKHRIJ_AWAL, TINGKAT_JUDUL,
+                   TandaRusak, judul_baris, tanpa_catatan)
 from laporan import KODE, daftar_baris, kode
-from petik import kutipan_semua
+from petik import kutipan_semua, luar_petik
 
 RISET = "riset.txt"
 CARI_PISAH = "|"  # «cari <istilah> | <catatan>»: istilah boleh beberapa kata, jadi alasan «belum cari» dipisah tanda ini
@@ -438,3 +438,49 @@ def periksa_khatimah(blok):
         return []
     return [f"baris {m[0]}: الخاتمة belum menyebut النتائج: tulis hasil penelitian ini («أهم النتائج: …») "
             f"(أبو سليمان، كتابة البحث العلمي، ص198); التوصيات tidak wajib"]
+
+
+MULAKHAS_KATA = 300  # «لا يتجاوز الثلاثمائة كلمة» (أبو سليمان، كتابة البحث العلمي، ص225)
+
+
+def panjang_mulakhas(blok):
+    """Perhatian tiap «#K الملخص…» yang lebih dari MULAKHAS_KATA kata sampai #K/#F/#R berikutnya. Kata Arab (paragraf)
+    dan kata Latin (#L, Abstract) dihitung sendiri-sendiri: ringkasan bahasa asing di bawah judul yang sama dinilai
+    terpisah. Catatan kaki tidak dihitung."""
+    hasil = []
+    for i, b in enumerate(blok):
+        if b["k"] != "K" or not MULAKHAS.match(norma.HARAKAT.sub("", b["judul"])):
+            continue
+        jumlah = {"العربية": 0, "اللاتينية": 0}
+        for x in itertools.takewhile(lambda x: x["k"] not in BATAS_BAB, blok[i + 1:]):
+            teks = "".join(r.get("t") or "" for r in x.get("runs", ()))
+            if x["k"] == "L":
+                jumlah["اللاتينية"] += len(re.findall(r"[A-Za-z]+", teks))
+            else:
+                jumlah["العربية"] += len(re.findall(r"[ء-ي]+", norma.HARAKAT.sub("", teks)))
+        for bahasa, n in jumlah.items():
+            if n > MULAKHAS_KATA:
+                hasil.append(f"baris {b['n']}: «{b['judul'][:30]}» {n} kata ({bahasa}): paling banyak {MULAKHAS_KATA} kata, "
+                             f"berisi pentingnya, fokus, susunan, dan metode bahts (أبو سليمان، كتابة البحث العلمي، ص225)")
+    return hasil
+
+
+# Pendapat penulis tanpa kata ganti orang pertama (أبو سليمان، كتابة البحث العلمي، ص193): kata utuh, boleh berawalan و/ف.
+# «قلت» dan «أرجح» kitab itu tidak dicari: di 18 naskah nyata semuanya bukan suara penulis («قَلَّت غلتها»، «مفسدة أرجح»)
+KATA_GANTI = re.compile(r"(?<![ء-ي])[وف]?(?:أقول|قلنا|نرجح)(?![ء-ي])")
+
+
+def kata_ganti_penulis(blok):
+    """Perhatian tiap paragraf matan (#P) yang memuat KATA_GANTI di luar tanda petik; ayat {Q:}, catatan kaki, dan paragraf
+    ber-{H:} (riwayat «قلنا: يا رسول الله») tidak dibaca. Satu kalimat untuk semua paragraf (gabung_kembar menjadikannya
+    satu baris «baris n, m: …»)."""
+    hasil = []
+    for b in blok:
+        if b["k"] != "P" or any(str(r.get("bm", "")).startswith("h_") for r in b["runs"]):
+            continue
+        teks = norma.HARAKAT.sub("", "".join(r.get("t") or "" for r in b["runs"] if not r.get("q")))
+        if KATA_GANTI.search(luar_petik(teks)):
+            hasil.append(f"baris {b['n']}: kata ganti orang pertama («أقول»، «قلنا»، «نرجح») di matan di luar "
+                         f"kutipan: tulis pendapat penulis tak langsung («والراجح»، «ويظهر للباحث») "
+                         f"(أبو سليمان، كتابة البحث العلمي، ص193)")
+    return hasil

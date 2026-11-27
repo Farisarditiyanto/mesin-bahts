@@ -50,14 +50,16 @@ def utama():
         kode, out = jalan("cek", "uji")
         assert kode == 0 and "): 0\n" in out, out
 
-        # 1a. Daftar pustaka diperiksa lewat perintah opsional.
+        # 1a. Baris #R yang tidak dirujuk catatan kaki mana pun = perhatian (أبو سليمان ص203-204); kitab berbukti
+        #     yang hilang dari #R juga perhatian. Rinciannya lewat `pustaka`.
         hilang_r = dasar.replace(
             "رسالة في القضاء والقدر، محمد بن صالح بن محمد العثيمين، دار الوطن، 1423هـ.",
             "كتاب آخر غير مذكور في الحواشي، مؤلف وهمي، دار الفكر، 1430هـ.",
         )
         (f / "naskah.txt").write_text(hilang_r, encoding="utf8")
         kode, out = jalan("cek", "uji")
-        assert kode == 0 and "): 0\n" in out, out
+        assert kode == 0 and "): 2\n" in out and "tidak dirujuk di catatan kaki mana pun" in out, out
+        assert "tidak ada di المصادر والمراجع" in out, out
 
         # 1b. Blok #R siap ditempel, dan status ditulis terpisah dari draf.
         kode, out_p = jalan("pustaka", "uji")
@@ -156,6 +158,23 @@ def utama():
         meta_p.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf8")
         assert "data cetak cocok" in status_11223(r_baru.replace("ضبطه وصححه جماعة من العلماء", "تحقيق: عبد الله التركي"))
         assert "beda muhaqqiq" in status_11223(r_baru.replace("ضبطه وصححه جماعة من العلماء", "تحقيق: أحمد شاكر"))
+
+        # 1h. Draf dari kartu tanpa penerbit/cetakan/tahun menulis «د.ن، د.ط، د.ت», kartu tanpa pengarang «المؤلف مجهول»,
+        #     dan kitab berpengumpul «جمع وترتيب: …» (أبو سليمان ص85-86، 136، 175)
+        def draf_11223(betaka, pengarang):
+            meta.update(betaka_text=betaka, main_author_name_ar=pengarang, death_year_hijri=None)
+            meta_p.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf8")
+            (f / "naskah.txt").write_text(dasar, encoding="utf8")
+            kode, out = jalan("pustaka", "uji")
+            assert kode == 0, out
+            return next(s for s in out.splitlines() if s.startswith("رسالة في القضاء والقدر"))
+        assert draf_11223("الكتاب: رسالة في القضاء والقدر\rالمؤلف: محمد بن صالح العثيمين\rالناشر: -", "") == \
+            "رسالة في القضاء والقدر، محمد بن صالح العثيمين، د.ن، د.ط، د.ت."
+        assert draf_11223("الكتاب: رسالة في القضاء والقدر\rالناشر: دار الوطن\rالطبعة: الأولى، ١٤٢٣هـ", "") == \
+            "رسالة في القضاء والقدر، المؤلف مجهول، دار الوطن، الطبعة الأولى، ١٤٢٣هـ."
+        assert draf_11223("الكتاب: رسالة في القضاء والقدر\rالمؤلف: محمد بن صالح العثيمين\rجمع وترتيب: فهد السليمان\r"
+                          "طبع ونشر: دار الوطن", "") == \
+            "رسالة في القضاء والقدر، محمد بن صالح العثيمين، جمع وترتيب: فهد السليمان، د.ط، د.ت."
 
         # 2. Regresi kartu `pustaka`: tahun wafat tanpa «ههـ» dobel, harakat «المتوفَّى», dan label ber-«：» + gelar
         sys.path.insert(0, str(akar / "mesin"))

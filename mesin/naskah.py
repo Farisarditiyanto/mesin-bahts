@@ -13,7 +13,7 @@ from cek_kutipan import Catat, Jenis, cek, cek_pdf, cek_waqfeya, terbaca
 from cek_naql import isyarat, panjang, salinan
 from cek_rujukan import cocok_halaman, judul_kitab, judul_shamela, kitab_lain, kitab_waqfeya, rujukan_halaman
 from cek_sumber import standar_sumber, urutan_sumber
-from cek_tautsiq import data_cetak, gelar, pemisah_sumber
+from cek_tautsiq import data_cetak, gelar, pemisah_sumber, sumber_nafsih, titik_singkatan
 from dasar import (ANGKA_LATIN, AYAT_DI_KUTIPAN, DICABUT, DIPOTONG, HURUF_LATIN, LUAR, SURAH, TANPA_ANZHUR, TandaRusak, WAQFEYA, WAQFEYA_BUKTI,
                    akhir_catatan, akhir_rumus, daftar, ekor)
 from kitab_lokal import Bukti, diunduh
@@ -102,6 +102,7 @@ class Pemeriksaan:
     rujuk_silang: list = dataclasses.field(default_factory=list)  # {P:k} yang belum menunjuk {H:}: harus menunjuk {A:k}
     standar: list = dataclasses.field(default_factory=list)  # catatan standar_sumber yang belum dinilai (per bagian)
     dirujuk: set = dataclasses.field(default_factory=set)  # kitab yang sudah dirujuk (rujukan pertama: cek_tautsiq.data_cetak)
+    sumber_lalu: frozenset = frozenset()  # sumber berbukti catatan kaki sebelumnya («المصدر نفسه»: cek_tautsiq.sumber_nafsih)
     # bahan rakit selain catatan kaki dan فهرس (diisi `periksa`)
     meta: dict = dataclasses.field(default_factory=dict)  # @kunci: nilai
     di_baris: dict = dataclasses.field(default_factory=dict)  # @kunci dan #R -> nomor barisnya (galat yang ketahuan belakangan)
@@ -701,9 +702,13 @@ class Pengurai:
         perhatian += [u] if u else []
 
     def _cek_tautsiq(self, c):
-        """Bentuk rujukan (cek_tautsiq): data cetak di rujukan pertama tiap kitab, «؛» antarsumber, nama tanpa gelar."""
+        """Bentuk rujukan (cek_tautsiq): data cetak di rujukan pertama tiap kitab, «المصدر نفسه», «؛» antarsumber, nama
+        tanpa gelar, dan «ص»/«ج» tanpa titik."""
         self.perhatian.extend(data_cetak(c.isi, c.terbukti, self.ctx.dirujuk))
-        for p in (pemisah_sumber(c.isi, c.terbukti) if len(c.terbukti) > 1 else None, gelar(c.isi, "fn")):
+        sumber = frozenset(c.sid_bukti + [f"{LUAR}|{p[0]}" for p in c.pdf] + [w.split("|")[0] for w in c.wq])
+        nafsih, self.ctx.sumber_lalu = sumber_nafsih(c.isi, sumber, self.ctx.sumber_lalu), sumber
+        for p in (nafsih, pemisah_sumber(c.isi, c.terbukti) if len(c.terbukti) > 1 else None, gelar(c.isi, "fn"),
+                  titik_singkatan(c.isi)):
             if p:
                 self.perhatian.append(p)
 
