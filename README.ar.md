@@ -146,6 +146,7 @@ python mesin/bahts.py periksa
 | `mesin/sampul_qism.docx`، `sampul.doc`، `sampul_jakarta.docx`، `kepala_kotak.docx` | قوالب الغلاف ورأس الصفحة |
 | `mesin/kepala.ps1`، `hias_kitab.png` | رأس الصفحة وتذييلها لكل `@kepala`، وخط فصل الحواشي |
 | `mesin/pemisah.ps1` | صفحة فاصلة غير مرقمة قبل كل #F (`@judul_fasl`) وصفحة الختام (`@tamma`) |
+| `mesin/fihris.ps1` | فهارس الآيات والأحاديث والآثار والأعلام والأماكن والقبائل والغريب والأشعار (`@fihris_ayat`، `@fihris_hadits`، `@fihris_alam`) |
 | `mesin/naskah_baru.txt`، `riset_baru.txt` | الهيكل الذي يُنشئه `baru` |
 | `contoh/` | `naskah.txt` و`riset.txt` نموذجيان، و`jebakan/` للاختبار |
 | `.mcp.json`، `opencode.json` | قائمة الموصِّلات (`opencode.json` نسخة لـOpenCode) |

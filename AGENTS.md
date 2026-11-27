@@ -24,7 +24,7 @@ Baca penuh `dok/pengaturan-bahts.md` sebelum memulai bahts baru. Inti wajib yang
 - Cek `sampul_saya.txt` (atau bahts terakhir untuk `bahts/<orang>/<topik>`), tanyakan pembimbing (`@musyrif`, `@jabatan`) tiap bahts, dan beri tahu bahwa sampul bawaan memakai kop جامعة الإمام dan قسم الشريعة.
 - `@judul` harus sama persis dengan judul dari dosen, خطة, atau pemakai; jangan mengarang judul atau menambah sub-judul sampul (` - …`) sendiri.
 - Jumlah halaman yang disebut pemakai = halaman isi (`HALAMAN_ISI`, المقدمة sampai الخاتمة); seluruh PDF < 25 halaman = perhatian `cek` dan PERINGATAN `rakit` (`@minimal_halaman`).
-- Semua opsi tata letak (`@format`, `@templat`, `@sampul`, `@judul_sampul`, `@judul_fasl`, `@tamma`, `@pustaka_gaya`, `@ihda`, `@angka`, `@spasi`, `@catatan_kaki`, `@ayat_pembuka`, `@maudhuat_letak`, `@tanpa: anzhur`, `@tahun`, `@model: jakarta`, `--fasl`, `{N:}`, `{M:}`, `{X}`, `#G`, `#E`/`{E:}`, `#J`, `#V`, draf Word mahasiswa) dirinci di `dok/pengaturan-bahts.md`.
+- Semua opsi tata letak (`@format`, `@templat`, `@sampul`, `@judul_sampul`, `@judul_fasl`, `@tamma`, `@pustaka_gaya`, `@ihda`, `@angka`, `@spasi`, `@catatan_kaki`, `@ayat_pembuka`, `@maudhuat_letak`, `@tanpa: anzhur`, `@tahun`, `@model: jakarta`, `--fasl`, `{N:}`, `{M:}`, `{AT:}`, `{B:}`, `{QB:}`, `{G:}`, `{V:}`, `@fihris_ayat`, `@fihris_hadits`, `@fihris_alam`, `{X}`, `#G`, `#E`/`{E:}`, `#J`, `#V`, draf Word mahasiswa) dirinci di `dok/pengaturan-bahts.md`.
 - Sebelum lapor selesai ke pemakai, `tahap <folder>` harus mencetak `NASKAH=LOLOS` dan `TERKINI`, lalu tulis letak lengkap PDF-nya.
 
 ## Alur kerja
