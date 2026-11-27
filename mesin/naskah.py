@@ -39,7 +39,7 @@ KUNCI = re.compile(r"[a-z]+")
 @dataclasses.dataclass(frozen=True)
 class FihrisNama:
     """Satu jenis فهرس nama: penanda {X:nama} tak tercetak di matan, satu baris فهرس per nama dengan semua halamannya."""
-    tanda: str  # huruf tandanya («N» untuk {N:nama})
+    tanda: str  # huruf tandanya («N» untuk {N:nama}, «QB» untuk {QB:nama})
     kunci: str  # nama daftarnya di bahan rakit, dan butir @tanpa yang membuangnya
     judul: str  # judul فهرس-nya
     kolom: str  # judul kolom namanya di tabel فهرس itu
@@ -47,11 +47,21 @@ class FihrisNama:
     contoh: str
     pengarang: bool  # diurutkan seperti nama pengarang: «ابن/أبو» di depan tidak dihitung («ابن القيم» di ق)
     garis: bool  # nama yang memuat «|» punya pesannya sendiri
+    titik: bool = False  # dicetak bertitik-titik «nama ...... ص» tanpa tabel; yang lain tabel «kolom | الصفحة»
 
 
+# Urutan tuple ini = urutan cetaknya sesudah فهرس الآثار (olah.bagian_akhir). القبائل والطوائف (kabilah, kaum, pemeluk
+# agama: قريش، الأنصار، اليهود) terpisah dari الفرق والمذاهب (firqah akidah dan mazhab fikih): dua daftar yang diminta
+# خطة sendiri-sendiri
 FIHRIS_NAMA = (FihrisNama("N", "alam", "فهرس الأعلام", "العلم", "nama orangnya", "ابن رجب", pengarang=True, garis=True),
                FihrisNama("M", "firaq", "فهرس الفرق والمذاهب", "الفرقة أو المذهب", "nama firqah atau mazhabnya", "المعتزلة",
-                          pengarang=False, garis=False))
+                          pengarang=False, garis=False),
+               FihrisNama("B", "amakin", "فهرس الأماكن والبلدان", "المكان", "nama tempat atau negerinya", "مكة",
+                          pengarang=False, garis=False, titik=True),
+               FihrisNama("QB", "qabail", "فهرس القبائل والطوائف", "القبيلة أو الطائفة", "nama kabilah atau kaumnya", "قريش",
+                          pengarang=False, garis=False, titik=True),
+               FihrisNama("G", "gharib", "فهرس الغريب والمصطلحات", "الكلمة", "kata gharib atau istilahnya", "الإصر",
+                          pengarang=False, garis=False, titik=True))
 
 
 @dataclasses.dataclass
@@ -62,8 +72,11 @@ class Pemeriksaan:
     folder: Path | None = None  # folder bahts (tempat PDF bukti <<luar|berkas|hal>>)
     catatan: list = dataclasses.field(default_factory=list)  # catatan kaki: {"runs", "bukti", "luar", "pdf"}
     ayat_idx: list = dataclasses.field(default_factory=list)  # {Q:} di matan, untuk فهرس الآيات
-    hadits_idx: list = dataclasses.field(default_factory=list)  # {H:}, untuk فهرس الأحاديث
-    # {N:}/{M:} di matan, per jenis فهرس nama (FIHRIS_NAMA): kunci -> [{"k": penanda, "t": nama}]
+    hadits_idx: list = dataclasses.field(default_factory=list)  # {H:} dan {AT:} (atsar = True), untuk فهرس الأحاديث/الآثار
+    # {V:القائل} di bait #V, untuk فهرس الأشعار: {"k", "q": القائل, lalu dari baris #V-nya "t": صدر البيت, "qf": القافية}
+    syir_idx: list = dataclasses.field(default_factory=list)
+    bait: bool = False  # baris yang sedang diurai = #V (tempat satu-satunya {V:})
+    # {N:}/{M:}/{B:}/{QB:}/{G:} di matan, per jenis فهرس nama (FIHRIS_NAMA): kunci -> [{"k": penanda, "t": nama}]
     nama_idx: dict = dataclasses.field(default_factory=lambda: {f.kunci: [] for f in FIHRIS_NAMA})
     # فهرس nama seperti dicetak: kunci -> [{"t": nama, "k": [penanda]}], urut (diisi olah)
     fihris_nama: dict = dataclasses.field(default_factory=lambda: {f.kunci: [] for f in FIHRIS_NAMA})
@@ -222,28 +235,31 @@ class Pengurai:
         self.runs.append({"bm": f"{kunci}_{n}"})
 
     def _hadits(self, tok):
+        """{H:طرف|راوٍ|kunci} hadits, {AT:طرف|قائل|kunci} atsar (فهرس الآثار sendiri). Keduanya satu daftar kunci:
+        {H2:kunci} dan {P:kunci} berlaku untuk keduanya, dan طرف/قائل atsar dicek seperti hadits."""
         hadits_idx = self.ctx.hadits_idx
+        tanda = tok[1:tok.index(":")]
         if self.di_catatan:  # penanda فهرس di catatan kaki tidak bisa dibaca halamannya oleh Word
             raise TandaRusak(f"{tok}: tidak boleh di dalam catatan kaki: pindahkan ke matan, tepat sebelum «matan»")
         if tok.count("|") != 2:
-            raise TandaRusak(f"{tok}: bentuknya {{H:طرف|راوٍ|kunci}}")
-        taraf, rawi, kunci = tok[3:-1].split("|")
+            raise TandaRusak(f"{tok}: bentuknya {{H:طرف|راوٍ|kunci}}" if tanda == "H" else f"{tok}: bentuknya {{AT:طرف|قائل|kunci}}")
+        taraf, rawi, kunci = tok[len(tanda) + 2:-1].split("|")
         if not KUNCI.fullmatch(kunci):
             raise TandaRusak(f"{tok}: kunci hanya boleh huruf a-z")
         if any(r["k"] == "h_" + kunci for r in hadits_idx):
             raise TandaRusak(f"{tok}: kunci «{kunci}» sudah dipakai (pakai {{H2:{kunci}}})")
         if kunci in self.ctx.jangkar:
             raise TandaRusak(f"{tok}: kunci «{kunci}» sudah dipakai {{A:{kunci}}}")
-        hadits_idx.append({"k": "h_" + kunci, "t": taraf, "r": rawi})
+        hadits_idx.append({"k": "h_" + kunci, "t": taraf, "r": rawi, **({"atsar": True} if tanda == "AT" else {})})
         self.h_pos = len(self.polos)
         self.runs.append({"bm": "h_" + kunci})
 
     def _nama(self, tok):
-        """{N:nama}, {M:nama}: penanda tak tercetak untuk فهرس nama (FIHRIS_NAMA), di matan dekat nama itu. Nama yang
+        """{N:nama}, {M:nama}, {B:}, {QB:}, {G:}: penanda tak tercetak untuk فهرس nama (FIHRIS_NAMA), di matan dekat nama itu. Nama yang
         sama = satu baris فهرس dengan semua halamannya; tulis namanya persis sama tiap kali (mis. «ابن القيم» di ق,
         «آل بورنو، محمد صدقي»، {M:الحنفية})."""
-        f = next(f for f in FIHRIS_NAMA if f.tanda == tok[1])
-        nama = re.sub(r"\s+", " ", tok[3:-1]).strip()
+        f = next(f for f in FIHRIS_NAMA if f.tanda == tok[1:tok.index(":")])
+        nama = re.sub(r"\s+", " ", tok[len(f.tanda) + 2:-1]).strip()
         if self.di_catatan:  # nomor halaman catatan kaki tidak bisa dibaca seperti matan
             raise TandaRusak(f"{tok}: tidak boleh di dalam catatan kaki: {f.judul} hanya untuk nama di matan")
         salah = f"{tok}: tulis {f.apa} dengan huruf Arab, mis. {{{f.tanda}:{f.contoh}}}"
@@ -254,6 +270,18 @@ class Pengurai:
         idx = self.ctx.nama_idx[f.kunci]
         kunci = f"{f.tanda.lower()}_{len(idx)}"
         idx.append({"k": kunci, "t": nama})
+        self.runs.append({"bm": kunci})
+
+    def _syair(self, tok):
+        """{V:القائل} di baris #V: bait itu masuk فهرس الأشعار (tidak tercetak). صدر البيت dan القافية dibaca dari baris
+        #V-nya (olah._baris_bait); di sini hanya penanda halamannya dan nama penyairnya."""
+        qail = re.sub(r"\s+", " ", tok[3:-1]).strip()
+        if self.di_catatan or not self.ctx.bait:
+            raise TandaRusak(f"{tok}: hanya di baris #V (bait syair), bukan di paragraf, judul, atau catatan kaki")
+        if not re.search(r"[؀-ۿ]", qail) or "|" in qail:
+            raise TandaRusak(f"{tok}: tulis nama penyairnya dengan huruf Arab, mis. {{V:الشافعي}} (belum tahu: {{V:غير معروف}})")
+        kunci = f"v_{len(self.ctx.syir_idx)}"
+        self.ctx.syir_idx.append({"k": kunci, "q": qail})
         self.runs.append({"bm": kunci})
 
     def _rujuk_halaman(self, tok):
@@ -703,5 +731,6 @@ class Pengurai:
         self.runs.append({"fn": len(self.ctx.catatan) - 1})
 
     PENANGAN = {"**": _tebal, "((": _matn_dicabut, "{Q:": _ayat, "{H2:": _hadits_lagi, "{H:": _hadits,
+                "{AT:": _hadits, "{V:": _syair,
                 "{P:": _rujuk_halaman, "{A:": _jangkar, "{E:": _rumus, **dict.fromkeys((f"{{{f.tanda}:" for f in FIHRIS_NAMA), _nama), "{X}": _khulasah, "[^": _catatan_kaki, "]": _kurung_nyasar}
     TOKEN = re.compile("(" + "|".join(re.escape(k) + (r"[^}]*\}" if k.endswith(":") and k != "{E:" else "") for k in PENANGAN) + ")")

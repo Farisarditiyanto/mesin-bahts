@@ -78,6 +78,8 @@ jobs:
       # Bahts tanpa المصادر/فهرس yang isinya pas memenuhi halaman tidak berakhir dengan halaman kosong; tanpa Word = lewati.
       - run: python .github/uji_akhir_word.py
       - run: python .github/uji_fihris_ayat_word.py
+      # @fihris_ayat baris_surah/terbuka, @fihris_hadits titik/huruf, @fihris_alam: nomor, فهرس الآثار/الأماكن/القبائل/الغريب/الأشعار; tanpa Word = lewati.
+      - run: python .github/uji_fihris_word.py
       # @ayat_pembuka, @maudhuat_letak: awal (فهرس sebelum المقدمة), @tanpa: anzhur: cek di mana saja, Word-nya lewati tanpa Word.
       - run: python .github/uji_depan_word.py
       # @templat: penanda «عنوان البحث» di kepala halaman diganti @judul; sampul yang meluap tetap utuh + PERINGATAN; tanpa Word = lewati.
