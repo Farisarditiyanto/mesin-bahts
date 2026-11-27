@@ -613,6 +613,13 @@ try {
         if ($font -eq $TA -or $font -eq $TJ) { Latin $sel.Range $awal $t $size }
         $sel.Collapse(0)
     }
+    # tab bertitik-titik (فهرس tanpa tabel) = run kiri-ke-kanan sendiri: titik-titik tab di run kanan-ke-kiri dicetak Word
+    # per 32 titik, dan sambungannya berjarak lebih rapat (2,9 pt, bukan 4,9) di tengah baris
+    function TabTitik($size, $bold) {
+        $awal = $sel.Start
+        Tulis "`t" $TA $size $bold 0
+        $doc.Range($awal, $sel.Start).Select(); $word.Selection.LtrRun(); $sel.Collapse(0)
+    }
     # Halaman fisik sebuah posisi (seperti Information(3)) dari awal tiap halaman: GoTo sekali per halaman. Information per
     # catatan kaki menyusun halaman dari awal dokumen tiap dipanggil, makin belakang makin lambat (bahts 63 catatan kaki:
     # ±10 detik per putaran NomorCatatan; dengan GoTo ±0,2 detik). Untuk penanda فهرس (Hal) Information(1) tetap lebih
@@ -1235,7 +1242,7 @@ try {
             if ($e.lvl -gt 0) { $pf.LeftIndent = $word.CentimetersToPoints(0.6 * $e.lvl) }
             $pf.TabStops.ClearAll(); [void]$pf.TabStops.Add($lebar, 2, 1)   # 2 = rata ujung (kiri di teks kanan-ke-kiri), 1 = titik-titik
             $tb = [int]($e.lvl -eq 0)                     # baris #K/#F (dan judul فهرس) dan nomornya tebal
-            Tulis (($e.t -replace '^❖\s*', '') + "`t") $TA $uMatan $tb 0
+            Tulis ($e.t -replace '^❖\s*', '') $TA $uMatan $tb 0; TabTitik $uMatan $tb
             $awalNo = $sel.Start; Tulis (Angka '00') $TA $uMatan $tb 0
             [void]$doc.Bookmarks.Add("tn_$r", $doc.Range($awalNo, $sel.Start))
             $sel.TypeParagraph()
@@ -1278,6 +1285,10 @@ try {
     if ($doc.Footnotes.Count) { foreach ($fpp in $doc.StoryRanges.Item(2).Paragraphs) { $fpp.ReadingOrder = 0; $fpp.Alignment = 3 } }
     foreach ($sc in $doc.Sections) { $sc.Range.FootnoteOptions.NumberingRule = $ULANG; $sc.Range.FootnoteOptions.StartingNumber = 1 }
     $doc.Range().FootnoteOptions.NumberingRule = $ULANG
+    # garis pemisah catatan kaki sebelum NomorCatatan: tingginya ikut menentukan batas halaman, jadi garis yang dipasang
+    # sesudah nomor tetap menggeser catatan kaki ke halaman lain dan nomor ulang tiap halaman tidak mulai dari ١ lagi.
+    # Dokumen @templat berangkat dari dokumen kosong yang gaya Normal-nya kiri-ke-kanan: garisnya ikut ke kiri tanpa ini
+    $pk = $sec.PageSetup; Garis-Catatan ($pk.PageWidth - $pk.LeftMargin - $pk.RightMargin)
 
     NomorCatatan
     BarisPendek
@@ -1382,9 +1393,6 @@ try {
         }
     }
     foreach ($s in @($doc.Sections)) { foreach ($j in 1, 3) { NomorRtl $s.Headers($j); NomorRtl $s.Footers($j) } }
-    # garis pemisah catatan kaki: dokumen @templat berangkat dari dokumen kosong yang gaya Normal-nya kiri-ke-kanan, jadi
-    # garisnya ikut ke kiri kalau tidak disetel di sini
-    $pk = $sec.PageSetup; Garis-Catatan ($pk.PageWidth - $pk.LeftMargin - $pk.RightMargin)
     Periksa-Kepala $doc.Sections($nIsi) $KEPALA
     Periksa-Berjalan $KEPALA @($toc | Where-Object { $_.lvl -eq 0 } | ForEach-Object { $_.t }) $JUDUL_KEPALA ($pk.PageWidth - $pk.LeftMargin - $pk.RightMargin)
     # Dokumen selalu berakhir dengan satu paragraf kosong: sisa TypeParagraph sesudah blok terakhir, atau paragraf wajib

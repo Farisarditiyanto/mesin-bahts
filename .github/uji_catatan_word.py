@@ -3,7 +3,7 @@
 halaman, juga di potongan `--fasl`. Runner tanpa Word melaporkan lewati.
 Semua bahan tinggal di TEMP.
 """
-import sys, tempfile, zipfile
+import re, sys, tempfile, zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -50,6 +50,67 @@ def utama():
             assert "KHULASAHFASL2" in pdf_k, pdf_k
             print(f"lolos catatan Word {' '.join(args) or 'utuh'}: {len(catatan)} isi catatan DOCX/PDF + khulasah benar", flush=True)
         format_catatan(akar)
+        nomor_tiap_halaman(akar)
+
+
+def nomor_halaman_pdf(pdf):
+    """[[nomor catatan kaki tercetak, …] tiap halaman PDF]: «(n)» di bawah garis pemisah catatan kaki."""
+    import pymupdf
+    angka = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
+    hasil = []
+    with pymupdf.open(pdf) as d:
+        for p in d:
+            garis = [g["rect"] for g in p.get_drawings()
+                     if g["rect"].height < 2 and 60 < g["rect"].width < 260 and g["rect"].y0 > p.rect.height * 0.3]
+            if not garis:
+                hasil.append([])
+                continue
+            t = p.get_text(clip=pymupdf.Rect(0, max(g.y0 for g in garis), p.rect.width, p.rect.height))
+            # angka di catatan kaki kanan-ke-kiri terbaca terbalik («(١٠)» -> «٠١»)
+            hasil.append([int(n.translate(angka)[::-1]) for n in re.findall(r"\(([٠-٩0-9]+)\)", t)])
+    return hasil
+
+
+def nomor_tiap_halaman(akar):
+    """Nomor catatan kaki tercetak di PDF: ulang = tiap halaman mulai (١) dan urut; bersambung = ١…N tanpa lompatan.
+    Halaman penuh catatan kaki dengan judul #B/#M di tengah halaman: batas halaman yang bergeser sesudah nomor tetap
+    (garis pemisah catatan kaki dipasang sesudah NomorCatatan) mencetak halaman yang mulai (٢)…(٧)."""
+    kalimat = "وهذا كلام في بيان المسألة وتوضيح أطرافها وذكر ما قيل فيها من الأقوال والأدلة "
+    hasyiyah = "حاشية لبيان المسألة وذكر من قال بها من أهل العلم وما استدلوا به "
+    badan, n = [], 0
+    for f in range(1, 4):
+        badan.append(f"#F الفصل {['الأول', 'الثاني', 'الثالث'][f - 1]}")
+        for b in range(1, 4):
+            badan.append(f"#B المبحث {['الأول', 'الثاني', 'الثالث'][b - 1]}")
+            for _ in range(4):
+                n += 1
+                isi = "".join(kalimat * (1 + (n * 7) % 4) + f"[^{hasyiyah * (1 + (n * 5 + c) % 4)}رقم {n}.]"
+                              for c in range(1 + n % 3))
+                badan.append(isi + "تم.")
+            badan.append("#M مطلب في آخر المبحث")
+            badan.append(kalimat * 2 + f"[^{hasyiyah}]تم.")
+    for mode in ("ulang", "bersambung"):
+        f = akar / f"nomor_{mode}"
+        f.mkdir()
+        (f / "naskah.txt").write_text(
+            "@judul: فحص ترقيم الحواشي\n" + SAMPUL_UJI + f"@berkas: hasil\n@catatan_kaki: {mode}\n"
+            "@tanpa: pustaka, ayat, hadits, maudhuat\n#K المقدمة\nتمهيد.\n" + "\n".join(badan)
+            + "\n#K الخاتمة\nانتهى.\n", encoding="utf8")
+        r = bahts(akar, "rakit", f.name, batas=1800)
+        assert r.returncode == 0, r.stdout + r.stderr
+        with zipfile.ZipFile(f / "hasil.docx") as z:
+            jumlah = sum(1 for n in ET.fromstring(z.read("word/footnotes.xml")).findall("w:footnote", NS)
+                         if int(n.attrib.get("{" + NS["w"] + "}id", "0")) > 0)
+        halaman = nomor_halaman_pdf(f / "hasil.pdf")
+        semua = [x for h in halaman for x in h]
+        assert len(semua) == jumlah, f"{mode}: {len(semua)} nomor terbaca di PDF, {jumlah} catatan kaki di DOCX"
+        if mode == "ulang":
+            salah = [(i, h) for i, h in enumerate(halaman, 1) if h and h != list(range(1, len(h) + 1))]
+            assert not salah, f"nomor ulang tiap halaman tidak mulai (١)/tidak urut di halaman PDF {salah}"
+        else:
+            assert semua == list(range(1, jumlah + 1)), f"nomor bersambung melompat: {halaman}"
+        print(f"lolos nomor catatan kaki {mode}: {jumlah} catatan di {sum(1 for h in halaman if h)} halaman PDF",
+              flush=True)
 
 
 def format_catatan(akar):

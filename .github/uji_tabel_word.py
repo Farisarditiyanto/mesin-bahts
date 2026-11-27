@@ -155,6 +155,34 @@ def utama():
         assert sumber_tbl == "المصدر: إعداد الباحث.", f"sumber tabel sesudah tabel: «{sumber_tbl}»"
         assert badan2[i_tbl - 1].find("w:pPr/w:keepNext", NS) is not None, "judul tabel tidak menempel ke tabelnya"
         print("lolos tabel Word (sampul qism + @logo: berwarna + catatan & ayat matan di #J + judul/sumber tabel)", flush=True)
+    pengantar_disusul()
+
+
+def pengantar_disusul():
+    """Pengantar «…:» yang disusul tabel #J, kutipan blok #Q, atau rumus #E di halaman yang sama (isi terakhir halaman,
+    lalu #H) bukan «baris terakhir matan berakhir «:»». Sel #J terbaca sedikit lebih kecil daripada ukurannya di PDF."""
+    kutipan = ("غلوا في إثبات قدرة العبد واختياره حتى نفوا أن يكون الله تعالى مشيئة أو اختيار أو خلق فيما يفعله "
+               "العبد وزعموا أن العبد مستقل بعمله")
+    isi = "وهذا نص تمهيدي للفحص يتكرر ليملأ السطر. " * 6 + "\n"
+    teks = (SAMPUL_UJI + "@judul: فحص النقطتين\n@berkas: hasil\n@tanpa: pustaka, ayat, hadits, maudhuat\n"
+            "#K المقدمة\n" + isi + "يوضح الجدول الآتي ذلك:\n"
+            "#J جدول: بيان الأقسام\n#J القسم | البيان\n#J الأول | شرح القسم الأول\n#J الثاني | شرح القسم الثاني\n"
+            "#J المصدر: إعداد الباحث.\n#H\n" + isi + "وقال الشيخ في بيان أقسام الناس في القدر:\n"
+            f'#Q "{kutipan}"[^رسالة في القضاء والقدر، ابن عثيمين، ص7. <<11223|-|7>>]\n'
+            "#H\n" + isi + "والمعادلة الآتية:\n#E Y_i = \\beta_0 + \\beta_1 X_{1i} + \\varepsilon_i\n"
+            "#K الخاتمة\nأهم النتائج: انتهى الفحص.\n")
+    for profil in ("imam_ayat16", "baku"):
+        with tempfile.TemporaryDirectory(prefix="bahts-pengantar-word-") as t:
+            akar = Path(t)
+            salin_mesin(akar, (11223,))
+            f = akar / "uji"
+            f.mkdir()
+            (f / "naskah.txt").write_text(teks.replace("@berkas:", f"@format: {profil}\n@berkas:"), encoding="utf8")
+            r = subprocess.run([sys.executable, str(akar / "mesin" / "bahts.py"), "rakit", "uji"], cwd=akar,
+                               capture_output=True, encoding="utf8", timeout=1800)
+            assert r.returncode == 0 and (f / "hasil.pdf").is_file(), r.stdout + r.stderr
+            assert "berakhir «:»" not in r.stdout, f"@format: {profil}: {r.stdout}"
+        print(f"lolos pengantar «:» disusul #J/#Q/#E tanpa PERINGATAN (@format: {profil})", flush=True)
 
 
 if __name__ == "__main__":
