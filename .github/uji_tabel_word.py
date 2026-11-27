@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Regresi tabel #J lewat `rakit` dan Word asli: tabel 2 sampai 6 kolom harus terakit.
 
+Sel angka saja (olah.sel_angka: «24», «12,5٪», «1442هـ/2021م», «10-20», «$300») rata tengah, sel teks rata kanan, kepala
+rata tengah. Dokumen pertama memakai profil bahts baru `@format: baku` (mesin/naskah_baru.txt): ukuran matan/catatan
+kaki/judul, awal alinea 1,5 cm, dan tepi halaman isi 2,5/2,5/3/2,5 cm dibaca dari DOCX.
+
 Lebar kolom tabel ≥3 kolom = 82 / (kolom - 1) persen; untuk 4 kolom itu pecahan (27.33), yang ditolak Word
 kalau dikirim bukan sebagai bilangan tunggal («Specified cast is not valid», rakit.ps1). Runner tanpa Word melaporkan lewati. Semua bahan tinggal di TEMP.
 """
@@ -25,12 +29,20 @@ def utama():
         folder = akar / "uji"
         folder.mkdir()
         berkas = "kerja"
-        teks = SAMPUL_UJI + f"@judul: اختبار\n@tanpa: pustaka\n@berkas: {berkas}\n#K اختبار الجداول\n"
+        teks = SAMPUL_UJI + f"@judul: اختبار\n@tanpa: pustaka\n@berkas: {berkas}\n@format: baku\n#K اختبار الجداول\n"
+        teks += "فقرة المتن للاختبار تحليل الباحث[^حاشية المتن للاختبار.]\n"
         for n in kolom:
             teks += f"جدول من {n} أعمدة:\n"
             for r in range(3):
                 teks += "#J " + " | ".join(f"خلية{r}{c}" for c in range(n)) + "\n"
             teks += "فقرة بعد الجدول.\n"
+        # tabel angka: tengah[baris][kolom] = sel itu rata tengah (kepala selalu; sel angka saja; sel teks tidak)
+        angka = [["البند", "النسبة", "السنة", "المبلغ"],
+                 ["الصدقة", "5%", "1442هـ/2021م", "$300"],
+                 ["الزكاة الواجبة", "١٢٫٥٪", "١٠-٢٠", "50 طالبًا"],
+                 ["الاحتياطي", "1,250.50", "2023م", "—"]]
+        tengah = [[True] * 4, [False, True, True, True], [False, True, True, False], [False, True, True, True]]
+        teks += "".join("#J " + " | ".join(b) + "\n" for b in angka) + "فقرة بعد جدول الأرقام.\n"
         (folder / "naskah.txt").write_text(teks, encoding="utf8")
         r = subprocess.run([sys.executable, str(akar / "mesin" / "bahts.py"), "rakit", "uji"], cwd=akar,
                            capture_output=True, encoding="utf8", timeout=1800)
@@ -49,7 +61,37 @@ def utama():
             for tr in tb.findall("w:tr", NS)[1:]:
                 for jc in tr.iter(f"{{{NS['w']}}}jc"):
                     assert jc.get(f"{{{NS['w']}}}val") != "right", "isi sel tabel #J tercetak rata kiri (jc=right di paragraf RTL)"
-        print(f"lolos tabel Word: {len(tabel)} tabel, kolom {lebar}", flush=True)
+        W = f"{{{NS['w']}}}"
+
+        def jc(tc):
+            return {j.get(W + "val") for j in tc.iter(W + "jc")}
+        sel = [tr.findall("w:tc", NS) for tr in tabel[len(kolom)].findall("w:tr", NS)]
+        dapat = [["center" in jc(tc) for tc in tr] for tr in sel]
+        isi_sel = [["".join(tc.itertext()) for tc in tr] for tr in sel]
+        assert dapat == tengah, f"sel rata tengah tabel angka {dapat}, harus {tengah}: {isi_sel}"
+        print(f"lolos tabel Word: {len(tabel)} tabel, kolom {lebar}, sel angka rata tengah", flush=True)
+
+        # @format: baku: ukuran dalam setengah poin, awal alinea dan tepi dalam twip (1 cm = 567)
+        def ukuran(p):
+            return {r.find("w:rPr/w:szCs", NS).get(W + "val") for r in p.iter(W + "r")
+                    if (r.findtext("w:t", "", NS)).strip() and r.find("w:rPr/w:szCs", NS) is not None}
+        par = next(p for p in xml.iter(W + "p") if "فقرة المتن للاختبار" in "".join(p.itertext()))
+        assert ukuran(par) == {"32"}, f"matan baku harus 16 pt (szCs 32), dapat {ukuran(par)}"
+        ind = par.find("w:pPr/w:ind", NS)
+        awal = ind.get(W + "firstLine") if ind is not None else None
+        assert awal and abs(int(awal) - 850) <= 2, f"awal alinea baku harus 1,5 cm (850 twip), dapat {awal}"
+        judul = next(p for p in xml.iter(W + "p") if "".join(p.itertext()).strip() == "اختبار الجداول")
+        assert ukuran(judul) == {"36"}, f"judul #K baku harus 18 pt (szCs 36), dapat {ukuran(judul)}"
+        mar = [s.find("w:pgMar", NS) for s in xml.iter(W + "sectPr")][-1]
+        tepi = {k: int(mar.get(W + k)) for k in ("top", "bottom", "right", "left")}
+        harus = {"top": 1417, "bottom": 1417, "right": 1701, "left": 1417}
+        assert all(abs(tepi[k] - v) <= 2 for k, v in harus.items()), f"tepi halaman isi baku {tepi}, harus {harus}"
+        with zipfile.ZipFile(folder / f"{berkas}.docx") as z:
+            fn = ET.fromstring(z.read("word/footnotes.xml"))
+        catatan = next(n for n in fn.findall("w:footnote", NS) if "حاشية المتن للاختبار" in "".join(n.itertext()))
+        uk_catatan = {u for p in catatan.iter(W + "p") for u in ukuran(p)}
+        assert uk_catatan == {"24"}, f"catatan kaki baku harus 12 pt (szCs 24), dapat {uk_catatan}"
+        print("lolos @format: baku (matan 16, catatan kaki 12, judul 18, awal alinea 1,5 cm, tepi 2,5/2,5/3/2,5 cm)", flush=True)
 
         # Bahts biasa (bersampul qism + @logo: berwarna + @rujukan_ayat: matan):
         # 1) catatan kaki di dalam sel #J tidak mematikan Word (pane catatan di Draft view);

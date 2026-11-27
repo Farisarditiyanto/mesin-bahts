@@ -6,6 +6,9 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Baru: bahts baru (`baru`) memakai `@format: baku`: Traditional Arabic matan 16, catatan kaki 12, ayat 14, judul 18, satu spasi, awal alinea 1,5 cm, tepi kanan 3 cm (pedoman كلية الآداب جامعة الملك سعود). Naskah yang sudah ada tidak berubah; pedoman Jāmiʿat al-Imām tetap lewat `@format: imam_ayat16`.
+- Baru: sel tabel `#J` yang isinya angka saja (mis. «24»، «12,5٪»، «1442هـ/2021م»، «10-20») dicetak rata tengah; sel teks tetap rata kanan.
+- Perbaikan: `periksa` tidak lagi menyebut huruf terpasang sebagai BELUM hanya karena namanya di Windows ditulis tanpa spasi («NotoNaskhArabic-Regular» untuk «Noto Naskh Arabic»).
 - Baru: `@basmalah: utsmani` mencetak halaman basmalah sebagai teks «بسم الله الرحمن الرحيم» rasm Utsmani huruf mushaf, bukan ligatur ﷽ Arabic Typesetting.
 - Perbaikan: urutan المصادر dan فهرس menaruh judul pendek sebelum judul lebih panjang yang diawali kata yang sama («الكتاب، سيبويه» sebelum «الكتاب الفريد»، «معاني القرآن، الفراء» sebelum «معاني القرآن وإعرابه»).
 - Perbaikan: `@kepala: kotak` (juga `@templat` dan `@model: jakarta`) bersama persamaan `#E` yang turun ke baris kedua tidak lagi menggagalkan `rakit` («Specified cast is not valid»). Judul di kepala `kotak` kini rata kanan tanpa diregang dan tidak lagi menimpa kotak nomor halaman; judul yang tidak muat satu baris di samping kotak itu = PERINGATAN sesudah `rakit` (tulis `@kepala_judul`).
