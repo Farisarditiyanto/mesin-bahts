@@ -204,7 +204,8 @@ try {
         elseif ($t -eq 'الرقم الجامعي') { if ($NIM -and $NIM -ne '-') { Ganti $p $(if ($JAKARTA) { Angka $NIM } else { "الرقم الجامعي: $(Angka $NIM)" }) } else { $buang += $p } }
         elseif ($t -eq 'صفة الطالب') { if ($M.sifat -and $M.sifat -ne '-') { Ganti $p ([string]$M.sifat) } else { $buang += $p } }
         # pembimbing: tanpa @musyrif (atau "-") ketiga barisnya kosong; tanpa @jabatan (atau "-") baris jabatannya kosong
-        elseif ($t -eq 'المشرف') { if (-not $MUSYRIF) { Ganti $p '' } }
+        # jakarta: «المشرف:» bertitik dua seperti «إعداد الطالب:» di templat yang sama
+        elseif ($t -eq 'المشرف') { if (-not $MUSYRIF) { Ganti $p '' } elseif ($JAKARTA) { Ganti $p 'المشرف:' } }
         elseif ($t -eq 'اسم المشرف') { Ganti $p $MUSYRIF }
         elseif ($t -eq 'الدرجة العلمية للمشرف') { Ganti $p $JABATAN }
         elseif ($t -eq 'إعداد الطالب:') { if ($M.thalibah -eq 'ya') { Ganti $p 'إعداد الطالبة:' } }
@@ -218,7 +219,7 @@ try {
         foreach ($p in @($doc.Paragraphs)) {
             $t = $p.Range.Text.Trim().Trim([char]7); $f = $p.Range.Font
             $u = switch ($t) {
-                'المشرف' { 18, 1, $SM } { $_ -eq $MUSYRIF -and $MUSYRIF } { 18, 1, $SM } { $_ -eq $JABATAN -and $JABATAN } { 18, 0, $SM }
+                'المشرف:' { 18, 1, $SM } { $_ -eq $MUSYRIF -and $MUSYRIF } { 18, 1, $SM } { $_ -eq $JABATAN -and $JABATAN } { 18, 0, $SM }
                 { $_ -in 'إعداد الطالب:', 'إعداد الطالبة:' } { 16, 1, $SM } $NAMA { 16, 1, $SM }
                 { $M.sifat -and $_ -eq [string]$M.sifat } { 16, 0, $SM } { $NIM -and $_ -eq (Angka $NIM) } { 18, 0, $TA }
                 'العام الجامعي' { 18, 0, $TA } $TAHUN_CETAK { 18, 0, $TA } 'قسم الشريعة بجاكرتا' { 16, 0, $TA }
