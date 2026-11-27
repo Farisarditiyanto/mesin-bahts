@@ -66,8 +66,9 @@ def utama():
         assert not re.search(r"[٠-٩0-9]", hal[1].replace("٢", "")), f"halaman ayat bernomor: {hal[1]!r}"
         assert "الإهداء" in hal[2] and "فهرس الموضوعات" in hal[3] and "المقدمة" in hal[4], hal[:5]
         assert "فهرس الموضوعات" not in "".join(hal[5:]), "فهرس الموضوعات tercetak lagi di belakang"
-        baris_mq = next(x for x in hal[3].split("\n") if "المقدمة" in x)
-        assert "١" in baris_mq or "1" in baris_mq, f"nomor halaman المقدمة di فهرس: {baris_mq!r}"
+        # فهرس bawaan bertitik (@maudhuat: titik): nomornya sesudah deret titik, bisa di baris teks PDF berikutnya
+        baris_mq = re.search(r"المقدمة[\s.]*([٠-٩0-9]+)", hal[3])
+        assert baris_mq and baris_mq[1] in ("١", "1"), f"nomor halaman المقدمة di فهرس: {hal[3]!r}"
         semua = "".join(hal)
         # «انظر:» hilang, pemisah «؛» tetap berspasi, rujukan silang «انظر: ص…» tetap utuh
         assert "كتاب ما" in semua and "كتاب آخر" in semua, semua
@@ -88,22 +89,26 @@ def utama():
         r = bahts(akar, "rakit", "tanpa_fihris", batas=1800)
         assert r.returncode == 0 and "halaman kosong" not in r.stdout, r.stdout + r.stderr
         print("lolos halaman depan Word: المقدمة mulai halaman baru sesudah فهرس; @tanpa: maudhuat tanpa halaman kosong")
-        # فهرس depan yang baris terakhirnya ±1 pt dari dasar halaman (9 فصل × 1 مبحث, temuan pemeriksa): paragraf sesudahnya
-        # dulu tumpah jadi halaman kosong sebelum المقدمة; dengan dan tanpa @nomor (pemisah bagian Word)
+        # فهرس depan yang baris terakhirnya ±1 pt dari dasar halaman (@format: tatbiqi_16, 9 فصل, 11 مبحث; diukur di
+        # PDF): paragraf sesudahnya dulu tumpah jadi halaman kosong sebelum المقدمة; dengan dan tanpa @nomor (pemisah
+        # bagian Word). Tabelnya harus tetap pas: kalau tata letak فهرس berubah, susunan ini disetel ulang
         kalimat = "ويظهر للباحث أن هذا الباب من أبواب التوحيد مهم، وأن فهمه على وجهه يعين طالب العلم على تصور المسائل. " * 3
         isi = ("#K الإهداء\nنص قصير.\n#K الشكر والتقدير\nنص قصير.\n#K المقدمة\n" + kalimat + "\n"
                + "".join(f"#F الفصل {f}: الموضوع {f}\n#B المبحث 1 من الفصل {f}\n{kalimat}\n" for f in range(1, 10))
+               + "".join(f"#B المبحث {m} من الفصل 9\n{kalimat}\n" for m in (2, 3))
                + "#K الخاتمة\n" + kalimat + "\n#R المصادر\nالقرآن الكريم.\n")
         x91 = ("@judul: اختبار الصفحات الأولى\n@nama: طالب\n@berkas: uji\n@minimal_halaman: 0\n@basmalah: ya\n"
-               "@ayat_pembuka: 12:2-3\n@maudhuat_letak: awal\n@tanpa: anzhur\n")
+               "@ayat_pembuka: 12:2-3\n@maudhuat_letak: awal\n@tanpa: anzhur\n@maudhuat: tabel\n@format: tatbiqi_16\n")
         for nama, kepala in (("pas", x91 + "@nomor: mukadimah\n"), ("pas_polos", x91)):
             tulis(akar, nama, kepala, isi)
             r = bahts(akar, "rakit", nama, batas=1800)
             assert r.returncode == 0 and "halaman kosong" not in r.stdout, f"{nama}: " + r.stdout + r.stderr
             doc = pymupdf.open(akar / nama / "uji.pdf")
             hal = [p.get_text() for p in doc]
-            doc.close()
             i = next(k for k, h in enumerate(hal) if "فهرس الموضوعات" in h)
+            sisa = doc[i].rect.height - 2.5 * 72 / 2.54 - max(d["rect"].y1 for d in doc[i].get_drawings())
+            doc.close()
+            assert abs(sisa) < 2, f"{nama}: tabel فهرس tidak lagi pas di dasar halaman (sisa {sisa:.1f} pt): setel ulang naskahnya"
             assert "ويظهر للباحث" in hal[i + 1] and "فهرس" not in hal[i + 1], f"{nama}: halaman sesudah فهرس: {hal[i + 1][:200]!r}"
         print("lolos halaman depan Word: فهرس depan yang pas satu halaman tidak menyisakan halaman kosong (dengan/tanpa @nomor)")
         sampul_tengah(akar)
