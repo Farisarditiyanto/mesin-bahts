@@ -15,8 +15,10 @@ from cek_ayat import ayat
 from cek_rujukan import kitab_tanpa_pustaka, pustaka_tak_dirujuk, rujukan_halaman
 from cek_sumber import standar_baris
 from cek_tautsiq import gelar
-from dasar import (AD, ANGKA_LATIN, BUKAN_RUJUKAN, HERE, HORMAT_CETAK, HURUF_LATIN, JUDUL_BAB, JUDUL_FIHRIS, JUDUL_ISI, LUAR,
-                   MULAKHAS, MULAKHAS_ASING, SUBJUDUL, SURAH, TINGKAT_JUDUL, DICABUT, TandaRusak, akhir_catatan, akhir_rumus, daftar, perintah, profil_format)
+from dasar import (AD, ANGKA_LATIN, ANZHUR, BUKAN_RUJUKAN, HERE, HORMAT_CETAK, HURUF_LATIN, JUDUL_BAB, JUDUL_FIHRIS, JUDUL_ISI, LUAR,
+                   MULAKHAS, MULAKHAS_ASING, SUBJUDUL, SURAH, TINGKAT_JUDUL, DICABUT, TandaRusak, akhir_catatan, akhir_rumus, baca_anzhur, daftar, perintah,
+                   profil_format, tanpa_catatan)
+from petik import kutipan_semua, luar_petik
 from laporan import gabung_kembar
 from naskah import FIHRIS_NAMA, Pemeriksaan, urai
 
@@ -59,6 +61,9 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       dan pustaka = المصادر والمراجع
                       bila dosen minta sumber cukup di catatan kaki; mis. «@tanpa: ayat, hadits»; anzhur = «انظر:»، «ينظر:»،
                       «راجع:» di awal catatan kaki (atau sesudah «؛») tidak dicetak, naskah tetap menulisnya untuk `cek`).
+                      anzhur (انظر | ينظر | راجع: kata nukilan makna yang dicetak; naskah boleh menulis yang mana saja,
+                      `rakit` mencetak satu kata itu di tiap catatan kaki; tanpa barisnya dicetak seperti ditulis.
+                      Bersama «@tanpa: anzhur» = GAGAL).
                       فهرس yang kosong (tanpa tandanya di naskah) tidak dicetak dengan sendirinya. Urutan فهرس: الآيات،
                       الأحاديث، الآثار، الأعلام، الفرق والمذاهب، الأماكن والبلدان، القبائل والطوائف، الغريب والمصطلحات،
                       الأشعار، (فهرس المصادر kalau @pustaka: akhir)، الموضوعات
@@ -147,6 +152,10 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       mis. pembuka المقدمة satu halaman sendiri, lalu «#H» sebelum «#S أهمية الدراسة»
   #V teks             bait syair di tengah halaman (boleh memuat catatan kaki): « ... » = jarak antara dua paruh bait, « ...~ » = dua paruh yang berbagi satu kata digabung,
                       « // » = bait berikutnya pada baris baru; kutipan bertanda petik boleh memuat keduanya
+  #Q "…"[^…]          kutipan blok: lafaz yang harus utuh dan lebih dari empat baris (أبو سليمان ص219), paragraf sendiri
+                      menjorok kanan-kiri (profil: tepi_kutipan, ukuran_kutipan); dicek seperti kutipan biasa. Isinya hanya
+                      kutipan bertanda petik (pengantar di dalamnya = GAGAL); paragraf sebelumnya berakhir «:», kalau tidak
+                      = perhatian. Tidak kena batas panjang kutipan
   #L teks             paragraf bahasa Latin, kiri ke kanan (mis. الملخص bahasa Inggris); tanpa catatan kaki; Times New Roman
                       12 (judulnya 14), profil bisa mengubahnya lewat kunci "latin" di mesin/format.json. Kata Latin
                       di tengah teks Arab (paragraf, tabel, catatan kaki, المصادر) dicetak Times New Roman juga, dengan
@@ -226,6 +235,9 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
   <<sid|juz|hal|potongan>>   bukti dengan potongan lafaz sendiri (untuk nukilan makna «انظر», tanpa tanda petik).
                       #123 = nomor hadits: harus berdiri sebagai kepala hadits di halaman itu («123 - حدثنا», «36 - (123)», «(123) - حدثنا»).
                       Kutipan bertanda petik sebelum catatan kaki tetap dicek ke halaman bukti itu.
+                      Catatan kaki berakhir «بتصرف» (boleh «بتصرف يسير»): kutipan bertanda petik yang lafaznya diubah
+                      sedikit, dicek menurut kemiripan (batasnya: mesin/cek_kutipan.py); terlalu jauh atau terlalu pendek
+                      = GAGAL, sama persis = perhatian. Takhrij hadits tidak memakainya: selalu dicek persis
                       Potongan hanya membuktikan potongannya, bukan kalimat yang dirujuk. Cara menukil = perhatian: deret kata
                       panjang di luar tanda petik yang sama persis dengan halaman bukti (lafaz kitab tanpa tanda petik),
                       nukilan makna tanpa «انظر:»/«راجع:», kutipan lafaz yang diantar «قال …:» tetapi dirujuk «انظر:»,
@@ -296,8 +308,10 @@ FORMAT = profil_format()  # huruf & ukuran tiap pedoman; dipilih dengan @format
 # garis_catatan = panjang garis pemisah catatan kaki (cm, di kanan); ukuran_kepala = teks kepala/kaki halaman,
 # ukuran_nomor_kepala = nomor halaman tebal @kepala: klasik
 BAWAAN_FORMAT = {"latin": 12, "spasi": 1, "mulakhas_berjarak": False, "jarak_paragraf": 0, "jarak_judul": 0, "tepi_kanan": 3.5,
-                 "jarak_kepala": 1.25, "jarak_sebelum_sub": 6, "garis_catatan": 4.5}
-IKUT_FORMAT = {"judul_sub": "judul", "ayat": "matan", "huruf_judul": "huruf", "spasi_mulakhas": "spasi", "ukuran_pustaka": "matan",
+                 "jarak_kepala": 1.25, "jarak_sebelum_sub": 6, "garis_catatan": 4.5, "tepi_kutipan": 1}
+# tepi_kutipan = jorok kanan dan kiri kutipan blok #Q (cm); ukuran_kutipan = hurufnya. Pedoman yang dipakai tidak menyebut
+# ukuran khusus: bawaannya sebesar matan
+IKUT_FORMAT = {"judul_sub": "judul", "ayat": "matan", "ukuran_kutipan": "matan", "huruf_judul": "huruf", "spasi_mulakhas": "spasi", "ukuran_pustaka": "matan",
                "ukuran_kepala": "catatan", "ukuran_nomor_kepala": "matan"}
 # @sampul: model sampul bahts -> data yang wajib. mahad = mesin/sampul.doc (معهد، كلية الشريعة);
 # qism = mesin/sampul_qism.docx (قسم الشريعة: logo, judul besar, sub-judul dalam kurung kalau ada, العام الجامعي; jenis dan nim tercetak kalau diisi, fasl tidak)
@@ -729,6 +743,29 @@ def _baris_bait(ctx, n, k, t):
         del ctx.syir_idx[v0:]
 
 
+def _baris_kutipan(ctx, n, k, t):
+    """«#Q "…"[^…]» kutipan blok: lafaz yang harus utuh dan lebih dari empat baris (أبو سليمان، كتابة البحث العلمي،
+    ص219), satu paragraf sendiri yang menjorok di dua sisi. Isinya hanya kutipan bertanda petik, dicek seperti kutipan
+    di paragraf biasa; pengantarnya («…:») di paragraf sebelumnya."""
+    luar = luar_petik(re.sub(r"\{[A-Z0-9]+:[^}]*\}|\{X\}", " ", tanpa_catatan(t)))
+    if re.search("[ء-ي]", luar) or not kutipan_semua(t):
+        ctx.galat.append('#Q hanya berisi kutipan bertanda petik («#Q "…"[^…]»): pengantarnya («قال …:») ditulis di '
+                         f"paragraf sebelumnya :: {t[:40]}")
+        return
+    lalu = ctx.blok[-1] if ctx.blok else None
+    teks_lalu = "".join(r.get("t", "") for r in lalu["runs"]).strip() if lalu and lalu["k"] == "P" else ""
+    if not (lalu and lalu.get("kutipan_blok")) and not teks_lalu.endswith(":"):
+        ctx.perhatian.append("kutipan blok #Q tanpa pengantar berakhir «:» di paragraf sebelumnya: «وتدوين نقطتين رأسيتين "
+                             "قبل النص المقتبس» (أبو سليمان، كتابة البحث العلمي، ص219)")
+    ctx.kutipan_blok = True
+    try:
+        runs = _urai_aman(ctx, t)
+    finally:
+        ctx.kutipan_blok = False
+    if runs is not None:
+        ctx.blok.append({"k": "P", "runs": runs, "n": n, "kutipan_blok": True})
+
+
 def _matan_bait(t):
     """Teks baris #V seperti dibaca: tanpa catatan kaki [^…], tanda {…}, **, dan tanda petik."""
     out, i = [], 0
@@ -786,7 +823,7 @@ def _baris_rumus(ctx, n, k, t):
 
 # Tanda baris «#X teks» -> penangannya (ctx, nomor baris, X, teks). Tanda baris baru = penangan baru di sini
 TANDA_BARIS = {**dict.fromkeys((*JUDUL_ISI, "R"), _baris_judul), "V": _baris_bait, "L": _baris_latin,
-               "J": _baris_tabel, "G": _baris_gambar, "E": _baris_rumus}
+               "J": _baris_tabel, "G": _baris_gambar, "E": _baris_rumus, "Q": _baris_kutipan}
 
 
 def _urai_aman(ctx, teks):
@@ -883,7 +920,7 @@ DATA = {
     "format": Data(sah=tuple(FORMAT), bawaan="imam", pisah="، ",
                    pesan="«{nilai}» tidak ada di mesin/format.json (yang ada: {ada})"),
     "angka": Data(sah=ANGKA, bawaan="hindi", pisah="، "), "angka_ayat": Data(sah=ANGKA, pisah="، "),  # bawaan = @angka
-    "tanpa": Data(sah=TANPA), "pustaka": Data(sah=("akhir",)), "malahiq": Data(sah=("akhir",)), "templat": Data(),
+    "tanpa": Data(sah=TANPA), "anzhur": Data(sah=ANZHUR, pisah="، ", baca=baca_anzhur), "pustaka": Data(sah=("akhir",)), "malahiq": Data(sah=("akhir",)), "templat": Data(),
     "halaman_baru": Data(sah=HALAMAN_BARU), "nomor": Data(sah=("abjad", "mukadimah")),
     "model": Data(sah=tuple(MODEL), pisah="، "), "kepala_judul": TEKS, "sifat": TEKS, "qism": TEKS, "judul_sampul": TEKS,
     **{f"minimal_{k}": Data(hanya_cek=True) for k in MINIMAL},
@@ -1360,6 +1397,8 @@ def _cek_sampul(ctx):
     asing = [t for t in daftar(meta, "tanpa") if t not in TANPA + TANPA_CETAK]
     if asing:
         _tak_dikenal(ctx, "tanpa", "، ".join(asing))
+    if _pilih(ctx, "anzhur") and "anzhur" in daftar(meta, "tanpa"):
+        galat.append(di("@anzhur") + "@anzhur bertentangan dengan «@tanpa: anzhur» (kata itu tidak dicetak): hapus salah satunya")
     if meta.get("templat"):  # Word mahasiswa: sampul dan kepala halaman diambil dari situ oleh rakit.ps1
         tpl = (folder / meta["templat"]).resolve()
         if tpl.suffix.lower() not in (".docx", ".doc"):

@@ -113,11 +113,30 @@ MERUJUK_AWAL = re.compile(rf"^(?:{MERUJUK_KATA})(?![ء-ي])")
 # @tanpa: anzhur: kata MERUJUK_KATA di awal catatan kaki, sesudah «؛»/titik, atau «، و…» tidak dicetak; pemisah dan
 # spasinya tetap. Rujukan silang «انظر: ص{P:…}» tetap: tanpa kata itu nomor halamannya tidak terbaca sebagai rujukan
 TANPA_ANZHUR = re.compile(rf"(?P<pra>^\s*|[؛.]\s*|،\s*(?=و))و?(?:{MERUJUK_KATA})\s*:(?!\s*ص\s*\{{P:)\s*")
+# @anzhur: kata itu di tempat yang sama (rujukan silang ikut) dicetak dengan kata pilihan; «و» di depannya tetap
+GANTI_ANZHUR = re.compile(rf"(?P<pra>^\s*|[؛.]\s*|،\s*(?=و))(?P<wa>و?)(?:{MERUJUK_KATA})(?=\s*:)")
 
 
 def daftar(meta, kunci):
     """Butir @kunci yang nilainya daftar («ayat, hadits»: dipisah koma atau spasi)."""
     return [t for t in re.split(r"[,، ]+", meta.get(kunci, "")) if t]
+
+
+ANZHUR = ("انظر", "ينظر", "راجع")  # nilai @anzhur: kata nukilan makna yang dicetak di catatan kaki
+
+
+def baca_anzhur(nilai):
+    """Nilai @anzhur seperti ditulis («ينظرُ:») -> bentuk yang dicocokkan dengan ANZHUR."""
+    return re.sub(r"[ً-ْ\s:]", "", nilai)
+
+
+def anzhur_cetak(meta):
+    """Kata MERUJUK_KATA yang dicetak di catatan kaki: "" = tidak dicetak (@tanpa: anzhur), kata ANZHUR (@anzhur), atau
+    None = dicetak seperti ditulis naskah (tanpa keduanya, atau @anzhur yang tidak dikenal: GAGAL di `cek`)."""
+    if "anzhur" in daftar(meta, "tanpa"):
+        return ""
+    kata = baca_anzhur(meta.get("anzhur", ""))
+    return kata if kata in ANZHUR else None
 
 
 TAKHRIJ_AWAL = re.compile(r"\s*و?(?:أخرج|رواه)")  # catatan kaki takhrij: «أخرجه …», «رواه …»

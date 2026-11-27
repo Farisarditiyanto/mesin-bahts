@@ -257,9 +257,10 @@ def _bagian_cari(baris):
     return [(n, j, " ".join(isi)) for n, j, isi, _ in hasil]
 
 
-# Kutipan bertanda petik yang memenuhi isi satu bagian: «تختفي شخصية الكاتب بين الاقتباسات الطويلة» (أبو سليمان، كتابة
-# البحث العلمي، ص121-123; kitab itu tidak memberi angka). Angka di sini aturan repo: di 38 naskah nyata hanya
-# 5 bagian, semuanya di satu naskah, yang lewat 2/3 (terberat 72%); bagian di bawah 600 huruf terlalu pendek untuk dinilai
+# Kutipan bertanda petik yang memenuhi isi satu bagian. أبو سليمان (كتابة البحث العلمي، ص121-123) menyebut dua golongan
+# (yang mencela kutipan dan yang memujinya), lalu memutus «الاقتباس المناسب، بالحجم المعقول، في المكان المناسب ...
+# والاعتدال دائمًا هو الطريق السوي» (ص123; juga «الاقتباس المعتدل»، ص173); kitab itu tidak memberi angka. Angka di sini
+# aturan repo: di 38 naskah nyata hanya 5 bagian, semuanya di satu naskah, yang lewat 2/3 (terberat 72%); bagian di bawah 600 huruf terlalu pendek untuk dinilai
 PORSI_KUTIPAN = 2 / 3
 PORSI_MIN = 600
 
@@ -290,8 +291,9 @@ def porsi_kutipan(blok, catatan):
     def nilai():
         if judul and semua >= PORSI_MIN and kutip / semua > PORSI_KUTIPAN:
             hasil.append(f"baris {judul['n']}: bagian «{judul['judul'][:40]}»: {round(100 * kutip / semua)}% hurufnya kutipan "
-                         f"bertanda petik: ringkas sebagian dengan «انظر:» dan tulis pembahasanmu sendiri di antaranya "
-                         f"(أبو سليمان، كتابة البحث العلمي، ص121-123; batas 2/3 aturan repo)")
+                         f"bertanda petik, padahal kutipan «بالحجم المعقول» dan «الاعتدال دائمًا هو الطريق السوي» (أبو سليمان، "
+                         f"كتابة البحث العلمي، ص123، 173): tulis ulang sebagian dengan kalimat sendiri dirujuk «انظر:», kutip utuh "
+                         f"hanya yang memang harus utuh (batas 2/3 aturan repo)")
     for b in blok:
         if b["k"] in (*JUDUL_FIHRIS, "R"):
             nilai()

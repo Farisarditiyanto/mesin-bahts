@@ -9,13 +9,13 @@ import rumus
 import shamela
 from cek_ayat import ayat, ayat_ketik, penanda_ayat, rujukan_ayat, tandai_ayat
 from cek_hadits import hadits_janggal, hadits_lain, periksa_derajat, periksa_takhrij
-from cek_kutipan import Catat, Jenis, cek, cek_pdf, cek_waqfeya, terbaca
+from cek_kutipan import Catat, Jenis, bertasarruf, cek, cek_pdf, cek_tasarruf, cek_waqfeya, terbaca
 from cek_naql import isyarat, panjang, salinan
 from cek_rujukan import cocok_halaman, judul_kitab, judul_shamela, kitab_lain, kitab_waqfeya, rujukan_halaman
 from cek_sumber import standar_sumber, urutan_sumber
 from cek_tautsiq import data_cetak, gelar, pemisah_sumber, sumber_nafsih, titik_singkatan
-from dasar import (ANGKA_LATIN, AYAT_DI_KUTIPAN, DICABUT, DIPOTONG, HURUF_LATIN, LUAR, SURAH, TANPA_ANZHUR, TandaRusak, WAQFEYA, WAQFEYA_BUKTI,
-                   akhir_catatan, akhir_rumus, daftar, ekor)
+from dasar import (ANGKA_LATIN, AYAT_DI_KUTIPAN, DICABUT, DIPOTONG, GANTI_ANZHUR, HURUF_LATIN, LUAR, SURAH, TAKHRIJ_AWAL, TANPA_ANZHUR, TandaRusak, WAQFEYA, WAQFEYA_BUKTI,
+                   akhir_catatan, akhir_rumus, anzhur_cetak, ekor)
 from kitab_lokal import Bukti, diunduh
 from petik import (
     diantar_qaul, kurung_akhir, kutipan_akhir, kutipan_pendek_diantar, kutipan_semua, luar_petik, seragam)
@@ -76,6 +76,7 @@ class Pemeriksaan:
     # {V:القائل} di bait #V, untuk فهرس الأشعار: {"k", "q": القائل, lalu dari baris #V-nya "t": صدر البيت, "qf": القافية}
     syir_idx: list = dataclasses.field(default_factory=list)
     bait: bool = False  # baris yang sedang diurai = #V (tempat satu-satunya {V:})
+    kutipan_blok: bool = False  # baris yang sedang diurai = #Q: kutipan panjangnya memang di sana (cek_naql.panjang)
     # {N:}/{M:}/{B:}/{QB:}/{G:} di matan, per jenis فهرس nama (FIHRIS_NAMA): kunci -> [{"k": penanda, "t": nama}]
     nama_idx: dict = dataclasses.field(default_factory=lambda: {f.kunci: [] for f in FIHRIS_NAMA})
     # فهرس nama seperti dicetak: kunci -> [{"t": nama, "k": [penanda]}], urut (diisi olah)
@@ -377,10 +378,11 @@ class Pengurai:
             raise TandaRusak("bukti <<...>> tidak tertutup rapi (tidak boleh ada > di dalam potongan)")
         return CatatanKaki(isi, bukti, mentah)
 
-    def _cek(self, b, teks, disebut, **pilihan):
-        """`cek` yang perhatiannya langsung masuk laporan (yang sekali-sebut: sekali per naskah) dan dicatat di `disebut`."""
+    def _cek(self, b, teks, disebut, tasarruf=False, **pilihan):
+        """`cek` yang perhatiannya langsung masuk laporan (yang sekali-sebut: sekali per naskah) dan dicatat di `disebut`.
+        tasarruf=True: kutipan «بتصرف» (cek_tasarruf)."""
         catat = Catat(self.ctx.sekali)
-        e = cek(b, teks, catat, **pilihan)
+        e = cek_tasarruf(b, teks, catat) if tasarruf else cek(b, teks, catat, **pilihan)
         self.perhatian.extend(map(str, catat))
         disebut += catat
         return e
@@ -499,6 +501,8 @@ class Pengurai:
         kutipan_4 = []  # hasil cek kutipan ke tiap bukti berpotongan sendiri: (bukti, galat, perhatian)
         kutipan_3 = []  # hasil cek kutipan ke tiap bukti tanpa potongan: (bukti, galat)
         tiga = any(b.count("|") == 2 for b in c.shamela)
+        # «… بتصرف.»: lafaz yang sedikit diubah penulis dicocokkan menurut kemiripan; nash takhrij selalu persis (ص112)
+        tasarruf = mk is not None and bertasarruf(isi) and not TAKHRIJ_AWAL.match(isi)
         # kutipan bertanda petik di dalam catatan kaki itu sendiri (selain judul kitab; tiga kata atau kurang tanpa «قال …:» = istilah)
         c.kc = [k for k in kutipan_semua(isi) if (len(k.split()) >= 4 or kutipan_pendek_diantar(isi, k))
                 and not any(shamela.nomor_judul(k.strip())) and not judul_kitab(k, c.sid_bukti)]
@@ -525,12 +529,12 @@ class Pengurai:
                                  f"sebelumnya: tambah potongan <<{teks}|lafaz>> atau beri tanda petik \"…\" pada "
                                  f"kutipannya{ekor(isi)}"); continue
                 # diputus sesudah semua bukti catatan kaki ini dicek
-                kutipan_3.append((b, self._cek(b, mk, disebut, kutipan=True, pengantar=pengantar))); continue
+                kutipan_3.append((b, self._cek(b, mk, disebut, tasarruf, kutipan=True, pengantar=pengantar))); continue
             nukilan = tandai_ayat(b.potongan)
             e = self._cek(b, nukilan, disebut)
             if not e and mk is not None and not tiga:
                 p = Catat()
-                kutipan_4.append((b, cek(b, mk, p, kutipan=True, pengantar=pengantar), p))
+                kutipan_4.append((b, cek_tasarruf(b, mk, p) if tasarruf else cek(b, mk, p, kutipan=True, pengantar=pengantar), p))
             if e:
                 galat.append(f"{e}{ekor(isi)}")
                 self._tertolak(e, b, nukilan)
@@ -723,15 +727,18 @@ class Pengurai:
                 awal_kal = max(c.seg_bukti, max((self.polos.rfind(p, 0, idx) + 1 for p in ".\n"), default=0))
                 penggal_naql = self.polos[awal_kal:]
         for p in (salinan(penggal_naql, c.mk, c.isi, c.terbukti), isyarat(penggal_naql, c.mk, c.isi, c.terbukti, c.kc),
-                  panjang(c.mk, c.isi)):
+                  None if self.ctx.kutipan_blok else panjang(c.mk, c.isi)):
             if p:
                 self.perhatian.append(p)
 
     def _pasang_catatan(self, c):
         """Catatan kaki jadi bahan rakit: diurai sendiri, nomornya dipasang di matan."""
         isi = c.isi
-        if "anzhur" in daftar(self.ctx.meta, "tanpa"):  # @tanpa: anzhur: kata itu tidak dicetak, `cek` tetap membacanya
+        kata = anzhur_cetak(self.ctx.meta)
+        if kata == "":  # @tanpa: anzhur: kata itu tidak dicetak, `cek` tetap membacanya
             isi = TANPA_ANZHUR.sub(r"\g<pra>", isi)
+        elif kata:  # @anzhur: satu kata yang sama di tiap catatan kaki
+            isi = GANTI_ANZHUR.sub(lambda m: m["pra"] + m["wa"] + kata, isi)
         sub = urai(isi, self.ctx, di_catatan=True)
         self.ctx.catatan.append({"runs": sub, "bukti": len(c.shamela), "luar": c.luar and not c.wq, "pdf": len(c.pdf),
                                  "wq": len(c.wq)})
