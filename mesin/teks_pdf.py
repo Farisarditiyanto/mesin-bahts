@@ -251,7 +251,10 @@ def periksa(pdf, bahan):
                       if b.get("judul") and not b.get("awal")}
     belakang = False
     luap_mupdf = _halaman_meluap(pdf, awal)
-    batas = (float(fmt["matan"]) + float(fmt["catatan"])) / 2   # matan dan judul; catatan kaki lebih kecil
+    # isi halaman di atas catatan kaki = yang lebih besar daripada huruf catatan kaki: matan, judul, kutipan #Q, dan sel #J.
+    # Sel #J (rakit.ps1 $uTabel, tepat di antara matan dan catatan kaki) terbaca ±0,2 pt lebih kecil daripada ukurannya:
+    # batas di tengah matan-catatan membuang tabel, lalu pengantar «…الآتي:» di atas tabel jadi «baris terakhir» palsu
+    batas = float(fmt["catatan"]) + 0.5
     for i, hal in enumerate(halaman[awal:], awal + 1):
         lebar, tinggi = float(hal.mediabox.width), float(hal.mediabox.height)
         potong = sorted(_baris(hal), key=lambda p: -p[1])

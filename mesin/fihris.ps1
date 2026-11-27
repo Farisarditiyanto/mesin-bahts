@@ -34,7 +34,7 @@ function Baris-Titik($teks, $kecil, $k, $rentang) {
     $pf.TabStops.ClearAll(); [void]$pf.TabStops.Add($lebar, 2, 1)   # 2 = rata ujung (kiri di teks kanan-ke-kiri), 1 = titik-titik
     Tulis $teks $TA $uMatan 0 0
     if ($kecil) { Tulis (' (' + $kecil + ')') $TA $uCatatan 0 0 }
-    Tulis " `t " $TA $uMatan 0 0                   # spasi di kedua sisi tab: titik-titik tidak menempel ke teks atau nomor
+    Tulis ' ' $TA $uMatan 0 0; TabTitik $uMatan 0; Tulis ' ' $TA $uMatan 0 0   # spasi di kedua sisi tab: titik-titik tidak menempel ke teks atau nomor
     $awal = $sel.Start; Tulis (Angka '00') $TA $uMatan 0 0
     $bm = "fi_$($script:isian.Count)"
     [void]$doc.Bookmarks.Add($bm, $doc.Range($awal, $sel.Start))
@@ -120,7 +120,7 @@ function Fihris-Ayat($bg) {
                 if ($i) { Tulis ' - ' $TA $uMatan 0 0 }
                 Tulis $nomor[$i] $QF $uAyat 0 0
             }
-            Tulis ("﴾ `t ") $TA $uMatan 0 0              # spasi di kedua sisi tab: titik-titik tidak menempel ke ﴾ atau nomor halaman
+            Tulis '﴾ ' $TA $uMatan 0 0; TabTitik $uMatan 0; Tulis ' ' $TA $uMatan 0 0   # spasi di kedua sisi tab: titik-titik tidak menempel ke ﴾ atau nomor halaman
             $awalNo = $sel.Start; Tulis (Angka '00') $TA $uMatan 0 0
             $bm = "fi_$($script:isian.Count)"
             [void]$doc.Bookmarks.Add($bm, $doc.Range($awalNo, $sel.Start))

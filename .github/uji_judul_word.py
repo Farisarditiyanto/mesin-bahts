@@ -21,6 +21,7 @@ ISI = ("#K المقدمة\nهذا نص المقدمة.\n#S ❖ أهمية الب
        "#K الخاتمة\nهذه الخاتمة.\n#R المصادر\nالقرآن الكريم.\n"
        "**ابن كثير، إسماعيل بن عمر** (ت 774هـ). __تفسير القرآن العظيم__. دار طيبة، 1420هـ.\n"
        "**الألباني، محمد ناصر الدين** (ت 1420هـ). __سلسلة الأحاديث الصحيحة__. مكتبة المعارف، 1415هـ.\n")
+LAMA = "رسالة في القضاء والقدر، محمد بن صالح العثيمين، دار الوطن، 1423هـ.\n"
 RISET = "tafsir 1:2\ncari الموضوع | uji\n"
 TEPI = 72  # pt dari tepi atas/bawah kertas: kepala/kaki halaman
 
@@ -33,8 +34,8 @@ def tulis(akar, nama, kunci, isi=ISI):
     return f
 
 
-def rakit(akar, nama, kunci):
-    f = tulis(akar, nama, kunci)
+def rakit(akar, nama, kunci, isi=ISI):
+    f = tulis(akar, nama, kunci, isi)
     r = bahts(akar, "rakit", nama, batas=1800)
     assert r.returncode == 0, r.stdout + r.stderr
     # PT Bold Heading tidak ikut repo: tanpanya PERINGATAN huruf, sisanya tetap harus bersih
@@ -124,6 +125,15 @@ def utama():
             angka = re.sub(r"\D", "", barisF[0].translate(str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")))
             assert barisF[3] and int(angka) == int(nomor) - 1, f"فهرس {judul}: {barisF}, halaman sesudahnya {nomor}"
         fihris = doc[cari(doc, "فهرس الموضوعات")].get_text()
+        # titik-titik tab tiap baris berjarak sama: tab di run kanan-ke-kiri dicetak per 32 titik dengan sambungan rapat
+        titik = {}
+        for b in doc[cari(doc, "فهرس الموضوعات")].get_text("rawdict")["blocks"]:
+            for ln in b.get("lines", []):
+                for s in ln["spans"]:
+                    titik.setdefault(round(ln["bbox"][3]), []).extend(c["bbox"][0] for c in s["chars"] if c["c"] == ".")
+        for y, xs in titik.items():
+            jarak = [round(b - a, 1) for a, b in zip(sorted(xs), sorted(xs)[1:])]
+            assert len(jarak) < 8 or max(jarak) - min(jarak) < 0.5, f"titik-titik فهرس tidak rata di y={y}: {jarak}"
         assert "❖" not in fihris and kata("أهمية البحث") <= kata(fihris), fihris
         # المصادر judul_tebal: «•» tanpa nomor, judul tebal lebih dulu, urut judul
         mas = doc[cari(doc, "لإسماعيل بن عمر ابن كثير")]
@@ -150,7 +160,8 @@ def utama():
         assert "•" not in mas and "١." in mas, mas
         print("lolos Word: sampul tanpa_kop (judul atas, إعداد tengah, kampus bawah), bingkai ganda di halaman pemisah "
               "saja; @pustaka_gaya: judul bernomor")
-        doc = rakit(akar, "kotak", "@judul_fasl: kotak\n")
+        # baris #R bentuk lama «judul، pengarang، …»: judulnya (sebelum «،» pertama) saja yang tebal
+        doc = rakit(akar, "kotak", "@judul_fasl: kotak\n", ISI + LAMA)
         i = cari(doc, "الموضوع الأول")
         garis = [d["rect"] for d in doc[i].get_drawings() if d["rect"].y1 < h / 3]
         judul = [b for b in baris(doc[i]) if kata(b[0]) in (kata("المبحث الأول"), kata("الموضوع الأول"))]
@@ -161,7 +172,14 @@ def utama():
         assert datar[0].height > datar[1].height and datar[-1].height > datar[-2].height, f"garis tebal kotak di dalam: {datar}"
         # @pustaka_gaya bawaan = judul_tebal: «•» tanpa nomor
         mas = doc[cari(doc, "المصادر دار طيبة")].get_text()
-        assert mas.count("•") == 3 and "١." not in mas.split(), mas   # nomor «١.» = sel sendiri; «١٤٢٠.» bukan nomor
+        assert mas.count("•") == 4 and "١." not in mas.split(), mas   # nomor «١.» = sel sendiri; «١٤٢٠.» bukan nomor
+        hal = doc[cari(doc, "المصادر دار طيبة")]
+        lama = [s for b in hal.get_text("dict")["blocks"] for ln in b.get("lines", [])
+                if kata(" ".join(s["text"] for s in ln["spans"])) & kata("القضاء العثيمين الوطن") for s in ln["spans"]]
+        tebal = " ".join(s["text"] for s in lama if "Bold" in s["font"] or s["flags"] & 16)
+        polos = " ".join(s["text"] for s in lama if not ("Bold" in s["font"] or s["flags"] & 16))
+        assert kata("رسالة في القضاء والقدر") <= kata(tebal) and not kata(tebal) & kata("العثيمين الوطن"), (tebal, polos)
+        assert kata("العثيمين الوطن") <= kata(polos), (tebal, polos)
         print("lolos Word: judul #F di kotak bergaris di atas halaman, isinya menyusul di halaman yang sama; المصادر bawaan "
               "berbutir «•»")
 
