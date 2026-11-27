@@ -88,22 +88,26 @@ def utama():
         r = bahts(akar, "rakit", "tanpa_fihris", batas=1800)
         assert r.returncode == 0 and "halaman kosong" not in r.stdout, r.stdout + r.stderr
         print("lolos halaman depan Word: المقدمة mulai halaman baru sesudah فهرس; @tanpa: maudhuat tanpa halaman kosong")
-        # فهرس depan yang baris terakhirnya ±1 pt dari dasar halaman (9 فصل × 1 مبحث, temuan pemeriksa): paragraf sesudahnya
-        # dulu tumpah jadi halaman kosong sebelum المقدمة; dengan dan tanpa @nomor (pemisah bagian Word)
+        # فهرس depan yang baris terakhirnya ±1 pt dari dasar halaman (@format: tatbiqi_16, 9 فصل, 11 مبحث; diukur di
+        # PDF): paragraf sesudahnya dulu tumpah jadi halaman kosong sebelum المقدمة; dengan dan tanpa @nomor (pemisah
+        # bagian Word). Tabelnya harus tetap pas: kalau tata letak فهرس berubah, susunan ini disetel ulang
         kalimat = "ويظهر للباحث أن هذا الباب من أبواب التوحيد مهم، وأن فهمه على وجهه يعين طالب العلم على تصور المسائل. " * 3
         isi = ("#K الإهداء\nنص قصير.\n#K الشكر والتقدير\nنص قصير.\n#K المقدمة\n" + kalimat + "\n"
                + "".join(f"#F الفصل {f}: الموضوع {f}\n#B المبحث 1 من الفصل {f}\n{kalimat}\n" for f in range(1, 10))
+               + "".join(f"#B المبحث {m} من الفصل 9\n{kalimat}\n" for m in (2, 3))
                + "#K الخاتمة\n" + kalimat + "\n#R المصادر\nالقرآن الكريم.\n")
         x91 = ("@judul: اختبار الصفحات الأولى\n@nama: طالب\n@berkas: uji\n@minimal_halaman: 0\n@basmalah: ya\n"
-               "@ayat_pembuka: 12:2-3\n@maudhuat_letak: awal\n@tanpa: anzhur\n@maudhuat: tabel\n")  # tabel: pas satu halaman
+               "@ayat_pembuka: 12:2-3\n@maudhuat_letak: awal\n@tanpa: anzhur\n@maudhuat: tabel\n@format: tatbiqi_16\n")
         for nama, kepala in (("pas", x91 + "@nomor: mukadimah\n"), ("pas_polos", x91)):
             tulis(akar, nama, kepala, isi)
             r = bahts(akar, "rakit", nama, batas=1800)
             assert r.returncode == 0 and "halaman kosong" not in r.stdout, f"{nama}: " + r.stdout + r.stderr
             doc = pymupdf.open(akar / nama / "uji.pdf")
             hal = [p.get_text() for p in doc]
-            doc.close()
             i = next(k for k, h in enumerate(hal) if "فهرس الموضوعات" in h)
+            sisa = doc[i].rect.height - 2.5 * 72 / 2.54 - max(d["rect"].y1 for d in doc[i].get_drawings())
+            doc.close()
+            assert abs(sisa) < 2, f"{nama}: tabel فهرس tidak lagi pas di dasar halaman (sisa {sisa:.1f} pt): setel ulang naskahnya"
             assert "ويظهر للباحث" in hal[i + 1] and "فهرس" not in hal[i + 1], f"{nama}: halaman sesudah فهرس: {hal[i + 1][:200]!r}"
         print("lolos halaman depan Word: فهرس depan yang pas satu halaman tidak menyisakan halaman kosong (dengan/tanpa @nomor)")
         sampul_tengah(akar)
