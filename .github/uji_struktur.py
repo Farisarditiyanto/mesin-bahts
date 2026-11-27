@@ -78,6 +78,12 @@ def utama():
             + dasar.replace("#F المبحث الأول: تعريف", "#F المبحث الأول في تعريف"), True, "@judul_fasl: dua_baris memerlukan")
         cek("@ihda: tengah", "@ihda: tengah\n" + dasar.replace("#K المقدمة", "#K الإهداء\nإلى والديّ الكريمين.\n#K المقدمة"))
         cek("@ihda: tengah tanpa الإهداء", "@ihda: tengah\n" + dasar, True, "@ihda: tengah memerlukan «#K الإهداء»")
+        # sebagai bawaan (tidak ditulis), dua_baris, ihda tengah, dan judul_tebal tidak menuntut tempatnya: naskah lama lolos
+        lama = dasar.replace("#F المبحث الأول: تعريف", "#F المبحث الأول في تعريف")
+        assert "@judul_fasl" not in dasar and "@ihda" not in dasar and "@pustaka_gaya" not in dasar and "__" not in dasar
+        cek("bawaan tata letak tanpa #F bertitik dua, الإهداء, dan #R muallif", lama)
+        cek("@pustaka_gaya: judul_tebal ditulis, #R bukan muallif", "@pustaka_gaya: judul_tebal\n" + lama, True,
+            "@pustaka_gaya: judul_tebal membaca baris #R")
         logo = {n: zipfile.ZipFile(AKAR / "mesin" / f"sampul_{n}.docx").read("word/media/image2.png") for n in ("qism", "jakarta")}
         assert logo["qism"] != logo["jakarta"], "logo sampul qism dan jakarta sama: @logo: berwarna tidak mengubah apa pun"
         for n, b in logo.items():  # logo tegak (tinggi > lebar); gambar kop sampul melebar: urutan gambar templat tidak bergeser
