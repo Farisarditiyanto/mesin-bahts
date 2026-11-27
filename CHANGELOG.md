@@ -6,6 +6,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Perbaikan: PERINGATAN `rakit` yang memuat huruf Arab atau «» (mis. judul bagian yang tidak muat di kepala halaman) tidak lagi tercetak «????» atau membuat pemanggil gagal membaca keluaran `rakit` saat keluarannya ditangkap agent.
 - Baru: bahts baru (`baru`) memakai `@format: baku`: Traditional Arabic matan 16, catatan kaki 12, ayat 14, judul 18, satu spasi, awal alinea 1,5 cm, tepi kanan 3 cm (pedoman كلية الآداب جامعة الملك سعود). Naskah yang sudah ada tidak berubah; pedoman Jāmiʿat al-Imām tetap lewat `@format: imam_ayat16`.
 - Baru: sel tabel `#J` yang isinya angka saja (mis. «24»، «12,5٪»، «1442هـ/2021م»، «10-20») dicetak rata tengah; sel teks tetap rata kanan.
 - Perbaikan: `periksa` tidak lagi menyebut huruf terpasang sebagai BELUM hanya karena namanya di Windows ditulis tanpa spasi («NotoNaskhArabic-Regular» untuk «Noto Naskh Arabic»).

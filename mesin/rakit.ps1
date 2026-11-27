@@ -4,6 +4,13 @@
 param([Parameter(Mandatory)][string]$Build, [Parameter(Mandatory)][string]$Hasil, [Parameter(Mandatory)][string]$Laporan,
       [Parameter(Mandatory)][string]$PdfKhulasah, [Parameter(Mandatory)][string]$Kunci, [Parameter(Mandatory)][string]$Galat)
 $ErrorActionPreference = 'Stop'
+# Keluaran ke pipa (rakit.py dipanggil agent atau tes) ditulis PowerShell 5.1 dengan halaman kode OEM: huruf Arab jadi «?»
+# dan «» jadi bait yang bukan UTF-8, sehingga pemanggil gagal membaca keluarannya. Pipa ditulis UTF-8 seperti cetakan
+# bahts.py; [Console]::OutputEncoding tidak dipakai karena ia mengganti halaman kode jendela konsol pemanggil
+if ([Console]::IsOutputRedirected) {
+    $keluar = New-Object IO.StreamWriter([Console]::OpenStandardOutput(), (New-Object Text.UTF8Encoding $false))
+    $keluar.AutoFlush = $true; [Console]::SetOut($keluar)
+}
 # Galat yang menghentikan skrip ini ditulis juga ke -Galat (UTF-8): rakit.py mengutipnya di pesan GAGAL, karena layar
 # bisa dipotong pemanggil (tail/grep) dan huruf Arabnya rusak lewat pipa. Tanpa berkas itu = PowerShell dimatikan dari luar.
 trap {
