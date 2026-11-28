@@ -57,7 +57,7 @@ def html(d, angka):
                 bagian.append(f"وضد{'هما' if len(g) > 2 else 'ه'} <b>{s}</b>")
         return butir(nomor(i, angka) + "، ".join(bagian))
 
-    addad = kurung('<div class="cart">ذوات الأضداد</div>', [satu_kelompok(i, g) for i, g in enumerate(ADDAD)])
+    addad = kurung('<div class="cart">ذوات الأضداد</div>', [satu_kelompok(i, g) for i, g in enumerate(ADDAD)], "lebar")
     mufrada = (f'<div class="tt">الصفات التي لا ضد لها</div><table class="tbl"><tr>{"".join(f"<th>{s}</th>" for s, _ in MUFRADA)}</tr>'
                f'<tr>{"".join(f"<td class=tengah>{hs}</td>" for _, hs in MUFRADA)}</tr></table>')
     harf = (f'<div class="res">صفات {NAMA_HURUF[d["harf"]]}: <b>{E("، ".join(sifat(d["harf"])))}</b>.</div>'
