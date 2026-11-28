@@ -133,6 +133,7 @@ def utama():
                 ("القران tanpa madda bukan kitab", ("القرآن الكريم.\n", "القُرَانُ الكَريم، رواية حفص.\n"), True),
                 ("المصحف bukan kitab", ("القرآن الكريم.\n", "المصحف الشريف برواية حفص.\n"), True),
                 ("kitab berjudul القرآن tetap kitab", (kitab, kitab + "القرآن والسنة في مواجهة البدع، فلان، 1430هـ.\n"), False),
+                ("rujukan Latin yang berbeda bukan kembar", (kitab, kitab + "Hallaq, Wael B., Sharia: Theory, Practice, Transformations, Cambridge, 2009.\nBrown, Jonathan, Hadith, Oneworld, 2009.\n"), False),
                 ("#R kembar dihitung sekali", (kitab, kitab + "**رسالة في القضاء والقدر**، محمد بن صالح بن محمد العثيمين، دار الوطن، 1423هـ\n"), True)):
             kembar = nama.startswith("#R kembar")  # selalu bisa dibereskan: GAGAL
             out = cek(nama, dua.replace(*ganti), kembar, "baris kembar (dihitung sekali)" if kembar else "")
