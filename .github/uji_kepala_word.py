@@ -16,7 +16,10 @@ from pathlib import Path
 
 import pymupdf
 
-from bantu import bahts, salin_mesin, tanpa_word
+from bantu import REPO, bahts, salin_mesin, tanpa_word
+
+sys.path.insert(0, str(REPO / "mesin"))
+from norma import padat  # noqa: E402
 
 JUDUL = "اختبار رأس الصفحة"
 FASL = "المبحث الأول: عنوان الاختبار"
@@ -134,9 +137,11 @@ def utama():
         isi = range(2, 6)   # halaman PDF المقدمة (2), مبحث, الخاتمة; nomor tercetak = indeks halaman PDF
         kepala = {k: {i: tepi(doc[i]) for i in isi} for k, doc in pdf.items()}
         nomor = dict(zip(range(1, 7), "١٢٣٤٥٦"))
-        # bawaan (klasik): judul bahts + nomor di kepala, kaki kosong
+        # bawaan (klasik): judul bahts + nomor di kepala, kaki kosong. Judulnya berhuruf Arabic Typesetting, yang menggambar
+        # «أ» sebagai alif biasa + tanda hamzah terpisah; Word memetakan tandanya ke spasi, jadi lapisan teks PDF-nya
+        # «رأس» = «را س»: dicocokkan `padat` (tanpa spasi, alif disatukan)
         for i, (atas, bawah) in kepala[""].items():
-            assert j in atas and nomor[i] in atas and not bawah, ("bawaan", i + 1, atas, bawah)
+            assert padat(j) in padat(atas) and nomor[i] in atas and not bawah, ("bawaan", i + 1, atas, bawah)
         # garis klasik: satu garis utuh, pusat tingginya di pusat gambar angka nomor, kedua ujungnya ±0,35 cm dari judul
         # dan nomor (garis penghubung tab «___» lama: di bawah pusat angka, ujungnya meloncat per «_» sampai menempel judul)
         for i in isi:
