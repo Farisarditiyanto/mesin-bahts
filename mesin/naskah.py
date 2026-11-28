@@ -34,6 +34,24 @@ KURUNG_AYAT = re.compile(r"\((?![^()]*(?:رحم|رضي|عليه|صلى|ت\s*:|ه
 AYAT_TIDAK_COCOK = "catatan kaki ayat tidak cocok dengan {{Q:{0}:{1}}} (سورة {2})"
 SISA_PETIK = re.compile(rf"[\"«»]|(?<![{HURUF_LATIN}])[‘’'](?![{HURUF_LATIN}])")  # tanda petik yang tidak berpasangan
 KUNCI = re.compile(r"[a-z]+")
+RUMUZ = re.compile(r"[؀-ۿ]{1,6}")  # rumuz naskah tahqiq («أ», «ب», «الأصل»)
+WARAQAH = re.compile(r"[0-9٠-٩]+/[أب]")  # nomor lembar naskah + wajahnya (أ depan, ب belakang)
+QR = re.compile(r"https?://[^\s|{}]+")
+
+
+def nuskhah(teks):
+    """@nuskhah «أ = keterangan | ب = keterangan» -> {rumuz: keterangan}, urut seperti ditulis. TandaRusak kalau ada
+    bagian yang bukan «rumuz = keterangan» atau rumuz yang kembar."""
+    hasil = {}
+    for bagian in teks.split("|"):
+        r, sama, ket = (x.strip() for x in bagian.partition("="))
+        if not (sama and RUMUZ.fullmatch(r) and ket):
+            raise TandaRusak(f"@nuskhah: «{bagian.strip()[:30]}» bukan «rumuz = keterangan»; bentuknya "
+                             "«@nuskhah: أ = نسخة … | ب = نسخة …»")
+        if r in hasil:
+            raise TandaRusak(f"@nuskhah: rumuz «{r}» ditulis dua kali")
+        hasil[r] = ket
+    return hasil
 
 
 @dataclasses.dataclass(frozen=True)
@@ -328,6 +346,76 @@ class Pengurai:
         omml, _ = rumus.konversi(latex, display=False)
         self.runs.append({"omml": omml, "latex": latex})
         self.polos += " "
+
+    def _rumuz(self, tok, r):
+        """Rumuz naskah `r` yang ditulis di @nuskhah (dibaca saat barisnya diurai: @nuskhah di awal naskah)."""
+        if "nuskhah" not in self.ctx.meta:
+            raise TandaRusak(f"{tok}: tulis dulu naskah-naskahnya di awal naskah: «@nuskhah: أ = نسخة … | ب = نسخة …»")
+        if r not in nuskhah(self.ctx.meta["nuskhah"]):
+            raise TandaRusak(f"{tok}: rumuz «{r}» tidak ada di @nuskhah")
+
+    def _farq(self, tok):
+        """{F:ب|bacaan} (boleh beberapa: {F:ب|x|ج|y}; bacaan «-» = kata itu tidak ada di naskah itu): perbedaan naskah
+        pada kata tepat sebelumnya. Kata itu tebal (atau seluruh **…** tepat sebelumnya), dan catatan kakinya «في (ب):
+        «x».» ditulis mesin, satu deret nomor dengan catatan kaki biasa. Tidak menggeser kutipan yang dicek."""
+        bagian = [x.strip() for x in tok[3:-1].split("|")]
+        if self.di_catatan:
+            raise TandaRusak(f"{tok}: perbedaan naskah hanya di matan, bukan di catatan kaki")
+        if len(bagian) % 2 or not all(bagian):
+            raise TandaRusak(f"{tok}: bentuknya {{F:ب|bacaan}} atau {{F:ب|bacaan|ج|bacaan}}; tidak ada di naskah itu: {{F:ب|-}}")
+        lalu = self.runs[-1] if self.runs else {}
+        if not lalu.get("b"):
+            kata = re.search(r"[^\s،؛:.()«»\"\[\]]+$", lalu.get("t", ""))
+            if not kata:
+                raise TandaRusak(f"{tok}: tempelkan langsung sesudah kata yang berbeda, tanpa spasi (beberapa kata: **…**{tok})")
+            lalu["t"] = lalu["t"][:kata.start()]
+            self.runs.append({"t": kata[0], "b": True})
+        isi = []
+        for r, bacaan in zip(bagian[::2], bagian[1::2]):
+            self._rumuz(tok, r)
+            isi.append(f"سقط من ({r})" if bacaan == "-" else f"في ({r}): «{bacaan}»")
+        self.ctx.catatan.append({"runs": [{"t": "، و".join(isi) + "."}], "bukti": 0, "luar": False, "pdf": 0, "wq": 0,
+                                 "farq": True})
+        self.runs.append({"fn": len(self.ctx.catatan) - 1})
+
+    def _waraqah(self, tok):
+        """{W:2/أ} atau {W:ب|2/أ}: awal lembar naskah, tercetak «[٢/أ]» / «[ب: ٢/أ]» di tempatnya; bukan bagian kutipan."""
+        r, _, w = tok[3:-1].strip().rpartition("|")
+        if self.di_catatan or not WARAQAH.fullmatch(w.replace(" ", "")):
+            raise TandaRusak(f"{tok}: bentuknya {{W:2/أ}} (lembar 2 wajah أ) atau {{W:ب|2/ب}}, di matan")
+        if r:
+            self._rumuz(tok, r.strip())
+        # «[٢/أ]» utuh di satu baris: Word boleh memutus baris sesudah «/», U+2060 (word joiner) menahannya
+        w = w.replace(" ", "").replace("/", "⁠/⁠")
+        self.runs.append({"t": f"[{r.strip() + ':' + chr(0xA0) if r else ''}{w}]", "b": False})
+
+    def _jaanib(self, tok):
+        """{SJ:judul} di awal paragraf matan: judul pendek di tepi kiri halaman, sejajar baris pertama paragraf itu
+        (olah memindahnya ke kunci «jaanib» bloknya)."""
+        judul = re.sub(r"\s+", " ", tok[4:-1]).strip()
+        if self.di_catatan or self.polos.strip() or self.runs:
+            raise TandaRusak(f"{tok}: tulis di awal paragraf matan biasa (judul tepi untuk paragraf itu)")
+        if not re.search(r"[؀-ۿ]", judul) or "|" in judul or len(judul.split()) > 3:
+            raise TandaRusak(f"{tok}: judul tepi = satu sampai tiga kata Arab, mis. {{SJ:قاعدة}}")
+        self.runs.append({"sj": judul})
+
+    def _matn(self, tok):
+        """{MT:lafaz matan} di tengah syarah: «(lafaz)» tebal, dan ikut teks yang dicek seperti biasa."""
+        isi = re.sub(r"\s+", " ", tok[4:-1]).strip()
+        if not re.search(r"[؀-ۿ]", isi):
+            raise TandaRusak(f"{tok}: tulis lafaz matannya, mis. {{MT:والفقه معرفة الأحكام}}")
+        self.runs += [{"t": "(", "b": True}, {"t": isi, "b": True}, {"t": ")", "b": True}]
+        self.polos += f"({isi})"
+
+    def _qr(self, tok):
+        """{U:https://…} di catatan kaki: alamatnya tercetak, lalu kode QR-nya (bidang DISPLAYBARCODE Word) sesudahnya."""
+        url = tok[3:-1].strip()
+        if not self.di_catatan:
+            raise TandaRusak(f"{tok}: hanya di catatan kaki; kode QR di tengah halaman: baris «#U alamat | keterangan»")
+        if not QR.fullmatch(url):
+            raise TandaRusak(f"{tok}: alamatnya diawali http:// atau https://, tanpa spasi")
+        self.runs += [{"t": url, "b": False}, {"t": " ", "b": False}, {"qr": url}]
+        self.polos += url
 
     def _kurung_nyasar(self, tok):  # "]" tanpa [^
         self.runs.append({"t": "]", "b": self.tebal}); self.polos += "]"
@@ -745,6 +833,6 @@ class Pengurai:
         self.runs.append({"fn": len(self.ctx.catatan) - 1})
 
     PENANGAN = {"**": _tebal, "((": _matn_dicabut, "{Q:": _ayat, "{H2:": _hadits_lagi, "{H:": _hadits,
-                "{AT:": _hadits, "{V:": _syair,
+                "{AT:": _hadits, "{V:": _syair, "{F:": _farq, "{W:": _waraqah, "{SJ:": _jaanib, "{MT:": _matn, "{U:": _qr,
                 "{P:": _rujuk_halaman, "{A:": _jangkar, "{E:": _rumus, **dict.fromkeys((f"{{{f.tanda}:" for f in FIHRIS_NAMA), _nama), "{X}": _khulasah, "[^": _catatan_kaki, "]": _kurung_nyasar}
     TOKEN = re.compile("(" + "|".join(re.escape(k) + (r"[^}]*\}" if k.endswith(":") and k != "{E:" else "") for k in PENANGAN) + ")")

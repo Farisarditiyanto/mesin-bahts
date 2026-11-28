@@ -142,7 +142,7 @@ Every command = `python mesin/bahts.py <perintah>`. Full list with arguments: `p
 | `mesin/kepala.ps1`, `hias_kitab.png` | page headers and footers of each `@kepala`, footnote separator |
 | `mesin/pemisah.ps1` | unnumbered divider page of each #F (`@judul_fasl`) and closing page (`@tamma`) |
 | `mesin/fihris.ps1` | indexes of verses, hadith, athar, names, places, tribes, gharib, and poetry (`@fihris_ayat`, `@fihris_hadits`, `@fihris_alam`) |
-| `mesin/sisipan.ps1` | old-print style insertions: ruled boxes `#T`, numbered lists `#-`, Arabic/translation columns `#P`, separator `#Z` |
+| `mesin/sisipan.ps1` | old-print style insertions: ruled boxes `#T`, numbered lists `#-`, Arabic/translation columns `#P`, separator `#Z`, critical-edition manuscript table `#N`, margin headings `{SJ:}`, QR codes `#U`/`{U:}` |
 | `mesin/naskah_baru.txt`, `riset_baru.txt` | the outline made by `baru` |
 | `contoh/` | sample `naskah.txt` + `riset.txt` and `jebakan/` for tests |
 | `.mcp.json`, `opencode.json` | connector list (`opencode.json` = the copy for OpenCode) |
