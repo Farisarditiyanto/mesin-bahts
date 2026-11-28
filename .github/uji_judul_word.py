@@ -163,7 +163,11 @@ def utama():
         # baris #R bentuk lama «judul، pengarang، …»: judulnya (sebelum «،» pertama) saja yang tebal
         doc = rakit(akar, "kotak", "@judul_fasl: kotak\n", ISI + LAMA)
         i = cari(doc, "الموضوع الأول")
-        garis = [d["rect"] for d in doc[i].get_drawings() if d["rect"].y1 < h / 3]
+        # garis kepala klasik (satu garis utuh sejak kepala.ps1 memakai coretan pada tab) bukan garis kotak: buang yang
+        # sebaris dengan teks kepala halaman
+        kepala = [y for _, _, y, _ in baris(doc[i]) if y < TEPI]
+        garis = [d["rect"] for d in doc[i].get_drawings()
+                 if d["rect"].y1 < h / 3 and not any(y - 2 <= d["rect"].y0 <= y + 16 for y in kepala)]
         judul = [b for b in baris(doc[i]) if kata(b[0]) in (kata("المبحث الأول"), kata("الموضوع الأول"))]
         isi = kata("قال الله") <= kata(doc[i].get_text())
         assert len(judul) == 2 and garis and min(g.y0 for g in garis) < judul[0][2] and isi, (garis, judul)
