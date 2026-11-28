@@ -58,10 +58,17 @@ class Sisipan(unittest.TestCase):
                "#D مراتب | م", "#D مرتبة: أ | ب", "#D مرتبة: ج", "#D حكم: 2-3 | x", "فقرة.",
                "#D تعارض | ت", "#D منهج: الجمهور | الجمع", "فقرة.",
                "#D مقاصد | م", "#D ضروريات: أ", "#D لون: أحمر", "فقرة.",
-               "#D خلاف | ش", "#D قول: أ | ب", "#D قول: ج | د", "#D راجح: ٣"]
+               "#D خلاف | ش", "#D قول: أ | ب", "#D قول: ج | د", "#D راجح: ٣", "فقرة.",
+               "#D مواريث | م", "#D وارث: الجد", "#D وارث: أخ شقيق", "فقرة.",
+               "#D مواريث | م", "#D وارث: خال", "فقرة.",
+               "#D رحلة | ر", "#D محطة: بخاراا", "#D محطة: مكة", "فقرة.",
+               "#D إسناد | س", "#D طريق: أ | ب", "#D طريق: ج | د", "فقرة.",
+               "#D بياني | ب", "#D نوع: دائرة", "#D صف: أ | 1", "#D صف: ب | 2"]
         harus = {1: "paling sedikit dua", 5: "«أصل:» harus berbentuk", 12: "induk «د» belum tertulis",
                  17: "di luar martabat 1-2", 20: "paling sedikit dua langkah", 24: "kunci «لون» tidak dikenal",
-                 22: "«#D تحسينيات: …» belum ada", 29: "tidak menunjuk qaul"}
+                 22: "«#D تحسينيات: …» belum ada", 29: "tidak menunjuk qaul",
+                 31: "الجد مع الإخوة", 36: "«خال» tidak dikenal", 39: "yang mirip: بخارة", 44: "berujung di nama yang sama",
+                 47: "«نوع:» harus"}
         dapat = galat(self.cek("\n".join(isi) + "\n", env=tanpa_node()))
         self.assertEqual(sorted(dapat), sorted(n0 + n for n in harus), dapat)
         for n, kata in harus.items():
@@ -87,8 +94,14 @@ class Sisipan(unittest.TestCase):
             self.assertLess(sum(60 < v < 200 for v in px) / len(px), 0.06, p.name)
             gelap = [i for i, v in enumerate(px) if v < 128]
             kolom = [i % g.width for i in gelap]
-            tepi = max(min(kolom), g.width - 1 - max(kolom), gelap[0] // g.width, g.height - 1 - gelap[-1] // g.width)
-            self.assertLessEqual(tepi / DPI * 2.54, 0.3, p.name)
+            sisi = (min(kolom), g.width - 1 - max(kolom), gelap[0] // g.width, g.height - 1 - gelap[-1] // g.width)
+            if max(sisi) / DPI * 2.54 > 0.3 and os.environ.get("CI"):  # SEMENTARA: bukti huruf Linux
+                import subprocess, base64
+                print("DEBUG", p.name, sisi, g.width, g.height, subprocess.run(["fc-match", "Traditional Arabic:lang=ar"], capture_output=True, text=True).stdout,
+                      subprocess.run(["fc-list", ":charset=fdfa", "family"], capture_output=True, text=True).stdout[:500])
+                print("PNG64", base64.b64encode(p.read_bytes()).decode())
+            # kiri, kanan, atas, bawah: jarak tinta ke tepi gambar
+            self.assertLessEqual(max(sisi) / DPI * 2.54, 0.3, f"{p.name} kiri/kanan/atas/bawah (px 300 dpi) = {sisi}")
         waktu = {p: p.stat().st_mtime_ns for p in png}
         # PNG sudah ada: tanpa Node.js tetap lolos dan tidak digambar ulang
         self.assertIn("GAGAL: 0", self.cek(contoh + "\n", env=tanpa_node()))

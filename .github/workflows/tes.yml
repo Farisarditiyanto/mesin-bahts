@@ -105,6 +105,8 @@ jobs:
       - run: python .github/uji_diagram.py
       # sisipan #D: GAGAL data salah; contoh `tanda` tergambar (Node.js + Chrome bawaan runner) jadi PNG 300 dpi rapat
       - run: python .github/uji_sisipan.py
+      # #D مواريث: penghitung faraid vs masalah baku (عول، رد، العمريتان، تصحيح، حجب); khilaf ditolak, bukan ditebak
+      - run: python .github/uji_mawarith.py
       # kitab Waqfeya tiruan (tanpa internet): `cek` tidak menilai lafaz OCR, GAGAL hanya yang pasti salah; nomor cetak dari baris nomor saja
       - run: python .github/uji_waqfeya.py
       # opencode.json = salinan terpaksa .mcp.json (OpenCode tidak membaca .mcp.json): daftar connector harus sama
