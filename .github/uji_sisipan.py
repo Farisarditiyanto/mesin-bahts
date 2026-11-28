@@ -121,7 +121,7 @@ class Sisipan(unittest.TestCase):
                                            "فقرة.\n"))
         g = pymupdf.Pixmap(pymupdf.csGRAY, pymupdf.Pixmap(str(next((self.folder / ".sisipan").glob("*.png")))))
         W, H, px = g.width, g.height, g.samples
-        gelap = lambda x, y: px[y * W + x] < 128
+        gelap = lambda x, y: px[y * W + x] < 200  # garis arsir yang jatuh di antara dua baris piksel = abu-abu
         pita = []  # garis arsir: baris yang lebih dari separuhnya gelap, yang bersebelahan disatukan
         for y in range(H):
             if sum(gelap(x, y) for x in range(W)) > W / 2:
@@ -130,7 +130,7 @@ class Sisipan(unittest.TestCase):
                 else:
                     pita.append([y, y])
         pita = [(a, b) for a, b in pita if b - a <= 4 and 0 < a and b < H - 1]  # tanpa garis bingkai
-        self.assertGreater(len(pita), 50)
+        self.assertGreater(len(pita), H / 20)  # garis arsir tiap 3,2 px CSS = ±10 px PNG
         serpih = []
         for y0, y1 in pita:
             lari, x = [], 0  # potongan gelap di tengah garis arsir
