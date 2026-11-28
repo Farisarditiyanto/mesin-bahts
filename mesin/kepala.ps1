@@ -2,8 +2,14 @@
 # Kepala dan kaki halaman isi (@kepala) dan garis pemisah catatan kaki; di-dot-source rakit.ps1 dan memakai $word,
 # $doc, $TA, dan $FMT miliknya. Nilai @kepala sudah diputuskan olah.rencana_cetak ($RENCANA.kepala); bentuk tiap nilai
 # ditulis di Pasang-Kepala saja (kotak dan @templat: kepala dari berkas Word, disalin rakit.ps1). Ukuran dari profil
-# @format: ukuran_kepala (teks), ukuran_nomor_kepala (nomor tebal klasik), garis_catatan (cm).
+# @format: ukuran_kepala (teks dan nomor), garis_catatan (cm).
 #
+# @kepala: klasik: huruf judul dan nomor (bawaan Windows; huruf lain = pasang dulu di tiap komputer yang merakit), dan
+# naik = pt garis dinaikkan supaya tepat di tengah angka huruf nomor (tinggi coretan beda tiap huruf; diukur dari PDF:
+# Traditional Arabic, Arabic Typesetting, Sakkal Majalla 0; Simplified Arabic 1). Nomor berhuruf Amiri, Noto Naskh
+# Arabic, atau Aldhabi tercetak 0123, bukan ٠١٢٣: huruf itu hanya untuk judul
+$KLASIK = @{ judul = 'Arabic Typesetting'; nomor = 'Arabic Typesetting'; naik = 0 }
+
 # Di paragraf kanan-ke-kiri Word membaca perataan dan posisi tab dari kanan: Alignment 0 = rata kanan, tab 2 (rata
 # «kanan») di posisi selebar bidang teks = ujung kirinya tepat di tepi kiri. LeftIndent = sisi kanan.
 
@@ -28,15 +34,15 @@ function HF-Baru($hf, $rata = 0) {
 # rentang kosong tepat sebelum tanda paragraf akhir kepala/kaki: tempat teks berikutnya
 function HF-Ujung($hf) { $r = $hf.Range; $r.Collapse(0); return $r }   # Word menaruhnya sebelum tanda paragraf akhir
 
-function HF-Teks($hf, $teks, $tebal = 0, $ukuran = $FMT.ukuran_kepala) {
-    $r = HF-Ujung $hf; $r.InsertAfter($teks); Huruf $r.Font $TA ([single]$ukuran) $tebal
+function HF-Teks($hf, $teks, $tebal = 0, $ukuran = $FMT.ukuran_kepala, $huruf = $TA) {
+    $r = HF-Ujung $hf; $r.InsertAfter($teks); Huruf $r.Font $huruf ([single]$ukuran) $tebal
 }
 
 # $kode: 'PAGE' atau field lain
-function HF-Field($hf, $kode, $tebal = 0, $ukuran = $FMT.ukuran_kepala) {
+function HF-Field($hf, $kode, $tebal = 0, $ukuran = $FMT.ukuran_kepala, $huruf = $TA) {
     $f = $hf.Range.Fields.Add((HF-Ujung $hf), -1, $kode, $false)   # -1 = wdFieldEmpty: jenisnya dari kodenya
     $r = $hf.Range.Duplicate; $r.SetRange($f.Code.Start - 1, $f.Result.End + 1)
-    Huruf $r.Font $TA ([single]$ukuran) $tebal
+    Huruf $r.Font $huruf ([single]$ukuran) $tebal
 }
 
 # { IF { = { PAGE } - INT({ PAGE } / 2) * 2 } = 1 "$ganjil" "$genap" }: halaman ganjil $ganjil (judul bagian berjalan),
@@ -120,13 +126,21 @@ function Pasang-Kepala($sec, $jenis, $judul, $berjalan = '') {
     $hd = $sec.Headers(1); $ft = $sec.Footers(1)
     HF-Baru $hd; HF-Baru $ft
     switch ($jenis) {
-        'klasik' {                                       # judul — garis memanjang — nomor tebal di pojok kiri
-            HF-Tab $hd $lebar 2 3                        # 3 = wdTabLeaderLines
-            HF-Teks $hd "$judul "
-            # garis penghubung = garis bawah tab: tabnya dinaikkan supaya garis itu di tengah tinggi huruf, bukan di dasarnya
-            $r = HF-Ujung $hd; $r.InsertAfter("`t"); Huruf $r.Font $TA $u 0; $r.Font.Position = [int][Math]::Round($u * 0.3)
-            HF-Teks $hd ' ' 1 $FMT.ukuran_nomor_kepala
-            HF-Field $hd 'PAGE' 1 $FMT.ukuran_nomor_kepala
+        'klasik' {                                       # judul — garis memanjang — nomor di pojok kiri, sebesar judul
+            # garis = coretan (StrikeThrough) pada tab berhuruf nomor: Word menggambarnya utuh selebar tab, di tinggi
+            # coretan huruf itu (+ $KLASIK.naik) = tengah angka. Bukan garis penghubung tab (TabLeader): itu deretan
+            # «_» selebar ±0,2 cm yang ujungnya meloncat per «_» (kadang menempel judul). Bukan garis bawah tab: Word
+            # menggambarnya di garis dasar walau tabnya dinaikkan. Celah ±0,35 cm di kedua ujung = spasi yang
+            # dilebarkan (Font.Spacing, pt; diukur di PDF). Teks sisipan mewarisi format sebelumnya (dulu nomor ikut
+            # naik bersama tab, jadi garis tetap di bawah tengah angka):
+            # coretan, kenaikan, dan pelebaran dikembalikan nol sesudahnya (pelebaran di angka nomor = celah antarangka)
+            HF-Tab $hd $lebar 2
+            HF-Teks $hd "$judul " 0 $u $KLASIK.judul; $hd.Range.Characters.Last.Previous(1).Font.Spacing = 7
+            $r = HF-Ujung $hd; $r.InsertAfter("`t"); Huruf $r.Font $KLASIK.nomor $u 0
+            $r.Font.Spacing = 0; $r.Font.StrikeThrough = 1; $r.Font.Position = [int]$KLASIK.naik
+            $r = HF-Ujung $hd; $r.InsertAfter(' '); $r.Font.StrikeThrough = 0; $r.Font.Position = 0; $r.Font.Spacing = 6
+            HF-Field $hd 'PAGE' 0 $u $KLASIK.nomor
+            $f = $hd.Range.Fields(1); $r = $hd.Range.Duplicate; $r.SetRange($f.Code.Start - 1, $f.Result.End + 1); $r.Font.Spacing = 0
         }
         { $_ -in 'bagian', 'bagian_hias' } {             # judul bagian berjalan tebal kanan, nomor kiri, garis penuh
             $t = [Math]::Round($u * 1.6)

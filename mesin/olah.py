@@ -87,7 +87,7 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       halaman_baru (B, M, atau keduanya): judul itu juga mulai halaman baru, mis. dosen minta
                       مبحث dan مطلب beda halaman, مبحث = #F dan مطلب = #B → «@halaman_baru: B»
                       Tata letak per bagian, bisa dicampur (nilai pertama = bawaan):
-                      kepala (klasik = judul kanan, garis memanjang ke nomor halaman tebal di pojok kiri atas, tanpa nomor
+                      kepala (klasik = judul kanan, garis memanjang ke nomor halaman di pojok kiri atas, tanpa nomor
                       di kaki | - = tanpa kepala, nomor di tengah kaki | kotak = judul kanan, nomor halaman berbingkai
                       kiri, garis di bawahnya | bagian = judul #K/#F berjalan tebal di
                       kanan, nomor kiri, garis selebar halaman di bawahnya | bagian_hias = bagian + hiasan kitab terbuka
@@ -339,15 +339,15 @@ TANDA = "\n\n".join((TANDA_NASKAH, TANDA_SISIPAN, TANDA_BERTAHAP, TANDA_RISET))
 FORMAT = profil_format()  # huruf & ukuran tiap pedoman; dipilih dengan @format
 # Kunci profil yang boleh tidak ditulis di format.json: nilai bawaannya, atau (IKUT_FORMAT) kunci lain yang nilainya dipakai.
 # rakit.ps1 tidak punya bawaan sendiri: ia membaca profil yang sudah lengkap (format_cetak)
-# garis_catatan = panjang garis pemisah catatan kaki (cm, di kanan); ukuran_kepala = teks kepala/kaki halaman,
-# ukuran_nomor_kepala = nomor halaman tebal @kepala: klasik; awal_alinea = baris pertama paragraf matan menjorok (cm).
+# garis_catatan = panjang garis pemisah catatan kaki (cm, di kanan); ukuran_kepala = teks dan nomor kepala/kaki halaman;
+# awal_alinea = baris pertama paragraf matan menjorok (cm).
 # Tepi atas, bawah, dan kiri halaman isi selalu 2,5 cm; yang beda antarprofil hanya tepi_kanan
 BAWAAN_FORMAT = {"latin": 12, "spasi": 1, "mulakhas_berjarak": False, "jarak_paragraf": 0, "jarak_judul": 0, "tepi_kanan": 3.5,
                  "jarak_kepala": 1.25, "jarak_sebelum_sub": 6, "garis_catatan": 4.5, "tepi_kutipan": 1, "awal_alinea": 0.8}
 # tepi_kutipan = jorok kanan dan kiri kutipan blok #Q (cm); ukuran_kutipan = hurufnya. Pedoman yang dipakai tidak menyebut
 # ukuran khusus: bawaannya sebesar matan
 IKUT_FORMAT = {"judul_sub": "judul", "ayat": "matan", "ukuran_kutipan": "matan", "huruf_judul": "huruf", "spasi_mulakhas": "spasi", "ukuran_pustaka": "matan",
-               "ukuran_kepala": "catatan", "ukuran_nomor_kepala": "matan"}
+               "ukuran_kepala": "catatan"}
 # @sampul: model sampul bahts -> data yang wajib. mahad = mesin/sampul.doc (معهد، كلية الشريعة);
 # qism = mesin/sampul_qism.docx (قسم الشريعة: logo, judul besar, sub-judul dalam kurung kalau ada, العام الجامعي; jenis dan nim tercetak kalau diisi, fasl tidak)
 # jakarta = mesin/sampul_jakarta.docx: model qism dengan «قسم الشريعة بجاكرتا», logo berwarna, baris @sifat di bawah nama,
