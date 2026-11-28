@@ -19,7 +19,7 @@ import pymupdf
 from bantu import REPO, bahts, salin_mesin, tanpa_word
 
 sys.path.insert(0, str(REPO / "mesin"))
-from norma import padat  # noqa: E402
+from norma import padat
 
 JUDUL = "اختبار رأس الصفحة"
 FASL = "المبحث الأول: عنوان الاختبار"
