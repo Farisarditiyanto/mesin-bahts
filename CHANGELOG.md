@@ -6,6 +6,8 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Baru: bahts baru (`baru`) memakai `@kepala: -`: tanpa kepala halaman, nomor di tengah bawah. Naskah yang sudah ada tidak berubah; kepala bergaris berjudul tetap lewat `@kepala: klasik`.
+
 ## 14.1.0 — 2026-11-27
 
 - Perbaikan: rumus `#E`/`{E:}` berisi huruf kendali (mis. «\beta» yang termakan escape skrip jadi U+0008) kini GAGAL di `cek` dengan barisnya, bukan menghentikan `rakit` di Word dengan «XML markup cannot be inserted».
