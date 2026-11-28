@@ -506,7 +506,25 @@ def utama():
         urut = [p.split("،")[0] for p in json.loads(bahan(f).read_text(encoding="utf8"))["pustaka"]]
         assert urut.index("الكتاب") < urut.index("الكتاب الفريد في إعراب القرآن المجيد"), urut
         assert urut.index("معاني القرآن") < urut.index("معاني القرآن وإعرابه"), urut
-        hasil.append("standar أبو سليمان: الخاتمة, المقدمة رسالة, urutan pustaka muallif dan judul pendek")
+        # rujukan Latin: tanpa beda huruf besar-kecil, tanpa diakritik dan ʿain/hamzah, «al-» di depan tidak dihitung
+        # (Chicago Manual of Style 8.13 dan aturan penyusunan ALA-LC untuk nama Arab berhuruf Latin)
+        latin = ("Qutrub, Arabic verb conjugation library.", "al-Ṯurayyā, gazetteer.", "puppeteer, headless browser.",
+                 "Natural Earth, map data.", "pyarud, Arabic prosody library.", "ʿAbd al-Raḥmān Badawī, Manāhij.")
+        cek("urutan pustaka Latin", dasar.rstrip("\n") + "\n" + "\n".join(latin) + "\n")
+        urut = [p.split(",")[0] for p in json.loads(bahan(f).read_text(encoding="utf8"))["pustaka"]][2:]
+        assert urut == ["ʿAbd al-Raḥmān Badawī", "Natural Earth", "puppeteer", "pyarud", "Qutrub", "al-Ṯurayyā"], urut
+        hasil.append("standar أبو سليمان: الخاتمة, المقدمة رسالة, urutan pustaka muallif, judul pendek, dan Latin")
+
+        # nomor catatan kaki sesudah kurung penutup lafaz matan: «(…بالوضع)(١)», bukan «(…بالوضع(١))», di kotak #T متن
+        # dan di {MT:…}; catatan kaki di tengah lafaz tetap di dalam kurung
+        matn = dasar.replace("#K الخاتمة\n", "#T متن | الكلام هو اللفظ المركب[^أي من كلمتين فأكثر.] المفيد بالوضع"
+                             "[^أي بالقصد.]\nقوله: {MT:المفيد}[^أي ما أفاد فائدة تامة.] شرحه ظاهر.\n#K الخاتمة\n", 1)
+        cek("nomor catatan kaki matan sesudah kurung", matn)
+        blok = json.loads(bahan(f).read_text(encoding="utf8"))["blok"]
+        cetak = lambda b: "".join(r.get("t", "") if "fn" not in r else "^" for r in b["runs"])
+        assert cetak(next(b for b in blok if b.get("kotak"))) == "(الكلام هو اللفظ المركب^ المفيد بالوضع)^", blok
+        assert "قوله: (المفيد)^ شرحه" in cetak(next(b for b in blok if cetak(b).startswith("قوله"))), blok
+        hasil.append("nomor catatan kaki matan sesudah kurung")
 
         # `tahap`: keadaan dibaca ulang dari barang aslinya. Yang diam-diam menyesatkan: PDF lama dilaporkan TERKINI sesudah
         # naskah diubah, folder .rakit-* tanpa penanda disuruh/dibiarkan dibuang, atau rakit yang jalan tidak terlihat.
