@@ -83,3 +83,95 @@ b,.k{font-weight:bold}
 .pohon .sp{display:flex;flex-direction:column;align-items:center;text-align:center;max-width:3.4cm}
 .pohon .sp .n{display:block;line-height:1.15}
 .sifat .tbl th,.sifat .tbl td{font-size:var(--catatan);padding:0 4pt}
+/* arsiran pengganti abu-abu: isi batang, ruas, sel, kotak keterangan (urut a1..a6 = seri 1..6) */
+.a1{background:#000}
+.a2{background:repeating-linear-gradient(-45deg,#000 0 .7px,#fff .7px 3.4px)}
+.a3{background:repeating-linear-gradient(45deg,#000 0 .6px,transparent .6px 3.6px),repeating-linear-gradient(-45deg,#000 0 .6px,#fff .6px 3.6px)}
+.a4{background:repeating-linear-gradient(0deg,#000 0 .7px,#fff .7px 3.2px)}
+.a5{background:radial-gradient(circle,#000 0 .75px,transparent .95px) 0 0/3.6px 3.6px,#fff}
+.a6{background:#fff}
+.n.sumber{text-align:center;font-size:10pt;margin-top:1pt}
+.blok+.blok{margin-top:6pt}
+.br.dua>.ch{display:grid;grid-auto-flow:column;grid-template-rows:repeat(var(--baris),auto);column-gap:12pt}
+
+/* lajur: label .tanda diletakkan gambar.js di atas/bawah poros (.poros/.batang), bertingkat */
+.lajur{position:relative}
+.lajur>.poros,.lajur>.batang{position:absolute;left:0;right:0}
+.lajur>.tanda{position:absolute;white-space:nowrap;font-size:var(--catatan);line-height:1.15}
+
+/* خط زمني: pita tahun bergaris dua; wafat = titik di bawah pita, peristiwa = garis di atasnya */
+.zaman{width:calc(var(--lebar) - 40pt);margin:0 8pt}
+.zaman>.poros{height:13pt;border-top:var(--garis) solid var(--tinta);border-bottom:var(--garis) solid var(--tinta)}
+.ruas-t{position:absolute;top:0;bottom:0;width:0}
+.ruas-t span{position:absolute;top:50%;left:0;transform:translate(-50%,-52%);font-size:10pt;line-height:1}
+.ruas-t::before,.ruas-t::after{content:"";position:absolute;right:0;height:2.5pt;border-right:var(--garis) solid var(--tinta)}
+.ruas-t::before{top:0}.ruas-t::after{bottom:0}
+.bulat{position:absolute;width:6px;height:6px;border-radius:50%;background:#000;transform:translateX(50%)}
+.bulat.b{bottom:-3.5px}.bulat.a{top:-3.5px}
+.garis-t{position:absolute;height:5px;width:0;border-right:1.4px solid #000}
+.garis-t.b{bottom:-2px}.garis-t.a{top:-2px}
+
+/* إسناد: tingkat-tingkat sanad, garis antarsimpul digambar gambar.js */
+.tingkat{display:flex;gap:12pt}
+.tingkat+.tingkat{margin-top:10pt}
+.simpul{flex:1 1 0;white-space:nowrap;text-align:center;padding:0 2pt}
+.tingkat:first-child .simpul{font-weight:bold}
+.simpul.madar{border-top:var(--ganda);border-bottom:var(--ganda);font-weight:bold;padding:0 4pt;line-height:1.1}
+.simpul.madar .n{display:block;font-weight:normal;font-size:10.5pt}
+
+/* نسب: lingkaran bertanda huruf, daerah bersama berarsir */
+.arbaa td{width:33mm;padding:1pt 4pt}
+.arbaa td.hukm{font-size:var(--catatan);line-height:1.15;vertical-align:top}
+.venn{display:block;margin:2pt auto}
+.venn circle{fill:none;stroke:#000;stroke-width:1}
+.venn .isi{fill:url(#arsir);stroke:none}
+.venn pattern line{stroke:#000;stroke-width:.9}
+.venn text{font-size:12pt;text-anchor:middle;paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round;fill:#000}
+
+/* مواريث: batang bagian di bawah tabel */
+.tbl tr.jumlah td{border-top:var(--ganda);font-weight:bold}
+.bagi{width:12.5cm;margin:6pt auto 0}
+.batang{display:flex;height:15pt;border:var(--garis) solid var(--tinta)}
+.ruas{display:flex;align-items:center;justify-content:center;min-width:0}
+.ruas+.ruas{border-right:var(--garis) solid var(--tinta)}
+.ruas span{background:#fff;font-size:10.5pt;line-height:1.05;padding:0 1.5pt;white-space:nowrap}
+
+/* بياني */
+.amdah{display:grid;grid-template-columns:max-content 9cm;gap:2pt 4pt;align-items:center}
+.amdah>.lb{text-align:left}
+.bidang{border-right:var(--garis) solid var(--tinta);padding:1pt 0}
+.bb{display:flex;align-items:center;height:10pt}
+.bb+.bb{margin-top:1.5pt}
+.bar{height:100%;border:var(--garis) solid var(--tinta);flex:none}
+.nilai{font-size:10.5pt;line-height:1;padding-right:2pt;white-space:nowrap}
+.skala{position:relative;height:12pt;border-top:var(--garis) solid var(--tinta)}
+.skala span{position:absolute;top:2pt;transform:translateX(50%);font-size:10pt;line-height:1}
+.skala span::before{content:"";position:absolute;top:-4pt;right:50%;height:2.5pt;border-right:var(--garis) solid var(--tinta)}
+.nisbah100{display:grid;grid-template-columns:max-content 10cm;gap:3pt 5pt;align-items:center}
+.nisbah100>.lb{text-align:left}
+.ket{display:flex;flex-wrap:wrap;justify-content:center;gap:1pt 10pt;margin-top:4pt;font-size:var(--catatan)}
+.ket .kotak{display:inline-block;width:14pt;height:9pt;border:var(--garis) solid var(--tinta);vertical-align:middle}
+.ket svg{vertical-align:middle}
+.khatt{display:block;margin:0 auto}
+.khatt line,.khatt polyline,.contoh line{stroke:#000;stroke-width:1;fill:none}
+.khatt polyline{stroke-width:1.3}
+.khatt text{font-size:10.5pt;text-anchor:middle;direction:ltr}
+.khatt text.kiri{text-anchor:start}
+.khatt .isi,.contoh .isi{fill:#000;stroke:#000}
+.khatt .kosong,.contoh .kosong{fill:#fff;stroke:#000;stroke-width:1}
+
+/* جدول زمني */
+.gantt th.sat,.gantt td.sat{width:19pt;padding:0;text-align:center}
+.gantt th.sat{font-weight:normal}
+.gantt td{padding-top:1.5pt;padding-bottom:1.5pt}
+.gantt td.isi{background:linear-gradient(#000,#000) center/100% 5pt no-repeat}
+
+/* رحلة: peta bergaya ukiran: laut berarsir mendatar (tajam, tanpa abu-abu), daratan putih, bingkai ganda */
+.peta{display:block;border:var(--ganda)}
+.peta .laut{fill:url(#laut)}
+.peta pattern line{stroke:#000;stroke-width:.6;shape-rendering:crispEdges}
+.peta .darat{fill:#fff;stroke:#000;stroke-width:.9;fill-rule:evenodd;stroke-linejoin:round}
+.peta .jalan{fill:none;stroke:#000;stroke-width:1.1;stroke-dasharray:5 2.5}
+.peta marker path,.peta circle{fill:#000}
+.peta text{font-size:11pt;direction:rtl;paint-order:stroke;stroke:#fff;stroke-width:3.5px;stroke-linejoin:round;fill:#000}
+.tbl td.atas{border-bottom:none}.tbl td.sambung{border-top:none}

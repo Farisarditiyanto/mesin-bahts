@@ -58,10 +58,17 @@ class Sisipan(unittest.TestCase):
                "#D مراتب | م", "#D مرتبة: أ | ب", "#D مرتبة: ج", "#D حكم: 2-3 | x", "فقرة.",
                "#D تعارض | ت", "#D منهج: الجمهور | الجمع", "فقرة.",
                "#D مقاصد | م", "#D ضروريات: أ", "#D لون: أحمر", "فقرة.",
-               "#D خلاف | ش", "#D قول: أ | ب", "#D قول: ج | د", "#D راجح: ٣"]
+               "#D خلاف | ش", "#D قول: أ | ب", "#D قول: ج | د", "#D راجح: ٣", "فقرة.",
+               "#D مواريث | م", "#D وارث: الجد", "#D وارث: أخ شقيق", "فقرة.",
+               "#D مواريث | م", "#D وارث: خال", "فقرة.",
+               "#D رحلة | ر", "#D محطة: بخاراا", "#D محطة: مكة", "فقرة.",
+               "#D إسناد | س", "#D طريق: أ | ب", "#D طريق: ج | د", "فقرة.",
+               "#D بياني | ب", "#D نوع: دائرة", "#D صف: أ | 1", "#D صف: ب | 2"]
         harus = {1: "paling sedikit dua", 5: "«أصل:» harus berbentuk", 12: "induk «د» belum tertulis",
                  17: "di luar martabat 1-2", 20: "paling sedikit dua langkah", 24: "kunci «لون» tidak dikenal",
-                 22: "«#D تحسينيات: …» belum ada", 29: "tidak menunjuk qaul"}
+                 22: "«#D تحسينيات: …» belum ada", 29: "tidak menunjuk qaul",
+                 31: "الجد مع الإخوة", 36: "«خال» tidak dikenal", 39: "yang mirip: بخارة", 44: "berujung di nama yang sama",
+                 47: "«نوع:» harus"}
         dapat = galat(self.cek("\n".join(isi) + "\n", env=tanpa_node()))
         self.assertEqual(sorted(dapat), sorted(n0 + n for n in harus), dapat)
         for n, kata in harus.items():

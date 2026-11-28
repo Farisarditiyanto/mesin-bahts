@@ -40,3 +40,70 @@ window.GAMBAR = () => {
     svg.appendChild(p);
   });
 };
+
+// Sesudah tata letak, sebelum kurung: label .tanda di tiap .lajur (garis waktu, batang bagian) diletakkan di x = data-x
+// (0..1 dari kanan) di atas (data-sisi="a") atau bawah ("b") poros .lajur, bertingkat supaya tidak bertumpuk, dengan
+// garis penunjuk ke poros. Sesudah kurung: garis .simpul[data-ke] ke simpul induknya (pohon isnad).
+(() => {
+  const kurung = window.GAMBAR, NS = 'http://www.w3.org/2000/svg';
+  const garis = (svg, d) => { const p = document.createElementNS(NS, 'path'); p.setAttribute('d', d); svg.appendChild(p); };
+  const lajur = () => document.querySelectorAll('.lajur').forEach(l => {
+    const W = l.clientWidth, jarak = 3, label = [...l.querySelectorAll(':scope>.tanda')];
+    if (!label.length) return;
+    const h = Math.max(...label.map(t => t.offsetHeight)), sela = 6;
+    // tingkat terendah yang tidak menumpuk label setingkat, tidak dilewati garis penunjuk label yang lebih jauh, dan
+    // garis penunjuknya sendiri tidak melewati label yang lebih dekat ke poros. .bendera: label di kiri garis penunjuknya
+    // (teks Arab mulai dari garis itu; Python menyisakan ruang di ujung kiri poros), diletakkan dari kiri; selain itu di
+    // tengahnya
+    const sudah = { a: [], b: [] }, tingkat = { a: [], b: [] };
+    label.sort((p, q) => q.dataset.x - p.dataset.x).forEach(t => {
+      const w = t.offsetWidth, x = W - t.dataset.x * W, sisi = t.dataset.sisi || 'b', ada = sudah[sisi];
+      let pilih = null;
+      for (const k of l.classList.contains('bendera') ? [x - w + 1] : [x - w / 2]) {
+        const kiri = Math.min(Math.max(k, 0), W - w), kanan = kiri + w;
+        const tabrak = i => ada.some(s => (s.i === i && s.kiri < kanan + sela && kiri < s.kanan + sela) ||
+          (s.i < i && x >= s.kiri - sela && x <= s.kanan + sela) || (i < s.i && s.x >= kiri - sela && s.x <= kanan + sela));
+        let i = 0;
+        const jauh = Math.max(-1, ...ada.map(s => s.i)) + 1;
+        while (i < jauh && tabrak(i)) i++;  // tanpa tingkat bebas tabrakan: tingkat baru paling jauh
+        if (!pilih || i < pilih.i) pilih = { i, kiri, kanan };
+      }
+      ada.push({ x, ...pilih });
+      tingkat[sisi] = Array(Math.max(tingkat[sisi].length, pilih.i + 1)).fill(1);
+      Object.assign(t.dataset, { i: pilih.i, kiri: pilih.kiri, px: x });
+    });
+    const poros = l.querySelector(':scope>.poros, :scope>.batang'), ph = poros ? poros.offsetHeight : 0;
+    const atas = tingkat.a.length ? tingkat.a.length * (h + jarak) - jarak + 8 : 0;
+    l.style.height = `${atas + ph + (tingkat.b.length ? 8 + tingkat.b.length * (h + jarak) - jarak : 0)}px`;
+    if (poros) poros.style.top = `${atas}px`;
+    label.forEach(t => {
+      const i = +t.dataset.i, y = t.dataset.sisi === 'a' ? atas - 8 - (i + 1) * (h + jarak) + jarak : atas + ph + 8 + i * (h + jarak);
+      Object.assign(t.style, { left: `${t.dataset.kiri}px`, top: `${y}px` });
+      t.dataset.y = y;
+    });
+  });
+  window.GAMBAR = () => {
+    lajur();
+    kurung();
+    const fig = document.getElementById('fig'), f = fig.getBoundingClientRect(), svg = fig.querySelector('svg.tinta');
+    const kotak = e => { const r = e.getBoundingClientRect(); return { l: r.left - f.left, r: r.right - f.left, t: r.top - f.top, b: r.bottom - f.top }; };
+    document.querySelectorAll('.lajur').forEach(l => {
+      const poros = l.querySelector(':scope>.poros, :scope>.batang');
+      if (!poros) return;
+      const p = kotak(poros), k = kotak(l);
+      l.querySelectorAll(':scope>.tanda').forEach(t => {
+        const x = k.l + +t.dataset.px, c = kotak(t);
+        garis(svg, t.dataset.sisi === 'a' ? `M${x},${p.t} L${x},${c.b}` : `M${x},${p.b} L${x},${c.t}`);
+      });
+    });
+    const simpul = {};
+    document.querySelectorAll('.simpul').forEach(s => { simpul[s.dataset.id] = kotak(s); });
+    document.querySelectorAll('.simpul[data-ke]').forEach(s => {
+      const a = simpul[s.dataset.id];
+      s.dataset.ke.split(' ').forEach(id => {
+        const b = simpul[id];
+        garis(svg, `M${(a.l + a.r) / 2},${a.t + 1} L${(b.l + b.r) / 2},${b.b - 1}`);
+      });
+    });
+  };
+})();
