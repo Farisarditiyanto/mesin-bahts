@@ -170,7 +170,7 @@ def format_baris(info_kartu, gaya="judul"):
     elif info_kartu["tahun"] is not None and not info_kartu["tahun"] and not _tahun(c):  # cetakan yang memuat tahunnya («الأولى، ١٤٢٣هـ»)
         rinci.append(TANPA["tahun"])
     ekor_data = "، ".join(rinci)
-    if gaya != "judul":  # muallif, judul_tebal (olah.pustaka_judul_dulu membaca bentuk ini)
+    if gaya != "judul":  # muallif, judul_tebal, butir (olah.pustaka_judul_dulu membaca bentuk ini)
         nama = f"**{info_kartu['pengarang']}**" if info_kartu["pengarang"] else ""
         if nama and info_kartu["wafat"]:
             nama += f" (ت {info_kartu['wafat']})"

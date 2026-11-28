@@ -75,9 +75,10 @@ $KEPALA = [string]$RENCANA.kepala         # bentuk kepala/kaki halaman isi (kepa
 $JUDUL_KEPALA = if ($M.kepala_judul) { [string]$M.kepala_judul } else { $JUDUL }
 $TO_TITIK = $M.maudhuat -eq 'titik'        # فهرس الموضوعات bertitik-titik tanpa tabel
 $PUSTAKA_MUALLIF = $M.pustaka_gaya -eq 'muallif'   # القرآن الكريم bernomor; **…** tebal, __…__ miring
-# @pustaka_gaya: judul_tebal: baris tercetak «• **judul**. لفلان …», tanpa nomor (@($null) = satu butir kosong, bukan kosong).
+# @pustaka_gaya: judul_tebal/butir: baris tercetak «**judul**. لفلان …» (@($null) = satu butir kosong, bukan kosong).
 # @() di luar if: hasil if dibuka PowerShell, jadi satu butir saja jadi teks dan [0] = huruf pertamanya
-$PUSTAKA_BUTIR = @(if ($RENCANA.pustaka_butir) { $RENCANA.pustaka_butir })
+$PUSTAKA_TEBAL = @(if ($RENCANA.pustaka_tebal) { $RENCANA.pustaka_tebal })
+$PUSTAKA_BUTIR = $M.pustaka_gaya -eq 'butir'      # «•» di kolom nomor, tanpa nomor
 $JUDUL_KOTAK = $RENCANA.judul_fasl -eq 'kotak'   # judul #F di kotak bergaris ganda tebal-tipis
 $KANAN = @($RENCANA.judul_kanan)         # judul #B/#M rata kanan
 $TJ = [string]$FMT.huruf_judul           # huruf judul (#K/#F/#B/#M/#S dan judul فهرس)
@@ -1200,17 +1201,17 @@ try {
     $adaQuran = [bool]$DATA.quran
     $geser = if ($adaQuran) { 1 } else { 0 }
     if ($PUSTAKA_MUALLIF) { $geser = 0 }                 # @pustaka_gaya: muallif = القرآن الكريم ikut bernomor (١.)
-    $butir = $PUSTAKA_BUTIR.Count -gt 0                 # @pustaka_gaya: judul_tebal: «•» di kolom nomor, judul tebal dulu
-    $tb = Tabel $n $(if ($butir) { @(0.6, 14.4) } else { @(1.3, 13.7) }) 0
+    $tebal = $PUSTAKA_TEBAL.Count -gt 0                 # @pustaka_gaya: judul_tebal/butir: judul tebal dulu
+    $tb = Tabel $n $(if ($PUSTAKA_BUTIR) { @(0.6, 14.4) } else { @(1.3, 13.7) }) 0
     for ($r = 1; $r -le $n; $r++) {
-        $no = if ($butir) { '•' } elseif ($adaQuran -and $r -eq 1 -and -not $PUSTAKA_MUALLIF) { '-' } else { (Angka ($r - $geser)) + '.' }
+        $no = if ($PUSTAKA_BUTIR) { '•' } elseif ($adaQuran -and $r -eq 1 -and -not $PUSTAKA_MUALLIF) { '-' } else { (Angka ($r - $geser)) + '.' }
         Sel $tb $r 1 $no 1 0 $U_PUSTAKA
-        if ($butir) { SelGaya $tb $r 2 $PUSTAKA_BUTIR[$r - 1] $U_PUSTAKA }
+        if ($tebal) { SelGaya $tb $r 2 $PUSTAKA_TEBAL[$r - 1] $U_PUSTAKA }
         elseif ($PUSTAKA_MUALLIF) { SelGaya $tb $r 2 $DATA.pustaka[$r - 1] $U_PUSTAKA } else { Sel $tb $r 2 $DATA.pustaka[$r - 1] 3 0 $U_PUSTAKA }
     }
     for ($r = 1; $r -le $n; $r++) {
         $rg = $tb.Cell($r, 2).Range
-        $polos = if ($butir) { $PUSTAKA_BUTIR[$r - 1] -replace '\*\*|__', '' } elseif ($PUSTAKA_MUALLIF) { $DATA.pustaka[$r - 1] -replace '\*\*|__', '' } else { $DATA.pustaka[$r - 1] }
+        $polos = if ($tebal) { $PUSTAKA_TEBAL[$r - 1] -replace '\*\*|__', '' } elseif ($PUSTAKA_MUALLIF) { $DATA.pustaka[$r - 1] -replace '\*\*|__', '' } else { $DATA.pustaka[$r - 1] }
         if ($RENCANA.pustaka_ltr[$r - 1]) {   # rujukan asing utuh: paragraf kiri-ke-kanan rata kiri, nomornya tetap di kolom kanan
             $rg.ParagraphFormat.ReadingOrder = 1; $rg.ParagraphFormat.Alignment = 0
             # seluruh teksnya satu run kiri-ke-kanan Times (juga kurung, tanda petik, angka, dan titik di luar rentang Latin)

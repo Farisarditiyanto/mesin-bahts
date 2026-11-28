@@ -6,6 +6,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Baru: المصادر bawaan (`@pustaka_gaya: judul_tebal`) kini bernomor ١، ٢، ٣ (القرآن الكريم «-» di atas tanpa nomor) dengan judul tetap tebal; bentuk berbutir «•» tanpa nomor tetap ada lewat `@pustaka_gaya: butir`.
 - Baru: sisipan berdata `#D <jenis> | keterangan` lalu baris `#D kunci: nilai`: mahasiswa menulis datanya, mesin menggambar bagannya dan mencetaknya seperti `#G`. Jenis pertama: قياس، خلاف، مقاصد، تعارض، مراتب، شجرة (contohnya di `tanda`); butuh Node.js + Chrome/Edge untuk menggambar.
 - Baru: sisipan bergaya kitab cetak lama (hitam putih, garis tipis/ganda, tanpa latar): kotak `#T فائدة|تنبيه|تعريف|خلاصة | teks` (boleh bercatatan kaki, ikut terpotong halaman; `#T تعريف | judul | teks`), daftar bernomor `#- abjad|alif|tartib|raqm teks` sampai tiga tingkat (`#--`, `#---`), tabel teks Arab dan terjemahnya `#P عربي | terjemah`, dan pemisah `#Z`. `#T` matan naskah muqarrar lama tetap GAGAL dengan jalan keluarnya.
 - Perbaikan: baris `#R` berhuruf Latin yang berbeda (mis. rujukan bahasa Inggris) tidak lagi dianggap kembar dan GAGAL di `cek`.
