@@ -16,7 +16,10 @@ from pathlib import Path
 
 import pymupdf
 
-from bantu import bahts, salin_mesin, tanpa_word
+from bantu import REPO, bahts, salin_mesin, tanpa_word
+
+sys.path.insert(0, str(REPO / "mesin"))
+from norma import padat
 
 JUDUL = "اختبار رأس الصفحة"
 FASL = "المبحث الأول: عنوان الاختبار"
@@ -134,9 +137,26 @@ def utama():
         isi = range(2, 6)   # halaman PDF المقدمة (2), مبحث, الخاتمة; nomor tercetak = indeks halaman PDF
         kepala = {k: {i: tepi(doc[i]) for i in isi} for k, doc in pdf.items()}
         nomor = dict(zip(range(1, 7), "١٢٣٤٥٦"))
-        # bawaan (klasik): judul bahts + nomor di kepala, kaki kosong
+        # bawaan (klasik): judul bahts + nomor di kepala, kaki kosong. Judulnya berhuruf Arabic Typesetting, yang menggambar
+        # «أ» sebagai alif biasa + tanda hamzah terpisah; Word memetakan tandanya ke spasi, jadi lapisan teks PDF-nya
+        # «رأس» = «را س»: dicocokkan `padat` (tanpa spasi, alif disatukan)
         for i, (atas, bawah) in kepala[""].items():
-            assert j in atas and nomor[i] in atas and not bawah, ("bawaan", i + 1, atas, bawah)
+            assert padat(j) in padat(atas) and nomor[i] in atas and not bawah, ("bawaan", i + 1, atas, bawah)
+        # garis klasik: satu garis utuh, pusat tingginya di pusat gambar angka nomor, kedua ujungnya ±0,35 cm dari judul
+        # dan nomor (garis penghubung tab «___» lama: di bawah pusat angka, ujungnya meloncat per «_» sampai menempel judul)
+        for i in isi:
+            hal = pdf[""][i]
+            garis = [d["rect"] for d in hal.get_drawings() if d["rect"].y1 < TEPI and d["rect"].width > 5 * CM]
+            assert len(garis) == 1 and garis[0].height < 1.5, ("klasik: satu garis utuh", i + 1, garis)
+            g = garis[0]
+            rd = hal.get_text("rawdict", flags=pymupdf.TEXT_ACCURATE_BBOXES)
+            huruf = [(c["c"], pymupdf.Rect(c["bbox"])) for b in rd["blocks"] for ln in b.get("lines", ()) for sp in ln["spans"]
+                     for c in sp["chars"] if c["bbox"][3] < TEPI and c["c"].strip()]
+            no = [r for c, r in huruf if c == nomor[i]]
+            kiri_judul = min(r.x0 for c, r in huruf if c not in nomor.values())
+            assert no and abs((no[0].y0 + no[0].y1) / 2 - (g.y0 + g.y1) / 2) < 0.6, ("klasik: garis di tengah angka", i + 1, no, g)
+            assert 0.2 * CM < g.x0 - no[0].x1 < 0.55 * CM, ("klasik: celah garis-nomor", i + 1, (g.x0 - no[0].x1) / CM)
+            assert 0.2 * CM < kiri_judul - g.x1 < 0.55 * CM, ("klasik: celah garis-judul", i + 1, (kiri_judul - g.x1) / CM)
         for i, (atas, bawah) in kepala["-"].items():
             assert not atas and bawah == nomor[i], ("-", i + 1, atas, bawah)
         for i, (atas, bawah) in kepala["kaki"].items():
