@@ -1,0 +1,46 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later
+   Tema semua sisipan #D, satu-satunya tempat gaya: «كتاب مطبوع قديم» (cetakan usul lama, Bulaq / Kairo-Beirut awal).
+   - huruf profil @format (--huruf); isi 14pt, kunci tebal 14pt, catatan 13pt, judul 15pt tebal; ukuran pt = ukuran cetak
+     (PNG ber-DPI, lihat sisipan/__init__.py)
+   - tinta hitam saja: tanpa latar abu-abu, tanpa kotak di sekitar simpul, tanpa bayangan
+   - تقسيم = kurung kurawal (SVG, gambar.js), ujungnya ke induk, bukaannya ke anak; daftar bernomor «١-»
+   - judul/akar = «cartouche»: garis ganda di atas dan bawah, tanpa sisi
+   - tabel: bingkai luar garis ganda, garis dalam tunggal 0,75pt, kepala tebal di tengah, tanpa rowspan (Chromium
+     menipiskan kolom pertama tabel bersel gabung)
+   - rapat: line-height 1.2, padding 1-3pt; gambar dipotong ke tinta + 3pt */
+:root{--tinta:#000;--garis:.75pt;--ganda:3px double var(--tinta);--teks:14pt;--catatan:13pt;--judul:15pt;--kurung:11pt}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#fff;color:var(--tinta)}
+body{direction:rtl}
+#fig{display:inline-block;position:relative;max-width:var(--lebar);padding:3pt;background:#fff;
+  font-family:var(--huruf),"Traditional Arabic",serif;font-size:var(--teks);line-height:1.2;font-feature-settings:"dlig" 0}
+svg.tinta{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+svg.tinta path{fill:none;stroke:var(--tinta);stroke-width:1.3px;stroke-linecap:round;stroke-linejoin:round}
+b,.k{font-weight:bold}
+.n{font-size:var(--catatan)}
+
+/* judul bergaris ganda */
+.cart{border-top:var(--ganda);border-bottom:var(--ganda);padding:0 5pt;font-weight:bold;font-size:var(--judul);white-space:nowrap}
+
+/* kurung kurawal: [induk][.bs kurung][.ch anak]; .balik = [.ch][.bs][label], ujung kurung ke label */
+.br{display:flex;align-items:center}
+.bs{width:var(--kurung);align-self:stretch;flex:none}
+.ch{display:flex;flex-direction:column;padding:2pt 0}
+.ch>.br+.br,.ch>.br+.lf,.ch>.lf+.br{margin-top:4pt}
+.lf{padding:0 2pt;white-space:nowrap}
+.lebar .lf{white-space:normal}
+.res{margin-top:3pt;border-top:var(--garis) solid var(--tinta);padding-top:2pt;text-align:center}
+
+/* مراتب: martabat di kanan, kurung hukum di kiri, semua baris rata satu kolom */
+.marateb{display:grid;grid-template-columns:max-content var(--kurung) auto;align-items:center}
+.marateb>.br{display:contents}
+.marateb>.ch{grid-column:1 / -1;padding:0}
+.marateb>.br>.ch{padding:1pt 0}
+
+/* tabel */
+.tt{text-align:center;font-weight:bold;margin:0 0 1pt}
+.tbl{border:var(--ganda);border-collapse:collapse;margin:0 auto}
+.tbl td,.tbl th{border:var(--garis) solid var(--tinta);padding:0 8pt;vertical-align:middle}
+.tbl th{font-weight:bold;text-align:center;font-size:13.5pt}
+.tbl td.no{text-align:center;white-space:nowrap}
+.tbl td.tengah{text-align:center}

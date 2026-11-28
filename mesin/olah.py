@@ -8,6 +8,7 @@ from pathlib import Path
 import norma
 import produk
 import rumus
+import sisipan
 from berkas import sementara
 from cek_seluruh import (KEPALA_PERHATIAN, RISET, kata_ganti_penulis, panjang_mulakhas, periksa_dirasat, periksa_khatimah,
                          periksa_muqaddimah, periksa_riset, porsi_kutipan)
@@ -179,6 +180,12 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       paling banyak 70% halaman; keterangan (boleh kosong) tercetak di bawahnya, tanpa catatan kaki.
                       Diagram Mermaid: tulis <nama>.mmd di folder bahts, `python mesin/bahts.py diagram <folder>`, lalu
                       «#G <nama>.png | الشكل (1): …». Berkas tidak ada, di luar folder bahts, atau bukan PNG/JPG = GAGAL
+  #D jenis | keterangan   sisipan berdata: tulis DATA-nya, mesin yang menggambar (rukun qiyas, aqwal khilaf, pohon…).
+                      Sesudah kepala ini, tiap baris «#D kunci: nilai» = isinya, sampai baris bukan #D. Dicetak seperti #G
+                      (tengah, selebar paling banyak lebar teks, keterangan di bawahnya tanpa catatan kaki); rujukan isinya
+                      ditulis di paragraf sekitarnya. `cek` menggambar yang belum ada ke <folder>/.sisipan (butuh Node.js
+                      + Chrome/Edge; pertama kali juga internet); jenis, kunci, atau bentuk nilai yang salah = GAGAL.
+                      Jenis dan contohnya: bagian «Sisipan #D» di bawah
   #E rumus-LaTeX      persamaan matematika di baris sendiri (tengah halaman, OMML Word asli, tanpa TeX); untuk nomor
                       persamaan di tepi kiri tulis «\\tag{1}» di dalamnya (angkanya mengikuti @angka). Teks Arab di dalam
                       rumus: «\\text{صافي الربح}». Rumus ditulis menurut urutan bacanya: yang tanpa huruf Latin/Yunani
@@ -310,7 +317,10 @@ TANDA_RISET = """riset.txt (di folder bahts, di samping naskah.txt): jejak langk
   Baris berawalan # = catatan. Tiap {H:}, ayat {Q:} (selain di bukti <<…>> dan di bawah #R), masalah khilaf, dan مبحث yang
                       belum tercatat = perhatian, juga baris riset.txt yang rusak atau kunci takhrij8 yang tidak ada di naskah.
                       Tidak pernah GAGAL: isinya ditulis agen sendiri, jadi mesin hanya menunjuk yang belum dicatat"""
-TANDA = "\n\n".join((TANDA_NASKAH, TANDA_BERTAHAP, TANDA_RISET))
+TANDA_SISIPAN = "Sisipan #D (jenis = kata sesudah #D; kunci tiap baris isi dan bentuk nilainya):\n" + "\n".join(
+    f"  {nama:<20}{m.URAIAN}\n" + "\n".join(f"{'':22}{baris}" for baris in m.CONTOH.splitlines())
+    for nama, m in sisipan.JENIS.items())
+TANDA = "\n\n".join((TANDA_NASKAH, TANDA_SISIPAN, TANDA_BERTAHAP, TANDA_RISET))
 
 FORMAT = profil_format()  # huruf & ukuran tiap pedoman; dipilih dengan @format
 # Kunci profil yang boleh tidak ditulis di format.json: nilai bawaannya, atau (IKUT_FORMAT) kunci lain yang nilainya dipakai.
@@ -557,6 +567,7 @@ def periksa(folder):
     _malahiq(ctx)
     profil = _profil(ctx)
     _render_rumus(ctx, profil)
+    _gambar_sisipan(ctx, profil)
     _angka_cetak(ctx)
     sidik_naskah = hashlib.sha256(naskah).hexdigest()
     d = _bahan(ctx, _bait_syair(ctx.blok), profil, quran, sumber, sidik_naskah)
@@ -624,6 +635,9 @@ def ukuran_gambar(p):
     return ukuran if ukuran and all(ukuran) else None
 
 
+KETERANGAN_RUSAK = re.compile(r"\[\^|<<|\{")  # catatan kaki, bukti, {Q:/{H:/{E: di keterangan #G/#D
+
+
 def _baris_gambar(ctx, n, k, t):
     """«#G berkas | keterangan»: gambar dari folder bahts. Isi berkasnya ikut sidik cetak (PNG baru = PDF usang)."""
     berkas, _, ket = t.partition("|")
@@ -641,7 +655,7 @@ def _baris_gambar(ctx, n, k, t):
             f"; ada {p.stem}.mmd: jalankan python mesin/bahts.py diagram <folder>" if p.with_suffix(".mmd").is_file() else "")
     elif not (ukuran := ukuran_gambar(p)):
         salah = f"«{berkas}» bukan PNG/JPG yang terbaca (berkas rusak, atau isinya format lain)"
-    elif re.search(r"\[\^|<<|\{", ket):
+    elif KETERANGAN_RUSAK.search(ket):
         salah = "keterangan gambar tidak boleh memuat catatan kaki, bukti, atau tanda {Q:/{H:/{E: — tulis rujukannya di paragraf sesudahnya"
     if salah:  # barisnya tetap isi bagian itu (bukan «bagian kosong»); GAGAL menghentikan rakit
         ctx.galat.append(f"#G {salah}")
@@ -650,6 +664,71 @@ def _baris_gambar(ctx, n, k, t):
     w, h = ukuran
     ctx.blok.append({"k": "G", "berkas": str(p), "rasio": h / w, "sha256": hashlib.sha256(p.read_bytes()).hexdigest(),
                      "runs": [{"t": ket}] if ket else [], "n": n})
+
+
+def _baris_sisipan(ctx, n, k, t):
+    """«#D jenis | keterangan», lalu «#D kunci: nilai» di baris-baris sesudahnya = satu sisipan berdata (paket sisipan).
+    Kepala langsung jadi blok #G (keterangannya sama); datanya diurai dan digambar `_gambar_sisipan` sesudah profil
+    @format diketahui. Kepala yang salah tetap menampung baris isinya, supaya galatnya satu, di kepala itu."""
+    kepala, _, ket = t.partition("|")
+    kepala, ket = kepala.strip(), ket.strip()
+    if ":" in kepala:  # baris isi
+        kunci, _, nilai = t.partition(":")
+        kunci = kunci.strip()
+        b = ctx.blok[-1] if ctx.blok else None
+        if not (b and "sisipan" in b):
+            ctx.galat.append(f"#D «{kunci}:» tanpa kepala «#D <jenis> | keterangan» di atasnya"
+                             + (f"; kepalanya «#D {kunci} | keterangan»" if kunci in sisipan.JENIS else ""))
+        elif (modul := b["sisipan"]["modul"]) and kunci not in modul.KUNCI:
+            ctx.galat.append(f"#D {modul.NAMA}: kunci «{kunci}» tidak dikenal (yang ada: {'، '.join(modul.KUNCI)})")
+        else:
+            b["sisipan"]["baris"].append((n, kunci, nilai.strip()))
+        return
+    modul = sisipan.JENIS.get(kepala)
+    if not modul:
+        ctx.galat.append(f"#D jenis «{kepala}» tidak dikenal (yang ada: {'، '.join(sisipan.JENIS)}; contohnya: `tanda`)")
+    elif KETERANGAN_RUSAK.search(ket):
+        ctx.galat.append("#D keterangan sisipan tidak boleh memuat catatan kaki, bukti, atau tanda {Q:/{H:/{E: — "
+                         "tulis rujukannya di paragraf sesudahnya")
+        modul = None
+    ctx.blok.append({"k": "G", "runs": [{"t": ket}] if ket else [], "n": n, "sisipan": {"modul": modul, "baris": []}})
+
+
+def _gambar_sisipan(ctx, profil):
+    """Tiap sisipan #D: datanya diurai jenisnya, digambar (yang PNG-nya belum ada di <folder>/.sisipan: satu sesi
+    browser untuk semua), lalu jadi blok #G biasa, jadi rakit.ps1 tidak membedakan keduanya. sha256 = sidik halaman
+    HTML-nya, bukan isi PNG: PNG yang sama isinya dari browser lain tidak membuat hasil rakit usang."""
+    fmt = format_cetak(profil)
+    jadi, kerja = [], []
+    for i, b in enumerate(ctx.blok):
+        s = b.pop("sisipan", None)
+        if s is None:
+            continue
+        ctx.blok[i] = {"k": "P", "runs": [], "n": b["n"]}  # sampai tergambar: barisnya tetap isi bagian itu
+        if not s["modul"] or not fmt:  # galatnya sudah dicatat (kepala, @format)
+            continue
+        try:
+            data = s["modul"].urai(b["n"], s["baris"])
+        except sisipan.Salah as e:
+            with ctx.selama_baris(e.n):
+                ctx.galat.append(f"#D {s['modul'].NAMA}: {e}")
+            continue
+        lebar = round(21 - 2.5 - fmt["tepi_kanan"], 2)  # A4, tepi kiri 2,5 cm (rakit.ps1)
+        dokumen = sisipan.halaman(s["modul"], data, fmt["huruf"], lebar, _pilih(ctx, "angka"))
+        sidik = sisipan.sidik(dokumen)
+        png = ctx.folder.resolve() / sisipan.FOLDER / f"{sidik}.png"
+        if not (png.is_file() and ukuran_gambar(png)):
+            kerja.append((dokumen, png))
+        jadi.append((i, {**b, "berkas": str(png), "sha256": sidik}))
+    gagal = sisipan.gambar(kerja)
+    for i, b in jadi:
+        png = Path(b["berkas"])
+        if png in gagal or not (ukuran := ukuran_gambar(png)):
+            with ctx.selama_baris(b["n"]):
+                ctx.galat.append(f"#D belum tergambar: {gagal.get(png, 'PNG hasilnya tidak terbaca')}; lalu ulangi `cek` "
+                                 "(gambar pertama di komputer ini butuh internet untuk mengunduh puppeteer-core)")
+            continue
+        ctx.blok[i] = {**b, "rasio": ukuran[1] / ukuran[0]}
 
 
 def _pisah_sel(t):
@@ -860,7 +939,7 @@ def _baris_rumus(ctx, n, k, t):
 
 # Tanda baris «#X teks» -> penangannya (ctx, nomor baris, X, teks). Tanda baris baru = penangan baru di sini
 TANDA_BARIS = {**dict.fromkeys((*JUDUL_ISI, "R"), _baris_judul), "V": _baris_bait, "L": _baris_latin,
-               "J": _baris_tabel, "G": _baris_gambar, "E": _baris_rumus, "Q": _baris_kutipan}
+               "J": _baris_tabel, "G": _baris_gambar, "D": _baris_sisipan, "E": _baris_rumus, "Q": _baris_kutipan}
 
 
 def _urai_aman(ctx, teks):
