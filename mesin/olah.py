@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Olah <bahts>/naskah.txt -> bahan JSON terpisah menurut jalur bahts/pekerjaan (untuk perakit Word)
 + verifikasi setiap rujukan ke kitab Shamela lokal. Dipanggil lewat bahts.py."""
-import dataclasses, difflib, hashlib, io, json, math, os, re
+import dataclasses, difflib, hashlib, io, json, math, os, re, unicodedata
 from collections.abc import Callable
 from pathlib import Path
 
@@ -897,8 +897,12 @@ def _baris_kotak(ctx, n, k, t):
         return
     runs = _urai_aman(ctx, teks)
     if runs is not None:
-        if jenis == "متن":
-            runs = [{"t": "(", "b": True}, *({**r, "b": True} if "t" in r else r for r in runs), {"t": ")", "b": True}]
+        if jenis == "متن":  # nomor catatan kaki di ujung lafaz di luar kurung: «(…بالوضع)(١)»
+            ujung = len(runs)
+            while ujung and ("fn" in runs[ujung - 1] or "bm" in runs[ujung - 1]):
+                ujung -= 1
+            runs = [{"t": "(", "b": True}, *({**r, "b": True} if "t" in r else r for r in runs[:ujung]),
+                    {"t": ")", "b": True}, *runs[ujung:]]
         label = [] if judul or jenis == "متن" else [{"t": f"{jenis}: ", "b": True}]
         ctx.blok.append({"k": "P", "runs": [*label, *runs], "n": n, "kotak": {"jenis": jenis, "judul": "".join(judul)}})
 
@@ -1471,6 +1475,9 @@ def kunci_urut(s, pengarang=False):
     """Kunci urutan abjad Arab untuk المصادر dan فهرس: buang harakat, tanda tebal/miring, «ال» (selain «الله»),
     dan «ابن/أبو» di depan nama pengarang («ابن القيم» di ق؛ أبو سليمان ص204)."""
     s = norma.HARAKAT.sub("", s.replace("**", "").replace("__", ""))  # tanda tebal/miring @pustaka_gaya: muallif
+    if pustaka_asing(s):  # Latin: tanpa huruf besar-kecil, diakritik, ʿain/hamzah, dan «al-» di depan (Chicago 8.13, ALA-LC)
+        s = "".join(c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c) and c not in "ʿʾ‘’'")
+        return re.sub("[,.:;]", "\x01", re.sub(r"^(?:al|el)[-‐]", "", s.casefold()))
     if pengarang:  # baris diawali nama pengarang: «ابن/أبو» tidak dihitung, «ابن القيم» di ق (أبو سليمان ص204)
         s = re.sub(r"^(?:(?:ابن|أبو|أبي|أبا|ابو|ابي|ابا)\s+)+", "", s)
     if not s.startswith("الله"):

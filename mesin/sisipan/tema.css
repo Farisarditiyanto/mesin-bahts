@@ -173,5 +173,6 @@ b,.k{font-weight:bold}
 .peta .darat{fill:#fff;stroke:#000;stroke-width:.9;fill-rule:evenodd;stroke-linejoin:round}
 .peta .jalan{fill:none;stroke:#000;stroke-width:1.1;stroke-dasharray:5 2.5}
 .peta marker path,.peta circle{fill:#000}
-.peta text{font-size:11pt;direction:rtl;paint-order:stroke;stroke:#fff;stroke-width:3.5px;stroke-linejoin:round;fill:#000}
+.peta text{font-size:11pt;direction:rtl;fill:#000}
+.peta text.latar{fill:#fff}  /* salinan label di bawah jalur; kotak putihnya = filter #lepas (rihlah.py) */
 .tbl td.atas{border-bottom:none}.tbl td.sambung{border-top:none}

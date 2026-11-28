@@ -112,6 +112,41 @@ class Sisipan(unittest.TestCase):
         self.assertEqual(len(dapat), 1, dapat)
         self.assertIn("belum tergambar: Node.js", next(iter(dapat.values())))
 
+    def test_label_peta_di_laut_berlatar_putih(self):
+        """Peta رحلة yang seluruhnya laut: arsir tidak menembus label. Serpih arsir = potongan garis arsir pendek
+        (setebal garisnya persis, putih di atas-bawahnya) di antara huruf label; berlatar putih = tidak ada sama sekali."""
+        if not (diagram.npx() and diagram.browser()):
+            self.skipTest("perlu Node.js (npx) + Chrome/Edge")
+        self.assertIn("GAGAL: 0", self.cek("#D رحلة | ر\n#D محطة: جزيرة أولى | 15، 62\n#D محطة: جزيرة ثانية | 15.5، 66\n"
+                                           "فقرة.\n"))
+        g = pymupdf.Pixmap(pymupdf.csGRAY, pymupdf.Pixmap(str(next((self.folder / ".sisipan").glob("*.png")))))
+        W, H, px = g.width, g.height, g.samples
+        gelap = lambda x, y: px[y * W + x] < 200  # garis arsir yang jatuh di antara dua baris piksel = abu-abu
+        pita = []  # garis arsir: baris yang lebih dari separuhnya gelap, yang bersebelahan disatukan
+        for y in range(H):
+            if sum(gelap(x, y) for x in range(W)) > W / 2:
+                if pita and y == pita[-1][1] + 1:
+                    pita[-1][1] = y
+                else:
+                    pita.append([y, y])
+        pita = [(a, b) for a, b in pita if b - a <= 4 and 0 < a and b < H - 1]  # tanpa garis bingkai
+        self.assertGreater(len(pita), H / 20)  # garis arsir tiap 3,2 px CSS = ±10 px PNG
+        serpih = []
+        for y0, y1 in pita:
+            lari, x = [], 0  # potongan gelap di tengah garis arsir
+            while x < W:
+                a = x
+                while x < W and gelap(x, (y0 + y1) // 2):
+                    x += 1
+                if x > a:
+                    lari.append((a, x))
+                x += 1
+            panjang = [r for r in lari if r[1] - r[0] > 40]
+            serpih += [(a, y0) for a, b in lari if panjang[0][0] < a and b < panjang[-1][1] and b - a <= 40
+                       and all(not gelap(x, y0 - 1) and not gelap(x, y1 + 1)
+                               and all(gelap(x, y) for y in range(y0, y1 + 1)) for x in range(a, b))]
+        self.assertEqual(serpih, [], "serpih arsir (x, y) di sela huruf label")
+
     def test_lughah_data_salah_gagal_di_barisnya(self):
         """Jenis lughah yang dihitung mesin: data yang tidak bisa dihitung benar (akar mu'tal, ibdal افتعل, fi'il tanpa
         harakat 'ain, bait tanpa bahr) = GAGAL di barisnya, bukan gambar yang salah; pustaka belum terpasang = GAGAL

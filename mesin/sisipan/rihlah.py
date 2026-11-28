@@ -114,12 +114,21 @@ def html(d, angka):
     lo0, lo1, la0, la1, k, cos = _bingkai(d)
     H = (la1 - la0) * k
     xy = lambda la, lo: ((lo - lo0) * cos * k, (la1 - la) * k)
-    darat = []
+    darat = []  # cincin daratan dalam piksel peta
     for cincin in json.loads(DARATAN.read_text(encoding="utf8"))["cincin"]:
         xs, ys = [p[0] for p in cincin], [p[1] for p in cincin]
         if max(xs) < lo0 or min(xs) > lo1 or max(ys) < la0 or min(ys) > la1:
             continue
-        darat.append("M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in (xy(la, lo) for lo, la in cincin)) + "Z")
+        darat.append([xy(la, lo) for lo, la in cincin])
+
+    def laut(x, y):
+        """Titik (x, y) di laut: genap kali memotong cincin daratan (evenodd, seperti gambarnya: danau = laut)."""
+        dalam = False
+        for c in darat:
+            for (x1, y1), (x2, y2) in zip(c, c[1:] + c[:1]):
+                if (y1 > y) != (y2 > y) and x < x1 + (y - y1) * (x2 - x1) / (y2 - y1):
+                    dalam = not dalam
+        return not dalam
     # titik: tempat yang disinggahi dua kali = satu titik bernomor dua
     tempat = {}
     for i, (nama, la, lo) in enumerate(d):
@@ -140,7 +149,7 @@ def html(d, angka):
             lintasan.append((px - 1, py - 1, px + 1, py + 1))
     # label: dari empat letak, yang tidak menabrak label/titik lain dan tidak keluar bingkai
     terpakai = [(x - 4, y - 4, x + 4, y + 4) for (x, y), _ in tempat.values()]
-    label = []
+    label = []  # atribut dan isi tiap <text>: ditulis dua kali (latar putih, lalu teksnya)
     for nama, ((x, y), nomor) in tempat.items():
         teks = f"{'، '.join(angka(i) for i in nomor)}- {nama}"
         w = len(teks) * HURUF * 0.5
@@ -152,16 +161,25 @@ def html(d, angka):
         def nilai(c):
             a = c[3]
             kena = lambda kotak: sum(1 for b in kotak if a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3])
-            return kena(terpakai) * 10 + kena(lintasan) + (a[0] < 2 or a[2] > W - 2 or a[1] < 2 or a[3] > H - 2) * 20
+            # di laut boleh (latarnya putih), tapi daratan didahulukan: label di laut menutup arsir dan garis pantai
+            basah = sum(laut(a[0] + (a[2] - a[0]) * i / 4, a[1] + (a[3] - a[1]) * j / 2) for i in range(5) for j in range(3))
+            return (kena(terpakai) * 10 + kena(lintasan) + basah / 3
+                    + (a[0] < 2 or a[2] > W - 2 or a[1] < 2 or a[3] > H - 2) * 20)
         tx, ty, anchor, kotak = min(calon, key=nilai)
         terpakai.append(kotak)
-        label.append(f'<text x="{tx:.1f}" y="{ty:.1f}" text-anchor="{anchor}">{E(teks)}</text>')
+        label.append(f'x="{tx:.1f}" y="{ty:.1f}" text-anchor="{anchor}">{E(teks)}</text>')
     titik = "".join(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.2"/>' for (x, y), _ in tempat.values())
     defs = ('<defs><pattern id="laut" width="6" height="3.2" patternUnits="userSpaceOnUse">'
             '<line x1="0" y1="1.6" x2="6" y2="1.6"/></pattern>'
+            # latar putih seluas kotak teks (diukur browser) tiap label, di atas arsir dan garis pantai tapi di bawah
+            # jalur dan titik: arsir tidak menembus sela huruf, panah jalur tetap tampak
+            '<filter id="lepas" x="-.04" y="0" width="1.08" height="1"><feFlood flood-color="#fff"/>'
+            '<feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>'
             '<marker id="panah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">'
             '<path d="M0,0.5 L8,4 L0,7.5 Z"/></marker></defs>')
+    pantai = "".join("M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in c) + "Z" for c in darat)
+    latar = "".join('<text class="latar" filter="url(#lepas)" ' + t for t in label)
     return (f'<svg class="peta" viewBox="0 0 {W} {H:.0f}" width="{W}" height="{H:.0f}">{defs}'
-            f'<rect class="laut" width="{W}" height="{H:.0f}"/><path class="darat" d="{"".join(darat)}"/>'
-            f'{"".join(jalur)}{titik}{"".join(label)}</svg>'
+            f'<rect class="laut" width="{W}" height="{H:.0f}"/><path class="darat" d="{pantai}"/>{latar}'
+            f'{"".join(jalur)}{titik}{"".join("<text " + t for t in label)}</svg>'
             '<div class="n sumber">المواضع من معجم الثريا الجغرافي (<bdi>al-Ṯurayyā, CC BY 4.0</bdi>)</div>')

@@ -6,6 +6,9 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Perbaikan: label tempat di peta `#D رحلة` kini berlatar putih seluas teksnya, jadi arsir laut, garis pantai, dan jalur tidak lagi menembus sela hurufnya; letaknya didahulukan di daratan.
+- Perbaikan: nomor catatan kaki di ujung lafaz `#T متن` kini tercetak sesudah kurung penutup «(…بالوضع)(١)», bukan di dalamnya.
+- Perbaikan: rujukan Latin di المصادر kini terurut tanpa membedakan huruf besar-kecil, diakritik, dan ʿain/hamzah, dengan «al-» di depan tidak dihitung (al-Ṯurayyā di huruf T).
 - Perbaikan: kepala halaman `@kepala: klasik` kini berhuruf Arabic Typesetting (judul dan nomor), bernomor tipis sebesar judul (bukan tebal sebesar matan), garisnya tepat di tengah tinggi angka, dan berjarak ±0,35 cm dari judul dan dari nomor; sebelumnya garis di bawah tengah angka dan ujungnya bisa menempel judul.
 - Baru: delapan jenis `#D` lughah bergaya kitab cetak lama: تشبيه (rukun bernomor dan qism-nya dihitung), مخارج, صفات, حقل, اشتقاق (kata dari wazan akar shahih), إعراب (pohon), تصريف (dihitung Qutrub), dan تقطيع (bahr dan taf'ilah dihitung pyarud). Pustaka keduanya ikut `requirements.txt`; belum terpasang = GAGAL di jenis itu saja.
 - Baru: المصادر bawaan (`@pustaka_gaya: judul_tebal`) kini bernomor ١، ٢، ٣ (القرآن الكريم «-» di atas tanpa nomor) dengan judul tetap tebal; bentuk berbutir «•» tanpa nomor tetap ada lewat `@pustaka_gaya: butir`.
