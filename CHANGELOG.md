@@ -6,6 +6,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Baru: sisipan berdata `#D <jenis> | keterangan` lalu baris `#D kunci: nilai`: mahasiswa menulis datanya, mesin menggambar bagannya dan mencetaknya seperti `#G`. Jenis pertama: قياس، خلاف، مقاصد، تعارض، مراتب، شجرة (contohnya di `tanda`); butuh Node.js + Chrome/Edge untuk menggambar.
 - Perbaikan: baris `#R` berhuruf Latin yang berbeda (mis. rujukan bahasa Inggris) tidak lagi dianggap kembar dan GAGAL di `cek`.
 - Baru: `@isyraf: bawah` di sampul bawaan mencetak blok «إعداد الطالب:» lebih dulu, lalu «تحت إشراف:» dan pembimbing di bawahnya.
 - Perbaikan: `@qism` di sampul bawaan (qism) kini benar-benar mengganti «قسم الشريعة»; sebelumnya baris itu tetap tercetak.

@@ -123,9 +123,9 @@ def periksa():
             profil = [k for k, p in format_.items() if h in (p["huruf"], p.get("huruf_judul"))]
             baris(huruf.huruf_ada(h), f"huruf {h}" + ("" if h == wajib else f" (hanya untuk @format {', '.join(profil)})"),
                   huruf.HURUF_SARAN, untuk_cek=False, untuk_rakit=h == wajib)
-    baris(bool(diagram.npx() and diagram.browser()), "Node.js + Chrome/Edge (hanya untuk `diagram`: Mermaid jadi PNG)",
-          f"pasang {diagram.PASANG_NODE} dan {diagram.PASANG_BROWSER}; "
-          "tanpa keduanya diagram tetap bisa dicetak dari PNG yang dibuat di tempat lain", untuk_cek=False, untuk_rakit=False)
+    baris(bool(diagram.npx() and diagram.browser()), "Node.js + Chrome/Edge (hanya untuk `diagram` dan sisipan #D: digambar jadi PNG)",
+          f"pasang {diagram.PASANG_NODE} dan {diagram.PASANG_BROWSER}; tanpa keduanya diagram tetap bisa dicetak dari PNG "
+          "yang dibuat di tempat lain, dan naskah ber-#D yang PNG-nya sudah ada di <folder>/.sisipan tetap lolos `cek`", untuk_cek=False, untuk_rakit=False)
     print(f"\nMenulis dan `cek`: {'SIAP' if siap_cek else 'BELUM'}.  `rakit` (Word + PDF): {'SIAP' if siap_rakit else 'BELUM'}.")
     print("WSL tidak diperlukan. Connector shamela: wajib; connector lain ikut dipasang lewat agent (dok/pemakai-baru.md langkah 4-5).")
     sys.exit(0 if siap_cek else 1)
