@@ -141,7 +141,7 @@ def _periksa_langkah(isi, baris, perhatian):
         if kata_[0] == BENTROK:
             istilah, _pisah, sumber = " ".join(kata_[1:]).partition(CARI_PISAH)
             sumber = _sumber_bukti(sumber) | {x.lower() for x in SUMBER_PISAH.split(BUKTI.sub(" ", sumber)) if x}
-            if not re.search("[ء-ي]", norma.norm(istilah)) or len(sumber) < 2:
+            if not re.search("[ء-ي]", norma.norm(istilah)) or "<" in istilah or len(sumber) < 2 or any(">" in x for x in sumber):
                 perhatian.append(f"{RISET} baris {n}: «{b.strip()[:50]}»: tulis {BENTROK_BENTUK}")
             else:
                 bentrok.append((n, istilah.strip(), _pola_istilah(istilah), sumber))

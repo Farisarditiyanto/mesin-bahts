@@ -248,6 +248,7 @@ def utama():
                 ("bentrok istilah tak tertulis", "bentrok الاستصحاب | 11223 1681", dua_rujukan,
                  "bentrok «الاستصحاب»: istilah itu tidak tertulis di naskah"),
                 ("bentrok istilah Latin", "bentrok niat | 11223 1681", dua_rujukan, "«bentrok niat | 11223 1681»: tulis «bentrok"),
+                ("bentrok tanpa «|» dengan bukti luar", "bentrok الربوبية <<luar|kajian.pdf|1>> 11223", luar, "tulis «bentrok"),
                 ("bentrok satu sumber", "bentrok الربوبية | 11223", dua_rujukan, "«bentrok الربوبية | 11223»: tulis «bentrok")):
             riset.write_text("tafsir 1:2\ncari الربوبية\n" + isi + "\n", encoding="utf8")
             out = cek(nama, teks, pesan=pesan)
