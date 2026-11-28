@@ -204,6 +204,22 @@ try {
     $doc = $word.Documents.Open($SAMPUL, $false, $true)
     $doc.SaveAs2($tmp, 16)
     Draft
+    # @isyraf: bawah (sampul qism): blok pembimbing (المشرف .. الدرجة العلمية للمشرف) dipindah ke sesudah blok mahasiswa
+    # (إعداد الطالب: .. الرقم الجامعي), jarak sebelum kedua blok ditukar supaya jarak antarblok tetap seperti templat
+    if ($RENCANA.isyraf_bawah) {
+        $ps = @($doc.Paragraphs); $tx = @($ps | ForEach-Object { $_.Range.Text.Trim() })
+        $iM = [array]::IndexOf($tx, 'المشرف'); $iT = [array]::IndexOf($tx, 'إعداد الطالب:'); $iN = [array]::IndexOf($tx, 'الرقم الجامعي')
+        if ($iM -lt 0 -or $iT -le $iM -or $iN -lt $iT) { throw "sampul_qism.docx: penanda blok المشرف/إعداد الطالب:/الرقم الجامعي tidak ditemukan berurutan" }
+        $jM = $ps[$iM].SpaceBefore; $jT = $ps[$iT].SpaceBefore
+        $blokM = $doc.Range($ps[$iM].Range.Start, $ps[$iT - 1].Range.End)
+        $tujuan = $doc.Range($ps[$iN].Range.End, $ps[$iN].Range.End)
+        $tujuan.FormattedText = $blokM.FormattedText
+        [void]$blokM.Delete()
+        foreach ($p in @($doc.Paragraphs)) {
+            $t = $p.Range.Text.Trim()
+            if ($t -eq 'إعداد الطالب:') { $p.SpaceBefore = $jM } elseif ($t -eq 'المشرف') { $p.SpaceBefore = $jT }
+        }
+    }
     $pJudul = $null; $pSub = $null; $buang = @()
     foreach ($p in @($doc.Paragraphs)) {
         $t = $p.Range.Text.Trim()
@@ -216,14 +232,15 @@ try {
         elseif ($t -eq 'صفة الطالب') { if ($M.sifat -and $M.sifat -ne '-') { Ganti $p ([string]$M.sifat) } else { $buang += $p } }
         # pembimbing: tanpa @musyrif (atau "-") ketiga barisnya kosong; tanpa @jabatan (atau "-") baris jabatannya kosong
         # jakarta: «المشرف:» bertitik dua seperti «إعداد الطالب:» di templat yang sama
-        elseif ($t -eq 'المشرف') { if (-not $MUSYRIF) { Ganti $p '' } elseif ($JAKARTA) { Ganti $p 'المشرف:' } }
+        elseif ($t -eq 'المشرف') { if (-not $MUSYRIF) { Ganti $p '' } elseif ($JAKARTA) { Ganti $p 'المشرف:' } elseif ($RENCANA.isyraf_bawah) { Ganti $p 'تحت إشراف:' } }
         elseif ($t -eq 'اسم المشرف') { Ganti $p $MUSYRIF }
         elseif ($t -eq 'الدرجة العلمية للمشرف') { Ganti $p $JABATAN }
         elseif ($t -eq 'إعداد الطالب:') { if ($M.thalibah -eq 'ya') { Ganti $p 'إعداد الطالبة:' } }
         elseif ($t -eq 'اسم الطالب') { Ganti $p $NAMA }
         elseif ($t -eq 'السنة الهجرية') { Ganti $p $TAHUN_CETAK }
         # @qism: baris qism model; « // » = pindah baris di paragraf yang sama (bentuk dan hurufnya tetap dari templat); di jakarta barisnya di sel tabel (teksnya berakhir tanda sel char 7)
-        elseif ($M.qism -and $t.Trim().Trim([char]7) -in 'قسم الشريعة', 'قسم الشريعة بجاكرتا') { Ganti $p (([string]$M.qism -split '\s*//\s*') -join [char]11) }
+        # teks sel tabel berakhir «\r\a» (tanda paragraf lalu tanda sel): keduanya dibuang, bukan hanya \a
+        elseif ($M.qism -and $t.Trim([char]7, [char]13, [char]32) -in 'قسم الشريعة', 'قسم الشريعة بجاكرتا') { Ganti $p (([string]$M.qism -split '\s*//\s*') -join [char]11) }
     }
     if ($JAKARTA) {
         $SM = if (@($word.FontNames) -contains 'Sakkal Majalla') { 'Sakkal Majalla' } else { $TA }

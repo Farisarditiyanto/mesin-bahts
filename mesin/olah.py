@@ -138,6 +138,9 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       paragraf الإهداء seperti paragraf biasa)
                       logo (- | berwarna = logo جامعة الإمام berwarna seperti sampul jakarta di sampul qism; kop, data,
                       dan tata letak sampul qism tetap. Hanya untuk sampul qism: bersama @sampul jakarta/mahad atau @templat = GAGAL)
+                      isyraf (atas | bawah = sampul qism mencetak «إعداد الطالب:» + nama + nim lebih dulu, lalu «تحت إشراف:»
+                      + @musyrif + @jabatan di bawahnya; huruf dan jaraknya tetap dari templat. Hanya untuk sampul qism:
+                      bersama @sampul lain atau @templat = GAGAL)
                       malahiq (akhir = bagian «#K الملاحق» (atau «#K ملحق…») sampai #R dicetak sesudah المصادر والمراجع,
                       sebelum فهرس; di naskah tetap ditulis sebelum #R. Halaman الملاحق tidak masuk HALAMAN_ISI.
                       Tidak bisa bersama @pustaka: akhir)
@@ -372,6 +375,7 @@ GAYA = {"kepala": ("klasik", "-", "kotak", "bagian", "bagian_hias", "bintang", "
         "fihris": ("baru", "sambung"),  # sambung = المصادر/فهرس sesudah yang pertama menyambung di halaman yang sama
         "rujukan_ayat": ("catatan", "matan"),  # matan = [^سورة …، آية: n.] dicetak «[السورة: n]» tepat sesudah ayatnya
         "logo": ("-", "berwarna"),  # berwarna = sampul qism dengan logo berwarna dari sampul_jakarta.docx, sisanya tetap
+        "isyraf": ("atas", "bawah"),  # bawah = sampul qism: «إعداد الطالب» dulu, lalu «تحت إشراف:» + pembimbing
         "judul_fasl": ("dua_baris", "-", "pemisah", "pemisah_bingkai", "kotak"),  # dua_baris = judul #F «الفصل الأول: المقدمة»
         # dicetak dua baris (judul_dua_baris); pemisah = halaman pemisah sendiri tanpa nomor (halaman_pemisah), _bingkai = di
         # dalam bingkai ganda bersudut bulat; kotak = judul #F di kotak bergaris ganda tebal-tipis, isi langsung menyusul
@@ -1426,6 +1430,10 @@ def _cek_sampul(ctx):
         alasan = ("@templat membawa sampulnya sendiri" if meta.get("templat")
                   else f"@sampul: {meta['sampul']} memakai logonya sendiri")
         galat.append(di("@logo") + f"@logo: berwarna hanya untuk sampul qism (bawaan): {alasan}")
+    if meta["isyraf"] == "bawah" and (meta.get("templat") or meta["sampul"] != "qism"):
+        alasan = ("@templat membawa sampulnya sendiri" if meta.get("templat")
+                  else f"@sampul: {meta['sampul']} punya susunannya sendiri")
+        galat.append(di("@isyraf") + f"@isyraf: bawah hanya untuk sampul qism (bawaan): {alasan}")
     if meta.get("judul_sampul"):  # pindah baris judul di sampul tengah: @judul tetap judul persis dari dosen
         if meta["sampul"] != "tengah" or meta.get("templat"):
             galat.append(di("@judul_sampul") + "@judul_sampul hanya untuk @sampul: tengah; sampul lain memecah judulnya sendiri")
@@ -1814,6 +1822,7 @@ def rencana_cetak(d):
             # baris المصادر tanpa huruf Arab dicetak kiri-ke-kanan (rata kiri), nomornya tetap di kanan
             "pustaka_ltr": [pustaka_asing(p) for p in d.get("pustaka", [])],
             "logo_berwarna": sampul == "qism" and not buang_sampul and meta.get("logo") == "berwarna",
+            "isyraf_bawah": sampul == "qism" and not buang_sampul and meta.get("isyraf") == "bawah",
             "judul_sampul": [sub.group(1).strip(), sub.group(2).strip()] if sub else [judul, ""],
             "buang_sampul": buang_sampul, "basmalah": meta.get("basmalah") in ("ya", "utsmani") and not buang_sampul,
             # @basmalah: utsmani = teks Al-Fatihah:1 huruf mushaf, bukan ligatur ﷽ Arabic Typesetting
