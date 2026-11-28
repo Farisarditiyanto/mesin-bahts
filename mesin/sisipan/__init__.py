@@ -10,7 +10,7 @@ Gambar = HTML -> PNG lewat Chrome/Edge (`diagram.browser()`) dan puppeteer-core 
 jalan untuk semua sisipan yang belum ada. PNG disimpan di `<folder bahts>/.sisipan/<sidik>.png`; sidik = SHA-256 halaman
 HTML utuh (data, tema, huruf, lebar) + versi perender, jadi data atau tema yang berubah = gambar baru, dan `cek` di
 komputer yang sudah punya PNG-nya tidak butuh Node/Chrome."""
-import hashlib, html, importlib, json, os, pkgutil, re, subprocess, tempfile, zlib
+import hashlib, html, importlib, json, math, os, pkgutil, re, subprocess, tempfile, zlib
 from pathlib import Path
 
 import diagram
@@ -98,10 +98,11 @@ JENIS = _temukan()  # kata Arab di kepala «#D <jenis> | …» -> modulnya
 
 
 def halaman(modul, data, huruf, lebar_cm, angka):
-    """Dokumen HTML utuh satu sisipan: tema, huruf profil, lebar teks halaman, isinya (#fig), dan penggambar kurungnya."""
+    """Dokumen HTML utuh satu sisipan: tema, huruf profil, lebar teks halaman, isinya (#fig), dan penggambar kurungnya.
+    Lebar dibulatkan ke bawah ke piksel CSS utuh: potret membulatkan ke atas, jadi gambar selebar teks tidak melebihinya."""
     ubah = (lambda s: str(s).translate(ANGKA_HINDI)) if angka == "hindi" else str
     return (f'<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><style>'
-            f':root{{--huruf:"{huruf}";--lebar:{lebar_cm}cm}}\n{TEMA.read_text(encoding="utf8")}</style></head>'
+            f':root{{--huruf:"{huruf}";--lebar:{math.floor(lebar_cm / 2.54 * 96)}px}}\n{TEMA.read_text(encoding="utf8")}</style></head>'
             f'<body><div id="fig" class="{modul.__name__.rsplit(".", 1)[1]}">{modul.html(data, ubah)}</div>'
             f'<script>{GAMBAR.read_text(encoding="utf8")}</script></body></html>')
 
