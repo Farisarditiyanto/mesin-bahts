@@ -230,6 +230,33 @@ def utama():
         out = cek("khilaf satu tercatat", dasar.replace("#K الخاتمة", "#B مسألة\nالقول الأول: يجوز.\n#B مسألة أخرى\n"
                                                         "الرأي الأول: يجوز.\n#K الخاتمة"))
         assert "untuk 1 masalah khilaf («القول الأول»): ke-2 →" in out, out
+        # «bentrok»: satu paragraf harus memuat istilahnya dan bukti dari semua sumber yang saling berbeda
+        sebut = ("وفي نسبة تعريف الربوبية خلاف.[^انظر: رسالة في القضاء والقدر، ص5. <<11223|-|5|توحيد الربوبية>>؛ "
+                 "صحيح البخاري، 1/6. <<1681|1|6|إنما الأعمال بالنيات>>]\n")
+        dua_rujukan = dasar.replace("#K الخاتمة", sebut + "#K الخاتمة", 1)
+        terpisah = dasar.replace("#K الخاتمة", "وفيه خلاف.[^انظر: صحيح البخاري، 1/6. <<1681|1|6|إنما الأعمال بالنيات>>]\n"
+                                 "#K الخاتمة", 1)
+        luar = dua_rujukan.replace("<<1681|1|6|إنما الأعمال بالنيات>>", "<<luar|Kajian.PDF|1>>")
+        shutil.copyfile(AKAR / "contoh/jebakan/sumber.pdf", f / "Kajian.PDF")
+        for nama, isi, teks, pesan in (
+                ("bentrok sumber belum dirujuk", "bentrok الربوبية | 11223 1681", dasar, "belum merujuk 1681 →"),
+                ("bentrok sumber di paragraf lain", "bentrok الربوبية | 11223 1681", terpisah, "belum merujuk 1681 →"),
+                ("bentrok semua sumber sesparagraf", "bentrok الربوبية | 11223 1681", dua_rujukan, ""),
+                ("bentrok pemisah koma/|", "bentrok الربوبية | 1681، 11223 | 1681,11223", dua_rujukan, ""),
+                ("bentrok sumber luar ditulis utuh", "bentrok الربوبية | 11223 <<luar|kajian.pdf|1>>", luar, ""),
+                ("bentrok sumber luar nama berkas", "bentrok الربوبية | 11223 kajian.pdf", luar, ""),
+                ("bentrok istilah tak tertulis", "bentrok الاستصحاب | 11223 1681", dua_rujukan,
+                 "bentrok «الاستصحاب»: istilah itu tidak tertulis di naskah"),
+                ("bentrok istilah Latin", "bentrok niat | 11223 1681", dua_rujukan, "«bentrok niat | 11223 1681»: tulis «bentrok"),
+                ("bentrok satu sumber", "bentrok الربوبية | 11223", dua_rujukan, "«bentrok الربوبية | 11223»: tulis «bentrok")):
+            riset.write_text("tafsir 1:2\ncari الربوبية\n" + isi + "\n", encoding="utf8")
+            out = cek(nama, teks, pesan=pesan)
+            assert ("bentrok" in out) == bool(pesan), (nama, out)
+        riset.write_text("tafsir 1:2\ncari الربوبية\nbentrok الربوبية | 11223 1681\n", encoding="utf8")
+        kode_ = re.search(r"! ([0-9a-f]{6}) baris \d+: bentrok", cek("bentrok kode", dasar)).group(1)
+        riset.write_text(f"tafsir 1:2\ncari الربوبية\nbentrok الربوبية | 11223 1681\nterima {kode_} sudah dibaca dan dicocokkan\n",
+                         encoding="utf8")
+        cek("bentrok tidak bisa diterima", dasar, pesan="perhatian riset.txt tidak bisa diterima")
         riset.unlink()
         # di tengah kalimat (المناقشة, nukilan) bukan masalah baru; «#S القول الأول» lalu «#B أدلة القول الأول» = satu
         out = cek("khilaf bukan masalah baru", dasar.replace("#K الخاتمة", "#S القول الأول\nيجوز.\n#B أدلة القول الأول ومناقشتها\n"
