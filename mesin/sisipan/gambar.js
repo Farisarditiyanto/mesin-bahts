@@ -2,6 +2,12 @@
 // Kurung kurawal tiap .br, digambar sesudah tata letak selesai (potret.js memanggil window.GAMBAR): tingginya = tinggi
 // anaknya (.ch), lebarnya = .bs. Gaya garisnya di tema.css (svg.tinta path).
 window.GAMBAR = () => {
+  // .susut: teks yang dipatahkan max-width selebar baris terpanjangnya (kotak tidak menyisakan ruang kosong di tepi)
+  document.querySelectorAll('.susut').forEach(e => {
+    const r = document.createRange();
+    r.selectNodeContents(e);
+    e.style.width = Math.ceil(Math.max(...[...r.getClientRects()].map(x => x.width))) + 'px';
+  });
   const fig = document.getElementById('fig'), f = fig.getBoundingClientRect();
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', 'tinta');

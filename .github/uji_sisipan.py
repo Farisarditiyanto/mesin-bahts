@@ -99,6 +99,39 @@ class Sisipan(unittest.TestCase):
         self.assertEqual(len(dapat), 1, dapat)
         self.assertIn("belum tergambar: Node.js", next(iter(dapat.values())))
 
+    def test_lughah_data_salah_gagal_di_barisnya(self):
+        """Jenis lughah yang dihitung mesin: data yang tidak bisa dihitung benar (akar mu'tal, ibdal افتعل, fi'il tanpa
+        harakat 'ain, bait tanpa bahr) = GAGAL di barisnya, bukan gambar yang salah; pustaka belum terpasang = GAGAL
+        yang menunjuk `periksa`."""
+        n0 = KEPALA.count("\n")
+        isi = ["#D تشبيه | ت", "#D مشبه: العلم", "فقرة.",
+               "#D مخارج | م", "#D أبرز: قك", "فقرة.",
+               "#D صفات | ص", "#D حرف: ا", "فقرة.",
+               "#D حقل | ح", "#D عام: الألوان", "#D مجموعة: أ | ب", "فقرة.",
+               "#D اشتقاق | ش", "#D جذر: ق و ل", "#D أفعال: فَعَلَ", "فقرة.",
+               "#D اشتقاق | ش", "#D جذر: ص ب ر", "#D أفعال: فَعَلَ | افْتَعَلَ", "فقرة.",
+               "#D إعراب | ع", "#D جملة: جملة اسمية", "#D كلمة: الباء | حرف جر | بالنيات", "فقرة.",
+               "#D تصريف | ص", "#D فعل: كتب", "فقرة.",
+               "#D تقطيع | ق", "#D بيت: كَتَبَ الطَّالِبُ الدَّرْسَ ... وَذَهَبَ إِلَى الْبَيْتِ مُسْرِعًا", "فقرة.",
+               "#D تصريف | ص", "#D فعل: كَتَبَ | ضمة"]
+        harus = {1: "«#D مشبه به: …» belum ada", 5: "huruf hijaiyah tunggal", 8: "selain alif mad",
+                 10: "paling sedikit dua", 15: "huruf illat", 20: "butuh ibdal", 24: "induk «بالنيات» belum ditulis",
+                 27: "butuh harakat 'ain", 30: "tidak cocok dengan bahr", 32: "«libqutrub» belum terpasang"}
+        palsu = self.akar / "palsu" / "libqutrub"  # pustaka yang tidak bisa diimpor, didahulukan di PYTHONPATH
+        palsu.mkdir(parents=True)
+        (palsu / "__init__.py").write_text("raise ImportError('tidak terpasang')\n", encoding="utf8")
+        lama = os.environ.get("PYTHONPATH")
+        os.environ["PYTHONPATH"] = str(palsu.parent)
+        try:
+            keluar = self.cek("\n".join(isi) + "\n", env=tanpa_node())
+        finally:
+            os.environ.pop("PYTHONPATH") if lama is None else os.environ.__setitem__("PYTHONPATH", lama)
+        dapat = galat(keluar)
+        self.assertEqual(sorted(dapat), sorted(n0 + n for n in harus), dapat)
+        for n, kata in harus.items():
+            self.assertIn(kata, dapat[n0 + n])
+        self.assertIn("periksa", dapat[n0 + 32])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

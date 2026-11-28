@@ -4,7 +4,8 @@
 Satu jenis = satu modul di paket ini, ditemukan sendiri (`JENIS`): tambah jenis = tambah satu berkas. Tiap modul punya
 `NAMA` (kata Arab di kepala `#D`), `KUNCI` ({kunci baris isi: bentuk nilainya}), `URAIAN` dan `CONTOH` (dicetak `tanda`),
 `urai(n_kepala, baris) -> data` (galat bentuk = `Salah`), dan `html(data, angka) -> str` (HTML RTL tanpa gaya: seluruh
-gaya di `tema.css`, supaya tampilan semua jenis diganti di satu berkas).
+gaya di `tema.css`, supaya tampilan semua jenis diganti di satu berkas). Jenis yang dihitung pustaka Python luar menyebutnya di
+`PUSTAKA` dan mengimpornya lewat `impor` saat dipakai.
 
 Gambar = HTML -> PNG lewat Chrome/Edge (`diagram.browser()`) dan puppeteer-core (Node.js `npx`, versi dikunci), sekali
 jalan untuk semua sisipan yang belum ada. PNG disimpan di `<folder bahts>/.sisipan/<sidik>.png`; sidik = SHA-256 halaman
@@ -85,6 +86,16 @@ def butir(isi):
     return f'<div class="lf">{isi}</div>'
 
 
+def impor(n_kepala, nama):
+    """Modul pustaka `nama` (salah satu PUSTAKA), diimpor baru saat jenisnya dipakai; belum terpasang = Salah."""
+    try:
+        return importlib.import_module(nama)
+    except ImportError:
+        from dasar import perintah
+        raise Salah(n_kepala, f"pustaka Python «{nama}» belum terpasang (untuk #D {PUSTAKA[nama]}): "
+                              f"{perintah('periksa')} menyebut cara memasangnya") from None
+
+
 def _temukan():
     jenis = {}
     for m in pkgutil.iter_modules(__path__):
@@ -95,6 +106,8 @@ def _temukan():
 
 
 JENIS = _temukan()  # kata Arab di kepala «#D <jenis> | …» -> modulnya
+# pustaka Python yang dihitung sebagian jenis ({nama impor: nama #D}; dipasang lewat requirements.txt, diperiksa `periksa`)
+PUSTAKA = {pustaka: nama for nama, m in JENIS.items() for pustaka in getattr(m, "PUSTAKA", ())}
 
 
 def halaman(modul, data, huruf, lebar_cm, angka):

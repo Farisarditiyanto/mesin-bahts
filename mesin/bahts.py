@@ -100,6 +100,9 @@ def periksa():
     baris(all(importlib.util.find_spec(m) for m in PUSTAKA), f"pustaka Python ({', '.join(PUSTAKA)})", pip)
     baris(bool(importlib.util.find_spec("pymupdf")), "pustaka Python pymupdf (untuk gambar PNG scan Waqfeya di "
           "`halaman w…` dan grid visual `pratinjau`; tanpa itu scan dibuka sebagai PDF)", pip, untuk_cek=False, untuk_rakit=False)
+    import sisipan  # pustaka yang dihitung sebagian jenis #D (tasrif, taqthi'): tanpa itu hanya jenis itu yang GAGAL
+    baris(all(importlib.util.find_spec(m) for m in sisipan.PUSTAKA), f"pustaka Python {', '.join(sisipan.PUSTAKA)} (hanya untuk "
+          f"#D {'، '.join(dict.fromkeys(sisipan.PUSTAKA.values()))})", pip, untuk_cek=False, untuk_rakit=False)
     baris((shamela.ROOT / shamela.KATALOG).exists(), "katalog kitab", perintah("siapkan"))
     baris(layanan.siap(), "tabel layanan Shamela (hanya untuk `tafsir`, `takhrij`, `rawi`, `akar`)", perintah("siapkan"),
           untuk_cek=False, untuk_rakit=False)
