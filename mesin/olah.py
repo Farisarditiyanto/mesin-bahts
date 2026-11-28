@@ -1305,7 +1305,9 @@ def _cek_jumlah_kitab(ctx, quran):
     for p in ctx.pustaka:
         if p in quran:
             continue
-        kunci = norma.norm(p.replace("**", "").replace("__", ""))
+        polos = p.replace("**", "").replace("__", "")
+        # norma.norm hanya menyisakan huruf Arab: huruf Latin dan angka ikut kunci, supaya dua rujukan Latin tidak kembar
+        kunci = (norma.norm(polos), " ".join(re.findall(r"[a-z0-9]+", polos.casefold())))
         if kunci in unik:
             kembar.append(p)
         unik.add(kunci)

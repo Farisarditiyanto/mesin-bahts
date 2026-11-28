@@ -6,6 +6,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Perbaikan: baris `#R` berhuruf Latin yang berbeda (mis. rujukan bahasa Inggris) tidak lagi dianggap kembar dan GAGAL di `cek`.
 - Baru: `@isyraf: bawah` di sampul bawaan mencetak blok «إعداد الطالب:» lebih dulu, lalu «تحت إشراف:» dan pembimbing di bawahnya.
 - Perbaikan: `@qism` di sampul bawaan (qism) kini benar-benar mengganti «قسم الشريعة»; sebelumnya baris itu tetap tercetak.
 - Baru: baris `bentrok <istilah> | <sumber> <sumber>` di `riset.txt` untuk sumber yang saling berbeda; `cek` memberi perhatian sampai satu paragraf memuat istilah itu dan bukti dari semua sumbernya.
