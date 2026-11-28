@@ -69,7 +69,8 @@ def html(d, angka):
     def simpul(k):
         ke = " ".join(id_[s] for s in d["induk"][k])
         kelas = "simpul madar" if k == d["madar"] else "simpul"
-        isi = E(k) + ('<span class="n">مدار الإسناد</span>' if k == d["madar"] else "")
+        # ﷺ ditulis lengkap: huruf yang tidak memuat ligatur itu (mis. di Linux) mencetak ruang kosong setinggi baris
+        isi = E(k).replace("ﷺ", "صلى الله عليه وسلم") + ('<span class="n">مدار الإسناد</span>' if k == d["madar"] else "")
         return f'<div class="{kelas}" data-id="{id_[k]}"' + (f' data-ke="{ke}"' if ke else "") + f">{isi}</div>"
 
     return "".join(f'<div class="tingkat">{"".join(simpul(k) for k in b)}</div>' for b in d["baris"])
