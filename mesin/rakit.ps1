@@ -22,6 +22,7 @@ $dir = $PSScriptRoot
 . "$dir\kepala.ps1"                     # kepala/kaki halaman isi (@kepala) dan garis pemisah catatan kaki
 . "$dir\pemisah.ps1"                    # halaman pemisah #F (@judul_fasl) dan halaman penutup (@tamma), tanpa nomor
 . "$dir\fihris.ps1"                     # فهرس الآيات/الأحاديث/الآثار/nama/الأشعار dan isian nomor halamannya
+. "$dir\sisipan.ps1"                    # kotak #T, butir daftar #-, terjemah sejajar #P, pemisah #Z
 $DATA = Get-Content -LiteralPath $Build -Raw -Encoding UTF8 | ConvertFrom-Json
 $M = $DATA.meta
 # Rencana cetak (olah.rencana_cetak): apa yang dicetak dan di mana sudah diputuskan di sana, termasuk bawaan profil.
@@ -1117,6 +1118,10 @@ try {
             Tulis $blk.judul $TJ $uJudulSub 1 0
             $sel.TypeParagraph()
         }
+        elseif ($blk.kotak) { Tulis-Kotak $i $pb }        # sisipan.ps1
+        elseif ($blk.daftar) { Tulis-Butir $i $pb }
+        elseif ($null -ne $blk.paralel) { $i = @(Tulis-Paralel $i $pb)[-1] }
+        elseif ($blk.k -eq 'Z') { Tulis-Pemisah $pb }
         elseif ($blk.kutipan_blok) {                     # #Q kutipan blok: paragraf sendiri, menjorok di dua sisi, tanpa awal alinea
             Para 3 6 0
             HalamanBaru $pb
@@ -1133,7 +1138,7 @@ try {
             $sel.TypeParagraph()
         }
         else {
-            if ($diMulakhas) { Para 3 $(if ($DATA.blok[$i - 1].k -eq 'K') { 0 } else { 6 }) 0 } else { Para 3 $(if ($i -gt 0 -and $DATA.blok[$i - 1].k -eq 'J') { 6 } else { 0 }) ($word.CentimetersToPoints($AWAL_ALINEA)); $sel.ParagraphFormat.SpaceAfter = $JARAK_P }   # sesudah tabel: berjarak
+            if ($diMulakhas) { Para 3 $(if ($DATA.blok[$i - 1].k -eq 'K') { 0 } else { 6 }) 0 } else { Para 3 $(if ($i -gt 0 -and ($DATA.blok[$i - 1].k -eq 'J' -or $null -ne $DATA.blok[$i - 1].paralel)) { 6 } else { 0 }) ($word.CentimetersToPoints($AWAL_ALINEA)); $sel.ParagraphFormat.SpaceAfter = $JARAK_P }   # sesudah tabel #J/#P: berjarak
             HalamanBaru $pb
             Runs $blk.runs $uMatan $false
             if ((Pengantar $blk) -and (Menempel $i)) { $sel.ParagraphFormat.KeepWithNext = -1 }

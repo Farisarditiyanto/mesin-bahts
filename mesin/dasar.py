@@ -39,10 +39,9 @@ class TandaRusak(ValueError):
 
 # Tanda dan @data naskah kitab/muqarrar yang sudah tidak ada: GAGAL dengan jalan keluarnya, bukan «data tidak dikenal»,
 # «judul harus …», atau teks biasa yang tercetak apa adanya. Kunci = bentuk tulisnya di naskah.
-_MUQARRAR = "mesin ini khusus bahts; naskah kitab/muqarrar dirakit dengan versi mesin b4dbc50 (atau rilis v14.0.0)"
-DICABUT = {"@bentuk": _MUQARRAR, "@rumuz": _MUQARRAR, "@warna": _MUQARRAR,
-           "#T": _MUQARRAR + "; nash yang dikutip di bahts ditulis sebagai paragraf biasa bertanda petik",
-           "((…))": _MUQARRAR + "; kutipan di bahts ditulis \"…\" atau «…»"}
+MUQARRAR = "mesin ini khusus bahts; naskah kitab/muqarrar dirakit dengan versi mesin b4dbc50 (atau rilis v14.0.0)"
+DICABUT = {"@bentuk": MUQARRAR, "@rumuz": MUQARRAR, "@warna": MUQARRAR,
+           "((…))": MUQARRAR + "; kutipan di bahts ditulis \"…\" atau «…»"}
 
 
 def akhir_rumus(teks, i):

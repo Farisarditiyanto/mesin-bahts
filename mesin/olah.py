@@ -17,7 +17,7 @@ from cek_rujukan import kitab_tanpa_pustaka, pustaka_tak_dirujuk, rujukan_halama
 from cek_sumber import standar_baris
 from cek_tautsiq import gelar
 from dasar import (AD, ANGKA_LATIN, ANZHUR, BUKAN_RUJUKAN, HERE, HORMAT_CETAK, HURUF_LATIN, JUDUL_BAB, JUDUL_FIHRIS, JUDUL_ISI, LUAR,
-                   MULAKHAS, MULAKHAS_ASING, SUBJUDUL, SURAH, TINGKAT_JUDUL, DICABUT, TandaRusak, akhir_catatan, akhir_rumus, baca_anzhur, daftar, perintah,
+                   MULAKHAS, MULAKHAS_ASING, MUQARRAR, SUBJUDUL, SURAH, TINGKAT_JUDUL, DICABUT, TandaRusak, akhir_catatan, akhir_rumus, baca_anzhur, daftar, perintah,
                    profil_format, tanpa_catatan)
 from petik import kutipan_semua, luar_petik
 from laporan import gabung_kembar
@@ -161,6 +161,19 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       menjorok kanan-kiri (profil: tepi_kutipan, ukuran_kutipan); dicek seperti kutipan biasa. Isinya hanya
                       kutipan bertanda petik (pengantar di dalamnya = GAGAL); paragraf sebelumnya berakhir «:», kalau tidak
                       = perhatian. Tidak kena batas panjang kutipan
+  #T jenis | teks     kotak bergaris gaya kitab cetak lama (hitam putih, tanpa latar), jenis فائدة (garis tunggal
+                      keliling) | تنبيه (garis ganda atas-bawah) | تعريف (garis ganda keliling) | خلاصة (garis tunggal
+                      atas-bawah); «jenis:» tebal (mis. «فائدة:») mengawali teksnya. «#T تعريف | judul | teks» = judul tebal di tengah atas
+                      kotak (tanpa «jenis:»). Teksnya paragraf biasa: boleh bercatatan kaki dan kutipan berbukti (dicek
+                      seperti paragraf); kotak panjang ikut terpotong pindah halaman. Judul kotak tanpa [^, <<, {…}, **
+  #- jenis teks       butir daftar bernomor; jenis abjad (أ- ب- ج- د- هـ-) | alif (ا- ب- ت- ث-) | tartib (أولًا: ثانيًا:
+                      tebal, sampai عشرون) | raqm (١- ٢- ٣-, angka menurut @angka). «#--»/«#---» = tingkat 2/3 di bawah
+                      butir sebelumnya, menjorok. Baris #- berturut-turut = satu daftar; jenis wajib di butir pertama tiap
+                      tingkat, butir sesudahnya boleh tanpa jenis; nomor mulai lagi tiap induk baru. Teks dicek seperti paragraf
+  #P teks Arab | terjemah   tabel dua kolom: Arab di kanan (dicek seperti paragraf), terjemah Latin kiri-ke-kanan di kiri
+                      (Times New Roman seperti #L, tanpa catatan kaki atau tanda {…}); baris #P berturut-turut = satu
+                      tabel bergaris tipis di atas, bawah, dan tengah
+  #Z                  pemisah «٭  ٭  ٭» di tengah (ganti pokok bahasan di dalam satu bagian)
   #L teks             paragraf bahasa Latin, kiri ke kanan (mis. الملخص bahasa Inggris); tanpa catatan kaki; Times New Roman
                       12 (judulnya 14), profil bisa mengubahnya lewat kunci "latin" di mesin/format.json. Kata Latin
                       di tengah teks Arab (paragraf, tabel, catatan kaki, المصادر) dicetak Times New Roman juga, dengan
@@ -842,6 +855,107 @@ def _baris_latin(ctx, n, k, t):
     blok.append({"k": "L", "runs": [{"t": m[1].strip() if m else t}], "n": n, **({"tengah": True} if m else {})})
 
 
+# «#T jenis | teks» kotak bergaris seperti kitab cetak lama (bentuk garis tiap jenis: rakit KOTAK di sisipan.ps1)
+KOTAK = ("فائدة", "تنبيه", "تعريف", "خلاصة")
+
+
+def _baris_kotak(ctx, n, k, t):
+    """«#T jenis | teks» atau «#T jenis | judul | teks»: paragraf biasa di dalam bingkai (catatan kaki dan kutipannya
+    dicek seperti paragraf). Tanpa judul, «jenis:» tebal mengawali teksnya; dengan judul, judul itu tebal di tengah
+    bagian atas kotak."""
+    try:
+        bagian = _pisah_sel(t)
+    except TandaRusak as e:
+        ctx.galat.append(f"{e} :: #T {t[:40]}")
+        return
+    if len(bagian) not in (2, 3) or bagian[0] not in KOTAK or not all(bagian):
+        ctx.galat.append(f"#T = kotak «#T jenis | teks» atau «#T jenis | judul | teks», jenis {'/'.join(KOTAK)}"
+                         + ("" if " | " in t else f"; #T matan lama: {MUQARRAR}") + f" :: #T {t[:40]}")
+        return
+    jenis, *judul, teks = bagian
+    if judul and re.search(r"\[\^|<<|\{|\*\*", judul[0]):
+        ctx.galat.append(f"judul kotak #T tidak boleh memuat catatan kaki, bukti, tanda {{…}}, atau **: pindahkan ke "
+                         f"teksnya :: #T {t[:40]}")
+        return
+    runs = _urai_aman(ctx, teks)
+    if runs is not None:
+        label = [] if judul else [{"t": f"{jenis}: ", "b": True}]
+        ctx.blok.append({"k": "P", "runs": [*label, *runs], "n": n, "kotak": {"jenis": jenis, "judul": "".join(judul)}})
+
+
+# «#- jenis teks» butir daftar bernomor; «#--»/«#---» = tingkat 2/3 di bawah butir sebelumnya. Label tiap jenis menurut
+# nomornya; tartib = kata urutan tebal di awal butir (tanpa jorok gantung), yang lain «label-» di jorok gantung
+_ABJAD = ("أ", "ب", "ج", "د", "هـ", "و", "ز", "ح", "ط", "ي", "ك", "ل", "م", "ن", "س", "ع", "ف", "ص", "ق", "ر", "ش", "ت",
+          "ث", "خ", "ذ", "ض", "ظ", "غ")
+_ALIF = ("ا", "ب", "ت", "ث", "ج", "ح", "خ", "د", "ذ", "ر", "ز", "س", "ش", "ص", "ض", "ط", "ظ", "ع", "غ", "ف", "ق", "ك",
+         "ل", "م", "ن", "هـ", "و", "ي")
+_TARTIB = ("أولًا", "ثانيًا", "ثالثًا", "رابعًا", "خامسًا", "سادسًا", "سابعًا", "ثامنًا", "تاسعًا", "عاشرًا", "حادي عشر",
+           "ثاني عشر", "ثالث عشر", "رابع عشر", "خامس عشر", "سادس عشر", "سابع عشر", "ثامن عشر", "تاسع عشر", "عشرون")
+DAFTAR = {"abjad": (_ABJAD, "-"), "alif": (_ALIF, "-"), "tartib": (_TARTIB, ":"), "raqm": (None, "-")}  # (urutan, penutup)
+
+
+def _baris_daftar(ctx, n, k, t):
+    """«#- jenis teks» (tingkat = jumlah «-», paling banyak 3): baris #- berturut-turut = satu daftar. Jenis wajib di
+    butir pertama tiap tingkat di bawah induknya; butir sesudahnya boleh tanpa jenis (ikut saudaranya). Nomor mulai
+    lagi tiap induk baru. Teksnya diurai dan dicek seperti paragraf."""
+    tingkat, b = len(k), f"#{k} {t}"[:40]
+    if k.strip("-") or tingkat > 3:
+        ctx.galat.append(f"daftar paling banyak tiga tingkat: #- / #-- / #--- :: {b}")
+        return
+    jenis, _, sisa = t.partition(" ")
+    if jenis not in DAFTAR:
+        jenis, sisa = None, t
+    saudara = []  # butir setingkat di bawah induk yang sama, dari yang terdekat
+    for x in reversed(ctx.blok):
+        d = x.get("daftar")
+        if not d or d["tingkat"] < tingkat:
+            break
+        if d["tingkat"] == tingkat:
+            saudara.append(d)
+    lalu = ctx.blok[-1].get("daftar") if ctx.blok else None
+    if tingkat > (lalu["tingkat"] if lalu else 0) + 1:
+        ctx.galat.append(f"butir #{k} tanpa butir tingkat {tingkat - 1} tepat sebelumnya :: {b}")
+        return
+    if saudara and jenis and jenis != saudara[0]["jenis"]:
+        ctx.galat.append(f"satu tingkat daftar satu jenis: butir sebelumnya «{saudara[0]['jenis']}» :: {b}")
+        return
+    jenis = jenis or (saudara[0]["jenis"] if saudara else None)
+    urut, tutup = DAFTAR.get(jenis, ((), ""))
+    nomor = len(saudara) + 1
+    label = f"{nomor}{tutup}" if urut is None else urut[nomor - 1] + tutup if nomor <= len(urut) else None
+    salah = (f"butir pertama tingkat ini butuh jenis: «#{k} {'/'.join(DAFTAR)} teks»" if not jenis
+             else f"daftar {jenis} paling banyak {len(saudara)} butir: pakai raqm" if not label
+             else f"butir #{k} butuh teks" if not sisa.strip() else None)
+    if salah:
+        ctx.galat.append(f"{salah} :: {b}")
+        return
+    runs = _urai_aman(ctx, sisa.strip())
+    if runs is not None:
+        gantung = jenis != "tartib"
+        ctx.blok.append({"k": "P", "runs": [{"t": label + ("\t" if gantung else " "), "b": not gantung}, *runs], "n": n,
+                         "daftar": {"tingkat": tingkat, "jenis": jenis, "gantung": gantung}})
+
+
+def _baris_paralel(ctx, n, k, t):
+    """«#P teks Arab | terjemah»: satu baris tabel dua kolom (Arab di kanan, terjemah Latin kiri-ke-kanan di kiri); baris
+    #P berturut-turut = satu tabel. Teks Arab diurai dan dicek seperti paragraf; terjemahnya tercetak apa adanya (#L)."""
+    try:
+        sel = _pisah_sel(t)
+    except TandaRusak as e:
+        ctx.galat.append(f"{e} :: #P {t[:40]}")
+        return
+    if len(sel) != 2 or not all(sel):
+        ctx.galat.append(f"#P butuh dua sel berisi: «#P teks Arab | terjemah» :: #P {t[:40]}")
+        return
+    if re.search(r"\[\^|<<|\{", sel[1]):
+        ctx.galat.append(f"terjemah #P tidak boleh memuat catatan kaki, bukti, atau tanda {{…}}: taruh di sel Arab :: "
+                         f"#P {t[:40]}")
+        return
+    runs = _urai_aman(ctx, sel[0])
+    if runs is not None:
+        ctx.blok.append({"k": "P", "runs": runs, "n": n, "paralel": sel[1]})
+
+
 def _baris_bait(ctx, n, k, t):
     """«#V teks» (bait syair): paragraf biasa (boleh bercatatan kaki); kata yang dipecah «...~» dicek dan dicetak utuh,
     bukan sebagai dua bagian kutipan."""
@@ -939,7 +1053,8 @@ def _baris_rumus(ctx, n, k, t):
 
 # Tanda baris «#X teks» -> penangannya (ctx, nomor baris, X, teks). Tanda baris baru = penangan baru di sini
 TANDA_BARIS = {**dict.fromkeys((*JUDUL_ISI, "R"), _baris_judul), "V": _baris_bait, "L": _baris_latin,
-               "J": _baris_tabel, "G": _baris_gambar, "D": _baris_sisipan, "E": _baris_rumus, "Q": _baris_kutipan}
+               "J": _baris_tabel, "G": _baris_gambar, "D": _baris_sisipan, "E": _baris_rumus, "Q": _baris_kutipan,
+               "T": _baris_kotak, "P": _baris_paralel, **dict.fromkeys(("-", "--", "---"), _baris_daftar)}
 
 
 def _urai_aman(ctx, teks):
@@ -971,8 +1086,8 @@ def _satu_baris(ctx, n, b):
     elif "#R" in di_baris and b.startswith("#"):
         galat.append(f"{b.split()[0]} sesudah #R di baris {di_baris['#R']} tidak dirakit: "
                      "pindahkan bagian isi sebelum #R; sesudah #R hanya satu rujukan per baris")
-    elif b.strip() == "#H":  # pindah halaman: blok sesudahnya mulai halaman baru (awal_halaman)
-        blok.append({"k": "H", "runs": [], "n": n})
+    elif b.strip() in ("#H", "#Z"):  # #H pindah halaman: blok sesudahnya mulai halaman baru (awal_halaman); #Z pemisah
+        blok.append({"k": b.strip()[1:], "runs": [], "n": n})
     elif b.startswith("#"):
         k, _, t = b[1:].partition(" ")
         t = t.strip()

@@ -108,8 +108,8 @@ def utama():
         cek("@bentuk dicabut", "@bentuk: kitab\n" + dasar, True, "@bentuk dicabut: " + muqarrar)
         cek("@rumuz dicabut", "@rumuz: 11223=-\n" + dasar, True, "@rumuz dicabut: " + muqarrar)
         cek("@warna dicabut", "@warna: 11223=biru\n" + dasar, True, "@warna dicabut: " + muqarrar)
-        # #T dan ((…)) tidak boleh diam-diam jadi judul tak dikenal atau teks biasa yang tercetak dengan kurungnya
-        for nama, sisip, pesan in (("#T dicabut", "#T نص المتن.\n", "#T dicabut: " + muqarrar),
+        # #T matan lama (sekarang kotak «#T jenis | teks») dan ((…)) tidak boleh diam-diam jadi teks biasa yang tercetak
+        for nama, sisip, pesan in (("#T matan lama", "#T نص المتن.\n", "#T matan lama: " + muqarrar),
                                    ("((…)) dicabut", "قال المصنف: ((نص المتن)).\n", "tanda rusak — ((…)) dicabut: " + muqarrar)):
             out = cek(nama, dasar.replace("#K الخاتمة", sisip + "#K الخاتمة"), True, pesan)
             assert re.search(r"\| GAGAL: 1$", out, re.M), (nama, out)

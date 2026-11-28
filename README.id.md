@@ -140,6 +140,7 @@ Semua perintah = `python mesin/bahts.py <perintah>`. Daftar lengkap dan argumenn
 | `mesin/kepala.ps1`, `hias_kitab.png` | kepala dan kaki halaman tiap `@kepala`, garis pemisah catatan kaki |
 | `mesin/pemisah.ps1` | halaman pemisah tiap #F (`@judul_fasl`) dan halaman penutup (`@tamma`) tanpa nomor |
 | `mesin/fihris.ps1` | فهرس ayat, hadits, atsar, nama, tempat, kabilah, gharib, dan syair (`@fihris_ayat`, `@fihris_hadits`, `@fihris_alam`) |
+| `mesin/sisipan.ps1` | sisipan bergaya kitab cetak lama: kotak bergaris `#T`, daftar bernomor `#-`, teks Arab dan terjemahnya `#P`, pemisah `#Z` |
 | `mesin/naskah_baru.txt`, `riset_baru.txt` | kerangka dari `baru` |
 | `contoh/` | `naskah.txt` + `riset.txt` contoh dan `jebakan/` untuk tes |
 | `.mcp.json`, `opencode.json` | daftar connector (`opencode.json` = salinan untuk OpenCode) |
