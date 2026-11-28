@@ -293,6 +293,11 @@ TANDA_RISET = """riset.txt (di folder bahts, di samping naskah.txt): jejak langk
                       مبحث = tiap #B kalau ada #F «الفصل…»/«فصل…», #B «المبحث…», atau tidak ada #F, ditambah #F tanpa
                       #B (mis. التمهيد); selain itu tiap #F. Tidak bisa dijalankan: «belum cari <istilah> | <alasan>»
   belum <langkah> <objek> <alasan>   langkah yang tidak bisa dijalankan; sebut di laporan akhir
+  bentrok <istilah> | <sumber> <sumber> …   sumber yang dibaca saling berbeda tentang satu hal (penisbatan pendapat,
+                      derajat hadits, klaim ijmak); sumber dipisah spasi = nomor kitab Shamela, w… Waqfeya, atau nama
+                      berkas PDF bukti <<luar|berkas.pdf|hal>>. Harus ada satu paragraf (matan beserta catatan kakinya)
+                      yang memuat istilah itu dan bukti <<…>> dari semua sumbernya: di situ perbedaannya disebut dan
+                      ditarjih; belum = perhatian (tidak bisa diterima). Ternyata tidak berbeda → hapus barisnya
   terima <kode> <alasan>   perhatian `cek` berkode itu («  ! 3f9a2c baris …») memang tidak bisa dibereskan, atau salah
                       tangkap; alasannya dinilai pemeriksa. Tiap perhatian wajib ditangani: dibereskan di naskah, atau
                       diterima begini (alasan paling sedikit 3 kata); selama ada yang belum, `tahap` tidak menganggap

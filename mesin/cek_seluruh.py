@@ -12,6 +12,14 @@ from petik import kutipan_semua, luar_petik
 
 RISET = "riset.txt"
 CARI_PISAH = "|"  # «cari <istilah> | <catatan>»: istilah boleh beberapa kata, jadi alasan «belum cari» dipisah tanda ini
+BENTROK = "bentrok"  # «bentrok <istilah> | <sumber> <sumber> …»: sumber yang saling berbeda tentang satu hal
+BENTROK_BENTUK = (f"«{BENTROK} <istilah huruf Arab> {CARI_PISAH} <sumber> <sumber> …» (sumber dipisah spasi, paling sedikit "
+                  f"dua: nomor kitab Shamela, w… Waqfeya, atau nama berkas PDF bukti <<luar|berkas.pdf|hal>>, mis. kajian.pdf)")
+BENTROK_CARA = ("tulis satu paragraf (matan beserta catatan kakinya) yang memuat istilah itu dan menyebut perbedaan sumbernya, "
+                "dengan bukti <<…>> dari tiap sumber, lalu tarjih atau nyatakan belum bisa ditarjih; ternyata tidak berbeda "
+                "setelah bab-nya dibaca → hapus barisnya")
+SUMBER_PISAH = re.compile(r"[\s،,|]+")
+BUKTI = re.compile(r"<<([^<>]*)>>")
 TERIMA = "terima"  # «terima <kode> <alasan>»: perhatian yang memang tidak bisa dibereskan, atau salah tangkap
 TERIMA_BENTUK = f"«{TERIMA} <kode 6 huruf dari `cek`> <alasan>»"
 TERIMA_KATA = 3  # alasan sependek «ok» atau «sudah dicek» tidak bisa dinilai pemeriksa
@@ -105,7 +113,8 @@ def _terapkan_terima(isi, perhatian, riset, teks_baris):
     for p in riset:
         if kode_[p] in alasan:
             salah.append(f"{RISET} baris {alasan.pop(kode_[p])[0]}: {TERIMA} «{kode_[p]}»: perhatian riset.txt tidak "
-                         f"bisa diterima: jalankan langkahnya lalu catat, atau «belum <langkah> <objek> <alasan>» tiap objek")
+                         f"bisa diterima: jalankan langkahnya lalu catat, atau «belum <langkah> <objek> <alasan>» tiap objek "
+                         f"(«{BENTROK}»: kerjakan yang disebut perhatiannya)")
     salah += [f"{RISET} baris {n}: {TERIMA} «{k}»: kode itu tidak muncul lagi di `cek` (perhatiannya sudah hilang, atau "
               f"isinya berubah dan berkode baru): hapus barisnya" for k, (n, _) in alasan.items()]
     belum += riset + salah
@@ -117,13 +126,25 @@ def _periksa_langkah(isi, baris, perhatian):
     """Langkah riset wajib yang tidak meninggalkan jejak di kitab lokal (AGENTS.md Alur kerja langkah 2): takhrij
     `shamela_search_phrase` kategori 8 tiap {H:}, tafsir lewat connector tiap ayat {Q:}, `shamela_research_scope`
     tiap masalah khilaf. Agen mencatatnya di riset.txt; yang belum tercatat = perhatian, tidak pernah GAGAL:
-    isi riset.txt ditulis agen sendiri, jadi mesin hanya bisa menunjuk yang belum dicatat, bukan membuktikan."""
+    isi riset.txt ditulis agen sendiri, jadi mesin hanya bisa menunjuk yang belum dicatat, bukan membuktikan.
+    «bentrok» = sumber yang dibaca saling berbeda (penisbatan, derajat, klaim ijmak): harus ada satu paragraf yang memuat
+    istilahnya dan bukti dari semua sumber itu, supaya perbedaannya tersebut di naskah, bukan dipilih diam-diam. Isi
+    paragrafnya (benar menyebut perbedaan dan tarjihnya) dinilai pemeriksa langkah 5, bukan mesin."""
     tercatat = {k: v.tercatat() for k, v in LANGKAH.items()}
     bentuk = (f"bentuknya «langkah objek» ({'، '.join(f'{k} <{v.objek}>' for k, v in LANGKAH.items())}), "
-              f"«belum langkah objek alasan» untuk langkah yang tidak bisa dijalankan, atau {TERIMA_BENTUK}")
+              f"«belum langkah objek alasan» untuk langkah yang tidak bisa dijalankan, {BENTROK_BENTUK}, atau {TERIMA_BENTUK}")
+    bentrok = []  # (baris riset.txt, istilah, pola, {sumber})
     for n, b in enumerate(isi, 1):
         kata_ = b.split()
         if not kata_ or kata_[0].startswith("#") or kata_[0] == TERIMA:
+            continue
+        if kata_[0] == BENTROK:
+            istilah, _pisah, sumber = " ".join(kata_[1:]).partition(CARI_PISAH)
+            sumber = _sumber_bukti(sumber) | {x.lower() for x in SUMBER_PISAH.split(BUKTI.sub(" ", sumber)) if x}
+            if not re.search("[ء-ي]", norma.norm(istilah)) or "<" in istilah or len(sumber) < 2 or any(">" in x for x in sumber):
+                perhatian.append(f"{RISET} baris {n}: «{b.strip()[:50]}»: tulis {BENTROK_BENTUK}")
+            else:
+                bentrok.append((n, istilah.strip(), _pola_istilah(istilah), sumber))
             continue
         belum = kata_[0] == "belum"
         if belum:
@@ -167,6 +188,23 @@ def _periksa_langkah(isi, baris, perhatian):
     belum = {k: [] for k in LANGKAH}  # langkah -> [(baris naskah, objek)] yang belum tercatat
     belum["cari"] = [(n, f"«{judul[:40]}»") for n, judul, isi in _bagian_cari(baris)
                      if not any(pola.search(isi) for pola in tercatat["cari"])]
+    for n, istilah, pola, sumber in bentrok:
+        terdekat = None  # (sumber yang belum dirujuk, baris naskah) paragraf pemuat istilah yang paling dekat lengkap
+        for nb, b in itertools.takewhile(lambda nb_b: not nb_b[1].startswith("#R"), baris):
+            if b.startswith("@") or not pola.search(norma.norm(BUKTI.sub(" ", b))):
+                continue
+            kurang = sumber - _sumber_bukti(b)
+            if not kurang:
+                break
+            if terdekat is None or len(kurang) < len(terdekat[0]):
+                terdekat = (kurang, nb)
+        else:
+            if terdekat is None:
+                perhatian.append(f"{RISET} baris {n}: {BENTROK} «{istilah[:40]}»: istilah itu tidak tertulis di naskah → "
+                                 f"{BENTROK_CARA}")
+            else:
+                perhatian.append(f"baris {terdekat[1]}: {BENTROK} «{istilah[:40]}» ({RISET} baris {n}): paragraf ini memuat "
+                                 f"istilahnya tetapi belum merujuk {' '.join(sorted(terdekat[0]))} → {BENTROK_CARA}")
     for n, b in baris:
         if b.startswith("#R"):
             di_r = True  # daftar المصادر: bukan isi bahts
@@ -225,6 +263,12 @@ URUTAN_JUDUL = re.compile(r"^(?:ال)?(?:فصل|مبحث|مطلب|باب)(?:\s+(
 FASL = re.compile(r"^(?:ال)?فصل(?![ء-ي])")
 MABHATS = re.compile(r"^(?:ال)?مبحث(?![ء-ي])")
 JUDUL_MABHATS = (*BATAS_BAB, "B")  # judul yang menentukan tingkat مبحث; #M dan #S ada di dalam مبحث
+
+
+def _sumber_bukti(teks):
+    """Sumber tiap bukti <<…>> di teks: nomor kitab Shamela, w… Waqfeya, atau nama berkas <<luar|berkas.pdf|hal>>."""
+    return {(s[1] if s[0].strip() == "luar" and len(s) > 1 else s[0]).strip().lower()
+            for s in (m.split("|") for m in BUKTI.findall(teks))}
 
 
 def _bagian_cari(baris):

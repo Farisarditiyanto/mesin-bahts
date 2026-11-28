@@ -6,6 +6,7 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Baru: baris `bentrok <istilah> | <sumber> <sumber>` di `riset.txt` untuk sumber yang saling berbeda; `cek` memberi perhatian sampai satu paragraf memuat istilah itu dan bukti dari semua sumbernya.
 - Baru: bahts baru (`baru`) memakai `@kepala: -`: tanpa kepala halaman, nomor di tengah bawah. Naskah yang sudah ada tidak berubah; kepala bergaris berjudul tetap lewat `@kepala: klasik`.
 
 ## 14.1.0 — 2026-11-27
