@@ -3,3 +3,5 @@ pypdf
 fonttools
 rapidfuzz
 pymupdf
+libqutrub==1.2.4.1
+pyarud==1.0.0

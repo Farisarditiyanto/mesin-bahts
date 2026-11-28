@@ -28,7 +28,7 @@ b,.k{font-weight:bold}
 .ch{display:flex;flex-direction:column;padding:2pt 0}
 .ch>.br+.br,.ch>.br+.lf,.ch>.lf+.br{margin-top:4pt}
 .lf{padding:0 2pt;white-space:nowrap}
-.lebar .lf{white-space:normal}
+.lebar .lf{white-space:normal;text-align:justify}
 .res{margin-top:3pt;border-top:var(--garis) solid var(--tinta);padding-top:2pt;text-align:center}
 
 /* مراتب: martabat di kanan, kurung hukum di kiri, semua baris rata satu kolom */
@@ -44,3 +44,42 @@ b,.k{font-weight:bold}
 .tbl th{font-weight:bold;text-align:center;font-size:13.5pt}
 .tbl td.no{text-align:center;white-space:nowrap}
 .tbl td.tengah{text-align:center}
+
+/* lughah: dua blok berdampingan (.duo), kalimat bernomor rukun (تشبيه), huruf dilingkari (مخارج), kelompok tabel dipisah
+   garis ganda (.grup), pohon i'rab atas-bawah bergaris tunggal (.pohon), bait dua paruh (تقطيع) */
+.duo{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:4pt 14pt}
+.duo.atas{align-items:flex-start;gap:6pt}
+.duo.atas>.tbl{flex:1;margin:0}
+.jumla{text-align:center;font-size:17pt;font-weight:bold;margin-bottom:3pt}
+.jumla .rk{display:inline-flex;flex-direction:column;align-items:center;vertical-align:top}
+.jumla .rk .no{font-size:10pt;font-weight:normal;line-height:1;border-top:var(--garis) solid var(--tinta);align-self:stretch;
+  text-align:center;padding-top:1pt}
+.lingkar{display:inline-block;border:var(--garis) solid var(--tinta);border-radius:50%;min-width:1.5em;line-height:1.3;text-align:center}
+.tbl tr.kp th{font-size:var(--teks);border-top:var(--ganda);border-bottom:var(--garis) solid var(--tinta)}
+.tbl tr.kp:first-child th{border-top:none}
+.tbl td.hr{text-align:center;font-weight:bold;white-space:nowrap}
+.tbl tr.grup>*{border-top:var(--ganda)}
+.tbl td.kecil{font-size:var(--catatan);white-space:nowrap}
+.tbl td.rumuz{letter-spacing:1pt;white-space:nowrap;direction:rtl;unicode-bidi:bidi-override}
+.taqthi .tbl th{border-top:none;border-bottom:none}
+.tasrif .tbl,.taqthi .tbl{line-height:1.15}
+.makharij .tbl{font-size:var(--catatan)}
+.makharij .tbl td,.makharij .tbl th{padding:0 4pt}
+.tasrif .tbl td,.tasrif .tbl th{padding:1pt 6pt 0}
+.bait{display:flex;justify-content:center;gap:24pt;font-weight:bold;margin-bottom:2pt}
+.pohon,.pohon ul{display:flex;justify-content:center;list-style:none}
+.pohon li{display:flex;flex-direction:column;align-items:center;position:relative;padding:7pt 6pt 0}
+.pohon>li{padding-top:0}
+.pohon li:first-child{padding-right:0}
+.pohon li:last-child{padding-left:0}
+.pohon li::before{content:"";position:absolute;top:0;right:0;left:0;border-top:var(--garis) solid var(--tinta)}
+.pohon li:first-child::before{right:50%}
+.pohon li:last-child::before{left:50%}
+.pohon li:only-child::before{display:none}
+.pohon li::after{content:"";position:absolute;top:0;right:50%;height:7pt;border-right:var(--garis) solid var(--tinta)}
+.pohon>li::before,.pohon>li::after{display:none}
+.pohon ul{position:relative;padding-top:7pt}
+.pohon ul::before{content:"";position:absolute;top:0;right:50%;height:7pt;border-right:var(--garis) solid var(--tinta)}
+.pohon .sp{display:flex;flex-direction:column;align-items:center;text-align:center;max-width:3.4cm}
+.pohon .sp .n{display:block;line-height:1.15}
+.sifat .tbl th,.sifat .tbl td{font-size:var(--catatan);padding:0 4pt}
