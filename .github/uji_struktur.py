@@ -89,6 +89,7 @@ def utama():
         cek("bawaan tata letak tanpa #F bertitik dua, الإهداء, dan #R muallif", lama)
         cek("@pustaka_gaya: judul_tebal ditulis, #R bukan muallif", "@pustaka_gaya: judul_tebal\n" + lama, True,
             "@pustaka_gaya: judul_tebal membaca baris #R")
+        cek("@pustaka_gaya: butir ditulis, #R bukan muallif", "@pustaka_gaya: butir\n" + lama)   # bentuk berbutir lama
         logo = {n: zipfile.ZipFile(AKAR / "mesin" / f"sampul_{n}.docx").read("word/media/image2.png") for n in ("qism", "jakarta")}
         assert logo["qism"] != logo["jakarta"], "logo sampul qism dan jakarta sama: @logo: berwarna tidak mengubah apa pun"
         for n, b in logo.items():  # logo tegak (tinggi > lebar); gambar kop sampul melebar: urutan gambar templat tidak bergeser

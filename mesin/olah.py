@@ -111,10 +111,11 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       halaman; baris #K/#F dan nomornya tebal; #S «❖ …» ikut, tanpa «❖» | tabel = tabel الموضوع | الصفحة),
                       maudhuat_letak (akhir | awal = فهرس الموضوعات di depan, tepat sebelum المقدمة (atau #F pertama),
                       sesudah الإهداء/الشكر; tidak memuat dirinya sendiri), pustaka_gaya (judul_tebal = baris #R ditulis
-                      seperti muallif, tercetak tanpa nomor «• **تفسير القرآن العظيم**. لإسماعيل بن عمر ابن كثير (ت:
-                      ٧٧٤هـ). …» urut judul; baris lain «judul، pengarang، …» berbutir «•» dengan judul (sebelum «،»/«.»
-                      pertama) tebal, rujukan asing apa adanya; kecuali @pustaka_gaya: judul_tebal
-                      ditulis sendiri: baris tanpa __judul__ = GAGAL | judul = baris apa adanya, bernomor | muallif =
+                      seperti muallif, tercetak bernomor «١. **تفسير القرآن العظيم**. لإسماعيل بن عمر ابن كثير (ت:
+                      ٧٧٤هـ). …» urut judul (القرآن الكريم «-» tanpa nomor); baris lain «judul، pengarang، …» dengan
+                      judul (sebelum «،»/«.» pertama) tebal, rujukan asing apa adanya; kecuali @pustaka_gaya: judul_tebal
+                      ditulis sendiri: baris tanpa __judul__ = GAGAL | butir = seperti bawaan, berbutir «•» tanpa nomor |
+                      judul = baris apa adanya, bernomor | muallif =
                       القرآن الكريم ikut bernomor; **…** tebal, __…__ miring di baris #R, mis. «**ابن كثير، إسماعيل بن عمر**
                       (ت 774هـ). __تفسير القرآن العظيم__. …»),
                       judul_kanan (B, M, atau keduanya: judul itu rata kanan, bawaan di tengah), fihris (baru | sambung =
@@ -390,10 +391,10 @@ GAYA = {"kepala": ("klasik", "-", "kotak", "bagian", "bagian_hias", "bintang", "
         "fihris_alam": ("nomor", "tabel"),  # nomor = tabel م | العلم | الصفحة berkepala abu-abu; tabel = العلم | الصفحة
         "maudhuat": ("titik", "tabel"),      # titik = baris bertitik-titik ke nomor halaman, tanpa tabel; #S «❖ …» ikut
         "maudhuat_letak": ("akhir", "awal"),  # awal = فهرس الموضوعات sesudah الإهداء/الشكر, tepat sebelum المقدمة (atau #F pertama)
-        # judul_tebal = baris muallif dicetak «• **judul**. لفلان (ت: …). data» (pustaka_judul_dulu), baris lain judulnya
-        # ditebalkan (pustaka_judul_tebal); judul = baris apa
+        # judul_tebal = baris muallif dicetak bernomor «١. **judul**. لفلان (ت: …). data» (pustaka_judul_dulu), baris lain
+        # judulnya ditebalkan (pustaka_judul_tebal); butir = judul_tebal dengan «•» di kolom nomor; judul = baris apa
         # adanya, bernomor; muallif = القرآن الكريم ikut bernomor; **…** tebal dan __…__ miring di #R
-        "pustaka_gaya": ("judul_tebal", "judul", "muallif"),
+        "pustaka_gaya": ("judul_tebal", "butir", "judul", "muallif"),
         "judul_kanan": ("-", "B", "M", "B, M"),  # judul #B/#M rata kanan (bawaan: di tengah)
         "fihris": ("baru", "sambung"),  # sambung = المصادر/فهرس sesudah yang pertama menyambung di halaman yang sama
         "rujukan_ayat": ("catatan", "matan"),  # matan = [^سورة …، آية: n.] dicetak «[السورة: n]» tepat sesudah ayatnya
@@ -405,7 +406,9 @@ GAYA = {"kepala": ("klasik", "-", "kotak", "bagian", "bagian_hias", "bintang", "
         "ihda": ("tengah", "-")}  # tengah = paragraf di bawah «#K الإهداء» rata tengah, tebal, berjarak (paragraf_ihda)
 # Nilai yang menuntut tempatnya di naskah (dua_baris: #F bertitik dua; ihda tengah: «#K الإهداء»; judul_tebal: baris #R
 # berbentuk muallif) hanya GAGAL kalau ditulis sendiri atau lewat @model (Pemeriksaan.gaya_ditulis). Sebagai bawaan,
-# naskah tanpa tempat itu dicetak seperti biasa: #F tanpa titik dua satu baris, baris #R lain apa adanya berbutir «•»
+# naskah tanpa tempat itu dicetak seperti biasa: #F tanpa titik dua satu baris, baris #R lain bernomor, judul tebal
+# @pustaka_gaya yang mencetak judul tebal di depan (pustaka_judul_tebal); butir hanya beda penanda di kolom nomor
+PUSTAKA_JUDUL_DULU = ("judul_tebal", "butir")
 # @model: satu nama untuk sekumpulan pilihan di atas (dan @sampul, @format, @pustaka, @catatan_kaki); kunci yang ditulis
 # sendiri di naskah tetap menang, jadi model bisa dicampur, mis. «@model: jakarta» + «@sampul: qism»
 MODEL = {"jakarta": {"sampul": "jakarta", "format": "jakarta", "kepala": "kotak", "fihris_ayat": "surah",
@@ -1287,7 +1290,7 @@ BARIS_MUALLIF = re.compile(r"^(?:\*\*(?P<nama>.+?)\*\*\s*(?:\((?P<wafat>[^)]*)\)
 
 
 def pustaka_judul_dulu(baris):
-    """@pustaka_gaya: judul_tebal: baris #R muallif -> «**judul**. لفلان (ت: …هـ). data cetak»; nama «ابن كثير،
+    """@pustaka_gaya: judul_tebal/butir: baris #R muallif -> «**judul**. لفلان (ت: …هـ). data cetak»; nama «ابن كثير،
     إسماعيل بن عمر» dibalik jadi «إسماعيل بن عمر ابن كثير». None = bukan bentuk muallif."""
     m = BARIS_MUALLIF.match(baris.strip())
     if not m:
@@ -1308,7 +1311,7 @@ def pustaka_judul_dulu(baris):
 
 
 def pustaka_judul_tebal(baris):
-    """@pustaka_gaya: judul_tebal: baris #R tercetak. Bentuk muallif dibalik (pustaka_judul_dulu); baris lain
+    """@pustaka_gaya: judul_tebal/butir: baris #R tercetak. Bentuk muallif dibalik (pustaka_judul_dulu); baris lain
     «judul، pengarang، …» = judul (teks sebelum «،» atau «.» pertama) tebal, sisanya apa adanya. Baris yang sudah
     bertanda **/__ dan yang awalnya tanpa huruf Arab (rujukan asing «Pengarang. Judul …» walau berekor «اطلع عليه في»:
     judulnya tidak di depan) tercetak apa adanya."""
@@ -1392,7 +1395,7 @@ def _cek_bentuk(ctx):
                      "lalu tulis satu kitab per baris di bawahnya")
     elif "#R" in di_baris and not pustaka:
         galat.append(di("#R") + "المصادر والمراجع masih kosong: tulis satu kitab per baris sesudah #R")
-    # judulnya dibaca dari tanda __…__ (pustaka_judul_dulu); sebagai bawaan, baris lain tercetak apa adanya berbutir «•»
+    # judulnya dibaca dari tanda __…__ (pustaka_judul_dulu); sebagai bawaan, dan dengan butir, baris lain tercetak judulnya tebal
     if meta["pustaka_gaya"] == "judul_tebal" and "pustaka_gaya" in ctx.gaya_ditulis:
         for n, t in ctx.pustaka_baris:
             if not adalah_mushaf(t) and not pustaka_judul_dulu(t):
@@ -1432,7 +1435,7 @@ def _urutkan_fihris(ctx):
     pustaka, ayat_idx, hadits_idx = ctx.pustaka, ctx.ayat_idx, ctx.hadits_idx
     quran = [p for p in pustaka if adalah_mushaf(p)]  # tanpa nomor, paling atas
     pengarang = ctx.meta.get("pustaka_gaya") == "muallif"
-    judul_dulu = ctx.meta.get("pustaka_gaya") == "judul_tebal"  # urut judul yang tercetak di depan, bukan pengarang
+    judul_dulu = ctx.meta.get("pustaka_gaya") in PUSTAKA_JUDUL_DULU  # urut judul yang tercetak di depan, bukan pengarang
     # rujukan Arab dulu, lalu rujukan asing (pustaka_asing), masing-masing urut abjad
     pustaka = quran + sorted([p for p in pustaka if p not in quran],
                              key=lambda p: (pustaka_asing(p), kunci_urut((judul_dulu and pustaka_judul_dulu(p)) or p, pengarang)))
@@ -2033,9 +2036,9 @@ def rencana_cetak(d):
             "pemisah": pemisah,
             # @tamma: halaman penutup «تمّ بحمد الله وتوفيقه» sesudah الفهارس (halaman terakhir), tanpa nomor
             "tamma": meta.get("tamma") == "ya",
-            # @pustaka_gaya: judul_tebal: baris المصادر yang tercetak (urutannya = d["pustaka"], urut judul)
-            "pustaka_butir": [pustaka_judul_tebal(p) for p in d.get("pustaka", [])]
-            if meta.get("pustaka_gaya") == "judul_tebal" else None,
+            # @pustaka_gaya: judul_tebal/butir: baris المصادر yang tercetak (urutannya = d["pustaka"], urut judul)
+            "pustaka_tebal": [pustaka_judul_tebal(p) for p in d.get("pustaka", [])]
+            if meta.get("pustaka_gaya") in PUSTAKA_JUDUL_DULU else None,
             "ihda": _jarak_ihda(blok, fmt) if meta.get("ihda") == "tengah" else {},
             "jarak_sub": _jarak_sub(blok, fmt),
             "mufradat": baris_mufradat(blok),

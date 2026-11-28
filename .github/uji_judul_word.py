@@ -3,7 +3,7 @@
 (halaman pemisah tanpa nomor dengan «وفيه …» dan sub-judul rata tengah; isi mulai halaman berikutnya; فهرس الموضوعات
 menunjuk halaman pemisah), `pemisah_bingkai` (bingkai ganda di halaman itu saja), `kotak` (kotak garis ganda di atas
 judul #F), `@sampul: kop` dan `tanpa_kop`, `@tamma` (halaman penutup terakhir tanpa nomor), `@pustaka_gaya:
-judul_tebal` («•» dan judul tebal di depan, tanpa nomor), dan `@maudhuat: titik` (baris #K/#F tebal, tanpa «❖»).
+judul_tebal` (bawaan: bernomor, judul tebal di depan), `butir` («•» tanpa nomor), dan `@maudhuat: titik` (baris #K/#F tebal, tanpa «❖»).
 Bilangan «وفيه …» dan GAGAL-nya dinilai `cek` di mana saja; bagian Word dilewati di runner tanpa Word. Semua bahan di TEMP."""
 import re, sys, tempfile
 from pathlib import Path
@@ -97,7 +97,7 @@ def utama():
             print("lewati uji judul/sampul Word: " + alasan)
             return
         doc = rakit(akar, "pemisah", "@sampul: kop\n@judul_fasl: pemisah\n@kepala: bagian\n@maudhuat: titik\n"
-                                     "@pustaka_gaya: judul_tebal\n@tamma: ya\n")
+                                     "@pustaka_gaya: butir\n@tamma: ya\n")
         w = doc[0].rect.width
         # sampul kop: kop bertingkat di kanan atas, semuanya tebal, tanpa logo dan kode «(٠٣٢)»
         sampul = baris(doc[0])
@@ -135,16 +135,16 @@ def utama():
             jarak = [round(b - a, 1) for a, b in zip(sorted(xs), sorted(xs)[1:])]
             assert len(jarak) < 8 or max(jarak) - min(jarak) < 0.5, f"titik-titik فهرس tidak rata di y={y}: {jarak}"
         assert "❖" not in fihris and kata("أهمية البحث") <= kata(fihris), fihris
-        # المصادر judul_tebal: «•» tanpa nomor, judul tebal lebih dulu, urut judul
+        # المصادر butir: «•» tanpa nomor, judul tebal lebih dulu, urut judul
         mas = doc[cari(doc, "لإسماعيل بن عمر ابن كثير")]
         teks = mas.get_text()
-        assert teks.count("•") == 3 and teks.index("تفسير") < teks.index("سلسلة"), teks   # «•» di kolom nomor tiap baris
+        assert teks.count("•") == 3 and "١." not in teks.split() and teks.index("تفسير") < teks.index("سلسلة"), teks
         tebal = [s["text"] for b in mas.get_text("dict")["blocks"] for ln in b.get("lines", []) for s in ln["spans"]
                  if "Bold" in s["font"] and "تفسير" in s["text"]]
         assert tebal, "judul المصادر tidak tebal"
         # halaman penutup: halaman terakhir, tanpa nomor
         assert "توفيقه" in doc[-1].get_text() and not tepi(doc[-1]), doc[-1].get_text()
-        print(f"lolos Word: sampul kop, {2} halaman pemisah tanpa nomor (فهرس menunjuknya), المصادر judul_tebal, "
+        print(f"lolos Word: sampul kop, {2} halaman pemisah tanpa nomor (فهرس menunjuknya), المصادر butir, "
               "فهرس titik tebal tanpa ❖, halaman penutup")
         doc = rakit(akar, "bingkai", "@sampul: tanpa_kop\n@judul_fasl: pemisah_bingkai\n@pustaka_gaya: judul\n")
         h = doc[0].rect.height
@@ -170,10 +170,16 @@ def utama():
         # garis ganda: yang tebal di luar, di atas dan di bawah kotak
         datar = sorted((g for g in garis if g.width > w / 2), key=lambda g: g.y0)
         assert datar[0].height > datar[1].height and datar[-1].height > datar[-2].height, f"garis tebal kotak di dalam: {datar}"
-        # @pustaka_gaya bawaan = judul_tebal: «•» tanpa nomor
-        mas = doc[cari(doc, "المصادر دار طيبة")].get_text()
-        assert mas.count("•") == 4 and "١." not in mas.split(), mas   # nomor «١.» = sel sendiri; «١٤٢٠.» bukan nomor
+        # @pustaka_gaya bawaan = judul_tebal: القرآن الكريم «-», kitab lain ١. ٢. ٣. di kolom kanan, tanpa «•»
         hal = doc[cari(doc, "المصادر دار طيبة")]
+        mas = hal.get_text()
+        kotak = hal.get_text("words")   # (x0, y0, x1, y1, kata, …)
+        w_hal = hal.rect.width
+        # nomor = sel sendiri, angka dan titiknya dua kata PDF; «١٤٢٠» bukan nomor, nomor halaman di tengah kaki
+        nomor = sorted((w for w in kotak if w[4] in ("-", "١", "٢", "٣") and w[0] > w_hal / 2), key=lambda w: w[1])
+        teks_kanan = max(w[2] for w in kotak if w[4] in ("رسالة", "تفسير", "سلسلة"))
+        assert "•" not in mas and [w[4] for w in nomor] == ["-", "١", "٢", "٣"], mas
+        assert all(w[0] >= teks_kanan for w in nomor), f"nomor المصادر tidak di kolom kanan: {nomor}, teks sampai x={teks_kanan}"
         lama = [s for b in hal.get_text("dict")["blocks"] for ln in b.get("lines", [])
                 if kata(" ".join(s["text"] for s in ln["spans"])) & kata("القضاء العثيمين الوطن") for s in ln["spans"]]
         tebal = " ".join(s["text"] for s in lama if "Bold" in s["font"] or s["flags"] & 16)
@@ -181,7 +187,7 @@ def utama():
         assert kata("رسالة في القضاء والقدر") <= kata(tebal) and not kata(tebal) & kata("العثيمين الوطن"), (tebal, polos)
         assert kata("العثيمين الوطن") <= kata(polos), (tebal, polos)
         print("lolos Word: judul #F di kotak bergaris di atas halaman, isinya menyusul di halaman yang sama; المصادر bawaan "
-              "berbutir «•»")
+              "bernomor dengan judul tebal")
 
 
 if __name__ == "__main__":
