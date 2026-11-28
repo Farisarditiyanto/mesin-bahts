@@ -21,7 +21,7 @@ from dasar import (AD, ANGKA_LATIN, ANZHUR, BUKAN_RUJUKAN, HERE, HORMAT_CETAK, H
                    profil_format, tanpa_catatan)
 from petik import kutipan_semua, luar_petik
 from laporan import gabung_kembar
-from naskah import FIHRIS_NAMA, Pemeriksaan, urai
+from naskah import FIHRIS_NAMA, QR, Pemeriksaan, nuskhah, urai
 
 TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda):
   @kunci: nilai       data sampul, di awal naskah; kunci tidak dikenal = GAGAL (salah ketik tidak diabaikan). Wajib: judul dan nama; @sampul: mahad juga jenis ("-" = tidak tercetak), nim, fasl;
@@ -164,7 +164,8 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       = perhatian. Tidak kena batas panjang kutipan
   #T jenis | teks     kotak bergaris gaya kitab cetak lama (hitam putih, tanpa latar), jenis فائدة (garis tunggal
                       keliling) | تنبيه (garis ganda atas-bawah) | تعريف (garis ganda keliling) | خلاصة (garis tunggal
-                      atas-bawah); «jenis:» tebal (mis. «فائدة:») mengawali teksnya. «#T تعريف | judul | teks» = judul tebal di tengah atas
+                      atas-bawah) | متن (lafaz matan tebal dalam kurung, garis ganda di bawahnya; syarahnya di paragraf
+                      sesudahnya: «قوله: {MT:…} …»); «jenis:» tebal (mis. «فائدة:») mengawali teksnya kecuali متن. «#T تعريف | judul | teks» = judul tebal di tengah atas
                       kotak (tanpa «jenis:»). Teksnya paragraf biasa: boleh bercatatan kaki dan kutipan berbukti (dicek
                       seperti paragraf); kotak panjang ikut terpotong pindah halaman. Judul kotak tanpa [^, <<, {…}, **
   #- jenis teks       butir daftar bernomor; jenis abjad (أ- ب- ج- د- هـ-) | alif (ا- ب- ت- ث-) | tartib (أولًا: ثانيًا:
@@ -175,6 +176,10 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
                       (Times New Roman seperti #L, tanpa catatan kaki atau tanda {…}); baris #P berturut-turut = satu
                       tabel bergaris tipis di atas, bawah, dan tengah
   #Z                  pemisah «٭  ٭  ٭» di tengah (ganti pokok bahasan di dalam satu bagian)
+  #N                  tahqiq: tabel «الرمز | النسخة» dari «@nuskhah: أ = نسخة … | ب = نسخة …» (ditulis di awal naskah,
+                      rumuz = 1-6 huruf Arab), mis. di المقدمة bawah وصف النسخ. @nuskhah tanpa #N = perhatian
+  #U alamat | keterangan   kode QR ke sumber daring di tengah (bidang DISPLAYBARCODE Word, tetap hidup di .docx), lalu
+                      keterangan dan alamatnya di bawahnya; di catatan kaki pakai {U:}
   #L teks             paragraf bahasa Latin, kiri ke kanan (mis. الملخص bahasa Inggris); tanpa catatan kaki; Times New Roman
                       12 (judulnya 14), profil bisa mengubahnya lewat kunci "latin" di mesin/format.json. Kata Latin
                       di tengah teks Arab (paragraf, tabel, catatan kaki, المصادر) dicetak Times New Roman juga, dengan
@@ -241,6 +246,15 @@ TANDA_NASKAH = """Tanda di naskah.txt (dicetak oleh: python mesin/bahts.py tanda
   {X}                 di awal paragraf matan: paragraf خلاصة (tidak tercetak). `rakit` membuat juga «<@berkas> - الخلاصات.pdf»:
                       hanya halaman-halaman yang memuat paragraf {X}, dengan paragraf itu distabilo kuning (.docx dan PDF
                       utama tetap tanpa stabilo). Di tengah paragraf atau di catatan kaki = GAGAL
+  {F:ب|bacaan}        tahqiq: perbedaan naskah pada kata tepat sebelumnya, ditempel tanpa spasi («هدانا{F:ب|أرشدنا}»);
+                      kata itu tebal (beberapa kata: «**…**{F:…}»), catatan kakinya ditulis mesin: «في (ب): «أرشدنا».».
+                      Beberapa naskah: {F:ب|x|ج|y}; tidak ada di naskah itu: {F:ب|-} → «سقط من (ب).». Rumuz harus ada di
+                      @nuskhah. Word hanya punya satu deret catatan kaki: nomornya bersambung dengan catatan kaki biasa
+  {W:2/أ} {W:ب|2/ب}   tahqiq: awal lembar naskah (lembar 2 wajah أ), tercetak «[٢/أ]» / «[ب: ٢/ب]» di tempatnya; hanya matan
+  {SJ:judul}          di awal paragraf biasa: judul tepi tebal kecil (1-3 kata) di tepi kiri halaman, sejajar baris pertama
+                      paragraf itu, ikut pindah bersama paragrafnya («{SJ:قاعدة}الأمور بمقاصدها…»)
+  {MT:lafaz}          lafaz matan di tengah syarah: «(lafaz)» tebal («قوله: {MT:معرفة} المراد بها…»); ikut dicek seperti teks
+  {U:https://…}       di catatan kaki: alamat sumber daring tercetak, lalu kode QR kecil-nya (bidang DISPLAYBARCODE Word)
   {E:rumus-LaTeX}     persamaan matematika sebaris (OMML Word asli) di dalam paragraf, tabel #J, atau catatan kaki,
                       mis. «{E:\\alpha = 0.05}» atau «{E:ROE = \\frac{\\text{صافي الربح}}{\\text{حقوق الملكية}}}»;
                       tidak bentrok dengan tanda mata uang «$». Sintaks LaTeX rusak atau «\\tag{…}» di sini = GAGAL
@@ -859,13 +873,14 @@ def _baris_latin(ctx, n, k, t):
 
 
 # «#T jenis | teks» kotak bergaris seperti kitab cetak lama (bentuk garis tiap jenis: rakit KOTAK di sisipan.ps1)
-KOTAK = ("فائدة", "تنبيه", "تعريف", "خلاصة")
+KOTAK = ("فائدة", "تنبيه", "تعريف", "خلاصة", "متن")
 
 
 def _baris_kotak(ctx, n, k, t):
     """«#T jenis | teks» atau «#T jenis | judul | teks»: paragraf biasa di dalam bingkai (catatan kaki dan kutipannya
     dicek seperti paragraf). Tanpa judul, «jenis:» tebal mengawali teksnya; dengan judul, judul itu tebal di tengah
-    bagian atas kotak."""
+    bagian atas kotak. «#T متن | lafaz» = lafaz matan tebal dalam kurung, garis ganda di bawahnya (syarahnya «قوله:
+    {MT:…}» di paragraf sesudahnya)."""
     try:
         bagian = _pisah_sel(t)
     except TandaRusak as e:
@@ -882,7 +897,9 @@ def _baris_kotak(ctx, n, k, t):
         return
     runs = _urai_aman(ctx, teks)
     if runs is not None:
-        label = [] if judul else [{"t": f"{jenis}: ", "b": True}]
+        if jenis == "متن":
+            runs = [{"t": "(", "b": True}, *({**r, "b": True} if "t" in r else r for r in runs), {"t": ")", "b": True}]
+        label = [] if judul or jenis == "متن" else [{"t": f"{jenis}: ", "b": True}]
         ctx.blok.append({"k": "P", "runs": [*label, *runs], "n": n, "kotak": {"jenis": jenis, "judul": "".join(judul)}})
 
 
@@ -957,6 +974,30 @@ def _baris_paralel(ctx, n, k, t):
     runs = _urai_aman(ctx, sel[0])
     if runs is not None:
         ctx.blok.append({"k": "P", "runs": runs, "n": n, "paralel": sel[1]})
+
+
+def _baris_nuskhah(ctx, n, k, t):
+    """«#N» (tanpa teks): جدول رموز النسخ dari @nuskhah di tempat ini; @nuskhah harus sudah ditulis (awal naskah)."""
+    try:
+        rumuz = nuskhah(ctx.meta["nuskhah"]) if "nuskhah" in ctx.meta else None
+    except TandaRusak:
+        return  # bentuk @nuskhah yang salah GAGAL sekali di _cek_tahqiq
+    if rumuz is None:
+        ctx.galat.append("#N mencetak tabel naskah dari @nuskhah: tulis dulu «@nuskhah: أ = نسخة … | ب = نسخة …» di awal naskah")
+        return
+    baris = [[[{"t": f"({r})"}], [{"t": ket}]] for r, ket in rumuz.items()]
+    ctx.blok.append({"k": "N", "nuskhah": baris, "runs": [r for b in baris for s in b for r in (*s, {"t": " "})], "n": n})
+
+
+def _baris_qr(ctx, n, k, t):
+    """«#U alamat | keterangan»: kode QR (bidang DISPLAYBARCODE Word) di tengah, alamat dan keterangannya di bawahnya."""
+    url, _, ket = (x.strip() for x in t.partition(" | "))
+    if not QR.fullmatch(url) or not ket:
+        ctx.galat.append(f"#U = «#U https://… | keterangan» (alamat tanpa spasi, keterangan wajib) :: #U {t[:40]}")
+        return
+    runs = _urai_aman(ctx, ket)
+    if runs is not None:
+        ctx.blok.append({"k": "U", "qr": url, "runs": runs, "n": n})
 
 
 def _baris_bait(ctx, n, k, t):
@@ -1057,7 +1098,8 @@ def _baris_rumus(ctx, n, k, t):
 # Tanda baris «#X teks» -> penangannya (ctx, nomor baris, X, teks). Tanda baris baru = penangan baru di sini
 TANDA_BARIS = {**dict.fromkeys((*JUDUL_ISI, "R"), _baris_judul), "V": _baris_bait, "L": _baris_latin,
                "J": _baris_tabel, "G": _baris_gambar, "D": _baris_sisipan, "E": _baris_rumus, "Q": _baris_kutipan,
-               "T": _baris_kotak, "P": _baris_paralel, **dict.fromkeys(("-", "--", "---"), _baris_daftar)}
+               "T": _baris_kotak, "P": _baris_paralel, **dict.fromkeys(("-", "--", "---"), _baris_daftar),
+               "U": _baris_qr}
 
 
 def _urai_aman(ctx, teks):
@@ -1089,6 +1131,8 @@ def _satu_baris(ctx, n, b):
     elif "#R" in di_baris and b.startswith("#"):
         galat.append(f"{b.split()[0]} sesudah #R di baris {di_baris['#R']} tidak dirakit: "
                      "pindahkan bagian isi sebelum #R; sesudah #R hanya satu rujukan per baris")
+    elif b.strip() == "#N":
+        _baris_nuskhah(ctx, n, "N", "")
     elif b.strip() in ("#H", "#Z"):  # #H pindah halaman: blok sesudahnya mulai halaman baru (awal_halaman); #Z pemisah
         blok.append({"k": b.strip()[1:], "runs": [], "n": n})
     elif b.startswith("#"):
@@ -1099,7 +1143,12 @@ def _satu_baris(ctx, n, b):
         elif k not in TANDA_BARIS or not t:
             galat.append(f"judul harus «{'/'.join('#' + x for x in TANDA_BARIS)} teks» :: {b[:40]}")
         else:
+            awal = len(blok)
             TANDA_BARIS[k](ctx, n, k, t)
+            for x in blok[awal:]:  # {SJ:} hanya di paragraf biasa
+                if any(r.get("sj") for r in x.get("runs", ())):
+                    galat.append(f"{{SJ:…}} hanya di awal paragraf biasa, bukan di baris #{k}")
+                    x["runs"][:] = [r for r in x["runs"] if not r.get("sj")]
     elif "#R" in di_baris:
         teks_r = b.strip()
         pustaka.append(teks_r)
@@ -1110,7 +1159,8 @@ def _satu_baris(ctx, n, b):
     else:
         runs = _urai_aman(ctx, b)
         if runs is not None:
-            blok.append({"k": "P", "runs": runs, "n": n})
+            sj = runs.pop(0)["sj"] if runs and runs[0].get("sj") else None
+            blok.append({"k": "P", "runs": runs, "n": n, **({"jaanib": sj} if sj else {})})
 
 
 def _baca_data(ctx, n, b):
@@ -1150,7 +1200,7 @@ DATA = {
     "basmalah": Data(sah=("ya", "utsmani"), pesan="«{nilai}» tidak dikenal: tulis «ya» atau «utsmani», atau hapus barisnya"),
     "tamma": YA_TIDAK,
     "sampul": Data(sah=tuple(SAMPUL), bawaan="qism", pisah="، ", baca=str.lower),
-    "tahun": TEKS, "berkas": Data(), "ayat_pembuka": Data(),
+    "tahun": TEKS, "berkas": Data(), "ayat_pembuka": Data(), "nuskhah": Data(hanya_cek=True),  # dicetak lewat #N
     "format": Data(sah=tuple(FORMAT), bawaan="imam", pisah="، ",
                    pesan="«{nilai}» tidak ada di mesin/format.json (yang ada: {ada})"),
     "angka": Data(sah=ANGKA, bawaan="hindi", pisah="، "), "angka_ayat": Data(sah=ANGKA, pisah="، "),  # bawaan = @angka
@@ -1195,6 +1245,14 @@ def _cek_sesudah_naskah(ctx):
     perhatian += periksa_khatimah(blok)
     perhatian += panjang_mulakhas(blok)
     perhatian += kata_ganti_penulis(blok)
+    if "nuskhah" in ctx.meta:
+        try:
+            nuskhah(ctx.meta["nuskhah"])
+            if not any(b["k"] == "N" for b in blok):
+                perhatian.append(ctx.di("@nuskhah") + "@nuskhah tanpa baris #N: جدول رموز النسخ tidak tercetak; tulis #N "
+                                 "di المقدمة (mis. di bawah وصف النسخ)")
+        except TandaRusak as e:
+            galat.append(ctx.di("@nuskhah") + str(e))
     for r in ctx.rujuk_silang:
         if r["k"] not in ctx.jangkar:
             dulu = any(h["k"] == "h_" + r["k"] for h in hadits_idx)
@@ -2176,7 +2234,7 @@ def tulis_bahan(d, keluar):
 def _tanpa_bukti(ctx):
     """Awal teks tiap catatan kaki tanpa bukti. Rujukan kitab tanpa bukti sudah jadi GAGAL atau perhatian: daftar ini
     sisanya (catatan penjelasan, <<luar>>)."""
-    fn_teks = [(c, "".join(r.get("t", "") for r in c["runs"])) for c in ctx.catatan if not c.get("matan")]
+    fn_teks = [(c, "".join(r.get("t", "") for r in c["runs"])) for c in ctx.catatan if not c.get("matan") and not c.get("farq")]
     return [norma.HARAKAT.sub("", t)[:60] for c, t in fn_teks if c["bukti"] == 0 and not c["pdf"] and not c.get("wq")
             and not t.startswith(BUKAN_RUJUKAN) and (c["luar"] or not rujukan_halaman(t))]
 

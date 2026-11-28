@@ -22,7 +22,7 @@ $dir = $PSScriptRoot
 . "$dir\kepala.ps1"                     # kepala/kaki halaman isi (@kepala) dan garis pemisah catatan kaki
 . "$dir\pemisah.ps1"                    # halaman pemisah #F (@judul_fasl) dan halaman penutup (@tamma), tanpa nomor
 . "$dir\fihris.ps1"                     # فهرس الآيات/الأحاديث/الآثار/nama/الأشعار dan isian nomor halamannya
-. "$dir\sisipan.ps1"                    # kotak #T, butir daftar #-, terjemah sejajar #P, pemisah #Z
+. "$dir\sisipan.ps1"                    # kotak #T, daftar #-, terjemah #P, pemisah #Z, tahqiq #N, judul tepi {SJ:}, QR
 $DATA = Get-Content -LiteralPath $Build -Raw -Encoding UTF8 | ConvertFrom-Json
 $M = $DATA.meta
 # Rencana cetak (olah.rencana_cetak): apa yang dicetak dan di mana sudah diputuskan di sana, termasuk bawaan profil.
@@ -676,7 +676,7 @@ try {
     $rujukanHalaman = @{}; $script:nRujukanHalaman = 0
     # $pg = isi tempat {P:}: '00' untuk teks yang dimasukkan; '__' (bukan angka, sama panjang) untuk mencari angka di teks
     # catatan kaki, supaya nomor halaman sementara tidak ikut dijadikan run kiri-ke-kanan @angka_ayat: latin
-    function TeksRuns($runs, $pg = $PENANDA_HALAMAN) { $s = ''; foreach ($r in $runs) { if ($null -ne $r.t) { $s += $r.t } elseif ($r.pg) { $s += $pg } elseif ($r.omml) { $s += 'E' } }; return $s }
+    function TeksRuns($runs, $pg = $PENANDA_HALAMAN) { $s = ''; foreach ($r in $runs) { if ($null -ne $r.t) { $s += $r.t } elseif ($r.pg) { $s += $pg } elseif ($r.omml -or $r.qr) { $s += 'E' } }; return $s }
     # Paket Flat OPC untuk menyisipkan fragmen OMML (<m:oMath> atau <m:oMathPara>) lewat Range.InsertXML
     function PaketOmml($omml) {
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><pkg:package xmlns:pkg="http://schemas.microsoft.com/office/2006/xmlPackage"><pkg:part pkg:name="/_rels/.rels" pkg:contentType="application/vnd.openxmlformats-package.relationships+xml"><pkg:xmlData><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships></pkg:xmlData></pkg:part><pkg:part pkg:name="/word/document.xml" pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"><pkg:xmlData><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><w:body><w:p>' + $omml + '</w:p></w:body></w:document></pkg:xmlData></pkg:part></pkg:package>'
@@ -753,7 +753,7 @@ try {
         $fnOmml = New-Object System.Collections.ArrayList
         foreach ($r in $c.runs) {
             $len = 0
-            if ($null -ne $r.t) { $len = $r.t.Length } elseif ($r.pg) { $len = $PENANDA_HALAMAN.Length } elseif ($r.omml) { $len = 1; [void]$fnOmml.Add(@{ pos = ($fr.Start + $off); omml = $r.omml }) }
+            if ($null -ne $r.t) { $len = $r.t.Length } elseif ($r.pg) { $len = $PENANDA_HALAMAN.Length } elseif ($r.omml -or $r.qr) { $len = 1; [void]$fnOmml.Add(@{ pos = ($fr.Start + $off); omml = $r.omml; qr = $r.qr }) }
             if ($r.q) { $q = $fn.Range; $q.SetRange($fr.Start + $off, $fr.Start + $off + $len); Huruf $q.Font $QF }
             elseif ($len -and $r.b) {
                 $q = $fn.Range; $q.SetRange($fr.Start + $off, $fr.Start + $off + $len)
@@ -770,7 +770,7 @@ try {
             $fnOmml.Reverse()
             foreach ($o in $fnOmml) {
                 $q = $fn.Range.Duplicate; $q.SetRange($o.pos, $o.pos + 1)
-                $q.InsertXML((PaketOmml $o.omml))
+                if ($o.qr) { Pasang-QR $q $o.qr $QR_CATATAN } else { $q.InsertXML((PaketOmml $o.omml)) }   # {U:} sisipan.ps1
             }
         }
         # nomor di catatan kaki: (1) ukuran normal, bukan superskrip
@@ -1123,6 +1123,8 @@ try {
         elseif ($blk.daftar) { Tulis-Butir $i $pb }
         elseif ($null -ne $blk.paralel) { $i = @(Tulis-Paralel $i $pb)[-1] }
         elseif ($blk.k -eq 'Z') { Tulis-Pemisah $pb }
+        elseif ($blk.nuskhah) { Tulis-Nuskhah $blk $pb }
+        elseif ($blk.qr) { Tulis-QR $blk $pb }
         elseif ($blk.kutipan_blok) {                     # #Q kutipan blok: paragraf sendiri, menjorok di dua sisi, tanpa awal alinea
             Para 3 6 0
             HalamanBaru $pb
@@ -1139,6 +1141,7 @@ try {
             $sel.TypeParagraph()
         }
         else {
+            if ($blk.jaanib) { Tulis-Jaanib $blk.jaanib $pb; $pb = $false }   # {SJ:} judul tepi, sisipan.ps1
             if ($diMulakhas) { Para 3 $(if ($DATA.blok[$i - 1].k -eq 'K') { 0 } else { 6 }) 0 } else { Para 3 $(if ($i -gt 0 -and ($DATA.blok[$i - 1].k -eq 'J' -or $null -ne $DATA.blok[$i - 1].paralel)) { 6 } else { 0 }) ($word.CentimetersToPoints($AWAL_ALINEA)); $sel.ParagraphFormat.SpaceAfter = $JARAK_P }   # sesudah tabel #J/#P: berjarak
             HalamanBaru $pb
             Runs $blk.runs $uMatan $false

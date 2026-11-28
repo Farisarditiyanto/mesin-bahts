@@ -79,6 +79,8 @@ jobs:
       - run: python .github/uji_kutipan_word.py
       # Kotak #T bergaris di sisi yang benar (juga terpotong halaman), daftar #- tiga tingkat, #P Arab kanan/Latin kiri, #Z; tanpa Word = lewati.
       - run: python .github/uji_sisipan_word.py
+      # Tahqiq: tabel #N, {F:} tebal + catatan kaki «في (ب)» satu deret, {W:}, judul tepi {SJ:} sejajar paragrafnya, #T متن, QR {U:}/#U; tanpa Word = lewati.
+      - run: python .github/uji_tahqiq_word.py
       # Bahts tanpa المصادر/فهرس yang isinya pas memenuhi halaman tidak berakhir dengan halaman kosong; tanpa Word = lewati.
       - run: python .github/uji_akhir_word.py
       - run: python .github/uji_fihris_ayat_word.py
