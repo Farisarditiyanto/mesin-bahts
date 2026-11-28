@@ -62,6 +62,11 @@ def utama():
             cek("logo berwarna bukan di sampul qism", f"@logo: berwarna\n{sampul}\n" + dasar, True, pesan)
         cek("logo berwarna bukan di sampul qism", "@logo: berwarna\n@sampul: tengah\n@qism: قسم اللغة العربية\n" + dasar,
             True, "@sampul: tengah memakai logonya sendiri")
+        # @isyraf: bawah = susunan sampul qism (blok pembimbing di bawah blok mahasiswa); sampul lain = GAGAL
+        cek("isyraf bawah di sampul qism", "@isyraf: bawah\n" + dasar)
+        cek("isyraf tidak dikenal", "@isyraf: kiri\n" + dasar, True, "@isyraf: «kiri» tidak dikenal")
+        cek("isyraf bawah bukan di sampul qism", "@isyraf: bawah\n@sampul: kop\n" + dasar, True,
+            "@sampul: kop punya susunannya sendiri")
         # @sampul: tengah: @qism wajib; @judul_sampul = @judul persis + « // », hanya untuk sampul tengah
         tengah = "@sampul: tengah\n@qism: قسم اللغة العربية\n"
         cek("sampul tengah", tengah + "@judul_sampul: مثال: // توحيد  الربوبية\n" + dasar)

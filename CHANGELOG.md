@@ -6,6 +6,8 @@ Rincian rilis lama yang diringkas ada di [rilis GitHub](https://github.com/Faris
 
 ## Belum dirilis
 
+- Baru: `@isyraf: bawah` di sampul bawaan mencetak blok «إعداد الطالب:» lebih dulu, lalu «تحت إشراف:» dan pembimbing di bawahnya.
+- Perbaikan: `@qism` di sampul bawaan (qism) kini benar-benar mengganti «قسم الشريعة»; sebelumnya baris itu tetap tercetak.
 - Baru: bahts baru (`baru`) memakai `@kepala: -`: tanpa kepala halaman, nomor di tengah bawah. Naskah yang sudah ada tidak berubah; kepala bergaris berjudul tetap lewat `@kepala: klasik`.
 
 ## 14.1.0 — 2026-11-27

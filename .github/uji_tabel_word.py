@@ -118,11 +118,13 @@ def utama():
         # Bahts biasa (bersampul qism + @logo: berwarna + @rujukan_ayat: matan):
         # 1) catatan kaki di dalam sel #J tidak mematikan Word (pane catatan di Draft view);
         # 2) @rujukan_ayat: matan di sel #J mencetak [الفاتحة: ٣] di sel, bukan catatan kaki;
-        # 3) @logo: berwarna mengganti logo sampul dengan logo berwarna sampul_jakarta.docx.
+        # 3) @logo: berwarna mengganti logo sampul dengan logo berwarna sampul_jakarta.docx;
+        # 5) @qism mengganti «قسم الشريعة» (sel tabel kop) dan @isyraf: bawah memindah blok pembimbing ke bawah blok mahasiswa.
         f2 = akar / "uji2"
         f2.mkdir()
         (f2 / "naskah.txt").write_text(
-            "@judul: فحص الجدول\n@nama: فلان\n@berkas: b2\n@sampul: QISM\n@logo: berwarna\n"
+            "@judul: فحص الجدول\n@nama: فلان\n@nim: 123\n@musyrif: د. علان\n@berkas: b2\n@sampul: QISM\n@logo: berwarna\n"
+            "@qism: قسم العلوم الإدارية والمالية\n@isyraf: bawah\n"
             "@rujukan_ayat: matan\n@tanpa: pustaka, ayat, hadits, maudhuat\n@minimal_halaman: 0\n"
             "#K المقدمة\nنص.\n#F الفصل الأول\n"
             "#J جدول: الآية وبيانها\n"
@@ -154,7 +156,14 @@ def utama():
         assert judul_tbl == "جدول (١): الآية وبيانها", f"judul tabel sebelum tabel: «{judul_tbl}»"
         assert sumber_tbl == "المصدر: إعداد الباحث.", f"sumber tabel sesudah tabel: «{sumber_tbl}»"
         assert badan2[i_tbl - 1].find("w:pPr/w:keepNext", NS) is not None, "judul tabel tidak menempel ke tabelnya"
-        print("lolos tabel Word (sampul qism + @logo: berwarna + catatan & ayat matan di #J + judul/sumber tabel)", flush=True)
+        # 5) sampul (bagian Word pertama): qism diganti, urutan إعداد الطالب → nama → تحت إشراف → nama pembimbing
+        akhir2 = next(i for i, e in enumerate(badan2) if e.find("w:pPr/w:sectPr", NS) is not None)
+        baris_sampul = [t for e in badan2[:akhir2 + 1] for p in ([e] if e.tag == W + "p" else e.iter(W + "p"))
+                        if (t := "".join(p.itertext()).strip())]
+        assert "قسم العلوم الإدارية والمالية" in baris_sampul and "قسم الشريعة" not in baris_sampul, f"@qism sampul qism: {baris_sampul}"
+        urut = [next(i for i, t in enumerate(baris_sampul) if t == k) for k in ("إعداد الطالب:", "فلان", "تحت إشراف:", "د. علان")]
+        assert urut == sorted(urut) and "المشرف" not in baris_sampul, f"@isyraf: bawah: urutan sampul {baris_sampul}"
+        print("lolos tabel Word (sampul qism + @logo: berwarna + @qism + @isyraf: bawah + catatan & ayat matan di #J + judul/sumber tabel)", flush=True)
     pengantar_disusul()
 
 
