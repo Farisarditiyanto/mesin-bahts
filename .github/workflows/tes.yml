@@ -111,7 +111,7 @@ jobs:
       # dok/mutamad.md, tautan/path dok & README, dan skema mesin/format.json terhadap olah.py
       - run: python .github/uji_dok.py
       # gerbang bug (aturan di .ruff.toml; `ruff check` tanpa --config memakainya juga)
-      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: astral-sh/setup-uv@v10.4.0
       - run: uvx ruff@0.17.5 check --no-cache .
       # rakit.ps1 (dan skrip yang di-dot-source-nya) tidak bisa dijalankan tanpa Word; minimal harus terurai oleh Windows PowerShell 5.1 milik pemakai
       - name: urai rakit.ps1
