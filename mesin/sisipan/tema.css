@@ -114,7 +114,7 @@ b,.k{font-weight:bold}
 /* إسناد: tingkat-tingkat sanad, garis antarsimpul digambar gambar.js */
 .tingkat{display:flex;gap:12pt}
 .tingkat+.tingkat{margin-top:10pt}
-.simpul{flex:1 1 0;white-space:nowrap;text-align:center;padding:0 2pt}
+.simpul{flex:1 1 auto;white-space:nowrap;text-align:center;padding:0 2pt}
 .tingkat:first-child .simpul{font-weight:bold}
 .simpul.madar{border-top:var(--ganda);border-bottom:var(--ganda);font-weight:bold;padding:0 4pt;line-height:1.1}
 .simpul.madar .n{display:block;font-weight:normal;font-size:10.5pt}
